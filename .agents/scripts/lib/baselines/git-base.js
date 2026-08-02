@@ -29,10 +29,15 @@
 //     loader treats this as a normal "no baseline at base ref" case
 //     and returns `null`. Callers branch on `result === null` rather
 //     than catching an error.
-//   - Any other non-zero exit (bad ref, corrupted repo, git binary
-//     missing): rethrown so the dispatcher can surface a config-error
-//     exit code rather than silently treating the failure as "no
-//     baseline". A bad ref is a config bug, not a missing file.
+//   - Any other outcome (bad ref, corrupted repo, git binary missing, or
+//     the child killed by signal so `status` is `null`): thrown so the
+//     dispatcher can surface a config-error exit code rather than
+//     silently treating the failure as "no baseline". A bad ref is a
+//     config bug, not a missing file.
+//
+// That two-way split is load-bearing (Story #4914): `null` means and only
+// means "path absent at ref". Callers may therefore treat a throw as a
+// hard failure without having to re-diagnose it.
 
 import { spawnSync } from 'node:child_process';
 
@@ -46,6 +51,21 @@ import { spawnSync } from 'node:child_process';
 // ---------------------------------------------------------------------------
 
 const DEFAULT_MAX_ENTRIES = 64;
+
+/**
+ * Story #4914 — explicit stdout ceiling for every git read in this module.
+ *
+ * `child_process.spawnSync` defaults `maxBuffer` to 1 MB. A committed
+ * baseline legitimately grows past that (a real consumer's crap baseline
+ * measured 1,178,910 bytes), at which point the child is killed —
+ * `status: null`, `signal: 'SIGTERM'`, `error.code: 'ENOBUFS'` — and the
+ * read fails for a reason that has nothing to do with the repository.
+ *
+ * 64 MB is not a new number: it is the bound already used at
+ * `run-test-profile.js:87`, `audit-baselines/trend.js:61` and
+ * `audit-baselines/weights.js:65`. This module was the outlier.
+ */
+const MAX_BUFFER_BYTES = 64 * 1024 * 1024;
 
 let _spawnSync = spawnSync;
 let _cache = new Map();
@@ -165,6 +185,7 @@ export function readBaseFromGit(ref, file, opts = {}) {
     encoding: 'utf-8',
     shell: false,
     env: cleanGitEnv(),
+    maxBuffer: MAX_BUFFER_BYTES,
   });
 
   // `child_process.spawnSync` returns `status: null` when the child died
@@ -232,6 +253,7 @@ export function readRangeSubjectsTouchingFile(baseRef, file, opts = {}) {
         encoding: 'utf-8',
         shell: false,
         env: cleanGitEnv(),
+        maxBuffer: MAX_BUFFER_BYTES,
       },
     );
   } catch {

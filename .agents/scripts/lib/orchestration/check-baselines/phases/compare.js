@@ -9,6 +9,7 @@
  * @module lib/orchestration/check-baselines/phases/compare
  */
 
+import { EXIT_CONFIG } from '../../../baselines/exit-codes.js';
 import { readBaseFromGit } from '../../../baselines/git-base.js';
 import { getKindModule } from '../../../baselines/kernel.js';
 import { resolveScope } from '../../../baselines/scope.js';
@@ -41,13 +42,44 @@ function emptyCompareResult(baseRef) {
   return { baseRef, baseRead: false };
 }
 
+/**
+ * Story #4914 — a base read that FAILS is not a base that is ABSENT.
+ *
+ * `readBaseFromGit` already draws that line itself: it returns `null` only
+ * for git exit 128 ("path does not exist in this revision") and throws on
+ * everything else. Swallowing the throw conflated the two, so a broken read
+ * silently emptied the whole head-vs-base arm — regressions AND additions —
+ * while the floors arm kept the run at exit 0. A gate that fails open is
+ * worse than no gate, because it is trusted.
+ *
+ * So the read failure fails CLOSED as `EXIT_CONFIG` (3) — "the gate could
+ * not even start", the same code `assertFloorAxesExist` uses for a
+ * misconfigured floor axis. `check-baselines.js#main` maps any throw out of
+ * the pipeline onto that code.
+ */
+function buildBaseReadError({ kind, ref, file, cause }) {
+  const detail = cause?.message ?? String(cause);
+  const err = new Error(
+    `[check-baselines:${kind}] could not read the base baseline at ` +
+      `${ref}:${file} — the head-vs-base compare arm cannot run, so the gate ` +
+      `fails closed rather than reporting zero regressions: ${detail}`,
+  );
+  err.code = 'EXIT_CONFIG';
+  err.exitCode = EXIT_CONFIG;
+  err.kind = kind;
+  err.baseRef = ref;
+  err.baselinePath = file;
+  err.cause = cause;
+  return err;
+}
+
 function readBaseBaselinePayload(scope, kind, gateBlock, cwd) {
   const rel = baselineRelativePath(kind, gateBlock);
   let raw;
   try {
     raw = readBaseFromGit(scope.ref, rel, { cwd });
-  } catch {
-    return null;
+  } catch (cause) {
+    throw buildBaseReadError({ kind, ref: scope.ref, file: rel, cause });
   }
   if (raw === null) return null;
   try {
