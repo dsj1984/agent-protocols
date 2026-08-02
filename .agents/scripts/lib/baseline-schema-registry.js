@@ -45,10 +45,22 @@ export const BASELINE_KIND_SCHEMA_FILES = Object.freeze([
   'duplication.schema.json',
 ]);
 
-/** Every baseline schema filename (envelope + per-kind) in registration order. */
+/**
+ * Report schemas that live under `.agents/schemas/baselines/` but describe
+ * an *engine's output about* the baselines rather than a committed baseline
+ * (Story #4902). They are registered here for two reasons: the AJV instance
+ * below is the one place a caller can compile a baselines-directory schema
+ * without re-registering the envelope, and the mirror-drift test compares
+ * this registry against the on-disk listing — an unregistered file there is
+ * drift regardless of which category it belongs to.
+ */
+const BASELINE_REPORT_SCHEMA_FILES = ['audit-baselines-envelope.schema.json'];
+
+/** Every baseline schema filename (envelope + per-kind + report) in registration order. */
 export const BASELINE_SCHEMA_FILES = Object.freeze([
   BASELINE_ENVELOPE_FILE,
   ...BASELINE_KIND_SCHEMA_FILES,
+  ...BASELINE_REPORT_SCHEMA_FILES,
 ]);
 
 /**
