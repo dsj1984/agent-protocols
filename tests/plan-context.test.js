@@ -1411,3 +1411,157 @@ describe('plan-context amends mode — delta envelope (Story #4741 AC-4)', () =>
     assert.deepEqual(env.amends.deliveredFiles, []);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Story #4952 — the per-mode envelope gathers run under bounded concurrency.
+// ---------------------------------------------------------------------------
+
+describe('plan-context concurrent envelope gathers (Story #4952)', () => {
+  /**
+   * A provider whose duplicate-search read settles after every other gather.
+   *
+   * This is the axis the conversion actually risks: the dup search, the
+   * authoring-context fold, and the docs digest are now in flight together, so
+   * an envelope that depended on their *completion order* would differ run to
+   * run. Delaying one gather past the others is what makes that order differ.
+   */
+  /**
+   * Serialize an envelope for byte comparison, neutralising the one field that
+   * is a function of *when* the build ran rather than *what* it was built
+   * from: `priorFeedback.fetchedAt`, the wall clock the feedback fetcher
+   * stamps on its own result. Everything else must match byte for byte.
+   */
+  function stableEnvelope(env) {
+    return JSON.stringify(env, (key, value) =>
+      key === 'fetchedAt' ? '<stamped>' : value,
+    );
+  }
+
+  function slowDupSearchProvider(delayMs = 40) {
+    const provider = buildProvider();
+    const { listIssuesByLabel } = provider;
+    provider.listIssuesByLabel = async (filters) => {
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+      return listIssuesByLabel(filters);
+    };
+    return provider;
+  }
+
+  it('seed-file: the envelope is byte-identical whichever gather settles first', async () => {
+    const args = {
+      mode: 'seed-file',
+      seedFilePath: '/tmp/one-pager.md',
+      seedFileContent: ONE_PAGER,
+      config: {},
+      settings: {},
+    };
+    const natural = await buildPlanContext({
+      ...args,
+      provider: buildProvider(),
+    });
+    const reordered = await buildPlanContext({
+      ...args,
+      provider: slowDupSearchProvider(),
+    });
+    assert.equal(stableEnvelope(reordered), stableEnvelope(natural));
+    // Guard against a vacuous pass: the gathered fields must carry content.
+    assert.ok(natural.duplicates.length > 0);
+    assert.equal(natural.mode, 'seed-file');
+  });
+
+  it('tickets: the envelope is byte-identical whichever gather settles first', async () => {
+    const args = {
+      mode: 'tickets',
+      ticketIds: [301, 302],
+      config: { github: { owner: 'o', repo: 'r' } },
+      settings: {},
+    };
+    const natural = await buildPlanContext({
+      ...args,
+      provider: buildProvider(),
+    });
+    const reordered = await buildPlanContext({
+      ...args,
+      provider: slowDupSearchProvider(),
+    });
+    assert.equal(stableEnvelope(reordered), stableEnvelope(natural));
+    assert.deepEqual(
+      natural.sourceTickets.map((t) => t.id),
+      [301, 302],
+    );
+  });
+
+  it('amends: the envelope is byte-identical whichever gather settles first', async () => {
+    // The amends builder's independent-gather set is a single item — the prior
+    // ticket read is a hard data dependency — so this pins that routing it
+    // through the same bounded gather changed nothing observable.
+    const args = { mode: 'amends', amendsId: 4700, config: {}, settings: {} };
+    const priorTicket = async (id) => ({
+      id,
+      number: id,
+      title: 'Widget exporter',
+      body: PRIOR_STORY_BODY,
+      labels: ['type::story'],
+    });
+
+    const fast = buildProvider();
+    fast.getTicket = priorTicket;
+    const slow = slowDupSearchProvider();
+    slow.getTicket = priorTicket;
+
+    const natural = await buildPlanContext({ ...args, provider: fast });
+    const reordered = await buildPlanContext({ ...args, provider: slow });
+    assert.equal(stableEnvelope(reordered), stableEnvelope(natural));
+    assert.equal(natural.amends.priorBody, PRIOR_STORY_BODY);
+  });
+
+  it('starts the authoring fold and the docs digest while the dup search is still in flight', async () => {
+    // The discriminating observation. Both the authoring fold and the docs
+    // digest read `settings.docsContextFiles` as they are *entered*, so a
+    // counting getter on that key reports whether they were entered at all.
+    // Serial, they are unreachable until the dup search resolves — with the
+    // search parked on a gate the count stays 0. Concurrent, all three gathers
+    // are dispatched together and the count is non-zero before the gate opens.
+    let docsContextReads = 0;
+    const settings = {};
+    Object.defineProperty(settings, 'docsContextFiles', {
+      enumerable: true,
+      get() {
+        docsContextReads += 1;
+        return [];
+      },
+    });
+
+    let openGate;
+    const gate = new Promise((resolve) => {
+      openGate = resolve;
+    });
+    const provider = buildProvider();
+    const { listIssuesByLabel } = provider;
+    provider.listIssuesByLabel = async (filters) => {
+      await gate;
+      return listIssuesByLabel(filters);
+    };
+
+    const pending = buildPlanContext({
+      mode: 'seed-file',
+      seedFilePath: '/tmp/one-pager.md',
+      seedFileContent: ONE_PAGER,
+      provider,
+      config: {},
+      settings,
+    });
+
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.ok(
+      docsContextReads > 0,
+      'the authoring fold / docs digest must be in flight while the ' +
+        `duplicate search is parked (reads=${docsContextReads})`,
+    );
+
+    openGate();
+    const env = await pending;
+    assert.ok(env.duplicates.length > 0);
+    assert.ok(env.bddRunner !== undefined, 'the authoring fold still landed');
+  });
+});

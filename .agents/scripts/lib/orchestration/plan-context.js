@@ -41,6 +41,16 @@ import { buildDecomposerSystemPrompt } from './planning/decomposer-context.js';
 /** Bounded concurrency for `--tickets` source-ticket hydration. */
 const SOURCE_TICKET_FETCH_CONCURRENCY = 4;
 /**
+ * Bounded concurrency for the per-mode envelope gathers (Story #4952).
+ *
+ * The duplicate search, the authoring-context fold and the docs digest have
+ * no data dependency on one another — the serialization was incidental, and
+ * `/plan` pays it with the operator waiting at Gate #1. Same small bound as
+ * {@link SOURCE_TICKET_FETCH_CONCURRENCY}: the win here is overlapping three
+ * unrelated waits, not saturating the GitHub API.
+ */
+const ENVELOPE_GATHER_CONCURRENCY = 4;
+/**
  * Envelope byte ceiling (regression guard for the design's named PR2 risk:
  * two envelopes → one bigger one). This is the **only** live bound on
  * envelope size: Story #4541 removed the `applyBudget` pass from
@@ -815,6 +825,80 @@ async function searchStoryDuplicates({
 }
 
 /**
+ * Gather the three independent envelope inputs — the open-Story duplicate
+ * search, the folded authoring context, and the inline docs digest — under
+ * bounded concurrency (Story #4952).
+ *
+ * None of the three reads a value the others produce, so the result is a pure
+ * function of `seed` and the injected config: the assembled envelope is
+ * **byte-identical** to the serial build for the same inputs, whichever order
+ * the three happen to settle in. `concurrentMap` preserves input order, so the
+ * destructuring below is positional and stable.
+ *
+ * `docsContextFiles` is emptied for the `buildAuthoringContext` call: the
+ * per-plan digest-file path needs a plan id that does not exist yet — the
+ * inline digest gathered alongside it replaces that pointer.
+ *
+ * @param {{
+ *   seed: string,
+ *   epicTitle: string,
+ *   excludeIds?: Iterable<number|string>,
+ *   provider: object,
+ *   config: object,
+ *   settings: object,
+ *   cwd?: string,
+ * }} args
+ * @returns {Promise<{
+ *   duplicates: Array<object>,
+ *   authoring: object,
+ *   docsContext: { mode: 'digest-inline', digest: string }|null,
+ * }>}
+ */
+async function gatherEnvelopeInputs({
+  seed,
+  epicTitle,
+  excludeIds = [],
+  provider,
+  config,
+  settings,
+  cwd,
+}) {
+  const paths = settings?.paths ?? {};
+  const [duplicates, authoring, inlineDigest] = await concurrentMap(
+    [
+      () => searchStoryDuplicates({ seed, provider, config, excludeIds }),
+      () =>
+        buildAuthoringContext(
+          0,
+          /* provider (unused behind the prefetch seam) */ {},
+          { ...settings, docsContextFiles: [] },
+          {
+            epic: { id: 0, title: epicTitle, body: seed },
+            github: config.github ?? null,
+            cwd,
+          },
+        ),
+      () =>
+        buildDocsDigest({
+          docsContextFiles: settings?.docsContextFiles,
+          docsRoot: paths.docsRoot,
+        }),
+    ],
+    (gather) => gather(),
+    { concurrency: ENVELOPE_GATHER_CONCURRENCY },
+  );
+
+  return {
+    duplicates,
+    authoring,
+    docsContext:
+      inlineDigest == null
+        ? null
+        : { mode: 'digest-inline', digest: inlineDigest },
+  };
+}
+
+/**
  * Build the seed-file (ideation) envelope. No parent ticket
  * exists yet — creation moves to the persist half — so the open-Story
  * dup search is the mode's gating input. `docsContext` is inline-digest:
@@ -837,36 +921,16 @@ async function buildSeedFileModeEnvelope({
     );
   }
 
-  const duplicates = await searchStoryDuplicates({
+  // Dup search, the authoring-context fold grounded in the seed prose, and the
+  // inline docs digest are independent — gathered concurrently (Story #4952).
+  const { duplicates, authoring, docsContext } = await gatherEnvelopeInputs({
     seed: content,
+    epicTitle: seedFilePath ?? 'seed',
     provider,
     config,
+    settings,
+    cwd,
   });
-
-  // Fold the authoring-context builders grounded in the seed prose.
-  // `docsContextFiles` is emptied for this call: the per-plan digest-file
-  // path needs a plan id that does not exist yet — the inline digest
-  // below replaces it.
-  const authoring = await buildAuthoringContext(
-    0,
-    /* provider (unused behind the prefetch seam) */ {},
-    { ...settings, docsContextFiles: [] },
-    {
-      epic: { id: 0, title: seedFilePath ?? 'seed', body: content },
-      github: config.github ?? null,
-      cwd,
-    },
-  );
-
-  const paths = settings?.paths ?? {};
-  const inlineDigest = await buildDocsDigest({
-    docsContextFiles: settings?.docsContextFiles,
-    docsRoot: paths.docsRoot,
-  });
-  const docsContext =
-    inlineDigest == null
-      ? null
-      : { mode: 'digest-inline', digest: inlineDigest };
 
   const limits = getLimits(config);
   const heuristics = resolveRiskHeuristics(config);
@@ -1002,37 +1066,18 @@ async function buildTicketsModeEnvelope({
     .map((t) => `# ${t.title}\n\n${t.body}`)
     .join('\n\n---\n\n');
 
-  const duplicates = await searchStoryDuplicates({
+  // Same three independent gathers as seed-file mode, concurrent under the
+  // same bound (Story #4952); only the source-ticket hydration above is a
+  // genuine data dependency, because `seed` is derived from it.
+  const { duplicates, authoring, docsContext } = await gatherEnvelopeInputs({
     seed,
+    epicTitle: sourceTickets[0]?.title ?? 'tickets',
+    excludeIds: ticketIds,
     provider,
     config,
-    excludeIds: ticketIds,
+    settings,
+    cwd,
   });
-
-  const authoring = await buildAuthoringContext(
-    0,
-    {},
-    { ...settings, docsContextFiles: [] },
-    {
-      epic: {
-        id: 0,
-        title: sourceTickets[0]?.title ?? 'tickets',
-        body: seed,
-      },
-      github: config.github ?? null,
-      cwd,
-    },
-  );
-
-  const paths = settings?.paths ?? {};
-  const inlineDigest = await buildDocsDigest({
-    docsContextFiles: settings?.docsContextFiles,
-    docsRoot: paths.docsRoot,
-  });
-  const docsContext =
-    inlineDigest == null
-      ? null
-      : { mode: 'digest-inline', digest: inlineDigest };
 
   const limits = getLimits(config);
   const heuristics = resolveRiskHeuristics(config);
@@ -1148,12 +1193,25 @@ async function buildAmendmentModeEnvelope({
 
   const heuristics = resolveRiskHeuristics(config);
   const limits = getLimits(config);
-  const duplicates = await searchStoryDuplicates({
-    seed: priorBody,
-    provider,
-    config,
-    excludeIds: [amendsId],
-  });
+  // Story #4952 — this builder's independent-gather set has exactly one
+  // member. `provider.getTicket` above is a hard data dependency (the prior
+  // body IS the seed), and the mode deliberately carries no authoring-context
+  // fold and no docs digest — the prior artifacts are the grounding. It still
+  // goes through the same bounded gather as the other two builders so one file
+  // does not carry two ways of gathering independent envelope inputs.
+  const [duplicates] = await concurrentMap(
+    [
+      () =>
+        searchStoryDuplicates({
+          seed: priorBody,
+          provider,
+          config,
+          excludeIds: [amendsId],
+        }),
+    ],
+    (gather) => gather(),
+    { concurrency: ENVELOPE_GATHER_CONCURRENCY },
+  );
 
   return {
     mode: 'amends',
