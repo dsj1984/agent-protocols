@@ -206,6 +206,11 @@ function buildGateReport({
     additions: compareOutput.additions ?? [],
     regressionCount: compareOutput.regressions.length,
     baseRef: cmp.baseRef ?? null,
+    // Story #4914 — the compare arm's read status was internal to compare.js,
+    // which is why a dead compare arm looked byte-identical to a clean run.
+    // Surfacing it makes "the head-vs-base arm did not run" diagnosable from
+    // the JSON report alone.
+    baseRead: cmp.baseRead === true,
     generatedAt: baseline.generatedAt,
     acknowledged,
   };

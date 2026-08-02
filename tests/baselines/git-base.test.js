@@ -18,7 +18,11 @@ import {
   __resetForTests,
   __setSpawnRunner,
   readBaseFromGit,
+  readRangeSubjectsTouchingFile,
 } from '../../.agents/scripts/lib/baselines/git-base.js';
+
+/** The explicit stdout ceiling both git reads must pass (Story #4914). */
+const EXPECTED_MAX_BUFFER = 64 * 1024 * 1024;
 
 describe('readBaseFromGit', () => {
   afterEach(() => {
@@ -133,6 +137,113 @@ describe('readBaseFromGit', () => {
     assert.throws(
       () => readBaseFromGit('main', ''),
       /file must be a non-empty string/,
+    );
+  });
+
+  // Story #4914 / AC-2 — the observed production failure. A base baseline
+  // larger than spawnSync's 1 MB default kills the child: `status` is null
+  // (died by signal), not a git exit code. That MUST throw, because the
+  // compare phase now treats `null` as "path absent at ref" and nothing else.
+  it('throws when the child is killed by ENOBUFS (status null / SIGTERM)', () => {
+    __setSpawnRunner({
+      spawn: () => ({
+        status: null,
+        signal: 'SIGTERM',
+        stdout: 'x'.repeat(1024),
+        stderr: '',
+        error: Object.assign(new Error('spawnSync git ENOBUFS'), {
+          code: 'ENOBUFS',
+        }),
+      }),
+    });
+    let thrown = null;
+    try {
+      readBaseFromGit('main', 'baselines/crap.json');
+    } catch (err) {
+      thrown = err;
+    }
+    assert.ok(
+      thrown instanceof Error,
+      'an ENOBUFS-killed read must throw, never return null',
+    );
+    assert.match(thrown.message, /status=null/);
+  });
+
+  // Story #4914 / AC-3 — the other half of the same distinction: exit 128
+  // still means "path absent at ref" and still returns null rather than
+  // throwing. AC-2 and AC-3 together pin the contract compare.js depends on.
+  it('still returns null (does not throw) on git exit 128, alongside the ENOBUFS throw', () => {
+    __setSpawnRunner({
+      spawn: () => ({
+        status: 128,
+        stdout: '',
+        stderr: "fatal: path 'baselines/crap.json' does not exist in 'main'",
+      }),
+    });
+    assert.equal(readBaseFromGit('main', 'baselines/crap.json'), null);
+  });
+
+  // Story #4914 / AC-4 — read the bound off the mock's recorded options, not
+  // off the source text, so the assertion tracks behaviour rather than syntax.
+  it('passes an explicit 64 MB maxBuffer to git show', () => {
+    let lastOpts = null;
+    __setSpawnRunner({
+      spawn: (_cmd, _args, opts) => {
+        lastOpts = opts;
+        return { status: 0, stdout: '{}', stderr: '' };
+      },
+    });
+    readBaseFromGit('main', 'baselines/crap.json');
+    assert.equal(lastOpts.maxBuffer, EXPECTED_MAX_BUFFER);
+    assert.equal(lastOpts.maxBuffer, 67108864);
+  });
+});
+
+describe('readRangeSubjectsTouchingFile (Story #4914)', () => {
+  afterEach(() => {
+    __resetForTests();
+  });
+
+  // AC-4 — the second spawn site carries the same bound. A refresh-tag walk
+  // over a long range is exactly as capable of overflowing 1 MB.
+  it('passes the same explicit 64 MB maxBuffer to git log', () => {
+    let lastOpts = null;
+    __setSpawnRunner({
+      spawn: (_cmd, _args, opts) => {
+        lastOpts = opts;
+        return { status: 0, stdout: 'chore: seed\n', stderr: '' };
+      },
+    });
+    const subjects = readRangeSubjectsTouchingFile(
+      'main',
+      'baselines/maintainability.json',
+    );
+    assert.deepEqual(subjects, ['chore: seed']);
+    assert.equal(lastOpts.maxBuffer, 67108864);
+  });
+
+  // AC-8 — the tolerant contract is deliberate and unchanged: this path
+  // reports "no acknowledging commit found", which is the safe answer when
+  // the range cannot be walked. It must never throw into the gate.
+  it('still returns [] (never throws) on a non-zero git status', () => {
+    __setSpawnRunner({
+      spawn: () => ({ status: 128, stdout: '', stderr: 'fatal: bad revision' }),
+    });
+    assert.deepEqual(
+      readRangeSubjectsTouchingFile('nope', 'baselines/maintainability.json'),
+      [],
+    );
+  });
+
+  it('still returns [] when the spawn itself throws', () => {
+    __setSpawnRunner({
+      spawn: () => {
+        throw new Error('spawnSync git ENOENT');
+      },
+    });
+    assert.deepEqual(
+      readRangeSubjectsTouchingFile('main', 'baselines/maintainability.json'),
+      [],
     );
   });
 });
