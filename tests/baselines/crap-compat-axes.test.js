@@ -464,3 +464,36 @@ describe('envelopeExtras — provenance marker (#4901)', () => {
     assert.equal(envelopeExtras().provenanceStamped, true);
   });
 });
+
+describe('provenance-unstamped — the fail-CLOSED door (#4901)', () => {
+  it('reaches check-baselines through checkBaselineSemantics', async () => {
+    // The other half of the Story's disposition contract. `preview-gates.js`
+    // fails OPEN on this message (asserted in tests/quality-preview.test.js);
+    // `check-baselines` fails CLOSED on it. Both read the same axis, but they
+    // read it through different doors — this is the one evaluate.js calls,
+    // which maps any non-null message to `{ schemaError: { tag: 'semantics' } }`.
+    const { checkBaselineSemantics } = await import(
+      '../../.agents/scripts/lib/baselines/kernel.js'
+    );
+    const preProvenance = { ...VALID_BASELINE };
+    delete preProvenance.provenanceStamped;
+    delete preProvenance.tsTranspilerVersion;
+
+    assert.match(
+      checkBaselineSemantics('crap', preProvenance),
+      /predates coordinate-provenance stamping/,
+    );
+    // And a current baseline is not refused, so the gate stays usable. This
+    // door resolves the running versions from the environment rather than
+    // taking them injected, so the control must carry the writer's own stamps
+    // — otherwise the ts-transpiler axis fires first on a fixture-pinned
+    // version and this assertion would pass for the wrong reason.
+    assert.equal(
+      checkBaselineSemantics('crap', {
+        ...VALID_BASELINE,
+        ...envelopeExtras(),
+      }),
+      null,
+    );
+  });
+});
