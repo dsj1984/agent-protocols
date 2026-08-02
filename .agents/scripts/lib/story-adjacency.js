@@ -7,10 +7,10 @@
  * records into the `Map<storyId, number[]>` adjacency the kernel consumes.
  * This module is now the one home for that step; the live consumer is:
  *
- *   - `lib/wave-runner/ready-set.js` (`selectReadySet`, the path-agnostic
+ *   - `lib/wave-runner/ready-set.js` (`planReadySet`, the path-agnostic
  *     continuous scheduler the `stories-wave-tick.js` adapter dispatches through)
  *   - `stories-wave-tick.js` (for cycle detection, before delegating
- *     selection to `selectReadySet`)
+ *     selection to `planReadySet`)
  *
  * (Pre-v2: `epic-runner/phases/build-wave-dag.js` and `dispatch-pipeline.js`
  * also called here; both entry seams were deleted.)
@@ -44,7 +44,7 @@ import { parseBlockedBy } from './dependency-parser.js';
  * @param {object} [opts]
  * @param {boolean} [opts.dropForeign=false] When `false` (the v2 default,
  *   matching the `/deliver` path — `stories-wave-tick.js` and the
- *   `selectReadySet` core), the operator-DAG contract is preserved: a
+ *   `planReadySet` core), the operator-DAG contract is preserved: a
  *   dependency on an id absent from the input is treated as not-yet-done
  *   and withholds the dependent until it completes. When `true` (the
  *   pre-v2 Epic-scoped-wrapper semantics), edges pointing at ids outside

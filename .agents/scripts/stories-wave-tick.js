@@ -5,7 +5,7 @@
  * `/deliver` story-list path.
  *
  * Thin **adapter** over the path-agnostic ready-set scheduling core
- * (`lib/wave-runner/ready-set.js#selectReadySet`). It emits the set of
+ * (`lib/wave-runner/ready-set.js#planReadySet`). It emits the set of
  * Stories safe to dispatch **on this beat** — a Story becomes dispatchable
  * the instant its own dependencies are done, under the same global
  * concurrency cap and the same file-overlap co-dispatch guard
@@ -15,7 +15,7 @@
  * The previous static wave-batch plan (group N must fully drain before
  * group N+1 opens, via `Graph.js#assignLayers`) is gone. The scheduling
  * kernel — adjacency derivation, the done-predicate classifier, the
- * eligibility rule, and the overlap guard — lives once in `selectReadySet`;
+ * eligibility rule, and the overlap guard — lives once in `planReadySet`;
  * this file only gathers input, resolves the cap, and renders the envelope.
  *
  * **Two modes, one kernel.**
@@ -55,16 +55,20 @@
  *     inFlight: number,
  *     cycleError: string | null,
  *     wedged: { reason, stories: [{ id, unmetBlockers }] } | null,
- *     inFlightReservation: { available, withheld: [{ id, blockedBy }], note }
+ *     inFlightReservation: { available, withheld: [{ id, blockedBy, reason }], note }
  *   }
  *
  * `inFlightReservation` reports the cross-beat half of the co-dispatch guard
  * (Story #4875 widened the footprint; Story #4950 made it reserve). Under
  * `--probe-live` the in-flight Stories' own records are handed to the kernel,
- * so a candidate racing a Story dispatched on an EARLIER beat is withheld and
- * named here with its blocker. Flag mode carries a count and no records, so it
- * reports `available: false` rather than an empty — and therefore
- * indistinguishable — result.
+ * so a candidate sharing a CONCRETE path with a Story dispatched on an EARLIER
+ * beat is withheld and named here with its blocker and a `reason`
+ * (`in-flight-earlier-beat` or `foreign-lease`). A glob / UNKNOWN footprint
+ * reserves nothing across beats — it would withhold the whole run for one
+ * blocker's entire implementation window — while still serializing its own
+ * beat (Story #4960). Flag mode carries a count and no records, so it reports
+ * `available: false` rather than an empty — and therefore indistinguishable —
+ * result.
  *
  * Probe mode adds fields the caller can no longer compute for itself:
  * `done: number[]` (the resolved done set, in-set ∪ satisfied foreign
@@ -145,7 +149,7 @@ const HELP = `Usage:
 Continuous ready-set planner for standalone Story delivery. Emits the set of
 Stories safe to dispatch on this beat — a Story is dispatchable the instant
 its own dependencies are done — plus the resolved per-beat concurrency cap
-and the same file-overlap guard as selectReadySet.
+and the same file-overlap guard as planReadySet.
 
 Two modes:
   --probe-live  Resolve the graph and derive done / in-flight from LIVE state
@@ -261,6 +265,16 @@ function inputErrorResult(message, concurrencyCap = null, inFlightValue = 0) {
 }
 
 /**
+ * Why a reservation withheld a Story. Machine-readable companion to the
+ * operator-facing `note`, so a consumer never has to parse prose to tell an
+ * earlier-beat blocker from a foreign-lease one (Story #4960).
+ */
+const RESERVATION_REASONS = Object.freeze({
+  EARLIER_BEAT: 'in-flight-earlier-beat',
+  FOREIGN_LEASE: 'foreign-lease',
+});
+
+/**
  * Describe this beat's in-flight footprint reservation for the envelope
  * (Story #4950).
  *
@@ -277,11 +291,24 @@ function inputErrorResult(message, concurrencyCap = null, inFlightValue = 0) {
  *     unchanged from before #4950. Saying so explicitly is the point: a
  *     silently-absent guard reads exactly like a guard that found nothing.
  *
+ * A reservation is held either by a Story **this run** dispatched on an
+ * earlier beat or by one **another operator's lease** holds — `live-probe.js`
+ * folds both into the in-flight set, and they reserve identically but read
+ * very differently to an operator. Reporting a foreign-held peer as "still in
+ * flight from an earlier beat" is simply false: this run never dispatched it
+ * and no later beat of this run will clear it. `foreignHeldIds` splits the two
+ * so each carries its own reason (Story #4960).
+ *
  * @param {object[]|null|undefined} inFlightRecords
  * @param {Array<{id: number, blockedBy: number}>} withheld
- * @returns {{ available: boolean, withheld: Array<{id: number, blockedBy: number}>, note: string|null }}
+ * @param {Iterable<number>} [foreignHeldIds] Ids held by a foreign lease.
+ * @returns {{ available: boolean, withheld: Array<{id: number, blockedBy: number, reason: string}>, note: string|null }}
  */
-export function buildReservationReport(inFlightRecords, withheld) {
+export function buildReservationReport(
+  inFlightRecords,
+  withheld,
+  foreignHeldIds = [],
+) {
   if (!Array.isArray(inFlightRecords)) {
     return {
       available: false,
@@ -297,17 +324,55 @@ export function buildReservationReport(inFlightRecords, withheld) {
   if (withheld.length === 0) {
     return { available: true, withheld: [], note: null };
   }
-  const detail = withheld.map((w) => `#${w.id} ← #${w.blockedBy}`).join('; ');
+  const foreign = new Set(foreignHeldIds);
+  const classified = withheld.map((w) => ({
+    ...w,
+    reason: foreign.has(w.blockedBy)
+      ? RESERVATION_REASONS.FOREIGN_LEASE
+      : RESERVATION_REASONS.EARLIER_BEAT,
+  }));
   return {
     available: true,
-    withheld,
-    note:
-      `${withheld.length} Story(ies) withheld because their file footprint ` +
-      `overlaps a Story still in flight from an earlier beat — ${detail}. ` +
-      `This is not a wedge and not a failure: each re-admits automatically ` +
-      `on a later beat, once the Story reserving its files leaves the ` +
-      `in-flight set.`,
+    withheld: classified,
+    note: reservationNote(classified),
   };
+}
+
+/**
+ * Render the operator-facing reservation note, one sentence per reason class
+ * present. Neither class is a failure or a wedge, but they clear by different
+ * events, so each names its own.
+ *
+ * @param {Array<{id: number, blockedBy: number, reason: string}>} withheld
+ * @returns {string}
+ */
+function reservationNote(withheld) {
+  const detail = (entries) =>
+    entries.map((w) => `#${w.id} ← #${w.blockedBy}`).join('; ');
+  const byBeat = withheld.filter(
+    (w) => w.reason === RESERVATION_REASONS.EARLIER_BEAT,
+  );
+  const byLease = withheld.filter(
+    (w) => w.reason === RESERVATION_REASONS.FOREIGN_LEASE,
+  );
+  const parts = [];
+  if (byBeat.length > 0) {
+    parts.push(
+      `${byBeat.length} Story(ies) withheld because their file footprint ` +
+        `overlaps a Story still in flight from an earlier beat — ${detail(byBeat)}. ` +
+        `Each re-admits automatically on a later beat, once the Story ` +
+        `reserving its files leaves the in-flight set.`,
+    );
+  }
+  if (byLease.length > 0) {
+    parts.push(
+      `${byLease.length} Story(ies) withheld because their file footprint ` +
+        `overlaps a Story another operator's lease holds — ${detail(byLease)}. ` +
+        `No beat of THIS run clears that: the peer is the holder's work, and ` +
+        `each re-admits once their lease clears (see foreignHeldReason).`,
+    );
+  }
+  return `${parts.join(' ')} Neither is a wedge and neither is a failure.`;
 }
 
 /**
@@ -542,7 +607,7 @@ export function resolveCapPrecedence({ cwd, config, override } = {}) {
  * understands (`{ id, dependsOn }`), tags any node already in the done set
  * as `agent::done` so the core's classifier excludes it from the dispatch
  * set **and** counts it as a satisfied dependency, then delegates the
- * scheduling decision to `selectReadySet`. A cyclic operator DAG is a
+ * scheduling decision to `planReadySet`. A cyclic operator DAG is a
  * planning error (the core would silently never schedule the cycle), so we
  * detect it up front via the shared `detectCycle` kernel and short-circuit
  * with a `cycleError` and exit code 2.
@@ -558,6 +623,10 @@ export function resolveCapPrecedence({ cwd, config, override } = {}) {
  *   already in flight, so the kernel reserves their footprints instead of
  *   merely counting them (Story #4950). `null` (flag mode) means reservation
  *   is structurally unavailable — see {@link buildReservationReport}.
+ * @param {number[]} [args.foreignHeldIds] Ids among `inFlightRecords` that a
+ *   **foreign operator's lease** holds rather than this run's own earlier
+ *   beat, so a withholding against one is reported for what it is
+ *   (Story #4960). Flag mode has no lease view and passes none.
  * @returns {{
  *   envelope: {
  *     kind: 'stories-ready-set',
@@ -578,6 +647,7 @@ export function buildReadySetEnvelope(
     doneIds = new Set(),
     inFlight = 0,
     inFlightRecords = null,
+    foreignHeldIds = [],
   },
 ) {
   const totalStories = nodes.length;
@@ -607,7 +677,7 @@ export function buildReadySetEnvelope(
   // Cycle detection before scheduling — a cycle is a planning error the
   // operator must fix. dropForeign:false preserves the operator-DAG contract
   // (a dependency on an id outside the supplied set is honored, not pruned),
-  // matching the same builder seam selectReadySet uses internally.
+  // matching the same builder seam planReadySet uses internally.
   const adjacency = buildStoryAdjacency(nodes, { dropForeign: false });
   const cycle = detectCycle(adjacency);
   if (cycle) {
@@ -658,6 +728,7 @@ export function buildReadySetEnvelope(
   const reservation = buildReservationReport(
     inFlightRecords,
     withheldByInFlight,
+    foreignHeldIds,
   );
 
   // Wedge detection (Story #4540). `ready: []` is normal while work is in
@@ -927,6 +998,9 @@ export async function runProbedStoriesWaveTick({
     // Probe mode is the only mode that HAS the in-flight Stories' records, so
     // it is the only mode that can reserve their footprints (Story #4950).
     inFlightRecords,
+    // ...and the only mode that can tell a foreign lease-holder apart from
+    // this run's own earlier-beat dispatch (Story #4960).
+    foreignHeldIds: foreignHeld.map((h) => h.id),
   });
 
   const done = [...doneIds].sort((a, b) => a - b);

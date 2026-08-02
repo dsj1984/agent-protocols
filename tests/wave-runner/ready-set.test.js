@@ -5,11 +5,18 @@ import { AGENT_LABELS } from '../../.agents/scripts/lib/label-constants.js';
 import {
   classifyStory,
   planReadySet,
-  selectReadySet,
   storiesOverlap,
   storyFootprint,
   storyIdOf,
 } from '../../.agents/scripts/lib/wave-runner/ready-set.js';
+
+/**
+ * The dispatch set alone. `planReadySet` is the only scheduling entry point
+ * (Story #4960 deleted the `selectReadySet` wrapper that had lost its last
+ * production caller); cases that assert only on admission read better against
+ * this local projection than against `.selected` at every call site.
+ */
+const dispatchSet = (args) => planReadySet(args).selected;
 
 /**
  * Convenience factory for a Story record. `dependsOn` feeds the explicit
@@ -124,16 +131,16 @@ describe('lib/wave-runner/ready-set — storyFootprint & storiesOverlap', () => 
   });
 });
 
-describe('lib/wave-runner/ready-set — selectReadySet dependency gating', () => {
+describe('lib/wave-runner/ready-set — planReadySet dependency gating', () => {
   // Acceptance: Given a graph where Story C depends only on Story A,
-  // selectReadySet includes C as soon as A is in the done set, even when an
+  // planReadySet includes C as soon as A is in the done set, even when an
   // unrelated Story B is not in it. (No false barrier.)
   it('selects C (deps only on A) once A is done, while unrelated B is still pending', () => {
     const A = story(1, { labels: [AGENT_LABELS.DONE] });
     const B = story(2); // unrelated, not done, not a dependency of C
     const C = story(3, { dependsOn: [1] });
 
-    const selected = selectReadySet({
+    const selected = dispatchSet({
       stories: [A, B, C],
       inFlight: 0,
       globalCap: 5,
@@ -151,7 +158,7 @@ describe('lib/wave-runner/ready-set — selectReadySet dependency gating', () =>
     const B = story(2); // not done
     const C = story(3, { dependsOn: [1, 2] }); // needs BOTH A and B
 
-    const selected = selectReadySet({
+    const selected = dispatchSet({
       stories: [A, B, C],
       inFlight: 0,
       globalCap: 5,
@@ -164,7 +171,7 @@ describe('lib/wave-runner/ready-set — selectReadySet dependency gating', () =>
   it('honours caller-supplied doneIds in addition to live-done records', () => {
     // A is not in the record set at all; the caller asserts it is done.
     const C = story(3, { dependsOn: [1] });
-    const selected = selectReadySet({
+    const selected = dispatchSet({
       stories: [C],
       doneIds: [1],
       inFlight: 0,
@@ -176,7 +183,7 @@ describe('lib/wave-runner/ready-set — selectReadySet dependency gating', () =>
   it('treats an absent (foreign, not-done) dependency as a barrier', () => {
     // C depends on 99, which is neither in the set nor in doneIds.
     const C = story(3, { dependsOn: [99] });
-    const selected = selectReadySet({
+    const selected = dispatchSet({
       stories: [C],
       inFlight: 0,
       globalCap: 5,
@@ -190,7 +197,7 @@ describe('lib/wave-runner/ready-set — selectReadySet dependency gating', () =>
     const executing = story(3, { labels: [AGENT_LABELS.EXECUTING] });
     const ready = story(4);
 
-    const selected = selectReadySet({
+    const selected = dispatchSet({
       stories: [done, blocked, executing, ready],
       inFlight: 0,
       globalCap: 10,
@@ -199,7 +206,7 @@ describe('lib/wave-runner/ready-set — selectReadySet dependency gating', () =>
   });
 });
 
-describe('lib/wave-runner/ready-set — selectReadySet dropForeign policy', () => {
+describe('lib/wave-runner/ready-set — planReadySet dropForeign policy', () => {
   // The default (dropForeign:false) keeps a foreign dependency as a gate —
   // the standalone / operator-DAG contract (see the "absent foreign
   // dependency as a barrier" test above). The Epic path opts into
@@ -208,7 +215,7 @@ describe('lib/wave-runner/ready-set — selectReadySet dropForeign policy', () =
   // unsatisfiable gate that would silently strand the dependent.
   it('dropForeign:true prunes a foreign dependency so the dependent becomes schedulable', () => {
     const C = story(3, { dependsOn: [99] }); // 99 is not in scope
-    const selected = selectReadySet({
+    const selected = dispatchSet({
       stories: [C],
       inFlight: 0,
       globalCap: 5,
@@ -222,7 +229,7 @@ describe('lib/wave-runner/ready-set — selectReadySet dropForeign policy', () =
     // scope and not yet done must still withhold the dependent.
     const A = story(1); // in scope, not done
     const C = story(3, { dependsOn: [1] });
-    const selected = selectReadySet({
+    const selected = dispatchSet({
       stories: [A, C],
       inFlight: 0,
       globalCap: 5,
@@ -234,16 +241,16 @@ describe('lib/wave-runner/ready-set — selectReadySet dropForeign policy', () =
 
   it('defaults to dropForeign:false — a foreign dependency stays a barrier', () => {
     const C = story(3, { dependsOn: [99] });
-    const selected = selectReadySet({ stories: [C], globalCap: 5 });
+    const selected = dispatchSet({ stories: [C], globalCap: 5 });
     assert.deepEqual(ids(selected), []);
   });
 });
 
-describe('lib/wave-runner/ready-set — selectReadySet capacity', () => {
-  // Acceptance: selectReadySet never returns more than (globalCap - inFlight).
+describe('lib/wave-runner/ready-set — planReadySet capacity', () => {
+  // Acceptance: planReadySet never returns more than (globalCap - inFlight).
   it('never returns more than globalCap - inFlight stories', () => {
     const stories = [story(1), story(2), story(3), story(4), story(5)];
-    const selected = selectReadySet({
+    const selected = dispatchSet({
       stories,
       inFlight: 2,
       globalCap: 4,
@@ -256,24 +263,18 @@ describe('lib/wave-runner/ready-set — selectReadySet capacity', () => {
 
   it('returns an empty set when inFlight has saturated globalCap', () => {
     const stories = [story(1), story(2)];
-    assert.deepEqual(
-      selectReadySet({ stories, inFlight: 3, globalCap: 3 }),
-      [],
-    );
-    assert.deepEqual(
-      selectReadySet({ stories, inFlight: 5, globalCap: 3 }),
-      [],
-    );
+    assert.deepEqual(dispatchSet({ stories, inFlight: 3, globalCap: 3 }), []);
+    assert.deepEqual(dispatchSet({ stories, inFlight: 5, globalCap: 3 }), []);
   });
 
   it('returns an empty set for a non-positive or missing globalCap', () => {
     const stories = [story(1)];
-    assert.deepEqual(selectReadySet({ stories, globalCap: 0 }), []);
-    assert.deepEqual(selectReadySet({ stories }), []);
+    assert.deepEqual(dispatchSet({ stories, globalCap: 0 }), []);
+    assert.deepEqual(dispatchSet({ stories }), []);
   });
 });
 
-describe('lib/wave-runner/ready-set — selectReadySet file-overlap guard', () => {
+describe('lib/wave-runner/ready-set — planReadySet file-overlap guard', () => {
   // Acceptance: Two ready stories whose file footprints overlap are never
   // both returned in one dispatch set; one is withheld until the other clears.
   it('never returns two overlapping-footprint stories in one set', () => {
@@ -281,7 +282,7 @@ describe('lib/wave-runner/ready-set — selectReadySet file-overlap guard', () =
     const B = story(2, { files: ['lib/shared.js', 'lib/b.js'] }); // overlaps A
     const C = story(3, { files: ['lib/c.js'] }); // disjoint
 
-    const selected = selectReadySet({
+    const selected = dispatchSet({
       stories: [A, B, C],
       inFlight: 0,
       globalCap: 10,
@@ -307,7 +308,7 @@ describe('lib/wave-runner/ready-set — selectReadySet file-overlap guard', () =
     const B = story(2, { files: ['lib/shared.js'] });
 
     // Beat 1: A and B both ready & overlapping → only A goes.
-    const beat1 = selectReadySet({
+    const beat1 = dispatchSet({
       stories: [A, B],
       inFlight: 0,
       globalCap: 10,
@@ -319,7 +320,7 @@ describe('lib/wave-runner/ready-set — selectReadySet file-overlap guard', () =
       labels: [AGENT_LABELS.DONE],
       files: ['lib/shared.js'],
     });
-    const beat2 = selectReadySet({
+    const beat2 = dispatchSet({
       stories: [Adone, B],
       inFlight: 0,
       globalCap: 10,
@@ -331,7 +332,7 @@ describe('lib/wave-runner/ready-set — selectReadySet file-overlap guard', () =
     // Two footprint-less stories never collide → both selected.
     const A = story(1);
     const B = story(2);
-    const selected = selectReadySet({
+    const selected = dispatchSet({
       stories: [A, B],
       inFlight: 0,
       globalCap: 10,
@@ -340,11 +341,11 @@ describe('lib/wave-runner/ready-set — selectReadySet file-overlap guard', () =
   });
 });
 
-describe('lib/wave-runner/ready-set — selectReadySet edge cases', () => {
+describe('lib/wave-runner/ready-set — planReadySet edge cases', () => {
   it('returns an empty set for an empty / missing story list', () => {
-    assert.deepEqual(selectReadySet({ stories: [], globalCap: 5 }), []);
-    assert.deepEqual(selectReadySet({ globalCap: 5 }), []);
-    assert.deepEqual(selectReadySet(), []);
+    assert.deepEqual(dispatchSet({ stories: [], globalCap: 5 }), []);
+    assert.deepEqual(dispatchSet({ globalCap: 5 }), []);
+    assert.deepEqual(dispatchSet(), []);
   });
 });
 
@@ -385,7 +386,7 @@ describe('storiesOverlap — glob footprints fail safe (Story #4540)', () => {
   });
 
   it('a glob-bearing Story is not co-dispatched with anything', () => {
-    const ready = selectReadySet({
+    const ready = dispatchSet({
       stories: [glob, exact, unrelated],
       doneIds: new Set(),
       inFlight: 0,
@@ -496,7 +497,7 @@ describe('storiesOverlap — real edits collide even when declarations do not (A
       story(3, { files: ['lib/c.js'] }),
     ];
     assert.deepEqual(
-      ids(selectReadySet({ stories, globalCap: 5 })),
+      ids(dispatchSet({ stories, globalCap: 5 })),
       [1, 3],
       '#2 races #1 on lib/a.js despite declaring only lib/b.js',
     );
@@ -687,9 +688,12 @@ describe('planReadySet — in-flight footprints are reserved, not just counted',
     assert.deepEqual(ids(bareBlocker.selected), [1]);
   });
 
-  it('lets an in-flight glob footprint reserve everything (AC-3)', () => {
-    // Unknown width is not no width: an in-flight Story declaring lib/** may
-    // touch any of these files, so exact-string comparison must fail safe.
+  it('does NOT let an in-flight glob footprint reserve anything (Story #4960)', () => {
+    // #4950 shipped this as "unknown width fails safe across beats too", and
+    // it inverted the throughput goal: an in-flight window spans a whole
+    // implementation, so one glob withheld every other Story for minutes to
+    // hours. The beat-local fail-safe is unchanged (see the case below); only
+    // the cross-beat RESERVATION is exempt.
     const held = inFlight(9, { files: ['.agents/scripts/lib/**'] });
     const { selected, withheldByInFlight } = planReadySet({
       stories: [
@@ -701,11 +705,8 @@ describe('planReadySet — in-flight footprints are reserved, not just counted',
       globalCap: 5,
       inFlightRecords: [held],
     });
-    assert.deepEqual(ids(selected), []);
-    assert.deepEqual(withheldByInFlight, [
-      { id: 1, blockedBy: 9 },
-      { id: 2, blockedBy: 9 },
-    ]);
+    assert.deepEqual(ids(selected), [1, 2]);
+    assert.deepEqual(withheldByInFlight, []);
   });
 
   it('never lets a Story reserve against itself', () => {
@@ -814,23 +815,113 @@ describe('planReadySet — in-flight footprints are reserved, not just counted',
   });
 });
 
-describe('selectReadySet — the dispatch-set-only view of planReadySet', () => {
-  it('returns exactly planReadySet(...).selected', () => {
-    const held = story(9, {
-      labels: [AGENT_LABELS.EXECUTING],
-      files: ['lib/shared.js'],
+// ---------------------------------------------------------------------------
+// Story #4960 — glob/UNKNOWN serializes a BEAT, never a run
+// ---------------------------------------------------------------------------
+
+describe('planReadySet — unknown width is beat-local, concrete width reserves', () => {
+  const inFlight = (id, opts) =>
+    story(id, { ...opts, labels: [AGENT_LABELS.EXECUTING] });
+
+  /** Three eligible Stories with pairwise-disjoint concrete footprints. */
+  const eligible = () => [
+    story(11, { files: ['lib/a.js'] }),
+    story(12, { files: ['lib/b.js'] }),
+    story(13, { files: ['lib/c.js'] }),
+  ];
+
+  it('a glob in flight no longer withholds the whole run (the #4950 regression)', () => {
+    // The reproduced regression: three eligible Stories, one glob-footprint
+    // Story in flight, and the beat selected NOTHING — for that blocker's
+    // entire implementation window.
+    const held = inFlight(10, { files: ['.agents/scripts/**'] });
+    const { selected, withheldByInFlight } = planReadySet({
+      stories: eligible(),
+      inFlight: 1,
+      globalCap: 4,
+      inFlightRecords: [held],
     });
-    const args = {
+    assert.deepEqual(ids(selected), [11, 12, 13]);
+    assert.deepEqual(withheldByInFlight, []);
+  });
+
+  it('the UNKNOWN sentinel an unparseable body yields reserves nothing either', () => {
+    // `resolve-stories.js` substitutes `['**']` for a body it cannot parse.
+    // Reserving on that let ONE malformed Story body collapse an N-Story run
+    // to fully serial.
+    const held = inFlight(10, { files: ['**'] });
+    assert.deepEqual(
+      ids(
+        dispatchSet({
+          stories: eligible(),
+          inFlight: 1,
+          globalCap: 4,
+          inFlightRecords: [held],
+        }),
+      ),
+      [11, 12, 13],
+    );
+  });
+
+  it('a candidate declaring a glob is not withheld by a concrete reservation', () => {
+    // The exemption is a property of the glob CLASS, not of which side it sits
+    // on: an unknown-width candidate names no file the in-flight Story holds.
+    const held = inFlight(10, { files: ['lib/b.js'] });
+    assert.deepEqual(
+      ids(
+        dispatchSet({
+          stories: [story(14, { files: ['lib/**'] })],
+          inFlight: 1,
+          globalCap: 4,
+          inFlightRecords: [held],
+        }),
+      ),
+      [14],
+    );
+  });
+
+  it('a glob in the SAME beat still overlaps everything (fail-safe unchanged)', () => {
+    // A beat is a moment, not a window: co-admitting two Stories whose real
+    // widths are unknown is exactly the collision the guard exists to stop.
+    assert.deepEqual(
+      ids(
+        dispatchSet({
+          stories: [story(9, { files: ['**'] }), ...eligible()],
+          globalCap: 4,
+        }),
+      ),
+      [9],
+      'the glob Story takes the beat alone',
+    );
+  });
+
+  it('a concrete overlap still reserves across beats, exactly as #4950 shipped', () => {
+    const held = inFlight(10, { files: ['lib/b.js'] });
+    const { selected, withheldByInFlight } = planReadySet({
+      stories: eligible(),
+      inFlight: 1,
+      globalCap: 4,
+      inFlightRecords: [held],
+    });
+    assert.deepEqual(ids(selected), [11, 13]);
+    assert.deepEqual(withheldByInFlight, [{ id: 12, blockedBy: 10 }]);
+  });
+
+  it('a concrete path the candidate only names in PROSE still reserves', () => {
+    // The widened footprint (Story #4875) feeds the reservation too — only the
+    // glob arm is exempt, not the evidence arm.
+    const held = inFlight(10, { files: ['lib/held.js'] });
+    const { withheldByInFlight } = planReadySet({
       stories: [
-        story(1, { files: ['lib/shared.js'] }),
-        story(2, { files: ['lib/b.js'] }),
-        held,
+        story(11, {
+          files: ['lib/a.js'],
+          body: 'the caller in lib/held.js changes shape',
+        }),
       ],
       inFlight: 1,
-      globalCap: 5,
+      globalCap: 4,
       inFlightRecords: [held],
-    };
-    assert.deepEqual(selectReadySet(args), planReadySet(args).selected);
-    assert.deepEqual(ids(selectReadySet(args)), [2]);
+    });
+    assert.deepEqual(withheldByInFlight, [{ id: 11, blockedBy: 10 }]);
   });
 });

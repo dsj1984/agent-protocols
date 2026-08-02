@@ -6,7 +6,7 @@
  *     turning Story records into the `Map<storyId, deps[]>` shape the
  *     `lib/Graph.js` kernel consumes.
  *   - The standalone `stories-wave-tick.js` adapter (Story #4156 routed it
- *     through `lib/wave-runner/ready-set.js#selectReadySet`, which re-derives
+ *     through `lib/wave-runner/ready-set.js#planReadySet`, which re-derives
  *     adjacency from the **same** `buildStoryAdjacency` builder) agrees with
  *     that wave numbering: its continuous, beat-by-beat ready-set reveals
  *     exactly those strata in order. The standalone path no longer computes a
