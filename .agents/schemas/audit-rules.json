@@ -167,6 +167,21 @@
       "scope": "cumulative",
       "substitutionKeys": []
     },
+    "audit-baselines": {
+      "triggers": {
+        "gates": ["gate3"],
+        "keywords": [
+          "baseline",
+          "ratchet",
+          "floor",
+          "headroom",
+          "quality gate"
+        ],
+        "filePatterns": ["baselines/**", ".agentrc.json"]
+      },
+      "scope": "cumulative",
+      "substitutionKeys": []
+    },
     "audit-documentation": {
       "triggers": {
         "gates": ["gate1", "gate3"],

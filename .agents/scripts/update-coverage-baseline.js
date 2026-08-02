@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-// cli-opt-out: top-level main()-driven CLI invoked via npm run coverage:update; no runAsCli() wrapper required.
 /**
  * Refresh `baselines/coverage.json` from the most recent
  * `coverage/coverage-final.json`. Run this when you intentionally add,
@@ -22,6 +21,7 @@ import { createRequire } from 'node:module';
 import path from 'node:path';
 import { parseDiffScopeFlag } from './lib/baselines/diff-scope-cli.js';
 import { refreshBaseline } from './lib/baselines/refresh-service.js';
+import { runAsCli } from './lib/cli-utils.js';
 import { getBaselineEpsilon } from './lib/config/quality.js';
 import {
   buildScopePredicate,
@@ -30,6 +30,32 @@ import {
   scoreCoverageFinal,
 } from './lib/coverage-baseline.js';
 import { Logger } from './lib/Logger.js';
+
+/**
+ * Usage block for `--help`. This CLI *writes* on invocation, so the help
+ * branch must short-circuit before `main` runs rather than inside it —
+ * `runAsCli` answers help first, which makes "a usage probe never mutates a
+ * baseline" structural instead of a check `main` has to remember.
+ */
+const USAGE = {
+  invocation:
+    'node .agents/scripts/update-coverage-baseline.js [--full-scope | --diff-scope <ref>]',
+  summary:
+    'Score → write the coverage baseline from the coverage-final.json already on disk. With no scope flag the refresh is scoped to the files changed in `origin/main..HEAD`; out-of-scope rows are preserved verbatim.',
+  flags: [
+    [
+      '--full-scope',
+      'Rescore every file in every target dir (no out-of-scope merge).',
+    ],
+    [
+      '--diff-scope <ref>',
+      'Scope the refresh to files changed between <ref> and HEAD. Incompatible with --full-scope.',
+    ],
+  ],
+  notes: [
+    'Run `npm run test:coverage` first — this script never runs the suite itself.',
+  ],
+};
 
 const require = createRequire(import.meta.url);
 
@@ -123,7 +149,11 @@ function main() {
   });
 }
 
-main().catch((err) => {
-  Logger.error(`[Coverage] ❌ Fatal error: ${err?.message ?? err}`);
-  process.exit(1);
+runAsCli(import.meta.url, main, {
+  source: 'coverage-baseline',
+  usage: USAGE,
+  onError: (err) => {
+    Logger.error(`[Coverage] ❌ Fatal error: ${err?.message ?? err}`);
+    process.exitCode = 1;
+  },
 });
