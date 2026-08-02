@@ -47,6 +47,7 @@ import { parentPort } from 'node:worker_threads';
 import { finalizeMethodRows } from '../crap-engine.js';
 import { analyzeOnce } from '../crap-utils.js';
 import { prepareSourceForScoring } from '../transpile.js';
+import { serveWorkerMessages } from './serve-worker-messages.js';
 
 /**
  * Pure handler for a single inbound worker message. Exported so unit tests
@@ -163,13 +164,6 @@ export function handleCombinedMiCrapWorkerMessage(msg, deps = {}) {
   });
 }
 
-if (parentPort) {
-  parentPort.on('message', (msg) => {
-    const out = handleCombinedMiCrapWorkerMessage(msg);
-    if (out.kind === 'exit') {
-      parentPort.close();
-      return;
-    }
-    parentPort.postMessage(out.message);
-  });
-}
+serveWorkerMessages(parentPort, (msg) =>
+  handleCombinedMiCrapWorkerMessage(msg),
+);

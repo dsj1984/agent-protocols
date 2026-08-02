@@ -42,10 +42,11 @@ touched only one route file. Reachability is a global property: adding one
 route can orphan it, but removing or renaming a route elsewhere can also break
 a nav href that the change set never touched.
 
-Because of this, the navigability lens is registered in the **global-lens
-allowlist** (`GLOBAL_LENS_ALLOWLIST` in
-[`lib/audit-suite/selector.js`](../scripts/lib/audit-suite/selector.js)) and is
-**exempt from the cross-epic-leak guard** that narrows every other lens's
+Because of this, the navigability lens declares `"scope": "global"` in
+[`audit-rules.json`](../schemas/audit-rules.json) — the single source of truth
+`resolveLensTier` in
+[`lib/audit-suite/selector.js`](../scripts/lib/audit-suite/selector.js) reads —
+and is **exempt from the cross-epic-leak guard** that narrows every other lens's
 evidence to the change set's `changedFiles`. The exemption is scoped to this
 lens only — the guard is **not** weakened for any other lens, and it never lets
 a foreign change set leak into a scoped lens.

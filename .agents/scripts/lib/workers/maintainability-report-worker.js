@@ -40,6 +40,7 @@ import {
   calculateReportForFile,
 } from '../maintainability-engine.js';
 import { transpileIfNeeded } from '../transpile.js';
+import { serveWorkerMessages } from './serve-worker-messages.js';
 
 /**
  * Score a pre-sourced content string (Story #3696). Mirrors
@@ -125,13 +126,6 @@ export function handleMaintainabilityReportWorkerMessage(msg, deps = {}) {
   }
 }
 
-if (parentPort) {
-  parentPort.on('message', (msg) => {
-    const out = handleMaintainabilityReportWorkerMessage(msg);
-    if (out.kind === 'exit') {
-      parentPort.close();
-      return;
-    }
-    parentPort.postMessage(out.message);
-  });
-}
+serveWorkerMessages(parentPort, (msg) =>
+  handleMaintainabilityReportWorkerMessage(msg),
+);

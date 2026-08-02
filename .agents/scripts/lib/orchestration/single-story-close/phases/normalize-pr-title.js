@@ -38,7 +38,7 @@ import { gitSpawn as defaultGitSpawn } from '../../../git-utils.js';
 import { Logger as DefaultLogger } from '../../../Logger.js';
 
 /** Safe default Conventional-Commit type when none can be derived. */
-export const DEFAULT_CONVENTIONAL_TYPE = 'chore';
+const DEFAULT_CONVENTIONAL_TYPE = 'chore';
 
 /**
  * The Conventional-Commit types Mandrel accepts. Mirrors
@@ -46,7 +46,7 @@ export const DEFAULT_CONVENTIONAL_TYPE = 'chore';
  * `changelog-sections`. Kept in sync by hand (single hard-cutover, no
  * shim) — adding a type means touching all three.
  */
-export const CONVENTIONAL_TYPES = Object.freeze([
+const CONVENTIONAL_TYPES = Object.freeze([
   'feat',
   'fix',
   'perf',
@@ -99,7 +99,7 @@ const LEADING_TYPE_RE = new RegExp(
  * @param {string} subject
  * @returns {boolean}
  */
-export function isConventionalSubject(subject) {
+function isConventionalSubject(subject) {
   if (typeof subject !== 'string') return false;
   return CONVENTIONAL_HEADER_RE.test(subject.trim());
 }
@@ -111,7 +111,7 @@ export function isConventionalSubject(subject) {
  * @param {string} subject
  * @returns {string|null}
  */
-export function parseConventionalType(subject) {
+function parseConventionalType(subject) {
   if (typeof subject !== 'string') return null;
   const match = subject.trim().match(LEADING_TYPE_RE);
   return match ? match[1] : null;
@@ -125,7 +125,7 @@ export function parseConventionalType(subject) {
  * @param {string[]} types
  * @returns {string|null}
  */
-export function pickDominantType(types) {
+function pickDominantType(types) {
   const present = new Set(types.filter(Boolean));
   for (const candidate of TYPE_PRECEDENCE) {
     if (present.has(candidate)) return candidate;
@@ -148,7 +148,7 @@ export function pickDominantType(types) {
  * }} args
  * @returns {string}
  */
-export function deriveTypeFromBranchCommits({
+function deriveTypeFromBranchCommits({
   storyBranch,
   baseBranch,
   cwd = process.cwd(),

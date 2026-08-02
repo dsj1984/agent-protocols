@@ -32,6 +32,7 @@
 import { parentPort } from 'node:worker_threads';
 import { calculateCrapForSource, finalizeMethodRows } from '../crap-engine.js';
 import { prepareSourceForScoring } from '../transpile.js';
+import { serveWorkerMessages } from './serve-worker-messages.js';
 
 /**
  * Pure handler for a single inbound worker message. Exported so unit
@@ -161,13 +162,4 @@ export function handleCrapWorkerMessage(msg, _coverage, deps = {}) {
   };
 }
 
-if (parentPort) {
-  parentPort.on('message', (msg) => {
-    const out = handleCrapWorkerMessage(msg, null);
-    if (out.kind === 'exit') {
-      parentPort.close();
-      return;
-    }
-    parentPort.postMessage(out.message);
-  });
-}
+serveWorkerMessages(parentPort, (msg) => handleCrapWorkerMessage(msg, null));

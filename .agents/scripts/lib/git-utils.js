@@ -108,15 +108,17 @@ export function __setGitRunners(exec, spawn) {
 }
 
 /**
- * Run a git command synchronously, returning trimmed stdout.
- * Throws an Error if the command exits with a non-zero code.
+ * The **single** throwing git runner. Both the module-level {@link gitSync} and
+ * the interface returned by {@link createGitInterface} route through this —
+ * they differ only in which `execFileSync` they hand it.
  *
- * @param {string}   cwd  - Working directory for the git process.
- * @param {...string} args - Git sub-command and arguments.
+ * @param {typeof execFileSync} exec
+ * @param {string} cwd
+ * @param {string[]} args
  * @returns {string} Trimmed stdout text.
  */
-export function gitSync(cwd, ...args) {
-  return _execFileSync('git', args, {
+function runGitSync(exec, cwd, args) {
+  return exec('git', args, {
     cwd,
     encoding: 'utf8',
     stdio: ['pipe', 'pipe', 'pipe'],
@@ -126,15 +128,17 @@ export function gitSync(cwd, ...args) {
 }
 
 /**
- * Run a git command synchronously, returning a result object.
- * Never throws — callers must inspect `status` to detect failure.
+ * The **single** non-throwing git runner — the `spawnSync` counterpart of
+ * {@link runGitSync}, normalising `status`/stdout/stderr into a
+ * {@link GitResult}.
  *
- * @param {string}   cwd  - Working directory for the git process.
- * @param {...string} args - Git sub-command and arguments.
+ * @param {typeof spawnSync} spawn
+ * @param {string} cwd
+ * @param {string[]} args
  * @returns {GitResult}
  */
-export function gitSpawn(cwd, ...args) {
-  const result = _spawnSync('git', args, {
+function runGitSpawn(spawn, cwd, args) {
+  const result = spawn('git', args, {
     cwd,
     stdio: 'pipe',
     encoding: 'utf-8',
@@ -146,6 +150,30 @@ export function gitSpawn(cwd, ...args) {
     stdout: (result.stdout ?? '').trim(),
     stderr: (result.stderr ?? '').trim(),
   };
+}
+
+/**
+ * Run a git command synchronously, returning trimmed stdout.
+ * Throws an Error if the command exits with a non-zero code.
+ *
+ * @param {string}   cwd  - Working directory for the git process.
+ * @param {...string} args - Git sub-command and arguments.
+ * @returns {string} Trimmed stdout text.
+ */
+export function gitSync(cwd, ...args) {
+  return runGitSync(_execFileSync, cwd, args);
+}
+
+/**
+ * Run a git command synchronously, returning a result object.
+ * Never throws — callers must inspect `status` to detect failure.
+ *
+ * @param {string}   cwd  - Working directory for the git process.
+ * @param {...string} args - Git sub-command and arguments.
+ * @returns {GitResult}
+ */
+export function gitSpawn(cwd, ...args) {
+  return runGitSpawn(_spawnSync, cwd, args);
 }
 
 /**
@@ -165,57 +193,25 @@ export function gitSpawn(cwd, ...args) {
 export function createGitInterface(deps = {}) {
   const exec = deps.exec ?? execFileSync;
   const spawn = deps.spawn ?? spawnSync;
-  const sleep =
-    deps.sleep ?? ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
+  const sleep = deps.sleep ?? defaultSleep;
   const jitterFactor = deps.jitter ?? 0.5;
 
-  const gitSync = (cwd, ...args) =>
-    exec('git', args, {
-      cwd,
-      encoding: 'utf8',
-      stdio: ['pipe', 'pipe', 'pipe'],
-      shell: false,
-      env: cleanGitEnv(),
-    }).trim();
-
-  const gitSpawn = (cwd, ...args) => {
-    const result = spawn('git', args, {
-      cwd,
-      stdio: 'pipe',
-      encoding: 'utf-8',
-      shell: false,
-      env: cleanGitEnv(),
-    });
-    return {
-      status: result.status ?? 1,
-      stdout: (result.stdout ?? '').trim(),
-      stderr: (result.stderr ?? '').trim(),
-    };
-  };
-
-  async function runWithRetry(leadingArgs, cwd, args) {
-    const backoff = [250, 500, 1000];
-    let attempt = 0;
-    let last;
-    for (;;) {
-      attempt++;
-      last = gitSpawn(cwd, ...leadingArgs, ...args);
-      if (last.status === 0) return { ...last, attempts: attempt };
-      if (!isPackedRefsContention(last.stderr))
-        return { ...last, attempts: attempt };
-      if (attempt > backoff.length) return { ...last, attempts: attempt };
-      const base = backoff[attempt - 1];
-      const jitter = Math.floor(Math.random() * base * jitterFactor);
-      await sleep(base + jitter);
-    }
-  }
+  const boundGitSpawn = (cwd, ...args) => runGitSpawn(spawn, cwd, args);
+  const withRetry =
+    (argvPrefix) =>
+    (cwd, ...args) =>
+      gitWithContentionRetry(
+        { spawnGit: boundGitSpawn, sleep, jitterFactor },
+        cwd,
+        argvPrefix,
+        args,
+      );
 
   return {
-    gitSync,
-    gitSpawn,
-    gitFetchWithRetry: (cwd, ...args) => runWithRetry(['fetch'], cwd, args),
-    gitPullWithRetry: (cwd, ...args) =>
-      runWithRetry(['pull', '--rebase'], cwd, args),
+    gitSync: (cwd, ...args) => runGitSync(exec, cwd, args),
+    gitSpawn: boundGitSpawn,
+    gitFetchWithRetry: withRetry(['fetch']),
+    gitPullWithRetry: withRetry(['pull', '--rebase']),
   };
 }
 
@@ -238,12 +234,21 @@ function isPackedRefsContention(stderr) {
 }
 
 /**
- * Sleep helper for retry backoff. Overridable via `__setSleep` so tests
- * can skip real wall-clock delays without relying on node:test timer mocks.
+ * Real wall-clock sleep — the default backoff delay for both the module-level
+ * retry helpers and {@link createGitInterface}.
  * @param {number} ms
  * @returns {Promise<void>}
  */
-let _sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+function defaultSleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Sleep helper for retry backoff. Overridable via `__setSleep` so tests
+ * can skip real wall-clock delays without relying on node:test timer mocks.
+ * @type {(ms: number) => Promise<void>}
+ */
+let _sleep = defaultSleep;
 let _jitterFactor = 0.5;
 
 /**
@@ -258,36 +263,63 @@ export function __setSleep(fn, opts = {}) {
 }
 
 /**
- * Shared bounded retry loop for git commands that can hit packed-refs lock
- * contention. Only contention signatures trigger a retry — non-contention
+ * Backoff schedule for {@link gitWithContentionRetry}: 250ms, 500ms, 1000ms
+ * (3 retries → 4 attempts total).
+ */
+const CONTENTION_BACKOFF_MS = Object.freeze([250, 500, 1000]);
+
+/**
+ * The **single** bounded retry loop for git commands that can hit packed-refs
+ * lock contention. Only contention signatures trigger a retry — non-contention
  * failures surface immediately, and success short-circuits the loop.
  *
- * Backoff schedule: 250ms, 500ms, 1000ms (3 retries → 4 attempts total).
  * Deliberately no global lock — a mutex would erase the parallelism the
- * worktree-isolation model is designed to enable. The schedule and the
- * jitter policy (`_sleep` / `_jitterFactor` seams) live only here so a
- * backoff tuning change has a single point of application.
+ * worktree-isolation model is designed to enable. The schedule and the jitter
+ * policy live only here, so a backoff tuning change has a single point of
+ * application: the module-level `gitFetchWithRetry` / `gitPullWithRetry` pass
+ * the `_sleep` / `_jitterFactor` seams, and {@link createGitInterface} passes
+ * its injected equivalents.
  *
+ * @param {{ spawnGit: (cwd: string, ...args: string[]) => GitResult,
+ *   sleep: (ms: number) => Promise<void>, jitterFactor: number }} runners
  * @param {string} cwd
  * @param {string[]} argvPrefix - Leading git argv (e.g. `['fetch']`).
  * @param {string[]} args - Trailing arguments (e.g. `['origin']`).
  * @returns {Promise<{ status: number, stdout: string, stderr: string, attempts: number }>}
  */
-async function gitWithContentionRetry(cwd, argvPrefix, args) {
-  const backoff = [250, 500, 1000];
+async function gitWithContentionRetry(
+  { spawnGit, sleep, jitterFactor },
+  cwd,
+  argvPrefix,
+  args,
+) {
   let attempt = 0;
-  let last;
   for (;;) {
     attempt++;
-    last = gitSpawn(cwd, ...argvPrefix, ...args);
-    if (last.status === 0) return { ...last, attempts: attempt };
-    if (!isPackedRefsContention(last.stderr))
+    const last = spawnGit(cwd, ...argvPrefix, ...args);
+    const exhausted = attempt > CONTENTION_BACKOFF_MS.length;
+    if (
+      last.status === 0 ||
+      exhausted ||
+      !isPackedRefsContention(last.stderr)
+    ) {
       return { ...last, attempts: attempt };
-    if (attempt > backoff.length) return { ...last, attempts: attempt };
-    const base = backoff[attempt - 1];
-    const jitter = Math.floor(Math.random() * base * _jitterFactor);
-    await _sleep(base + jitter);
+    }
+    const base = CONTENTION_BACKOFF_MS[attempt - 1];
+    await sleep(base + Math.floor(Math.random() * base * jitterFactor));
   }
+}
+
+/**
+ * The module-level retry runners — the `__setSleep`-overridable seams bound to
+ * the module-global {@link gitSpawn}. Read lazily so `__setSleep` and
+ * `__setGitRunners` still take effect after import.
+ *
+ * @returns {{ spawnGit: typeof gitSpawn, sleep: (ms: number) => Promise<void>,
+ *   jitterFactor: number }}
+ */
+function moduleRetryRunners() {
+  return { spawnGit: gitSpawn, sleep: _sleep, jitterFactor: _jitterFactor };
 }
 
 /**
@@ -299,7 +331,7 @@ async function gitWithContentionRetry(cwd, argvPrefix, args) {
  * @returns {Promise<{ status: number, stdout: string, stderr: string, attempts: number }>}
  */
 export function gitFetchWithRetry(cwd, ...args) {
-  return gitWithContentionRetry(cwd, ['fetch'], args);
+  return gitWithContentionRetry(moduleRetryRunners(), cwd, ['fetch'], args);
 }
 
 /**
@@ -312,7 +344,12 @@ export function gitFetchWithRetry(cwd, ...args) {
  * @returns {Promise<{ status: number, stdout: string, stderr: string, attempts: number }>}
  */
 export function gitPullWithRetry(cwd, ...args) {
-  return gitWithContentionRetry(cwd, ['pull', '--rebase'], args);
+  return gitWithContentionRetry(
+    moduleRetryRunners(),
+    cwd,
+    ['pull', '--rebase'],
+    args,
+  );
 }
 
 /**

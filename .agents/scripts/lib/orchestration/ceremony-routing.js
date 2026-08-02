@@ -78,7 +78,7 @@
  * @typedef {'fresh'|'inline'} CeremonyMode
  * @typedef {'fresh-critic'|'inline-self-eval'} VerdictOwner
  * @typedef {import('./review-depth.js').ChangeLevel} ChangeLevel
- * @typedef {'minimal'|'standard'|'strict'} CeremonyProfile
+ * @typedef {(typeof CEREMONY_PROFILES)[number]} CeremonyProfile
  */
 
 /**
@@ -93,12 +93,18 @@ export function verdictOwnerForMode(mode) {
   return mode === 'fresh' ? 'fresh-critic' : 'inline-self-eval';
 }
 
-/** @type {readonly CeremonyProfile[]} */
-export const CEREMONY_PROFILES = Object.freeze([
-  'minimal',
-  'standard',
-  'strict',
-]);
+/**
+ * The ceremony-profile vocabulary — the **single** place the three profile
+ * names are written. `normalizeCeremonyProfile` is its reader and the
+ * `CeremonyProfile` typedef is derived from it, so adding a profile is a
+ * one-line change here (Story #4926).
+ *
+ * @type {readonly ['minimal', 'standard', 'strict']}
+ */
+const CEREMONY_PROFILES = Object.freeze(['minimal', 'standard', 'strict']);
+
+/** The profile an absent or unrecognized value degrades to. */
+const DEFAULT_CEREMONY_PROFILE = 'standard';
 
 /**
  * Normalize an operator/config ceremony profile. Unknown values degrade to
@@ -107,11 +113,10 @@ export const CEREMONY_PROFILES = Object.freeze([
  * @param {unknown} value
  * @returns {CeremonyProfile}
  */
-export function normalizeCeremonyProfile(value) {
-  if (value === 'minimal' || value === 'standard' || value === 'strict') {
-    return value;
-  }
-  return 'standard';
+function normalizeCeremonyProfile(value) {
+  return CEREMONY_PROFILES.includes(/** @type {CeremonyProfile} */ (value))
+    ? /** @type {CeremonyProfile} */ (value)
+    : DEFAULT_CEREMONY_PROFILE;
 }
 
 /**
