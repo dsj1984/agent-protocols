@@ -203,6 +203,29 @@ round cap, proceed / redraft / block — not an independent additional pass
 over the criteria. The M4-B floor holds: one verdict per cluster, the
 cluster count owned by `acceptance-clusters.js` alone.
 
+**One round = N cluster critics → ONE merged verdict → ONE gate call.** The
+clusters are how a round is _authored_; they are not how it is _scored_.
+Concatenate every cluster's records into a single `criteria[]` ordered by
+`index` — exactly one per `acceptance[]` item, under one `storyId`,
+`schemaVersion`, `round` and `commitSha` — and hand that merged file to the
+gate once, with `--expected-criteria` set to the Story's `acceptance[]` count:
+
+```bash
+node <main-repo>/.agents/scripts/acceptance-eval.js \
+  --story <storyId> --verdict <merged-verdict-path> \
+  --expected-criteria <acceptance[] count>
+```
+
+The flag is what makes the merge enforceable: `assertCriteriaCoverage` returns
+early on the `null` default, so **omitting it leaves the guard inert** and a
+single cluster's verdict handed over unmerged scores a fraction of the criteria
+and still reports `proceed`. A length mismatch is rejected before scoring and
+consumes no round. Calling the gate once per cluster instead spends a round
+_per cluster_ — a Story past the cluster ceiling would burn its whole redraft
+budget on cluster arithmetic — and N concurrent calls race the Story-scoped
+round ledger. Full per-round mechanics, including the parallel dispatch and the
+merge shape: [`acceptance-self-eval.md`](acceptance-self-eval.md).
+
 **Critic evidence-share.** When the critic runs a `verify[]`
 command that is byte-identical to a close gate (`lint` / `typecheck`), it
 records the pass into the Story evidence keyspace via `--standalone` so
@@ -318,12 +341,23 @@ The wait probes the checks every poll: a red required check fails fast as
 base is brought up to date within `updateAttempts` tries.
 
 **Async merge-confirm mode (`delivery.mergeWatch.mode: "async"`).** Under
-the default `"sync"` the merge wait runs in the foreground as
-described above. When a consumer's CI routinely takes longer than the host
-tool ceiling (~10 min) can hold a single close invocation, the foreground
-wait almost always expires `pending` after burning ~5 minutes of the slot —
-so `"async"` makes that async confirm a designed mode instead of an expiry
-accident. In async mode the close arms auto-merge, runs one short **~60s
+the default `"sync"` the merge wait runs in the foreground as described above.
+
+**On a multi-Story run, async is the posture — pass `--merge-watch-mode async`
+on every close.** This is not a slow-CI opt-in. Implementation fans out, but
+the close tail is serialized one Story at a time, and under `sync` each close
+holds the foreground for its full merge wait before the next may start; that
+is the run's dominant serialized cost, paid once per sibling. Close sees one
+Story and cannot see run topology, so the orchestrator — which can — makes the
+call per invocation while the config default stays `"sync"`, which is right for
+a solo delivery with no sibling waiting behind it
+([`deliver-reference.md`](deliver-reference.md) § Async merge-confirm mode).
+A slow-CI consumer reaches for the same mode for the separate reason that a
+foreground wait longer than the host tool ceiling (~10 min) almost always
+expires `pending` after burning ~5 minutes of the slot — `"async"` makes that
+confirm a designed ending instead of an expiry accident.
+
+In async mode the close arms auto-merge, runs one short **~60s
 probe window** (long enough to catch an instant merge and, via the
 head-anchored required-check predicate, an instantly-red required check),
 then returns the standard `pending` terminal with a `nextCommand`. When you
@@ -362,6 +396,13 @@ judgment that help text cannot carry.
 - `--max-wait-seconds <n>` — from a headless caller with no host
   tool-invocation ceiling, to keep single-block semantics
   without editing the consumer's config.
+- `--merge-watch-mode <sync|async>` — the per-invocation override of
+  `delivery.mergeWatch.mode`. **Pass `async` on every close of a multi-Story
+  run** (above); leave it off for a solo delivery. It composes with
+  `--max-wait-seconds` — pass both and the explicit bound still wins over the
+  async probe cap. An unrecognized value is refused before any phase runs, so a
+  typo cannot silently drop the run back onto synchronous waiting; the refusal
+  reports a `failed` terminal envelope at `phase: init`, mutating nothing.
 
 ---
 

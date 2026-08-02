@@ -95,7 +95,7 @@
  * @see .agents/schemas/story-deliver-terminal.schema.json
  */
 
-import { parseSprintArgs } from './lib/cli-args.js';
+import { parseSprintArgsTolerant } from './lib/cli-args.js';
 import { runAsCli } from './lib/cli-utils.js';
 import { formatCliError } from './lib/error-redactor.js';
 import { Logger } from './lib/Logger.js';
@@ -161,13 +161,25 @@ export async function runSingleStoryClose(opts) {
  * status rather than from a thrown/not-thrown distinction, so `pending`
  * (resumable) is distinguishable from `blocked` (come look) without parsing
  * stdout.
+ *
+ * The catch parses argv through the **non-throwing** wrapper (Story #4959).
+ * It used to call `parseSprintArgs()` — re-invoking the very parser that had
+ * just thrown, since `parseMergeWatchMode` made argv parsing fallible. The
+ * second throw escaped the handler, so an unparseable argv produced a bare
+ * stack trace with no envelope and no friction signal, on the surface whose
+ * whole contract is that every invocation emits exactly one envelope. An
+ * error handler may not depend on an operation already known to fail.
+ *
+ * A parse rejection carries no `closePhase`, so the envelope reports `init` —
+ * accurate: the runner rejected the flag before any phase ran, and nothing
+ * was mutated.
  */
 async function main() {
   try {
     const outcome = await runSingleStoryClose();
     return exitCodeForTerminal(outcome?.terminal ?? { status: 'failed' });
   } catch (err) {
-    const terminal = failedTerminalFor(err, parseSprintArgs());
+    const terminal = failedTerminalFor(err, parseSprintArgsTolerant().args);
     if (!terminal) throw err;
     // Mirror runAsCli's default error line (which this catch pre-empts) so the
     // human-facing failure text is unchanged, then emit the envelope.
