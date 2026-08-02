@@ -31,42 +31,6 @@ import { readAuditRulesSync } from './audit-rules-reader.js';
 const DEFAULT_GIT_TIMEOUT_MS = 30000;
 
 /**
- * The audit-lens identifier for the navigability lens (Epic #4131, F2/F3).
- * Authored as `.agents/workflows/audit-navigability.md`; registered here so the
- * roster, the global-lens allowlist, and the route-added routing seam all
- * reference one symbol rather than a hard-coded string.
- */
-export const NAVIGABILITY_LENS = 'audit-navigability';
-
-/**
- * The **global-lens allowlist** — lenses that evaluate a property of the
- * **whole** product (not just the Epic's change set) and are therefore exempt
- * from the cross-epic-leak guard (`#3362`) that narrows every other lens's
- * evidence to the Epic's `changedFiles`. A lens in this set still runs through
- * the SAME `runAuditSuite` / `selectAuditStrategy` engine; only the
- * change-set narrowing is bypassed, and only for the listed lenses. The guard
- * is **not** weakened for any lens absent from this set.
- *
- * Navigability is the founding member: reachability is a global property — a
- * change can orphan a route it never touched — so the lens must read the whole
- * route tree + nav registry regardless of which file triggered it.
- */
-export const GLOBAL_LENS_ALLOWLIST = Object.freeze([NAVIGABILITY_LENS]);
-
-/**
- * True when `lens` is on the global-lens allowlist and is therefore exempt
- * from the cross-epic-leak guard's change-set narrowing. Pure; the single
- * read-side of {@link GLOBAL_LENS_ALLOWLIST} so callers never hard-code the
- * membership test.
- *
- * @param {string} lens
- * @returns {boolean}
- */
-export function isGlobalLens(lens) {
-  return GLOBAL_LENS_ALLOWLIST.includes(lens);
-}
-
-/**
  * The canonical concern-ownership tiers a lens can declare via its
  * `scope` field in [`audit-rules.json`](../../../schemas/audit-rules.json).
  * This frozen tuple is the single source of truth for the tier vocabulary the
@@ -222,38 +186,21 @@ export function selectSensitivePathClasses({
 /**
  * Resolve the consumer's navigability route globs from the resolved config.
  * Reads `delivery.quality.navigability.routeGlobs` — the route-tree SSOT the
- * navigability lens enumerates and the route-added routing predicate matches
- * against. Returns an empty array when the block (or any ancestor) is absent,
- * so an unconfigured consumer routes nothing and the lens degrades to a silent
- * no-op (Epic #4131 — "no-op when unconfigured").
+ * navigability lens enumerates. Returns an empty array when the block (or any
+ * ancestor) is absent, so an unconfigured consumer contributes no web-surface
+ * evidence (Epic #4131 — "no-op when unconfigured").
+ *
+ * Module-local: the sole reader is {@link hasWebSurface}. It was previously
+ * exported alongside a route-added routing seam that Story #4926 removed —
+ * lens routing is decided by the `scope` field in `audit-rules.json`, never by
+ * a second predicate here.
  *
  * @param {object|null|undefined} config Resolved `.agentrc.json` wrapper.
  * @returns {string[]} Route globs, or `[]` when unconfigured.
  */
-export function resolveNavigabilityRouteGlobs(config) {
+function resolveNavigabilityRouteGlobs(config) {
   const globs = config?.delivery?.quality?.navigability?.routeGlobs;
   return Array.isArray(globs) ? globs.filter((g) => typeof g === 'string') : [];
-}
-
-/**
- * Decide whether a change set routes the navigability lens. The lens is routed
- * when any `changedFiles` entry matches a consumer-configured route glob
- * (`delivery.quality.navigability.routeGlobs`) — i.e. the change set adds or
- * touches a route file. When no route globs are configured, this returns
- * `false` (the unconfigured no-op), so the existing change-set-scoped lens
- * selection is unchanged.
- *
- * A pure predicate over a change set — the same input {@link selectAudits} and
- * {@link selectLocalLenses} already match against. The caller unions its result
- * into the lens roster it is assembling; no new routing machinery is added.
- *
- * @param {{ changedFiles?: string[], config?: object|null }} params
- * @returns {boolean}
- */
-export function routesNavigabilityLens({ changedFiles, config } = {}) {
-  const globs = resolveNavigabilityRouteGlobs(config);
-  if (globs.length === 0) return false;
-  return matchesAnyFilePattern(globs, changedFiles ?? []);
 }
 
 /**

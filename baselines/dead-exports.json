@@ -4,52 +4,12 @@
   "generatedAt": "2026-08-02T15:29:16.413Z",
   "rows": [
     {
-      "file": ".agents/scripts/lib/audit-suite/index.js",
-      "symbol": "GLOBAL_LENS_ALLOWLIST"
-    },
-    {
-      "file": ".agents/scripts/lib/audit-suite/index.js",
-      "symbol": "isGlobalLens"
-    },
-    {
-      "file": ".agents/scripts/lib/audit-suite/index.js",
-      "symbol": "NAVIGABILITY_LENS"
-    },
-    {
-      "file": ".agents/scripts/lib/audit-suite/index.js",
-      "symbol": "resolveNavigabilityRouteGlobs"
-    },
-    {
-      "file": ".agents/scripts/lib/audit-suite/index.js",
-      "symbol": "routesNavigabilityLens"
-    },
-    {
       "file": ".agents/scripts/lib/audit-suite/selector.js",
       "symbol": "_resetPersistenceLayerCache"
     },
     {
       "file": ".agents/scripts/lib/audit-suite/selector.js",
-      "symbol": "GLOBAL_LENS_ALLOWLIST"
-    },
-    {
-      "file": ".agents/scripts/lib/audit-suite/selector.js",
       "symbol": "hasPersistenceLayer"
-    },
-    {
-      "file": ".agents/scripts/lib/audit-suite/selector.js",
-      "symbol": "isGlobalLens"
-    },
-    {
-      "file": ".agents/scripts/lib/audit-suite/selector.js",
-      "symbol": "NAVIGABILITY_LENS"
-    },
-    {
-      "file": ".agents/scripts/lib/audit-suite/selector.js",
-      "symbol": "resolveNavigabilityRouteGlobs"
-    },
-    {
-      "file": ".agents/scripts/lib/audit-suite/selector.js",
-      "symbol": "routesNavigabilityLens"
     },
     {
       "file": ".agents/scripts/lib/audit-to-stories/audit-lenses.js",
@@ -220,10 +180,6 @@
       "symbol": "ConflictingTypeLabelsError"
     },
     {
-      "file": ".agents/scripts/lib/feedback-loop/audit-results-graduator.js",
-      "symbol": "default"
-    },
-    {
       "file": ".agents/scripts/lib/feedback-loop/graduator-core.js",
       "symbol": "CROSS_REPO_DEFERRED_COMMENT_TYPE"
     },
@@ -233,15 +189,7 @@
     },
     {
       "file": ".agents/scripts/lib/feedback-loop/prior-feedback-fetcher.js",
-      "symbol": "default"
-    },
-    {
-      "file": ".agents/scripts/lib/feedback-loop/prior-feedback-fetcher.js",
       "symbol": "extractRecurringDefectClasses"
-    },
-    {
-      "file": ".agents/scripts/lib/feedback-loop/retro-proposals-graduator.js",
-      "symbol": "default"
     },
     {
       "file": ".agents/scripts/lib/feedback-loop/retro-proposals-graduator.js",
@@ -262,14 +210,6 @@
     {
       "file": ".agents/scripts/lib/observability/tool-trace-hook.js",
       "symbol": "runFromStdin"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/ceremony-routing.js",
-      "symbol": "CEREMONY_PROFILES"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/ceremony-routing.js",
-      "symbol": "normalizeCeremonyProfile"
     },
     {
       "file": ".agents/scripts/lib/orchestration/column-sync.js",
@@ -360,30 +300,6 @@
       "symbol": "runBaseSyncPhase"
     },
     {
-      "file": ".agents/scripts/lib/orchestration/single-story-close/phases/normalize-pr-title.js",
-      "symbol": "CONVENTIONAL_TYPES"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/single-story-close/phases/normalize-pr-title.js",
-      "symbol": "DEFAULT_CONVENTIONAL_TYPE"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/single-story-close/phases/normalize-pr-title.js",
-      "symbol": "deriveTypeFromBranchCommits"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/single-story-close/phases/normalize-pr-title.js",
-      "symbol": "isConventionalSubject"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/single-story-close/phases/normalize-pr-title.js",
-      "symbol": "parseConventionalType"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/single-story-close/phases/normalize-pr-title.js",
-      "symbol": "pickDominantType"
-    },
-    {
       "file": ".agents/scripts/lib/orchestration/story-close/format-autofix.js",
       "symbol": "commitDirtyPaths"
     },
@@ -422,22 +338,6 @@
     {
       "file": ".agents/scripts/lib/orchestration/ticketing.js",
       "symbol": "transitionStoryDirect"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/ticketing/reads.js",
-      "symbol": "_rawCommentsCache"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/ticketing/reads.js",
-      "symbol": "_structuredCommentCache"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/ticketing/reads.js",
-      "symbol": "CLAIM_TYPE_PATTERN"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/ticketing/reads.js",
-      "symbol": "LIFECYCLE_TYPE_PATTERN"
     },
     {
       "file": ".agents/scripts/lib/preflight-runner.js",

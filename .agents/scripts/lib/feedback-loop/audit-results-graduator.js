@@ -333,5 +333,3 @@ export async function graduateAuditResults(opts = {}) {
     },
   });
 }
-
-export default graduateAuditResults;

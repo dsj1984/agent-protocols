@@ -43,6 +43,68 @@ after(() => {
 const BULK_BYTES = 256 * 1024;
 
 /**
+ * Readiness handshake for the slow-reader cases (Story #4926).
+ *
+ * The bulk fixtures write this to **stderr** — a second, eagerly-drained pipe
+ * — the instant `process.stdout.write` reports the kernel pipe buffer full and
+ * the remainder queued in userland. That is the exact precondition these tests
+ * need: the child is on its exit path with bytes still outstanding.
+ *
+ * This replaced a `setTimeout(300)` that *guessed* the window had opened.
+ * Fake timers cannot substitute for that sleep: the thing being waited on is a
+ * separate OS process filling a kernel pipe, and `mock.timers` only rewrites
+ * the parent's clock — firing the callback instantly would remove the
+ * backpressure the assertion depends on rather than control it. A handshake on
+ * a real observable is the deterministic fix, and it is strictly stronger:
+ * `QUEUED` also proves the queue formed, so the test can no longer pass
+ * vacuously on a machine whose buffer never filled.
+ */
+const QUEUED_MARKER = '__STDOUT_QUEUED__';
+
+/**
+ * Ceiling on the readiness handshake.
+ *
+ * The handshake and the behaviour under test form a **mutual deadlock** when
+ * the marker never comes: the reader holds `child.stdout` paused until it
+ * arrives, and the child cannot exit until stdout drains — that drain-wait
+ * (`flushStdio()` inside `settleCli`) is the very fix these tests pin. So the
+ * `close`-based guard below is structurally unreachable on the no-marker path:
+ * the child that fails to signal is exactly the child that cannot die. Left
+ * unbounded that is not a slow test, it is an unkillable one (Story #4926
+ * burned a 44-minute `windows-latest` runner before the job was cancelled).
+ *
+ * The ceiling is deliberately far above any real handshake — this is a
+ * liveness backstop, not a timing assumption, and it *fails* the test with the
+ * child's stderr attached rather than passing vacuously.
+ */
+const QUEUED_TIMEOUT_MS = 30_000;
+
+/**
+ * Is the slow-reader precondition reachable on this platform?
+ *
+ * These two cases need `process.stdout.write()` of {@link BULK_BYTES} to report
+ * the write queued — the 64 KiB kernel pipe boundary. That is a POSIX pipe
+ * property; on `windows-latest` the same write does not produce it, so the
+ * fixture takes its `else` branch, never emits {@link QUEUED_MARKER}, and both
+ * sides park in the deadlock described above. Skipping is honest rather than
+ * convenient: without back-pressure there is no queue to lose, so the
+ * truncation these tests exist to catch cannot be staged on Windows at all —
+ * the instrument does not work there, and the timeout above would only convert
+ * a hang into a permanent advisory red. The contract stays fully enforced on
+ * POSIX, where the defect lives.
+ */
+const SLOW_READER_SKIP =
+  process.platform === 'win32'
+    ? 'slow-reader back-pressure is a POSIX pipe property; win32 never queues (Story #4926)'
+    : false;
+
+/** Fixture source that emits {@link QUEUED_MARKER} once stdout back-pressures. */
+const SIGNAL_QUEUED = [
+  "  if (queued) process.stderr.write('__STDOUT_QUEUED__\\n');",
+  "  else throw new Error('stdout never back-pressured — fixture wrote too little');",
+].join('\n');
+
+/**
  * Write a fixture CLI that routes `body` through the real `runAsCli`.
  *
  * @param {string} name    Fixture basename.
@@ -71,8 +133,9 @@ function writeFixture(name, body, options = '{}') {
  * reached the reader.
  *
  * @param {string} fixture
- * @param {{ slow?: boolean }} [opts] `slow` holds stdout paused while the
- *   child fills the pipe buffer, then drains it in delayed slices.
+ * @param {{ slow?: boolean }} [opts] `slow` holds stdout paused until the
+ *   child reports (over stderr) that the pipe buffer is full and the rest of
+ *   its output is queued — the window the old `process.exit()` lost.
  * @returns {Promise<{ code: number, stdoutBytes: number, stdout: string, stderr: string }>}
  */
 async function runFixture(fixture, { slow = false } = {}) {
@@ -81,9 +144,11 @@ async function runFixture(fixture, { slow = false } = {}) {
   });
 
   let stderr = '';
+  let onStderrChunk = () => {};
   child.stderr.setEncoding('utf8');
   child.stderr.on('data', (chunk) => {
     stderr += chunk;
+    onStderrChunk();
   });
 
   const exited = new Promise((resolve) => {
@@ -94,26 +159,67 @@ async function runFixture(fixture, { slow = false } = {}) {
   let stdout = '';
   if (slow) {
     child.stdout.pause();
-    // Let the child write past the pipe buffer and reach its exit path with
-    // bytes still queued. This is the window the old `process.exit()` lost.
-    await new Promise((resolve) => setTimeout(resolve, 300));
+    await new Promise((resolve, reject) => {
+      let timer = null;
+      const finish = (settle, arg) => {
+        if (timer) clearTimeout(timer);
+        onStderrChunk = () => {};
+        settle(arg);
+      };
+      timer = setTimeout(() => {
+        // Break the deadlock *before* failing. The child is parked in
+        // `flushStdio()` waiting for this reader, so resuming the pipe is what
+        // lets it die at all; the kill then bounds the teardown. Without this
+        // the rejection below would report a failure the suite could never
+        // finish printing.
+        child.stdout.resume();
+        child.kill('SIGKILL');
+        finish(
+          reject,
+          new Error(
+            `fixture never signalled ${QUEUED_MARKER} within ${QUEUED_TIMEOUT_MS}ms — ` +
+              'stdout did not report the write queued, so the back-pressure ' +
+              `precondition never formed. child stderr: ${JSON.stringify(stderr)}`,
+          ),
+        );
+      }, QUEUED_TIMEOUT_MS);
+      onStderrChunk = () => {
+        if (stderr.includes(QUEUED_MARKER)) finish(resolve);
+      };
+      onStderrChunk();
+      // A child that dies before signalling can never signal — fail fast
+      // rather than hang the suite waiting on a marker that will not come.
+      child.on('close', () =>
+        stderr.includes(QUEUED_MARKER)
+          ? finish(resolve)
+          : finish(
+              reject,
+              new Error(
+                `fixture exited before signalling ${QUEUED_MARKER}; stderr: ${stderr}`,
+              ),
+            ),
+      );
+    });
   }
   for await (const chunk of child.stdout) {
     stdoutBytes += chunk.length;
     stdout += chunk.toString('utf8');
-    if (slow) await new Promise((resolve) => setTimeout(resolve, 5));
   }
 
   const code = await exited;
   return { code, stdoutBytes, stdout, stderr };
 }
 
-test('runAsCli: >64 KiB of piped stdout survives a slow reader intact', async () => {
+test('runAsCli: >64 KiB of piped stdout survives a slow reader intact', {
+  skip: SLOW_READER_SKIP,
+}, async () => {
   const fixture = writeFixture(
     'bulk',
-    [`  process.stdout.write('x'.repeat(${BULK_BYTES}));`, '  return 0;'].join(
-      '\n',
-    ),
+    [
+      `  const queued = !process.stdout.write('x'.repeat(${BULK_BYTES}));`,
+      SIGNAL_QUEUED,
+      '  return 0;',
+    ].join('\n'),
     '{ propagateExitCode: true }',
   );
 
@@ -129,11 +235,14 @@ test('runAsCli: >64 KiB of piped stdout survives a slow reader intact', async ()
   assert.equal(code, 0);
 });
 
-test('runAsCli: bulk stdout survives on the fatal-error path too', async () => {
+test('runAsCli: bulk stdout survives on the fatal-error path too', {
+  skip: SLOW_READER_SKIP,
+}, async () => {
   const fixture = writeFixture(
     'bulk-fatal',
     [
-      `  process.stdout.write('y'.repeat(${BULK_BYTES}));`,
+      `  const queued = !process.stdout.write('y'.repeat(${BULK_BYTES}));`,
+      SIGNAL_QUEUED,
       "  throw new Error('boom after bulk output');",
     ].join('\n'),
     "{ source: 'bulk-fatal' }",

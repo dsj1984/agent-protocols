@@ -27,15 +27,10 @@ export {
 } from './lens-diff-floor.js';
 export { runAuditSuite } from './runner.js';
 export {
-  GLOBAL_LENS_ALLOWLIST,
-  isGlobalLens,
   LENS_TIERS,
   matchesAnyFilePattern,
   matchesFilePattern,
-  NAVIGABILITY_LENS,
   resolveLensTier,
-  resolveNavigabilityRouteGlobs,
-  routesNavigabilityLens,
   selectAudits,
   selectLocalLenses,
 } from './selector.js';

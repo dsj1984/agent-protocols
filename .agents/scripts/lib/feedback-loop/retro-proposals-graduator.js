@@ -495,5 +495,3 @@ export async function fileRetroProposals({
   );
   return { routedProposals: enriched, summary };
 }
-
-export default graduateRetroProposals;

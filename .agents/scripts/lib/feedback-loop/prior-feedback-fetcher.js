@@ -307,5 +307,3 @@ export async function fetchPriorFeedback({
 
   return envelope;
 }
-
-export default fetchPriorFeedback;

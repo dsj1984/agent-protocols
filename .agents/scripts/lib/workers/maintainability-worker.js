@@ -21,6 +21,7 @@
 
 import { parentPort } from 'node:worker_threads';
 import { scoreFile } from '../maintainability-engine.js';
+import { serveWorkerMessages } from './serve-worker-messages.js';
 
 /**
  * Pure handler for a single inbound worker message. Exported so unit
@@ -72,13 +73,6 @@ export function handleMaintainabilityWorkerMessage(msg, deps = {}) {
   }
 }
 
-if (parentPort) {
-  parentPort.on('message', (msg) => {
-    const out = handleMaintainabilityWorkerMessage(msg);
-    if (out.kind === 'exit') {
-      parentPort.close();
-      return;
-    }
-    parentPort.postMessage(out.message);
-  });
-}
+serveWorkerMessages(parentPort, (msg) =>
+  handleMaintainabilityWorkerMessage(msg),
+);

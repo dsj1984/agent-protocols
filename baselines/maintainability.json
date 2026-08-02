@@ -5,8 +5,8 @@
   "rollup": {
     "*": {
       "min": 74.146,
-      "p50": 98.143,
-      "p95": 126.196
+      "p50": 98.173,
+      "p95": 126.637
     }
   },
   "rows": [
@@ -1893,6 +1893,10 @@
     {
       "path": ".agents/scripts/lib/workers/maintainability-worker.js",
       "mi": 96.776
+    },
+    {
+      "path": ".agents/scripts/lib/workers/serve-worker-messages.js",
+      "mi": 128.304
     },
     {
       "path": ".agents/scripts/lib/workflow-closure.js",
