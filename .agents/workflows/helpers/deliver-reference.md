@@ -12,6 +12,34 @@ Reference-only detail split out of [`deliver.md`](../deliver.md) so the
 always-resident spine stays lean. Nothing here is a new MUST —
 it is the mechanics an operator consults when the matching lever is engaged.
 
+## Ranges (`4922 - 4926`) {#ranges}
+
+A contiguous span is how an operator reads a plan run, so the dash range is a
+first-class id shape rather than prose to interpret — `/deliver 4922 - 4926`
+means exactly the five ids in it.
+
+**Pass the span through; never expand it by hand.** Every id-list flag on the
+delivery path takes range tokens — `resolve-stories.js --ids`,
+`stories-wave-tick.js --stories` and `--dispatched`, and
+`plan-run-epilogue.js --stories`. Normalize the operator's spacing away and hand
+the scripts one unspaced token (`--ids 4922-4926`), mixed freely with singles
+and commas (`--ids 4901,4922-4926`); overlaps dedupe. A hand-typed enumeration
+is where an id gets dropped or invented, and the drop is silent.
+
+The shared expander (`lib/util/parse-id-list.js`) refuses rather than guesses,
+so a typo fails where it was typed instead of resolving the wrong set:
+
+| Input | Outcome |
+| --- | --- |
+| `4922-4926`, `4922 - 4926` | Expands to the inclusive span. En and em dashes, and a `#` on either endpoint, are accepted too. |
+| `4926-4922` | Refused — write it low-to-high. |
+| `1-4926` | Refused — above the 50-id span cap (`MAX_RANGE_SPAN`). |
+| `4922-`, `-4926`, `4922-4923-4924` | Refused as a malformed token. |
+
+The cap is per range token, not per run: a genuine 60-Story delivery is still
+expressible as two ranges, but a slipped digit cannot fan out into a live
+resolution sweep of thousands of issues.
+
 ## Sequencing edge cases (`stories-wave-tick.js`)
 
 **What "discovered, not declared" means concretely.** `resolve-stories.js` reads

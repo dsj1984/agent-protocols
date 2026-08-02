@@ -35,12 +35,15 @@ you read:
 | `/deliver` | bare | List the open `agent::ready` Stories and ask which to deliver. Deliver nothing until answered. |
 | `/deliver 4712` | ids | One Story via `helpers/deliver-story.md`, **inline in this session** — no `story-worker` spawn. |
 | `/deliver 4712 4713 …` | ids | Resolve the set, sequence by the discovered graph via `stories-wave-tick.js`, dispatch sub-agents. |
+| `/deliver 4712 - 4716` | ids | A **range** — every id in the inclusive span. |
 | `/deliver add a --json flag to doctor` | prompt | Unplanned work: gate, author a receipt Story, land it — [`helpers/deliver-light.md`](helpers/deliver-light.md). |
 
-**The discriminator is lexical and total.** Every positional argument matching
-`^#?\d+$` means ids; anything else means a prompt. A **mixed** invocation (ids
-*and* prose) is a **hard error** — refuse it and ask which was meant. A ticket
-not `type::story`, or carrying an `Epic: #N` footer, is a hard error too.
+**The discriminator is lexical and total.** An argument matching `^#?\d+$` is an
+id, and `^#?\d+\s*[-–—]\s*#?\d+$` an inclusive **range** — pass one on as a
+single unspaced token, never hand-expanded (reference § Ranges). Either shape
+means ids; anything else means a prompt. A **mixed** invocation (ids *and*
+prose) is a **hard error** — refuse it and ask which was meant. A ticket not
+`type::story`, or carrying an `Epic: #N` footer, is a hard error too.
 
 ## Saying what you want
 

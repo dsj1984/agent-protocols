@@ -104,6 +104,7 @@ import { Logger } from './lib/Logger.js';
 import { AGENT_LABELS } from './lib/label-constants.js';
 import { parseIds } from './lib/orchestration/resolve-stories.js';
 import { buildStoryAdjacency } from './lib/story-adjacency.js';
+import { expandIdList } from './lib/util/parse-id-list.js';
 import {
   createProbeContext,
   probeLiveState,
@@ -153,9 +154,10 @@ Each entry must include:
   dependsOn  - Array of Story IDs that must complete before this Story runs
 
 Options:
-  --stories <csv>    Story ids to deliver (probe mode). The graph, the done
-                     set, and the in-flight count are resolved from live
-                     state — no --done / --in-flight bookkeeping.
+  --stories <csv>    Story ids to deliver (probe mode). Singles or inclusive
+                     A-B ranges (101,104-107). The graph, the done set, and
+                     the in-flight count are resolved from live state — no
+                     --done / --in-flight bookkeeping.
   --probe-live       Enable probe mode. Requires --stories.
   --dispatched <csv> Probe mode only. Ids you have SPAWNED this run. Unioned
                      into the live-derived in-flight set, then filtered by
@@ -308,33 +310,22 @@ export function parseDag(raw) {
 }
 
 /**
- * Parse a comma-separated list of Story IDs into a deduped set of positive
- * integers. Empty / absent input yields an empty set. Rejects any token that
- * is not a positive integer so a typo never silently drops a dependency gate
- * (`--done`) or a held dispatch slot (`--dispatched`).
+ * Parse a comma-separated list of Story IDs — singles or `A-B` dash ranges —
+ * into a deduped set of positive integers. Empty / absent input yields an
+ * empty set. Rejects any token that is not a positive integer or a valid
+ * range, so a typo never silently drops a dependency gate (`--done`) or a
+ * held dispatch slot (`--dispatched`).
+ *
+ * Ranges are accepted here for the same reason `--stories` accepts them: an
+ * operator delivering `4922-4926` writes the dispatched set back the same way.
  *
  * @param {string|undefined} raw
  * @param {string} flag Flag name, for the error message.
  * @returns {{ ids: Set<number>|null, error: string|null }}
  */
 export function parseIdCsv(raw, flag) {
-  if (raw == null || raw === '') {
-    return { ids: new Set(), error: null };
-  }
-  const ids = new Set();
-  for (const token of String(raw).split(',')) {
-    const trimmed = token.trim();
-    if (trimmed === '') continue;
-    const num = Number(trimmed);
-    if (!Number.isInteger(num) || num <= 0) {
-      return {
-        ids: null,
-        error: `${flag} must be a comma-separated list of positive integers, got "${trimmed}"`,
-      };
-    }
-    ids.add(num);
-  }
-  return { ids, error: null };
+  const { ids, error } = expandIdList(raw, { flag });
+  return error ? { ids: null, error } : { ids: new Set(ids), error: null };
 }
 
 /**
@@ -775,7 +766,7 @@ export async function runProbedStoriesWaveTick({
 
   let ids;
   try {
-    ids = parseIds(stories);
+    ids = parseIds(stories, '--stories');
   } catch (err) {
     return inputErrorResult(err.message);
   }

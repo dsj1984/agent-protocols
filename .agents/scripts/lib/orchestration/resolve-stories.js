@@ -34,6 +34,7 @@ import {
   extractChangePaths,
   parse as parseStoryBody,
 } from '../story-body/story-body.js';
+import { expandIdList } from '../util/parse-id-list.js';
 import { resolveStoryDispatchMode } from './complexity-gate.js';
 
 /** Labels/state that mean a blocker no longer gates its dependents. */
@@ -355,29 +356,29 @@ export function buildStoriesEnvelope({
 }
 
 /**
- * Parse and validate the `--ids` list.
+ * Parse and validate the `--ids` list, expanding any `A-B` dash range.
+ *
+ * A contiguous span is how an operator names a plan run — `/deliver 4922 -
+ * 4926` — so the range is expanded here rather than transcribed by the host.
+ * `stories-wave-tick.js --stories` reads through this same function, which is
+ * what keeps the sequencing set identical to the resolved one.
  *
  * @param {string|undefined} raw
+ * @param {string} [flag] Flag name, for the error message.
  * @returns {number[]}
  */
-export function parseIds(raw) {
-  const ids = String(raw ?? '')
-    .split(',')
-    .map((s) => s.trim())
-    .filter(Boolean)
-    .map((s) => {
-      const n = Number.parseInt(s, 10);
-      if (!Number.isInteger(n) || n <= 0 || String(n) !== s) {
-        throw new Error(
-          `[resolve-stories] --ids must be a comma-separated list of positive issue numbers (got "${s}").`,
-        );
-      }
-      return n;
-    });
+export function parseIds(raw, flag = '--ids') {
+  const { ids, error } = expandIdList(raw, {
+    flag,
+    prefix: '[resolve-stories] ',
+  });
+  if (error) {
+    throw new Error(error);
+  }
   if (ids.length === 0) {
     throw new Error(
-      '[resolve-stories] --ids is required: node resolve-stories.js --ids 101,102',
+      `[resolve-stories] ${flag} is required: node resolve-stories.js --ids 101,102 (or a range: --ids 101-104)`,
     );
   }
-  return [...new Set(ids)];
+  return ids;
 }
