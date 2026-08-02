@@ -24,9 +24,8 @@
 
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, readdirSync, readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
@@ -60,6 +59,7 @@ import {
   validateTerminalEnvelope,
 } from '../.agents/scripts/lib/orchestration/story-deliver-terminal.js';
 import { confirmStoryMerged } from '../.agents/scripts/lib/single-story/confirm-merge.js';
+import { makeTempDir } from '../.agents/scripts/lib/test-temp.js';
 
 /**
  * Fake ticketing provider mirroring the minimal surface the sibling suites
@@ -1697,7 +1697,7 @@ describe('argv path — --merge-watch-mode (Story #4959)', () => {
       // A per-spawn scratch tempRoot: the child inherits the env, so its
       // friction record lands here instead of the repo's real ledger, where a
       // fixture story id has previously been mistaken for a live signal.
-      const scratch = mkdtempSync(path.join(tmpdir(), 'merge-watch-argv-'));
+      const scratch = makeTempDir('merge-watch-argv-');
       const storyId = 424242;
       const run = spawnSync(
         process.execPath,
