@@ -37,16 +37,19 @@ import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 import { runAsCli } from './lib/cli-utils.js';
+import {
+  buildGraph,
+  collectJsFiles,
+  DEFAULT_ROOTS,
+  parseRelativeImports,
+} from './lib/import-graph.js';
 
-/**
- * Default scan roots making up the project's distributed surface — the
- * directories published to npm via `package.json` `files[]`. Resolving
- * them into one graph (relativized against the repo root) means a cycle
- * crossing two roots is visible to `findCycles`.
- *
- * @type {string[]}
- */
-export const DEFAULT_ROOTS = [path.join('.agents', 'scripts'), 'bin', 'lib'];
+// The import-graph builder itself lives in `lib/import-graph.js` (Story
+// #4902) so `audit-baselines.js` can rank hotspots by import in-degree
+// against the same graph this ratchet detects cycles in. Re-exported here
+// because this module's named exports are its unit-test surface and its
+// documented contract; the behaviour is unchanged by the move.
+export { buildGraph, collectJsFiles, DEFAULT_ROOTS, parseRelativeImports };
 
 /**
  * Parse argv for `--baseline <path>`, `--root <path>`, and `--json`.
@@ -78,90 +81,6 @@ export function parseArgv(argv = []) {
     }
   }
   return { baselinePath, rootPath, json };
-}
-
-/**
- * Recursively collect `.js` files under `rootDir`, skipping
- * `node_modules`. Returns absolute paths, sorted for determinism.
- *
- * @param {string} rootDir
- * @returns {string[]}
- */
-export function collectJsFiles(rootDir) {
-  const out = [];
-  const walk = (dir) => {
-    let entries;
-    try {
-      entries = fs.readdirSync(dir, { withFileTypes: true });
-    } catch {
-      return;
-    }
-    for (const entry of entries) {
-      if (entry.name === 'node_modules') continue;
-      const full = path.join(dir, entry.name);
-      if (entry.isDirectory()) {
-        walk(full);
-      } else if (entry.isFile() && entry.name.endsWith('.js')) {
-        out.push(full);
-      }
-    }
-  };
-  walk(rootDir);
-  return out.sort();
-}
-
-const IMPORT_RE = /from\s+['"](\.\.?\/[^'"]+\.js)['"]/g;
-
-/**
- * Pure helper: extract relative static-import specifiers from source text.
- *
- * @param {string} source
- * @returns {string[]}
- */
-export function parseRelativeImports(source) {
-  const specs = [];
-  for (const m of source.matchAll(IMPORT_RE)) {
-    specs.push(m[1]);
-  }
-  return specs;
-}
-
-/**
- * Build a directed import graph over the given files. Node identity is the
- * file path relative to `rootDir`, posix-separated, so the graph (and any
- * cycles found in it) serializes identically across platforms. Edges that
- * resolve outside the scanned file set are dropped.
- *
- * @param {string[]} files absolute paths
- * @param {string} rootDir
- * @param {{ readFile?: (p: string) => string }} [opts]
- * @returns {Map<string, string[]>}
- */
-export function buildGraph(files, rootDir, { readFile } = {}) {
-  const read = readFile ?? ((p) => fs.readFileSync(p, 'utf-8'));
-  const toId = (abs) => path.relative(rootDir, abs).split(path.sep).join('/');
-  const idSet = new Set(files.map(toId));
-  const graph = new Map();
-  for (const file of files) {
-    const id = toId(file);
-    let source;
-    try {
-      source = read(file);
-    } catch {
-      graph.set(id, []);
-      continue;
-    }
-    const edges = [];
-    for (const spec of parseRelativeImports(source)) {
-      const target = path
-        .relative(rootDir, path.resolve(path.dirname(file), spec))
-        .split(path.sep)
-        .join('/');
-      if (idSet.has(target) && target !== id) edges.push(target);
-    }
-    graph.set(id, [...new Set(edges)].sort());
-  }
-  return graph;
 }
 
 /**
