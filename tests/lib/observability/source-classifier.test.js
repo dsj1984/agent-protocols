@@ -8,7 +8,10 @@
  */
 
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
 import { describe, it } from 'node:test';
+import { fileURLToPath } from 'node:url';
 
 import { RUNTIME_FRICTION_CATEGORIES } from '../../../.agents/scripts/lib/observability/runtime-friction.js';
 import {
@@ -349,6 +352,241 @@ describe('classifySignalSource — defaults & coercion', () => {
         details: 'boom',
       }),
       'framework',
+    );
+  });
+});
+
+/**
+ * Story #4916 — recognition must not depend on how the caller spelled the
+ * reference.
+ *
+ * `node .agents/scripts/acceptance-eval.js --story 4901` classified
+ * `framework` while `acceptance-eval.js --story 4901` classified `consumer`,
+ * so two signals of otherwise identical shape carried different `source`
+ * values and a real framework defect was routed as consumer-actionable and
+ * discarded.
+ */
+const REPO_ROOT = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  '../../..',
+);
+const SCRIPTS_DIR = path.join(REPO_ROOT, '.agents/scripts');
+const CLASSIFIER_PATH = path.join(
+  SCRIPTS_DIR,
+  'lib/observability/source-classifier.js',
+);
+
+describe('classifySignalSource — a bare framework-script basename is framework (Story #4916)', () => {
+  it('classifies the two live shapes measured on main as framework', () => {
+    // Both were measured returning `consumer` before this Story.
+    assert.equal(
+      classifySignalSource({
+        category: 'Execution Error',
+        emitter: {
+          tool: 'diagnose-friction',
+          command: 'single-story-close.js --story 4906',
+        },
+      }),
+      'framework',
+    );
+    assert.equal(
+      classifySignalSource({
+        category: 'Execution Error',
+        emitter: {
+          tool: 'diagnose-friction',
+          command: 'acceptance-eval.js --story 4901',
+        },
+      }),
+      'framework',
+    );
+  });
+
+  it('recognises the basename wherever it sits on the command line', () => {
+    assert.equal(classifyPathSource('', 'node run-tests.js'), 'framework');
+    assert.equal(
+      classifyPathSource('', 'npx --no-install plan-persist.js --dry-run'),
+      'framework',
+    );
+    assert.equal(
+      classifyPathSource('', 'sh -c "check-baselines.js"'),
+      'framework',
+      'surrounding quotes are stripped before the membership test',
+    );
+  });
+
+  it('recognises a bare basename supplied as the failingPath', () => {
+    assert.equal(classifyPathSource('update-ticket-state.js', ''), 'framework');
+  });
+
+  it('is spelling-independent: the pathed and bare forms agree', () => {
+    for (const basename of __testing.FRAMEWORK_SCRIPT_BASENAMES) {
+      assert.equal(
+        classifyPathSource('', `node ${basename} --story 4916`),
+        classifyPathSource('', `node .agents/scripts/${basename} --story 4916`),
+        `${basename}: bare and pathed spellings must classify alike`,
+      );
+    }
+  });
+});
+
+describe('classifySignalSource — the widening does not collapse into always-framework (Story #4916)', () => {
+  it('keeps a plain tool invocation consumer', () => {
+    assert.equal(classifyPathSource('', 'npm test'), 'consumer');
+    assert.equal(
+      classifyPathSource('', 'npm run build --workspace web'),
+      'consumer',
+    );
+    assert.equal(classifyPathSource('', 'pytest -k checkout'), 'consumer');
+  });
+
+  it('keeps a script basename that is not shipped under .agents/scripts/ consumer', () => {
+    assert.equal(classifyPathSource('', 'node seed-database.js'), 'consumer');
+    assert.equal(
+      classifyPathSource('', 'node scripts/deploy.js --env prod'),
+      'consumer',
+    );
+  });
+
+  it('does not match a basename carrying a consumer path segment', () => {
+    // The consumer's own `notify.js` is not the framework's.
+    assert.equal(classifyPathSource('', 'node ./tools/notify.js'), 'consumer');
+    assert.equal(classifyPathSource('tools/notify.js', ''), 'consumer');
+  });
+
+  it('matches whole tokens only, never a substring', () => {
+    assert.equal(classifyPathSource('', 'node my-notify.js'), 'consumer');
+    assert.equal(classifyPathSource('', 'node run-tests.js.bak'), 'consumer');
+  });
+});
+
+describe('source-classifier — widening is one-directional (Story #4916)', () => {
+  it('still returns framework for each of the four FRAMEWORK_PREFIXES forms', () => {
+    assert.deepEqual(__testing.FRAMEWORK_PREFIXES, [
+      '.agents/',
+      '.agentrc.json',
+      '.claude/',
+      'node .agents/scripts/',
+    ]);
+    for (const prefix of __testing.FRAMEWORK_PREFIXES) {
+      assert.equal(
+        classifyPathSource('', `host ${prefix} tail`),
+        'framework',
+        `${prefix} must still classify framework via the command route`,
+      );
+      assert.equal(
+        classifyPathSource(`host/${prefix}tail`, ''),
+        'framework',
+        `${prefix} must still classify framework via the failingPath route`,
+      );
+    }
+  });
+
+  it('still returns framework for the details-scan and tool-degraded tiers', () => {
+    assert.equal(
+      classifySignalSource({
+        category: 'close-failed',
+        details: { reason: 'conflicting files = .agents/scripts/foo.js' },
+      }),
+      'framework',
+      'details-scan tier unchanged',
+    );
+    assert.equal(
+      classifySignalSource({
+        category: 'tool-degraded',
+        emitter: { tool: 'native-review-lint' },
+      }),
+      'framework',
+      'tool-degraded tier unchanged',
+    );
+  });
+
+  it('reclassifies nothing from framework to consumer', () => {
+    // Every input the suite asserts as framework is re-asserted here as a set,
+    // so a future narrowing of the scan cannot pass by editing one case.
+    const frameworkInputs = [
+      ['.agents/scripts/story-init.js', ''],
+      ['repo/.agents/rules/security-baseline.md', ''],
+      ['.agentrc.json', ''],
+      ['subproject/.agentrc.json', ''],
+      ['.claude/settings.json', ''],
+      ['host/.claude/hooks/post-commit', ''],
+      ['', 'node .agents/scripts/story-init.js --story 2553'],
+      ['', 'ls .agents/scripts'],
+      ['', 'cat .agentrc.json'],
+      ['', 'rg foo .claude/'],
+      ['.agents/scripts/foo.js', 'npm run test'],
+      ['src/checkout/index.ts', 'node .agents/scripts/story-init.js'],
+    ];
+    for (const [failingPath, command] of frameworkInputs) {
+      assert.equal(
+        classifyPathSource(failingPath, command),
+        'framework',
+        `(${failingPath}, ${command}) must stay framework`,
+      );
+    }
+  });
+});
+
+describe('source-classifier — the recognized basename set cannot go stale (Story #4916)', () => {
+  it('matches the scripts actually shipped at the top level of .agents/scripts/', () => {
+    const shipped = fs
+      .readdirSync(SCRIPTS_DIR, { withFileTypes: true })
+      .filter((entry) => entry.isFile() && entry.name.endsWith('.js'))
+      .map((entry) => entry.name)
+      .sort();
+    assert.deepEqual(
+      [...__testing.FRAMEWORK_SCRIPT_BASENAMES].sort(),
+      shipped,
+      'a script was added, renamed, or removed without updating ' +
+        'FRAMEWORK_SCRIPT_BASENAMES in source-classifier.js — update the list, ' +
+        'or the classifier silently mis-routes that script’s friction signals',
+    );
+  });
+});
+
+describe('source-classifier — classification performs no filesystem access (Story #4916)', () => {
+  it('reads nothing while classifying', (t) => {
+    const readMethods = [
+      'readFileSync',
+      'readdirSync',
+      'existsSync',
+      'statSync',
+      'openSync',
+      'realpathSync',
+    ];
+    for (const method of readMethods) {
+      t.mock.method(fs, method, () => {
+        throw new Error(`source-classifier must not call fs.${method}`);
+      });
+    }
+    for (const basename of __testing.FRAMEWORK_SCRIPT_BASENAMES) {
+      classifySignalSource({
+        category: 'Execution Error',
+        emitter: {
+          tool: 'diagnose-friction',
+          command: `${basename} --story 1`,
+        },
+      });
+    }
+    classifySignalSource({ category: 'close-failed' });
+    for (const method of readMethods) {
+      assert.equal(
+        fs[method].mock.callCount(),
+        0,
+        `fs.${method} was called during classification`,
+      );
+    }
+  });
+
+  it('imports nothing from node:fs — the set is static data', () => {
+    // Belt-and-braces over the runtime mock above: a named `import { readdirSync }
+    // from 'node:fs'` would bind past the mocked property, so pin the source too.
+    const source = fs.readFileSync(CLASSIFIER_PATH, 'utf8');
+    assert.equal(
+      /from\s+'(node:)?fs(\/promises)?'/.test(source),
+      false,
+      'source-classifier.js must not import node:fs — it is called per signal ' +
+        'and stays pure',
     );
   });
 });
