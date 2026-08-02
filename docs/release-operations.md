@@ -185,16 +185,61 @@ token sitting in repo secrets.
    OIDC exchange.
 3. Trusted Publishing requires **npm CLI >=11.5.1**. `.nvmrc` pins Node 22
    (which bundles an older npm), so the job runs
-   `npm install -g npm@latest` after `npm ci` and before `npm publish` to
-   pick up a CLI that supports the OIDC flow. Re-check this step is still
-   needed if `.nvmrc` is ever bumped to a Node version that bundles a
-   sufficiently new npm by default.
+   `npm install -g npm@11.18.0` after `npm ci` and before `npm publish` to
+   pick up a CLI that supports the OIDC flow.
+
+> **The `npm@11.18.0` pin is deliberate — do not float it to `@latest`.**
+> npm 12.0.0's in-place global self-upgrade leaves the freshly-replaced global
+> npm tree unable to resolve the bundled `sigstore` module from
+> `libnpmpublish/lib/provenance.js`, so `npm publish` with
+> `publishConfig.provenance: true` dies with `Cannot find module 'sigstore'` —
+> with no change on our side. The pin is the last known-good npm 11 line and
+> keeps the `>=11.5.1` Trusted-Publishing floor. **Re-check trigger:** bump it
+> once a 12.x self-upgrade is verified clean — *not* when `.nvmrc` moves to a
+> newer Node. The pinned value lives in the `Upgrade npm for Trusted
+> Publishing` step of
+> [`release-please.yml`](../.github/workflows/release-please.yml).
 
 If the Trusted Publisher is not configured (or its repo/workflow fields
 don't match), `npm publish` fails authentication and the package is not
 published — release-please still tags `main` and creates the GitHub
 Release regardless, so a publish failure here does not block the release
 itself, only the npm artifact.
+
+#### Recovering a stuck release (`workflow_dispatch` republish)
+
+A release whose tag and GitHub Release were created but whose `npm publish`
+failed leaves the version missing on npm. `release-please.yml` also triggers on
+`workflow_dispatch`, and `npm-publish` runs on that event as well as on a root
+release cut, so the gap can be filled without waiting for a new version:
+
+```bash
+gh workflow run release-please.yml --repo dsj1984/mandrel
+```
+
+This is safe to re-run: the npm registry rejects re-publishing an
+already-present version, so a dispatch can only publish the current
+`package.json` version if it is missing on npm — it can never clobber an
+existing one. Fix the root cause first (Trusted Publisher fields, or the npm
+pin above), then dispatch.
+
+#### The `update-loc-baseline` post-release PR
+
+After a root release is cut, the `update-loc-baseline` job regenerates
+`baselines/agents-loc.csv` (the `.agents/` payload LOC/bytes tracker, produced
+by `baselines/agents-loc-baseline.mjs`) with a row for the freshly released
+version. If the file changed, the job opens a **CSV-only, auto-merged PR**
+titled `chore(baselines): record .agents loc/bytes for mandrel-vX.Y.Z` from
+branch `chore/loc-baseline-<tag>`, authored by `github-actions[bot]` under
+`RELEASE_PLEASE_TOKEN`.
+
+It goes through a PR rather than a direct push because `main` is
+branch-protected; it is opened under the PAT (not the default `GITHUB_TOKEN`)
+for the same reason the release PR is — a `GITHUB_TOKEN`-authored PR does not
+trigger `Validate and Test` / `baselines`, so auto-merge could never satisfy
+branch protection. **This bot PR is expected after every release** and needs no
+operator action; if the baseline did not change, the job logs that and exits
+without opening one.
 
 ### Versioning policy
 

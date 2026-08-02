@@ -14,7 +14,7 @@
 > `mandrel-v2.0.0`. How the resulting system works is documented in
 > [`architecture.md`](architecture.md) and the workflow prose, not here.
 >
-> **Last reviewed:** 2026-07-16 against framework version 2.0.0.
+> **Last reviewed:** 2026-08-02 against framework version 2.25.0.
 
 ## 1. Someday — aspirational & model-shift monitors
 
@@ -28,10 +28,12 @@ dependency trip-wires live in the appendix, not here.
    related capability lift). Until then worktree isolation is concurrency
    physics and keeps.
 2. **Remaining sequential-only audit lenses** (`audit-dependencies`,
-   `audit-devops`, `audit-sre`, `audit-privacy`, `audit-seo`, `audit-ux-ui`,
-   `audit-lighthouse`) — re-price on inference economics. Several are
+   `audit-devops`, `audit-sre`, `audit-privacy`, `audit-seo`, `audit-ux-ui`)
+   — re-price on inference economics. Several are
    externally bound or not dimensionally decomposable; sequential may be the
-   correct default forever. Any generalization must clear the measured
+   correct default forever. (A lens dropping off this list means it was
+   retired, not that it was parallelized — the roster is the live lens set.)
+   Any generalization must clear the measured
    **~5× token-multiple / no-precision-loss gate** lens-by-lens (anchor:
    `audit-clean-code`, 2026-06-04 — 23 agents, ~2.47M tokens, 49/51 findings
    kept). Do not batch-convert.

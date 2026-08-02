@@ -1,25 +1,27 @@
 # Claude Coupling Inventory
 
-**Snapshot date:** 2026-07-17 · **Commit:** `493b3eb0` · **Scope:** whole repository
+This document records **where** Mandrel is coupled to Claude (the model) or
+Claude Code (the host runtime). It is **evidence for**, not a revision of, the
+coupling stance fixed in [ADR `20260512-coupling-stance`](decisions.md) — that
+ADR remains the authoritative statement of what Mandrel deliberately couples
+to. Read this file before widening the supported-host set, before touching the
+projection pipeline, or when scoping a provider-agnosticism effort.
 
-This document inventories every point at which Mandrel is coupled to Claude
-(the model) or Claude Code (the host runtime). It is **evidence for**, not a
-revision of, the coupling stance fixed in
-[ADR `20260512-coupling-stance`](decisions.md) — that ADR remains the
-authoritative statement of what Mandrel deliberately couples to. Read this file
-when you need to know *where* the coupling actually lives: before widening the
-supported-host set, before touching the projection pipeline, or when scoping a
-provider-agnosticism effort.
-
-It is a point-in-time inventory. Treat the file:line citations as accurate as
-of the commit above and re-verify before acting on them.
+> **The verbatim file:line citation tables have been archived.** The
+> point-in-time inventory taken at commit `493b3eb0` (2026-07-17) — the
+> per-cluster citations, the config/schema table, and the branding sweep —
+> now lives in
+> [`archive/claude-coupling-review-2026-07.md`](archive/claude-coupling-review-2026-07.md).
+> Those citations were **not** re-verified and a spot-check found several no
+> longer landing; read them as a historical record, and re-derive from the
+> current tree before acting. What remains below is the part that still binds.
 
 ---
 
 ## Headline
 
 **There is no coupling to Claude the model.** The repository carries no
-`@anthropic-ai/*` dependency, makes no Anthropic API calls, holds no
+`@anthropic-ai/*` dependency, makes no Anthropic API calls, reads no
 `ANTHROPIC_API_KEY`, hardcodes no model IDs in runtime logic, and contains no
 prompt addressed to "Claude". The runtime is the host process, not an API
 client.
@@ -39,134 +41,52 @@ comments as the cross-runtime contract, while the workflow / `.claude/` / hook
 
 ## Host-integration clusters
 
-The seven clusters below are the real coupling, ordered hardest to easiest to
-abstract. Everything outside this section is prose or a centralized constant.
+Seven clusters carry the real coupling, ordered hardest to easiest to abstract.
+Everything outside them is prose or a centralized constant.
 
-### 1. The `.claude/` projection pipeline — the single biggest lever
-
-The distribution model itself: materialize `.agents/`, then project workflows
-into `.claude/commands/` and agent definitions into `.claude/agents/`. The CLI
-orbits this projection.
-
-| Location | Coupling |
-| --- | --- |
-| [`.agents/scripts/sync-claude-commands.js`](../.agents/scripts/sync-claude-commands.js) | Projects `.agents/workflows/*` → `.claude/commands/*.md`; namespaces subpaths as `/loops:<name>` |
-| [`.agents/scripts/sync-claude-agents.js`](../.agents/scripts/sync-claude-agents.js) | Projects role defs → `.claude/agents/<name>.md` for `subagent_type: <name>` |
-| [`bin/mandrel.js:57`](../bin/mandrel.js) | `sync-commands` / `sync-agents` subcommands hardcode the `.claude/` targets |
-| [`lib/cli/sync-commands.js`](../lib/cli/sync-commands.js), [`lib/cli/sync-agents.js`](../lib/cli/sync-agents.js) | Delegators to the two engines above |
-| [`lib/cli/registry.js:224`](../lib/cli/registry.js) | Doctor checks `commands-in-sync` / `agents-in-sync`; the latter is **fatal** when `roleScopedAgents` is default-true and the tree is unmaterialized |
-| [`lib/cli/update.js:743`](../lib/cli/update.js) | Upgrade + drift-heal steps regenerate both trees |
-| [`lib/cli/uninstall.js:126`](../lib/cli/uninstall.js) | `revertClaudeMd`, `revertClaudeSettings`, `revertClaudeCommands` |
-| [`lib/cli/doctor.js:85`](../lib/cli/doctor.js) | `context-closure` resolves the `CLAUDE.md` `@`-import graph |
-| `.agents/scripts/lib/bootstrap/project-bootstrap.js` | Writes consumer `CLAUDE.md` (`SYSTEM_PROMPT_CLAUDE_MD`), wires the `.claude/settings.json` hook, injects gitignore rules |
-| `.agents/scripts/lib/command-header.js` | Exists solely to satisfy Claude Code's command-frontmatter parsing |
-| [`.github/workflows/install-matrix.yml:285`](../.github/workflows/install-matrix.yml) | CI asserts the projection so `doctor` reports green |
-| [`.gitignore:50`](../.gitignore) | Ignore block for the generated `.claude/*` trees |
-
-### 2. `Agent` / `subagent_type` dispatch semantics
-
-- `delivery.routing.roleScopedAgents` — converted spawns boot on
-  `.claude/agents/<role>.md` instead of the `CLAUDE.md` closure
-  (`.agents/schemas/agentrc.schema.json`,
-  `.agents/scripts/lib/config-settings-schema-delivery.js:181`).
-- `.agents/workflows/helpers/acceptance-self-eval.md` — dispatches
-  `subagent_type: acceptance-critic`, noting "Claude Code ≥ 2.1.202".
-- [`.agents/instructions.md`](../.agents/instructions.md) § 4 and
-  `.agents/scripts/lib/checks/subagent-agent-tool-required.js` — hardcode Claude
-  Code nesting-depth facts (verified depth 2, announced max 5).
-
-**Already mitigated:** every converted spawn falls back to
-`subagent_type: general-purpose`, documented as the escape for hosts that
-ignore `.claude/agents/`, and `roleScopedAgents: false` is a kill-switch.
-
-### 3. `claude` CLI shell-outs (review providers)
-
-- `.agents/scripts/lib/orchestration/review-providers/security-review.js` —
-  `spawnSync('claude', ['--print', …])`, probes `claude --version`.
-- `.agents/scripts/lib/orchestration/review-providers/codex.js` —
-  `spawnSync('claude', …)`, probes `~/.claude/plugins/codex-plugin-cc`.
-- `.agents/scripts/lib/orchestration/review-providers/ultrareview.js` —
-  prompt-only; degrades gracefully on a non-Claude host.
-
-**Already mitigated, and the pattern to copy elsewhere:** all three sit behind
-`review-provider-factory.js` with `optional: true` skip semantics and
-injectable `invokeFn` / `probeFn` / `spawnFn` seams. The `native` provider is
-fully host-agnostic.
-
-### 4. Hook, env, and session contract
-
-- `.agents/scripts/lib/observability/tool-trace-hook.js` — invoked from
-  `.claude/settings.json` `PreToolUse` / `PostToolUse`; parses the harness's
-  stdin contract.
-- `.agents/scripts/lib/observability/active-story-env.js` — `CC_STORY_ID`
-  re-spawn semantics; `CC_EPIC_ID` / `CC_PHASE` / `CC_OPERATOR` / `CC_SLICE_ID`
-  are the propagation channel throughout.
-- `.agents/scripts/lib/config/runtime.js` — remote/web detection keyed entirely
-  on `CLAUDE_CODE_REMOTE` and `CLAUDE_CODE_REMOTE_SESSION_ID`.
-
-### 5. Dynamic-workflows feature gating
-
-`.agents/scripts/lib/dynamic-workflow/capability.js` gates a Claude Code-only,
-paid-plan, research-preview feature: env flags `CLAUDE_CODE_DISABLE_WORKFLOWS`,
-`CLAUDE_CODE_RUNTIME`, `CLAUDE_CODE_VERSION`, `CLAUDE_CODE_PLAN`, and the
-`not-claude-runtime` reason sentinel. Six `audit-*.md` workflows carry an
-identical `.claude/workflows/<name>.workflow.js` block, mirrored in the
-`*-report-contract.js` files.
-
-### 6. `~/.claude/projects/<repo>/memory/` reads
-
-- `.agents/scripts/lib/orchestration/planning/authoring-context.js:34`
-- `.agents/scripts/lib/feedback-loop/memory-freshness.js:6`
-
-### 7. Host tool-name assumptions in skills and schemas
-
-- `AskUserQuestion` named directly in
-  `.agents/skills/core/idea-refinement/SKILL.md` and
-  `.agents/schemas/lifecycle/intervention.recorded.schema.json`.
-- The `mcp__chrome-devtools__*` surface assumed by `qa-run`,
-  `audit-lighthouse`, and the qa-harness skill — already documented as a
-  host-provided dependency that degrades with a clear error.
-- `.agents/skills/core/browser-testing-with-devtools/SKILL.md:50` — install
-  snippet names Claude Code config and the `@anthropic/chrome-devtools-mcp`
-  package.
-
----
-
-## Config and schema coupling
-
-Small and centralized — each item below is a single choke point.
-
-| Location | Item |
-| --- | --- |
-| `.agents/scripts/lib/orchestration/model-attribution.js` | `deriveFamily()` recognizes only Opus/Sonnet/Haiku; env fallbacks `CLAUDE_MODEL`, `ANTHROPIC_MODEL`. The one choke point for model identity. |
-| `.agents/schemas/model-attribution.schema.json:24` | Example model IDs (`claude-opus-4-7`, `claude-sonnet-4-6`) and family labels |
-| `.agents/scripts/lib/observability/tool-trace-hook.js:265` | `haiku` / `sonnet` / `opus` redaction allowlist |
-| `context-envelope.js:85`, `plan-context.js:49`, `checklist-threading.js:48` | The ≈4-chars/token estimate — Anthropic-flavored heuristic, provider-neutral in form |
+1. **The `.claude/` projection pipeline** — the single biggest lever. The
+   distribution model itself: materialize `.agents/`, then project workflows
+   into `.claude/commands/` and agent definitions into `.claude/agents/`. The
+   CLI, the doctor checks, the upgrade path, uninstall, and consumer bootstrap
+   all orbit this projection.
+2. **`Agent` / `subagent_type` dispatch semantics** — `roleScopedAgents` boots
+   converted spawns on `.claude/agents/<role>.md` instead of the `CLAUDE.md`
+   closure, and Claude Code nesting-depth facts are hardcoded.
+   **Already mitigated:** every converted spawn falls back to
+   `subagent_type: general-purpose`, documented as the escape for hosts that
+   ignore `.claude/agents/`, and `roleScopedAgents: false` is a kill-switch.
+3. **`claude` CLI shell-outs (review providers)** — the `security-review`,
+   `codex`, and `ultrareview` providers spawn or probe the `claude` binary.
+   **Already mitigated, and the pattern to copy elsewhere:** all three sit
+   behind `review-provider-factory.js` with `optional: true` skip semantics and
+   injectable `invokeFn` / `probeFn` / `spawnFn` seams. The `native` provider is
+   fully host-agnostic.
+4. **Hook, env, and session contract** — the tool-trace hook parses the
+   harness's stdin contract from `.claude/settings.json`; `CC_*` vars are the
+   propagation channel throughout; remote/web detection keys entirely on
+   `CLAUDE_CODE_REMOTE*`.
+5. **Dynamic-workflows feature gating** — a Claude Code-only, paid-plan,
+   research-preview feature gated on `CLAUDE_CODE_*` env flags and a
+   `not-claude-runtime` reason sentinel, with per-lens workflow blocks mirrored
+   in the report-contract files.
+6. **`~/.claude/projects/<repo>/memory/` reads** — planning authoring-context
+   and memory-freshness both read the host's memory directory.
+7. **Host tool-name assumptions in skills and schemas** — `AskUserQuestion` is
+   named directly in a skill and a lifecycle schema, and the
+   `mcp__chrome-devtools__*` surface is assumed by `qa-run`,
+   `audit-accessibility`, and the qa-harness skill.
+   **Already mitigated** for the last one: it is documented as a host-provided
+   dependency that degrades with a clear error.
 
 Two things worth recording because they look coupled and are not:
 
-- **`DEFAULT_MODEL_CAPACITY`** (`ticket-validator-sizing.js:99`) is a frozen
+- **`DEFAULT_MODEL_CAPACITY`** (`ticket-validator-sizing.js`) is a frozen
   authored-token ceiling bag, not a Claude-model constant. It names no model.
   Provider-neutral in substance; only the thresholds would merit revisiting
   per-provider.
 - **[`.agentrc.json`](../.agentrc.json)** is clean — no model names, no
   Claude-specific keys. The `agentrc` schema already speaks in neutral terms
   ("host-LLM", "cross-runtime portability").
-
----
-
-## Branding and prose
-
-Cosmetic tier — a find-and-replace if the stance ever changes, but the ADR
-should move first.
-
-- [`package.json`](../package.json) — "Claude Code-first…" description, the
-  `claude-code` keyword
-- [`AGENTS.md`](../AGENTS.md), [`architecture.md`](architecture.md),
-  [`.agents/docs/SDLC.md`](../.agents/docs/SDLC.md) — the coupling-stance prose
-  (deliberate, ADR-governed)
-- [`README.md:37`](../README.md), [`patterns.md:171`](patterns.md), the
-  loop-units ADR, and roughly 25 further prose spots across `.agents/`
 
 ---
 
