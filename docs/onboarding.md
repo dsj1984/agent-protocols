@@ -20,29 +20,35 @@ mandrel/
 ├── .agents/                  # Distributed: the materialized payload
 │   ├── instructions.md       # ★ Primary system prompt — load this first
 │   ├── agents/               # Role-scoped spawn boot contexts (optional)
+│   ├── audit-checklists/     # Generated per-lens audit checklists
 │   ├── rules/                # Domain-agnostic coding/ops rules
 │   ├── skills/               # Two-tier skill library (core/ + stack/)
 │   ├── workflows/            # SDLC & audit slash-command workflows
 │   ├── scripts/              # Deterministic JS tooling (orchestration engine)
 │   ├── schemas/              # JSON Schemas for structured output validation
 │   ├── templates/            # Planning prompt templates
-│   ├── docs/                 # Shipped consumer reference docs (SDLC.md, configuration.md, agentrc-reference.json)
+│   ├── docs/                 # Shipped consumer reference docs (SDLC.md, configuration.md, execution-reference.md, quality-gates.md, workflows.md, agentrc-reference.json)
+│   ├── runtime-deps.json     # Runtime dependencies the payload needs present
 │   ├── starter-agentrc.json  # Bootstrap delta-seed — consumers copy to project root
 │   └── README.md             # Detailed consumer user guide
 ├── bin/                      # Distributed: mandrel.js (CLI dispatcher) + postinstall.js
 ├── lib/                      # Distributed: cli/ subcommand impls + migrations/
 ├── .agentrc.json             # Root config for this repo (dogfooding)
+├── baselines/                # Committed quality/ratchet baselines
 ├── docs/                     # Implementation plans and changelog
+├── scripts/                  # Repo-local dev scripts (not distributed)
 ├── tests/                    # Framework tests
 ├── package.json              # Tooling: biome, markdownlint, husky
 ```
 
-> **Key distinction:** the published package ships exactly the three
-> directories marked *Distributed* above — `.agents/`, `bin/`, and `lib/`, per
-> the `files` array in [`package.json`](../package.json). Only `.agents/` is
-> *materialized* into the consumer's working tree (by `mandrel sync`); `bin/`
-> and `lib/` stay in `node_modules/mandrel/` and back the `npx mandrel …` CLI.
-> Everything else in this repository is internal development tooling.
+> **Key distinction:** the published package ships the three directories marked
+> *Distributed* above — `.agents/`, `bin/`, and `lib/` — plus the single file
+> `docs/CHANGELOG.md`, per the `files` array in
+> [`package.json`](../package.json) (which also excludes the `__tests__`
+> subtrees under `.agents/` and `lib/`). Only `.agents/` is *materialized* into
+> the consumer's working tree (by `mandrel sync`); `bin/` and `lib/` stay in
+> `node_modules/mandrel/` and back the `npx mandrel …` CLI. Everything else in
+> this repository is internal development tooling.
 
 ---
 
@@ -53,8 +59,10 @@ mandrel/
    taking any action.
 
 2. **Resolve configuration:** Settings are in
-   [`.agentrc.json`](../.agentrc.json). See the `project`, `github`,
-   `planning`, and `delivery` sections for project-specific values.
+   [`.agentrc.json`](../.agentrc.json). This repository's file carries the
+   `project`, `github`, and `delivery` sections; the full key set the schema
+   accepts (including `planning`) is documented in
+   [`.agents/docs/configuration.md`](../.agents/docs/configuration.md).
    Tech-stack context lives in [`architecture.md`](architecture.md) under the
    **Tech Stack** section, not in the JSON config.
 
@@ -81,23 +89,37 @@ mandrel/
 | Area         | Tool / Convention                                              |
 | ------------ | -------------------------------------------------------------- |
 | Language     | Markdown (prose), JavaScript ESM (scripts), JSON (config)      |
-| Linter       | `biome` + `markdownlint` — run via `npm run lint`              |
-| Formatter    | `biome` — run via `npm run format`                             |
-| Git Hooks    | Husky + lint-staged (auto-lint `.md` files on commit)          |
+| Linter       | `biome` + `markdownlint` + the repo's own ratchets — `npm run lint` |
+| Formatter    | `biome format` — **JavaScript and JSON only**; markdown is not formatted by `npm run format` (see below) |
+| Git Hooks    | Husky — `pre-commit` runs version-sync, lint-staged, and the blocking `quality-preview.js --staged` MI/CRAP gate; `pre-push` runs the diff-scoped quality preview plus the coverage/CRAP ratchet |
 | Node Version | >=22.22.1 <25                                                  |
 | Package Mgr  | npm                                                            |
 | Shell        | PowerShell (Windows) — use `;` not `&&` as statement separator |
-| CI/CD        | GitHub Actions (`ci.yml`) — validates markdown + tests         |
+| CI/CD        | GitHub Actions (`ci.yml`) — `Validate and Test` + `baselines` (required) and the advisory `Windows Smoke` leg |
+
+**Markdown is not auto-formatted by `npm run format`.** That script is
+`biome format --write .`, and [`biome.json`](../biome.json) declares only a
+`javascript.formatter` — Biome ignores `.md` paths entirely, so the command
+reports `Checked 0 files` for markdown and changes nothing. The only markdown
+fixer wired up is `markdownlint-cli2 --fix`, which runs from
+[`.lintstagedrc`](../.lintstagedrc) on **staged** `.md` files at commit time.
+To fix a markdown file outside a commit, invoke it directly:
+
+```bash
+npx markdownlint-cli2 --fix path/to/file.md
+```
 
 ### Key Commands
 
 ```text
-npm run lint              # Markdown lint + generated-doc drift gate (docs:check);
-                          #   if it fails on drift, run docs:gen to regenerate
+npm run lint              # biome ci + markdownlint + the lifecycle/workflow-cli/
+                          #   label-vocabulary/arch-cycles ratchets, then the
+                          #   generated-doc drift gate (docs:check); if it fails
+                          #   on drift, run docs:gen to regenerate
 npm run docs:gen          # Regenerate config/lifecycle/workflows docs
 npm run skills:index      # Regenerate the skills index
-npm run format            # Auto-format all markdown files
-npm run format:check      # Verify formatting without modifying files
+npm run format            # biome format --write . — JavaScript/JSON only, NOT markdown
+npm run format:check      # biome ci . — verify without modifying files
 npm run test:quick        # TDD loop — excludes slow integration-style suites
 npm run test:integration  # Real-git / hook-chain / long orchestration suites only
 npm test                  # Full suite (same as CI test gate)
@@ -120,6 +142,23 @@ cannot be reproduced from a local working tree — those are catalogued in
 sufficient. Pre-push runs only diff-scoped quality preview plus coverage/CRAP
 ratchet; it does not run full lint or `npm test`. CI always runs the full
 `npm test` suite.
+
+### Where the CRAP / Maintainability gates fire
+
+The same `delivery.quality.*` thresholds from [`.agentrc.json`](../.agentrc.json)
+are enforced at four sites, earliest first:
+
+| Site | Scope | Blocking? |
+| --- | --- | --- |
+| [`.husky/pre-commit`](../.husky/pre-commit) — `quality-preview.js --staged` | staged index paths only | **Yes** — a threshold violation exits non-zero and the commit is refused |
+| [`.husky/pre-push`](../.husky/pre-push) — `quality-preview.js --changed-since origin/main` plus `crap:check` | diff against `origin/main` | **Yes** — the push is refused |
+| Story close-validation (`single-story-close.js`) | the Story's whole change set | **Yes** — close stops |
+| CI (`ci.yml`, push + PR) | diff-scoped on PR, `BASELINE_SCOPE=full` on push to `main` | **Yes** — a required check fails |
+
+`.husky/pre-commit` is the one most easily forgotten and the one that bites
+first: it fires before any other gate, and a green `npm run lint` /
+`npm test` / `check-baselines.js` run does **not** predict it, because none of
+those measures per-file maintainability-index or CRAP deltas.
 
 ### Slow-test profiling
 

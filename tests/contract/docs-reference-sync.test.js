@@ -248,6 +248,8 @@ const UNRESOLVED_BY_DESIGN = Object.freeze({
   // --- Not this repository's files ----------------------------------------
   'src/index.ts': 'file in release-please-action v5.0.0, an external repo',
   'pnpm-lock.yaml': "a consumer project's lockfile, not this repo's",
+  'libnpmpublish/lib/provenance.js':
+    "a module inside the npm CLI's own bundled tree, not this repo's — cited by docs/release-operations.md as the npm 12.0.0 sigstore-resolution failure site",
 });
 
 describe('docs in scope — every backticked path resolves (Story #4785)', () => {
@@ -397,10 +399,17 @@ describe('data-dictionary.md — SignalEvent row mirrors the live schema (Story 
     assert.deepEqual([...required].sort(), ['kind', 'ts']);
 
     // Every SignalEvent row in the table, keyed by field name.
+    // Bound the slice at the next `## ` heading rather than a named one: the
+    // sections that followed SignalEvent were archived in Story #4924, and a
+    // missing sentinel would silently widen the slice over the neighbouring
+    // FrictionEvent table (whose Required column mirrors a different schema).
     const md = dataDictionary();
+    const start = md.indexOf('## SignalEvent');
+    assert.notEqual(start, -1, 'data-dictionary.md lost its SignalEvent table');
+    const nextHeading = md.indexOf('\n## ', start + 1);
     const section = md.slice(
-      md.indexOf('## SignalEvent'),
-      md.indexOf('## StoryPerfSummary'),
+      start,
+      nextHeading === -1 ? md.length : nextHeading,
     );
     // Cells may carry escaped pipes inside a type expression, which would
     // shift every column index if split naively. The Required column never

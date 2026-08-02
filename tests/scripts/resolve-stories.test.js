@@ -549,6 +549,20 @@ describe('parseIds', () => {
   it('rejects an empty list', () => {
     assert.throws(() => parseIds(''), /--ids is required/);
   });
+  it('expands an inclusive dash range, as the operator types it', () => {
+    assert.deepEqual(parseIds('4922-4925'), [4922, 4923, 4924, 4925]);
+    assert.deepEqual(parseIds('4922 - 4924'), [4922, 4923, 4924]);
+  });
+  it('dedupes a range against the singles around it', () => {
+    assert.deepEqual(parseIds('4920,4922-4924,4923'), [4920, 4922, 4923, 4924]);
+  });
+  it('rejects a backwards range instead of resolving nothing', () => {
+    assert.throws(() => parseIds('4926-4922'), /low-to-high/);
+  });
+  it('names the caller flag in the error, so --stories does not report --ids', () => {
+    assert.throws(() => parseIds('abc', '--stories'), /--stories must be/);
+    assert.throws(() => parseIds('', '--stories'), /--stories is required/);
+  });
 });
 
 describe('storyFootprintPaths — an unreadable footprint fails SAFE, not open', () => {

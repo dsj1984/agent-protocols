@@ -24,6 +24,7 @@
  *
  * Usage:
  *   node .agents/scripts/resolve-stories.js --ids 101,102
+ *   node .agents/scripts/resolve-stories.js --ids 101-104        # inclusive range
  *   node .agents/scripts/resolve-stories.js --ids 101,102 --pretty
  *   node .agents/scripts/resolve-stories.js --ids 101 --no-native   # skip the dependencies API
  *
@@ -65,7 +66,9 @@ blocked_by edges, with every blocker (in-set or foreign) resolved against its
 real issue state.
 
 Options:
-  --ids <csv>    Comma-separated Story issue numbers. Required.
+  --ids <csv>    Comma-separated Story issue numbers. Required. A token may be
+                 a single id (4922) or an inclusive dash range (4922-4926);
+                 ranges expand in place and dedupe against the rest.
   --pretty       Pretty-print the JSON envelope.
   --no-native    Skip the native blocked_by read (body edges only).
   --help         Show this help.

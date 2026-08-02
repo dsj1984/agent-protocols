@@ -40,34 +40,45 @@ being reserved names with no shipped detector.
 
 ---
 
-## StoryPerfSummary / EpicPerfReport — removed (Story #4545)
+## Retired vocabulary (archived)
 
-Both payloads and their schemas were deleted with the execution-analysis
-surface that produced them. Nothing writes a `structured:story-perf-summary`
-or `structured:epic-perf-report` comment, and neither is a valid structured
-comment type any more.
+Four sections whose entire body recorded that a surface was gone — they defined
+no live vocabulary — are archived verbatim:
+[StoryPerfSummary / EpicPerfReport](archive/data-dictionary-2026-08.md#storyperfsummary--epicperfreport),
+[Dispatch Manifest](archive/data-dictionary-2026-08.md#dispatch-manifest),
+[Health-Monitor Refresh Cadence](archive/data-dictionary-2026-08.md#health-monitor-refresh-cadence),
+[Retro Heuristic](archive/data-dictionary-2026-08.md#retro-heuristic).
 
-## FrictionEvent (`friction` NDJSON signal)
+---
 
-Appended to `temp/run-<eid>/stories/story-<sid>/signals.ndjson` (or
-`temp/standalone/stories/story-<sid>/signals.ndjson`) by
-`signals-writer.appendSignal` when detector or gate-failure paths
-trip. (Pre Epic #1030 Story #1042 the same payload was posted as a
-GitHub structured comment by the now-deleted in-process emitter.)
-Schema lives at
-[`friction-event.schema.json`](../.agents/schemas/friction-event.schema.json);
-the table below mirrors that schema — update both together.
+## FrictionEvent (legacy schema — not the live `friction` record)
+
+**A live `friction` record is a `SignalEvent` with `kind: "friction"`** — see
+the table above. `appendSignal` validates against `signal-event.schema.json`
+(the only file `signal-validator.js` compiles), and
+`diagnose-friction.js#buildFrictionSignal` is the producer.
+
+[`friction-event.schema.json`](../.agents/schemas/friction-event.schema.json)
+is the pre-cutover document from Epic #1030, superseded by
+`signal-event.schema.json` in the Epic #4406 envelope cutover. No writer,
+reader, or validator loads it — a retained record, not a contract. Mirrored
+here field for field so the two shapes are not confused:
 
 | Field      | Type                | Required | Description                                                            |
 | ---------- | ------------------- | -------- | ---------------------------------------------------------------------- |
 | `eventId`  | `uuid string`       | Yes      | Unique event identifier.                                               |
-| `timestamp`| `ISO8601 date-time` | Yes      | When the event occurred.                                               |
-| `sprintId` | `string`            | Yes      | Epic identifier the event belongs to. Field is `sprintId` for back-compat with the schema; rename to `epicId` is a planned breaking change tracked in the next major. |
-| `taskId`   | `integer`           | Yes      | GitHub issue number of the Story (legacy field name `taskId`).          |
+| `timestamp`| `ISO8601 date-time` | Yes      | When the event occurred. The live envelope's key is `ts`.               |
+| `sprintId` | `string`            | Yes      | Epic identifier the event belongs to. The live envelope's key is `epicId`. |
 | `category` | `enum`              | Yes      | One of `Prompt Ambiguity`, `Missing Skill`, `Incorrect Persona`, `Tool Limitation`, `Execution Error`. |
-| `details`  | `string`            | Yes      | Specific error message or observation.                                  |
-| `source`   | `object`            | No       | `{ tool?: string, command?: string }` — failed tool / command.          |
+| `details`  | `string`            | Yes      | Specific error message or observation. The live envelope requires an **object** here. |
+| `source`   | `object`            | No       | `{ tool?, command? }` — failed tool / command. The live envelope moved this to `emitter` and reuses `source` for the framework/consumer tag. |
 | `context`  | `object`            | No       | `{ protocolFile?: string }` — relevant protocol file path.              |
+
+`required` is exactly `["eventId", "timestamp", "sprintId", "category",
+"details"]`. **`taskId` is not in it and is not a property of this schema at
+all** — `additionalProperties: false` rejects it outright. (The live
+`SignalEvent` envelope does carry an optional `taskId`, always `null` since
+the 2-tier hierarchy landed.)
 
 ---
 
@@ -112,6 +123,10 @@ outside this set MUST be proposed in a PR that updates the rule before use.
 | `@platform-mobile`| Platform exclusive     | Scenario only makes sense on the mobile client.                                                      |
 | `@domain-<slug>`  | Domain scope (required)| Exactly one per scenario. Slug is project-defined (e.g. `@domain-billing`, `@domain-auth`).          |
 | `@flaky`          | Operational quarantine | Scenario excluded from the gating suite; runs in a non-blocking job until stabilized. Debt marker.   |
+| `@skip`           | Scaffold gating        | Scenario scaffolded ahead of its implementation; excluded from the gating suite until the implementing Story removes the tag (the "de-skip" edit). Unlike `@flaky`, it marks planned not-yet-implemented behavior, never instability. |
+
+Retired: `@epic-<id>-ac-N` is inert — never apply it to new scenarios;
+`mandrel update` strips surviving instances from consumer files.
 
 ---
 
@@ -204,16 +219,6 @@ readers should not re-implement the fence-extraction logic inline.
 
 ---
 
-## Dispatch Manifest (historical)
-
-> **Historical.** The dispatch manifest (`temp/dispatch-manifest-<epicId>.json`,
-> its structured comment, and its renderer `render-manifest.js`) was deleted
-> with the Epic tier in v2.0.0 — nothing writes it. The v2 dispatch record is
-> the Story's own GitHub surface: labels, structured comments, and the
-> `story-<id>` PR.
-
----
-
 ## Resilience & Throughput Primitives
 
 | Term                                                | Kind     | Definition                                                                                                                                                                       |
@@ -245,7 +250,13 @@ readers should not re-implement the fence-extraction logic inline.
 | --------- | ----------------------------------------------------------------------------------------------------- |
 | `silent`  | Only `fatal` emits.                                                                                   |
 | `info`    | Default. `info` / `warn` / `error` / `fatal` emit; `debug` is suppressed.                             |
-| `verbose` | All levels emit, including `debug` trace output. `debug` is accepted as a backward-compat alias.       |
+| `verbose` | All levels emit, including `debug` trace output.                                                      |
+
+`VALID_LEVELS` (`resolveLevel`) accepts **only** these three. There is no
+`debug` level and no backward-compat alias for one: any other value —
+`debug` included — falls back to `info`, so `AGENT_LOG_LEVEL=debug`
+silently suppresses the trace output it looks like it enables. Use
+`verbose`.
 
 ---
 
@@ -334,20 +345,6 @@ and overwrites the record on success.
 
 ---
 
-## Health-Monitor Refresh Cadence
-
-> **Historical.** The Epic Health (`epic-run-progress`) structured comment
-> and `lib/orchestration/epic-runner/progress-reporter/` were deleted with
-> the in-process epic-runner stratum (PR #3936 / #3908). v2 Story delivery
-> does not refresh an Epic health comment on a wave cadence.
->
-> Live progress surfaces are Story-scoped structured comments
-> (`story-init`, `friction`, `verification-results`, `follow-ups`) plus the
-> lifecycle ledger under `temp/run-<id>/`. The former lifecycle-bus
-> `structured-comment-poster` listener is also deleted.
-
----
-
 ## QA Session & Ledger Artifacts
 
 `/qa-assist` (human-led) and `/qa-explore` (agent-led) share a persistent,
@@ -364,17 +361,3 @@ before it reaches disk.
 | `resolveQaSession({ sessionId, config, env })` | Helper  | `lib/qa/qa-session.js`. Resolves `{ sessionId, ledgerPath, reused, untriaged }`. Session-id precedence: explicit `--session-id` → `QA_SESSION_ID` env var → derived `qa-<YYYY-MM-DD>-<hex8>`. Ids are slugified (path-traversal safe). `reused: true` signals an existing ledger that must be appended to. |
 | `QaLedgerItem`                           | Record shape  | Required: `id` (`L1`, `L2`, … in capture order), `class` (`product-bug` \| `environment-setup` \| `tooling-dx` \| `test-gap` \| `enhancement`), `severity` (`critical` \| `high` \| `medium` \| `low` \| `info`), `evidence` (one-line, scrubbed), `coverage` (surface/scenario label, `unknown` fallback), `missingTest` (string or `null`). Optional: `disposition`, `relates` (ids of folded-in items). |
 | `disposition`                            | Field         | Two-phase lifecycle marker. Capture phase: absent, `null`, or a `pending`/`untriaged` sentinel — these items form the rolling backlog (`untriaged`) a resume run carries forward. Triage phase: `file` (promote to follow-up ticket), `defer` (park), or `dismiss` (non-actionable). `TRIAGED_DISPOSITIONS` in `qa-session.js` is the SSOT. |
-
----
-
-## Retro Heuristic (historical)
-
-> **Removed in v2.** The `epic-retro` helper and
-> `lib/orchestration/retro-heuristics.js` (`isCleanManifest`) were deleted with
-> the Epic delivery path; compact-vs-full retro branching no longer applies.
-> Kept as a glossary for archived docs that still name the predicate.
-
-| Term                       | Kind     | Definition                                                                                                                                                |
-| -------------------------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `isCleanManifest(signals)` | Predicate | *(deleted)* Formerly returned `true` iff friction/parked/recuts/hotfixes/hitl were all zero. |
-| `--full-retro`             | CLI flag | *(deleted)* Former `/deliver` override forcing the six-section retro body. |

@@ -11,9 +11,14 @@ under `docs/archive/` — see the Pruning & Archiving section of
 [`documentation-and-adrs`](../.agents/skills/core/documentation-and-adrs/reference.md).
 
 Every entry that is still **Accepted** carries a `**Surface:**` line naming the
-one primary path the decision governs. That line is the machine-checkable
-contract behind this log: a decision cannot claim to be in force while the file
-it decided is absent from the tree (`tests/docs/decisions-and-archive-contract.test.js`).
+one primary path the decision governs. What that line is machine-checked for is
+**existence only** — `tests/docs/decisions-and-archive-contract.test.js` runs
+`existsSync` on the path, nothing more. It catches the loud failure (an ADR
+still Accepted after its file was deleted) and cannot catch the quiet one: a
+decision whose mechanism was dismantled while the named file lived on, or whose
+Surface names a file too broad to witness anything. Treat a passing Surface as
+necessary, never sufficient. Entries known to be in that state carry an
+explicit `**Materially dead:**` line — grep for it.
 
 **Identifiers are unique and stable.** An entry is cited by its `<date>-<ticket>`
 identifier, and the same contract test rejects a collision. Story #4786 resolved
@@ -127,7 +132,14 @@ at the release tag named in the entry.
 [`20260501-900a`](#adr-20260501-900a-epic-centric-workflow-rework--four-skill-split-single-session-fan-out-retire-github-triggers-superseded),
 [`20260512-destructive-replan-retired`](#adr-20260512-destructive-replan-retired-epic-1182--retire-delete-epicjs-re-plan--edit-spec--reconcile-superseded),
 [`20260427-868a`](#adr-20260427-868a-open-root-dispatch-manifest-schema-ajv-fixture-drift-test-as-enforcement-boundary-superseded),
-and the Epic-scoped `ADR-202604*` cluster (each flagged in place).
+and seven Epic-scoped entries flagged in place: `20260422-413a`,
+`20260422-413b`, `20260423`, `20260423-511c`, `20260424-553a`,
+`20260424-553b`, `20260426-817b`.
+
+Those thirteen are the whole list — each carries the reciprocal
+`Superseded by <this entry>` status. The earlier blanket "the Epic-scoped
+`ADR-202604*` cluster" was false: most such entries are still Accepted or
+superseded by something else.
 
 ### Context
 
@@ -501,10 +513,12 @@ a command. This mirrors the `worktree-lifecycle` row's treatment.
   operator runs the drain directly via
   `node .agents/scripts/drain-pending-cleanup.js` when a wedged worktree
   needs a manual nudge.
-- **The automatic drain paths are unchanged.** epic-runner Phase 7,
-  story-close post-merge, and the plan-boot sweep continue to call
-  `forceDrainPendingCleanup()` directly — they never depended on the
-  slash command.
+- **The automatic drain paths never depended on the slash command.** Of the
+  three cited here in 2026, only the plan-boot sweep survives
+  (`lib/orchestration/plan-runner/worktree-sweep.js` calls
+  `forceDrainPendingCleanup()` from `lib/worktree/lifecycle/force-drain.js`);
+  the epic-runner Phase 7 and story-close post-merge callers went with the
+  in-process stratum.
 - **The script is the SSOT for the manual path.** No behaviour changed in
   `drain-pending-cleanup.js`; only the `.md` projection was removed.
 
@@ -556,11 +570,13 @@ as a bare `/<name>` command. No plugin manifest, no repo-local marketplace, no
 frontmatter-preserving header injection (`lib/command-header.js#applyHeader`,
 so each command's `description` parses) are kept.
 
-The single-brand discoverability affordance reverts to ADR 20260513: a bare
-`/mandrel` catalog command (the `mandrel.md` workflow) plus descriptive base
-names. The collision-risk and provenance concerns #3576 raised are accepted as
-the cost of universal reachability — a command that does not load has no
-namespace to protect.
+What reverts from ADR 20260513 is the **descriptive base-name discipline**,
+not the single-brand affordance: the `/mandrel` catalog entry is **not**
+restored. No `mandrel.md` workflow exists and nothing projects a `/mandrel`
+command, so the framework ships no discoverability entry point — the `/` menu
+is the catalog. The collision-risk and provenance concerns #3576 raised are
+accepted as the cost of universal reachability: a command that does not load
+has no namespace to protect.
 
 ### Consequences
 
@@ -1437,6 +1453,13 @@ Concretely:
 **Status:** Accepted
 **Date:** 2026-04-24
 **Surface:** `.agents/scripts/post-structured-comment.js`
+**Materially dead (in part):** the core decision holds — the framework ships no
+MCP server — but its "one entry point per capability" consequence does not.
+The Surface file has **no production importer**: `code-review.js`,
+`run-epilogue.js`, and `single-story-init.js` import `upsertStructuredComment`
+from `lib/orchestration/ticketing.js` directly, and the CLI is named only in
+two script-name allowlists and its own test. The check passes on a file
+nothing calls.
 **Epic:** #702
 
 **Supersedes:** ADR-20260422-441b (_Canonical structured-comment writer is the MCP tool_),
@@ -1497,15 +1520,19 @@ doesn't carry a framework-shipped entry anymore.
 
 ### Where the capabilities live now
 
+Unlike the backticked paths in an entry's body, this table is a migration list
+an operator *acts on*, so it is kept current rather than frozen at its
+2026-04-24 wording (original: `git show mandrel-v2.16.0:docs/decisions.md`).
+
 | Retired MCP tool                               | Successor                                                                                                                                    |
 | ---------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| `mcp__mandrel__dispatch_wave`          | `node .agents/scripts/dispatcher.js --epic <id>` (same SDK, same dispatch-manifest output).                                                  |
-| `mcp__mandrel__hydrate_context`        | `node .agents/scripts/hydrate-context.js --ticket <id> --epic <id>` for the JSON envelope; add `--emit prompt` for the raw prompt. The only supported hydration CLI. |
-| `mcp__mandrel__transition_ticket_state`| `node .agents/scripts/update-ticket-state.js --task <id> --state <state>` (auto-cascades on `agent::done`).                                  |
-| `mcp__mandrel__cascade_completion`     | Inlined into `update-ticket-state.js`; also runs at Story close inside `story-close.js`.                                              |
-| `mcp__mandrel__post_structured_comment`| `node .agents/scripts/post-structured-comment.js --ticket <id> --marker <marker> --body-file <path>`; direct `provider.postComment` in lib code. |
-| `mcp__mandrel__select_audits`          | `node .agents/scripts/select-audits.js --ticket <id> --gate <gate>`.                                                                         |
-| `mcp__mandrel__run_audit_suite`        | `node .agents/scripts/run-audit-suite.js --audits <comma-list>`.                                                                             |
+| `mcp__mandrel__dispatch_wave`          | No CLI. Multi-Story ordering is `node .agents/scripts/stories-wave-tick.js` over `lib/wave-runner/ready-set.js`, driven by `/deliver`; the `dispatcher.js` entry script and the dispatch manifest were deleted in v2. |
+| `mcp__mandrel__hydrate_context`        | `node .agents/scripts/plan-context.js` for the `/plan` authoring envelope and `node .agents/scripts/resolve-stories.js` for the delivery envelope; the single `hydrate-context.js` CLI was deleted. |
+| `mcp__mandrel__transition_ticket_state`| `node .agents/scripts/update-ticket-state.js --ticket <id> --state <state>` (auto-cascades on `agent::done`).                                |
+| `mcp__mandrel__cascade_completion`     | Inlined into `update-ticket-state.js`; also runs at Story close inside `single-story-close.js`.                                              |
+| `mcp__mandrel__post_structured_comment`| `node .agents/scripts/post-structured-comment.js --ticket <id> --marker <marker> --body-file <path>`; lib code imports `upsertStructuredComment` from `lib/orchestration/ticketing.js` directly. |
+| `mcp__mandrel__select_audits`          | No CLI. `selectAudits()` from the `lib/audit-suite/index.js` SDK barrel; the `select-audits.js` entry script was deleted. |
+| `mcp__mandrel__run_audit_suite`        | No CLI. `runAuditSuite()` from the same barrel; the `run-audit-suite.js` entry script was deleted. |
 
 The SDK modules under `.agents/scripts/lib/orchestration/` (the things
 these tools delegated into) are unchanged — the retirement is a surface
@@ -1764,6 +1791,14 @@ Triggered Epic-level orchestration from a GitHub label via `epic-orchestrator.ym
 
 *   **Status:** Accepted (Epic #321 Story #334, v5.14.0).
 *   **Surface:** `.agents/instructions.md`
+*   **Materially dead:** the outcome holds — no runtime `risk::high` gate
+    exists — but every mechanism below is gone and the Surface is a doc file
+    that cannot witness it either way. `risk-gate-handler.js`,
+    `wave-dispatcher.js`, `story-close.js` are absent;
+    `handleRiskHighGate` / `handleHighRiskGate` occur nowhere but here; and
+    `hitl.riskHighApproval` / `hitl.riskHighRuntimeGate` are not config keys —
+    the escape hatch this ADR preserved went with the in-process stratum.
+    Read the Decision as a 2026-04 record, not as live wiring.
 *   **Context:** `risk-gate-handler.js` halted the dispatcher on
     `risk::high` tasks, and `story-close.js` halted close for
     `risk::high` stories. In the new HITL-minimal model this becomes
@@ -2421,12 +2456,14 @@ The Story-level verdict therefore collapses the four candidate outcomes into one
 
 ## ADR 20260513-command-naming-discipline: Domain-vocabulary command names; single Mandrel-prefixed discoverability entry
 
-**Status:** Accepted — **superseded on the collision axis** by
-[`20260603-plugin-namespace-cutover`](#adr-20260603-plugin-namespace-cutover-project-workflows-as-a-claude-code-plugin-mandrelname-superseded).
-The base-name naming discipline below still holds (descriptive names, no
-`mandrel-` filename prefix); the *single brand affordance* is now the
-plugin namespace `/mandrel:<name>` rather than the lone `/mandrel`
-discoverability entry, which itself became `/mandrel:mandrel`.
+**Status:** Accepted in part — the **base-name discipline below still holds**
+(descriptive names, no `mandrel-` prefix, projected as flat `/<name>`
+commands). The **single-brand `/mandrel` catalog entry is retired**:
+`20260603-plugin-namespace-cutover` replaced it with a `/mandrel:<name>`
+namespace, then
+[`20260604-flat-command-projection-revert`](#adr-20260604-flat-command-projection-revert-revert-the-plugin-cutover--project-workflows-as-flat-name-commands)
+reverted that cutover without restoring the catalog command; no `mandrel.md`
+workflow exists. Defer to `20260604` on the projection axis.
 **Date:** 2026-05-13
 **Surface:** `.agents/scripts/sync-claude-commands.js`
 **Epic:** #1184 (v6.0.0 Epic F — Cut-over + Mandrel rebrand)
