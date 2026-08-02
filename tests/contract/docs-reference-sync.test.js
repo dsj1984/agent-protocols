@@ -248,6 +248,8 @@ const UNRESOLVED_BY_DESIGN = Object.freeze({
   // --- Not this repository's files ----------------------------------------
   'src/index.ts': 'file in release-please-action v5.0.0, an external repo',
   'pnpm-lock.yaml': "a consumer project's lockfile, not this repo's",
+  'libnpmpublish/lib/provenance.js':
+    "a module inside the npm CLI's own bundled tree, not this repo's — cited by docs/release-operations.md as the npm 12.0.0 sigstore-resolution failure site",
 });
 
 describe('docs in scope — every backticked path resolves (Story #4785)', () => {

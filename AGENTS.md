@@ -25,8 +25,9 @@ materialized into consumer projects' `.agents/` directories by
   [`package.json`](package.json) (run `npm ls mandrel` in a consumer project)
 - **License:** MIT
 
-> **Key distinction:** the package ships `.agents/`, `bin/`, `lib/` — the rest
-> of this repository is internal development tooling.
+> **Key distinction:** the package ships `.agents/`, `bin/`, `lib/`, and
+> `docs/CHANGELOG.md` (the `files` array in [`package.json`](package.json)) —
+> the rest of this repository is internal development tooling.
 
 ---
 
@@ -41,8 +42,11 @@ not `@`-imported, so it is not re-paid on every session and subagent spawn.
 
 Two orientation pointers are load-bearing often enough to keep here:
 
-- **Configuration** lives in [`.agentrc.json`](.agentrc.json) (`project`,
-  `github`, `planning`, `delivery`). Project-specific technology choices are
+- **Configuration** lives in [`.agentrc.json`](.agentrc.json) — this repo's
+  file carries `project`, `github`, and `delivery`; every key the schema
+  accepts is documented in
+  [`.agents/docs/configuration.md`](.agents/docs/configuration.md).
+  Project-specific technology choices are
   deliberately kept out of it — the Tech Stack inventory lives under the
   **Tech Stack** heading in [`docs/architecture.md`](docs/architecture.md).
 - **Skills and rules are read on demand**, not preloaded — each `SKILL.md`
