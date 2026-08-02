@@ -74,9 +74,10 @@ graph TB
 
 ## Repository Layout
 
-The **distributed product** is the three directories in `package.json`'s
-`files` array — `.agents/`, `bin/`, `lib/`; only `.agents/` is *materialized*
-into a consumer tree (`mandrel sync`). The rest is **dev tooling**.
+Directories marked *Distributed* below are the published package; everything
+else is **dev tooling**. What ships, what is materialized into a consumer
+tree, and how a release is cut are stated once, under
+[**Distribution Model**](#distribution-model) — not repeated here.
 
 ```text
 mandrel/
@@ -240,10 +241,9 @@ graph TB
 #### Ready-set / DAG helpers
 
 Multi-Story ordering for `/deliver` uses `lib/wave-runner/ready-set.js`
-(`selectReadySet`) driven by `stories-wave-tick.js`. Pre-v2
-`dispatch-engine.js` / `dispatcher.js` entry scripts are deleted; residual
-DAG helpers under `lib/orchestration/` remain only where live paths still
-import them.
+(`selectReadySet`) driven by `stories-wave-tick.js` — there is no
+`dispatch-engine.js` / `dispatcher.js` entry script. Residual DAG helpers
+under `lib/orchestration/` remain only where live paths still import them.
 
 | Helper                        | Responsibility                                                                            |
 | ----------------------------- | ----------------------------------------------------------------------------------------- |
@@ -253,18 +253,15 @@ import them.
 
 #### Failure auditability
 
-There is **no** `ErrorJournal` and no `lib/orchestration/error-journal.js`. It
-was an in-process-runner concept threaded through the typed context classes in
-`lib/orchestration/context.js`, and died with them and the epic-runner stratum
-(#3908) — do not write `errorJournal?.record(...)`; nothing can inject it. Two
-file-based surfaces replace it: the append-only signals stream
+There is **no** `ErrorJournal` and no epic-runner progress reporter — do not
+write `errorJournal?.record(...)`; nothing can inject it. Two file-based
+surfaces carry failure auditability instead: the append-only signals stream
 (`lib/observability/signals-writer.js`, written by `diagnose-friction.js`) and
-the per-script logs under `temp/orchestration/`.
-
-The epic-runner progress reporter went with the same stratum (#3908). Live
-Story progress surfaces via lifecycle ledger events and structured comments
-(`story-init`, `friction`, `verification-results`, `follow-ups`) posted by the
-single-story init/close path.
+the per-script logs under `temp/orchestration/`. Live Story progress surfaces
+via lifecycle ledger events and structured comments (`story-init`, `friction`,
+`verification-results`, `follow-ups`) posted by the single-story init/close
+path. History:
+[Failure auditability — what `ErrorJournal` was](archive/architecture-2026-08.md#failure-auditability--what-errorjournal-was).
 
 #### Spec grounding (no codebase snapshot)
 
@@ -273,12 +270,8 @@ its authoring-grounding companion, and the spec-freshness helpers behind them
 were deleted in Story #4811, along with the planning config block that tuned
 them — do not reintroduce a manifest-derived replacement.
 
-The snapshot grounded nothing it promised. Its default include globs guessed
-`app/**` singular and matched zero product files under the standard `apps/**`
-monorepo layout; its remedies pointed at knobs (`tier: "medium"`, a narrower
-`include`) that re-signatured the same already-filtered set and could not fix
-a missing include; and its cited-but-absent signal inverted into noise
-whenever the snapshot itself was the incomplete artifact.
+The post-mortem — why the snapshot grounded nothing it promised — is archived
+at [Why the codebase snapshot was deleted](archive/architecture-2026-08.md#why-the-codebase-snapshot-was-deleted).
 
 Two mechanisms ground spec authoring instead, both reading the real tree:
 
@@ -302,10 +295,9 @@ Two mechanisms ground spec authoring instead, both reading the real tree:
 | `lib/observability/signals-writer.js`               | Append-only NDJSON writer for `friction` / trace records under `temp/run-<eid>/stories/story-<sid>/signals.ndjson` (standalone Stories: `temp/standalone/stories/story-<sid>/`). The single producer for the telemetry pipeline; the reader is the `read()` async generator in `lib/signals/read.js`. |
 | `lib/orchestration/column-sync.js`                  | Drives the Projects v2 Status column from `agent::` labels (best-effort). Invoked from inside `transitionTicketState` (Story #2548) so every label flip mirrors onto the board.                  |
 
-The `CommitAssertion` post-wave guard and its `verifySingleResult` successor
-both went with the epic-runner / wave machinery. The guard against a Story
-being reported "done" without verifiable completion is now structural:
-`agent::done` follows the confirmed squash-merge of the Story's own PR.
+The guard against a Story being reported "done" without verifiable completion
+is structural: `agent::done` follows the confirmed squash-merge of the Story's
+own PR.
 
 #### Throughput primitives
 
@@ -321,13 +313,9 @@ being reported "done" without verifiable completion is now structural:
 The fan-out cap is resolved deterministically by
 `resolveConcurrencyCap` in `stories-wave-tick.js`
 (from `delivery.deliverRunner.concurrencyCap`) and surfaced on the
-ready-set envelopes the same script emits. The whole epic-runner-era
-concurrency surface (`DEFAULT_CONCURRENCY` / `resolveConcurrency`,
-`CommitAssertion`, the `ProgressReporter` listener) went with the dead
-in-process stratum (#3908) — do not confuse the surviving
-`resolveConcurrencyCap` with the deleted `resolveConcurrency`. Story #4545
-deleted the perf-summary throughput surface; the local `signals.ndjson`
-stream and the retro's aggregate over it are what remain.
+ready-set envelopes the same script emits. Do not confuse it with the deleted
+`resolveConcurrency`; the throughput surface it belonged to is archived at
+[The epic-runner-era concurrency surface](archive/architecture-2026-08.md#the-epic-runner-era-concurrency-surface).
 
 #### Direct CLIs (no MCP server)
 
@@ -576,10 +564,9 @@ The `/deliver <storyId...>` slash command is the sole entry point for Story
 delivery. It runs end-to-end inside the operator's Claude session, composing the
 orchestration primitives into a Story-sequencing coordinator (see
 [`workflows/deliver.md`](../.agents/workflows/deliver.md)) with the lifecycle
-bus chain at its core. There is no remote-trigger surface — delivery only ever
-runs locally, in the operator's session, with Story sub-agents launched through
-the Agent tool. Story #2259 (Epic #2172) retired the legacy deliver-runner CLI
-wrapper; the slash command supplants it entirely.
+bus chain at its core. There is no remote-trigger surface and no deliver-runner
+CLI — delivery only ever runs locally, in the operator's session, with Story
+sub-agents launched through the Agent tool.
 
 The bus is the **single canonical runner model** under Epic #2172:
 every phase transition, ticket-state flip, structured-comment upsert,
@@ -621,8 +608,11 @@ the default `standard` routes by the same `deriveChangeLevel` signal that
 sets review depth — sensitive-path (`high`) clusters go fresh, `low`
 clusters stay inline except for a deterministic sampling floor
 (`freshCriticSampleRate`, default 0.2), and an unknown level fails safe
-to fresh. Cluster count is `ceil(totalACs / clusterCeiling)` clamped to
-`[1, 8]` (`acceptance-clusters.js`); routing never changes it.
+to fresh. Cluster count is `ceil(totalACs / clusterCeiling)`
+(`acceptance-clusters.js`); routing never changes it. The `[1, 8]` clamp is
+on **cluster size** — `clusterCeiling` (config
+`delivery.acceptanceEval.clusterCeiling`, default 4) is hard-clamped into
+that range before the division, and the clamp is undisableable.
 
 **Evidence share.** A fresh critic re-runs the Story's `verify[]`
 commands itself as required evidence; its byte-identical `lint` /
@@ -672,10 +662,8 @@ close.
 | `code-review`       | `lib/orchestration/code-review.js` — inline review (companion to `helpers/code-review.md`). |
 | `run-epilogue`      | Cross-Story epilogue for rare N>1 runs (`plan-run-epilogue.js` / `lib/orchestration/run-epilogue.js`). |
 
-The epic-runner-era `blocker-handler` and `wave-observer` listeners were
-deleted with the in-process stratum (#3908); `agent::blocked` remains the
-sole runtime pause point, enforced by the workflow prose rather than a
-resident listener.
+`agent::blocked` is the sole runtime pause point, enforced by the workflow
+prose rather than a resident listener.
 
 ### Change-set-matched audit lenses
 
@@ -683,15 +671,13 @@ During the review/audit ceremony, `/deliver` resolves audit lenses inline with
 the Story review path. `plan-run-epilogue` / the Story close path call the
 audit-suite `selectAudits` SDK: it selects the audit lenses whose file patterns
 or keyword triggers match the change-set. Findings feed a bounded auto-fix loop.
-The retired `epic-audit-prepare.js` / `epic-audit-recheck.js` CLIs were deleted
-with the v2 Story-only cutover.
+There is no audit-suite CLI.
 
-Lens selection is **not** risk-routed. Story #4542 deleted the risk→lens router
-(`resolveAuditLenses`): it had zero callers while this section and two other
-shipped documents claimed it ran inside close. What the sensitive-path classes
-in `audit-rules.json` route is review **depth** (`light` / `standard` / `deep`,
-via `review-depth.js#deriveChangeLevel`), derived from the diff rather than from
-a planner's self-assessment.
+Lens selection is **not** risk-routed — there is no risk→lens router. What the
+sensitive-path classes in `audit-rules.json` route is review **depth** (`light`
+/ `standard` / `deep`, via `review-depth.js#deriveChangeLevel`), derived from
+the diff rather than from a planner's self-assessment. Removal notes:
+[Deleted listeners, CLIs and the heartbeat emitter](archive/architecture-2026-08.md#deleted-listeners-clis-and-the-heartbeat-emitter).
 
 ### HITL touchpoints
 
@@ -1069,13 +1055,10 @@ exits non-zero rather than falling silent; its commits on `story-<id>` and
 that label are the observable progress surface. Multi-Story ready-set
 sequencing is owned by `stories-wave-tick.js` (not an idle watchdog CLI).
 
-There is **no live liveness beat**. A `story.heartbeat` event and its
-PostToolUse-hook emitter once existed, but the emitter required an
-`epicId >= 1` that v2 — which has no Epics — never supplied, so it could
-never fire; it was deleted (A22) rather than repaired. A child that stalls
-without an `agent::blocked` label and without commits is indistinguishable
-from a dead one, and is escalated by operator observation, not by an
-automatic staleness check.
+There is **no live liveness beat**. A child that stalls without an
+`agent::blocked` label and without commits is indistinguishable from a dead
+one, and is escalated by operator observation, not by an automatic staleness
+check.
 
 ---
 
@@ -1090,10 +1073,9 @@ The framework emits a closed taxonomy of **thirteen** NDJSON record kinds —
 Enumerated ≠ produced: only **two** detector modules ship
 (`lib/signals/detectors/`: `rework.js`, `retry.js`), beside the
 `diagnose-friction.js` writer and the raw `trace` hook. `hotspot`, `churn`,
-`idle` are **reserved names with no detector** — `churn`/`idle` dropped under
-Epic #1721, `hotspot` retired with its detector under Epic #4406 (ADR in
-[`docs/decisions.md`](decisions.md)). The names stay so a re-introduction
-needs no schema bump, but the config keys are gone: `SIGNALS_DEFAULTS`
+`idle` are **reserved names with no detector**. The names stay so a
+re-introduction needs no schema bump, but the config keys are gone:
+`SIGNALS_DEFAULTS`
 (`lib/config/limits.js`) carries `rework` and `retry` only under an
 `additionalProperties: false` block, so `delivery.signals.hotspot` fails AJV
 validation. Records are written **append-only to local disk** under
@@ -1121,13 +1103,11 @@ The model has three layers:
    `rework.editsPerFile` (default 5) and `retry.repeatCount` (default 3),
    overridable under `delivery.signals.*`. The resolver shallow-merges per
    detector, so re-tuning one does not require re-listing the other.
-3. **Analyzers — the retro.** Story #4545 deleted the perf-summary /
-   perf-report analyzers: the CLI hard-failed without an Epic id, read
-   signals from a path a standalone Story can never produce, and no workflow
-   invoked it. The surviving consumer is the retro proposal composer
+3. **Analyzers — the retro.** The only analyzer is the retro proposal composer
    (`lib/orchestration/retro-proposals.js`), which routes recurring friction
    into framework / consumer / discarded proposals. Nothing writes a
-   `structured:story-perf-summary` or `structured:epic-perf-report` comment.
+   `structured:story-perf-summary` or `structured:epic-perf-report` comment —
+   Story #4545 deleted those analyzers.
 
 The split — events local, summaries on tickets — keeps the comment surface
 bounded and the raw stream cheap enough that detectors can fire on every
@@ -1212,11 +1192,8 @@ with three jobs:
 3. **Windows Smoke** — advisory (non-required) Windows leg (Story #3389):
    bootstrap dry-run, command sync, and config-resolution tests.
 
-Distribution is **not** handled by `ci.yml`. A separate `release-please.yml`
-workflow cuts releases and runs the `npm-publish` job that publishes
-`mandrel` to npm with Sigstore build provenance once a release is
-tagged. The retired `dist`-branch mirror that `ci.yml` once synced no longer
-exists.
+Distribution is **not** handled by `ci.yml` — see
+[**Distribution Model**](#distribution-model).
 
 The baseline-refresh CI guardrail was removed alongside the bot-approver
 pipeline; the `baseline-refresh:` commit subject + non-empty body
@@ -1275,35 +1252,12 @@ fails the gate identically at the others.
 
 - **Husky** + **lint-staged**: Auto-lint and format staged files on commit.
 
-#### `lint-staged` biome config: `--no-errors-on-unmatched`
-
-The biome steps in `.lintstagedrc` (`biome check` / `biome format`) carry
-the `--no-errors-on-unmatched` flag. This is the canonical fix for the
-defect tracked in **Story #3529**.
-
-**Background.** `biome.json` sets `vcs.useIgnoreFile=true`, so biome honours
-`.gitignore`. Epic #3436 (PR #3485) briefly added `/.agents/` to
-`.gitignore` as part of the in-flight npm-distribution migration. Because
-`.agents/` is the framework's own committed source tree, every staged
-`.agents/**/*.js` change was then handed to biome as an *ignored* path:
-biome processed 0 files and **exited 1**, hard-failing the pre-commit hook
-on any framework `.js` commit. Story #3489 (PR #3531) removed the
-`/.agents/` ignore in this source repo (the `.gitignore` NOTE block records
-why the framework repo keeps `.agents/` tracked while consumer projects
-ignore their materialized copy), which eliminates the original trigger.
-
-**Why the flag stays.** `--no-errors-on-unmatched` is retained as a
-defensive default rather than reverted now that #3489 fixed the root cause.
-Without it, biome treats an "all staged paths ignored" set as an error and
-exits non-zero; with it, biome still lints/formats every *non-ignored*
-staged file (no silent coverage loss — verified: a staged `.agents/scripts/`
-edit passes the hook and is linted) but no longer hard-fails when a commit
-happens to stage only ignored paths. The `.gitignore` in this repo still
-ignores local-override paths (`.agents/*.local.md`, `.agents/*local.json`)
-and consumer projects ignore their entire materialized `/.agents/` copy, so
-an all-ignored staged set remains a reachable state the flag guards against
-at zero cost. `.lintstagedrc` is plain JSON and cannot carry an inline
-comment, so this rationale lives here.
+  The biome steps in `.lintstagedrc` carry `--no-errors-on-unmatched` as a
+  defensive default: without it biome exits non-zero when every staged path is
+  gitignored, which is still reachable (local-override paths here, the whole
+  materialized `/.agents/` copy in a consumer). `.lintstagedrc` is plain JSON
+  and cannot carry the note inline, so it lives here. Full incident write-up:
+  [`lint-staged` biome config: `--no-errors-on-unmatched`](archive/architecture-2026-08.md#lint-staged-biome-config---no-errors-on-unmatched).
 
 ---
 
@@ -1336,12 +1290,19 @@ validation. The surviving ceilings are **fixed framework constants**:
 
 ## Distribution Model
 
-Mandrel is distributed as the
-[`mandrel`](https://www.npmjs.com/package/mandrel) npm package, whose `files`
-array publishes `.agents/`, `bin/`, and `lib/`. Only **`.agents/`** is
-materialized into the consumer's `./.agents/` directory as plain regular files
-by `mandrel sync` (best-effort from `postinstall`, or invoked directly);
-`bin/` + `lib/` stay in `node_modules/mandrel/`, reached via `npx mandrel`:
+**The single statement of the release/distribution topology.** Mandrel is
+distributed as the [`mandrel`](https://www.npmjs.com/package/mandrel) npm
+package. Its `package.json` `files` array publishes `.agents/`, `bin/`,
+`lib/`, and `docs/CHANGELOG.md`, minus two negations that strip the shipped
+test trees (`!lib/**/__tests__`, `!.agents/**/__tests__`). Releases are cut by
+the `release-please.yml` workflow — never by `ci.yml` — whose `npm-publish`
+job publishes to npm with Sigstore build provenance once a release is tagged;
+the `dist`-branch mirror `ci.yml` once synced no longer exists.
+
+Only **`.agents/`** is materialized into the consumer's `./.agents/` directory
+as plain regular files by `mandrel sync` (best-effort from `postinstall`, or
+invoked directly); `bin/` + `lib/` stay in `node_modules/mandrel/`, reached
+via `npx mandrel`:
 
 ```text
 Consumer Project/
