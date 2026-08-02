@@ -7,8 +7,8 @@ import path from 'node:path';
 import { buildWriterScopeArgs } from './lib/baselines/diff-scope-cli.js';
 import { scanDuplication } from './lib/baselines/duplication-scanner.js';
 import { write, writeFile } from './lib/baselines/writer.js';
-import { getBaselineEpsilon } from './lib/config/quality.js';
 import { runAsCli } from './lib/cli-utils.js';
+import { getBaselineEpsilon } from './lib/config/quality.js';
 import { getQuality, resolveConfig } from './lib/config-resolver.js';
 import { Logger } from './lib/Logger.js';
 

@@ -21,6 +21,7 @@ import { createRequire } from 'node:module';
 import path from 'node:path';
 import { parseDiffScopeFlag } from './lib/baselines/diff-scope-cli.js';
 import { refreshBaseline } from './lib/baselines/refresh-service.js';
+import { runAsCli } from './lib/cli-utils.js';
 import { getBaselineEpsilon } from './lib/config/quality.js';
 import {
   buildScopePredicate,
@@ -28,7 +29,6 @@ import {
   readCoverageFinal,
   scoreCoverageFinal,
 } from './lib/coverage-baseline.js';
-import { runAsCli } from './lib/cli-utils.js';
 import { Logger } from './lib/Logger.js';
 
 /**
