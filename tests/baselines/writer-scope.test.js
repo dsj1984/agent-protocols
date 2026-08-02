@@ -13,6 +13,14 @@
  *   - Scope is composed BEFORE epsilon: out-of-scope rows are preserved
  *     verbatim regardless of epsilon, while in-scope rows still go through
  *     the stabilizer.
+ *
+ * Story #4944 removed this file's `readPriorBaselineRows` /
+ * `buildWriterScopeArgs` suites (added by Story #4937) along with the
+ * functions themselves: `update-duplication-baseline.js` was their only
+ * caller, and migrating it onto `refreshBaseline()` made the whole
+ * pre-service path unreachable. What #4937 was protecting — a diff-scoped
+ * duplication refresh that preserves out-of-scope rows — is now covered
+ * against the service in `refresh-service.duplication.test.js`.
  */
 
 import assert from 'node:assert/strict';

@@ -18,6 +18,9 @@ jobs:
   release-please:
     name: Run release-please
     runs-on: ubuntu-latest
+    # Story #4936: one action that reads commit history and opens/updates the
+    # release PR. 15 minutes bounds a hung GitHub API call.
+    timeout-minutes: 15
     # Single-package (manifest) output naming — verified against
     # release-please-action v5.0.0 `src/index.ts#setPathOutput`:
     #
@@ -91,6 +94,9 @@ jobs:
     needs: release-please
     if: ${{ needs.release-please.outputs.root_release_created == 'true' || github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-latest
+    # Story #4936: install, npm upgrade, and a provenance-signed publish that
+    # waits on Sigstore. 20 minutes bounds a hung registry or OIDC exchange.
+    timeout-minutes: 20
     permissions:
       contents: read
       id-token: write
@@ -139,6 +145,9 @@ jobs:
     needs: release-please
     if: ${{ needs.release-please.outputs.root_release_created == 'true' }}
     runs-on: ubuntu-latest
+    # Story #4936: regenerate one CSV row and open an auto-merged PR.
+    # 15 minutes bounds a hung PR-creation API call.
+    timeout-minutes: 15
     permissions:
       contents: write
       pull-requests: write

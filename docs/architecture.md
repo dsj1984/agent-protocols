@@ -1020,11 +1020,16 @@ They differ only in:
 - **Schema validation**: `orchestration` config is validated against an
   embedded JSON Schema via `ajv`. The static `.agents/schemas/*.json`
   mirrors and the runtime AJV schemas declare `additionalProperties:
-  false` on every nested object as well as the document roots of
-  `audit-results`, `friction-event`, and `agentrc`, and use
-  a closed enum for `validation-evidence.gateName`. Payloads with extra
-  keys or free-text discriminators fail validation rather than silently
-  passing.
+  false` on every nested object as well as at the `agentrc` document
+  root, and use a closed enum for `validation-evidence.gateName`.
+  Payloads with extra keys or free-text discriminators fail validation
+  rather than silently passing.
+- **No orphan contracts**: `check-schema-references.js` fails when a
+  schema under `.agents/schemas/` is compiled by no code path. One kept
+  deliberately declares it in a root `x-mandrel-uncompiled` block naming
+  its real runtime gate — a well-formed schema is otherwise read as
+  authoritative, and one such reading reached an acceptance criterion
+  (Story #4938).
 
 ### HITL pause point
 

@@ -15,9 +15,7 @@
     "provenance": true
   },
   "scripts": {
-    "pretest": "node .agents/scripts/test-wrapper.js && node .agents/scripts/validate-skills.js",
-    "pretest:quick": "node .agents/scripts/test-wrapper.js",
-    "pretest:integration": "node .agents/scripts/test-wrapper.js",
+    "//test-preflight": "There are deliberately NO pretest* scripts (Story #4936). .npmrc sets ignore-scripts=true as supply-chain defence (CWE-1357), and that suppresses every pre*/post* lifecycle script for `npm run` too — so a pretest entry here would look like a gate and never execute. Each tier's preflight is declared once in .agents/scripts/lib/test-runner-contract.js and invoked by the runners themselves, which is why it fires for `npm test`, `npm run test:coverage` and a bare `node .agents/scripts/run-tests.js` alike.",
     "test": "node .agents/scripts/run-tests.js",
     "test:quick": "node .agents/scripts/run-tests.js --tier quick",
     "test:integration": "node .agents/scripts/run-tests.js --tier integration",
@@ -25,8 +23,6 @@
     "test:isolate": "node .agents/scripts/test-isolate.js",
     "verify": "node .agents/scripts/run-verify.js",
     "typecheck": "node -e \"process.exit(0)\"",
-    "//pretest-hooks": "The four pretest* entries are named preflight DEFINITIONS, not working npm hooks: .npmrc sets ignore-scripts=true (supply-chain defence), which suppresses every pre*/post* lifecycle script for `npm run` too. Callers that need the preflight invoke it by name — see the `Run Tests with Coverage` step in .github/workflows/ci.yml.",
-    "pretest:coverage": "node .agents/scripts/test-wrapper.js && node .agents/scripts/validate-skills.js",
     "test:coverage": "node .agents/scripts/run-coverage.js",
     "coverage:check": "node .agents/scripts/check-baselines.js --gate coverage",
     "coverage:update": "node .agents/scripts/update-coverage-baseline.js",
@@ -45,6 +41,7 @@
     "check:context-budget": "node .agents/scripts/check-context-budget.js",
     "check:cyclomatic": "node .agents/scripts/check-cyclomatic.js",
     "cyclomatic:update": "node .agents/scripts/check-cyclomatic.js --update",
+    "check:schema-refs": "node .agents/scripts/check-schema-references.js",
     "check:workflow-citations": "node .agents/scripts/check-workflow-citations.js",
     "crap:check": "node .agents/scripts/check-baselines.js --gate crap",
     "crap:update": "node .agents/scripts/update-crap-baseline.js",

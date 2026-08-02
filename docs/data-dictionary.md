@@ -42,43 +42,19 @@ being reserved names with no shipped detector.
 
 ## Retired vocabulary (archived)
 
-Four sections whose entire body recorded that a surface was gone — they defined
+Five sections whose entire body recorded that a surface was gone — they defined
 no live vocabulary — are archived verbatim:
 [StoryPerfSummary / EpicPerfReport](archive/data-dictionary-2026-08.md#storyperfsummary--epicperfreport),
 [Dispatch Manifest](archive/data-dictionary-2026-08.md#dispatch-manifest),
 [Health-Monitor Refresh Cadence](archive/data-dictionary-2026-08.md#health-monitor-refresh-cadence),
-[Retro Heuristic](archive/data-dictionary-2026-08.md#retro-heuristic).
+[Retro Heuristic](archive/data-dictionary-2026-08.md#retro-heuristic),
+[FrictionEvent](archive/data-dictionary-2026-08.md#frictionevent-retired-shape).
 
----
-
-## FrictionEvent (legacy schema — not the live `friction` record)
-
-**A live `friction` record is a `SignalEvent` with `kind: "friction"`** — see
-the table above. `appendSignal` validates against `signal-event.schema.json`
-(the only file `signal-validator.js` compiles), and
-`diagnose-friction.js#buildFrictionSignal` is the producer.
-
-[`friction-event.schema.json`](../.agents/schemas/friction-event.schema.json)
-is the pre-cutover document from Epic #1030, superseded by
-`signal-event.schema.json` in the Epic #4406 envelope cutover. No writer,
-reader, or validator loads it — a retained record, not a contract. Mirrored
-here field for field so the two shapes are not confused:
-
-| Field      | Type                | Required | Description                                                            |
-| ---------- | ------------------- | -------- | ---------------------------------------------------------------------- |
-| `eventId`  | `uuid string`       | Yes      | Unique event identifier.                                               |
-| `timestamp`| `ISO8601 date-time` | Yes      | When the event occurred. The live envelope's key is `ts`.               |
-| `sprintId` | `string`            | Yes      | Epic identifier the event belongs to. The live envelope's key is `epicId`. |
-| `category` | `enum`              | Yes      | One of `Prompt Ambiguity`, `Missing Skill`, `Incorrect Persona`, `Tool Limitation`, `Execution Error`. |
-| `details`  | `string`            | Yes      | Specific error message or observation. The live envelope requires an **object** here. |
-| `source`   | `object`            | No       | `{ tool?, command? }` — failed tool / command. The live envelope moved this to `emitter` and reuses `source` for the framework/consumer tag. |
-| `context`  | `object`            | No       | `{ protocolFile?: string }` — relevant protocol file path.              |
-
-`required` is exactly `["eventId", "timestamp", "sprintId", "category",
-"details"]`. **`taskId` is not in it and is not a property of this schema at
-all** — `additionalProperties: false` rejects it outright. (The live
-`SignalEvent` envelope does carry an optional `taskId`, always `null` since
-the 2-tier hierarchy landed.)
+A live `friction` record is a `SignalEvent` with `kind: "friction"` — see the
+table above. The retired `FrictionEvent` shape it replaced is field-for-field
+in the archive; Story #4938 deleted the schema file itself, and
+`check-schema-references.js` keeps `.agents/schemas/` from accumulating another
+contract nothing compiles.
 
 ---
 
@@ -192,7 +168,7 @@ call site.
 | `follow-ups`                | `lib/orchestration/run-epilogue.js`; `lib/orchestration/story-follow-ups.js` | Actionable follow-ups distilled from friction signals at Story closeout. |
 | `plan-run-audit-roster`     | `lib/orchestration/run-epilogue.js`                                     | Audit lenses selected for the run, grounded in the landed diff.          |
 | `plan-run-sibling-coherence`| `lib/orchestration/run-epilogue.js`                                     | Cross-Story coherence findings for a multi-Story plan run.               |
-| `model-attribution`         | `lib/orchestration/model-attribution.js`                                | Which model executed the work. Schema: `.agents/schemas/model-attribution.schema.json`. |
+| `model-attribution`         | `lib/orchestration/model-attribution.js`                                | Which model executed the work. Shape SSOT: `.agents/schemas/model-attribution.schema.json` — documented, not AJV-compiled; the runtime gate is the hand-rolled `validateModelAttributionPayload` in the same writer. |
 | `cross-repo-deferred`       | `lib/feedback-loop/graduator-core.js`                                   | Findings routed to another repository and therefore not filed here. Discriminated by a `graduator` attr so each graduator upserts independently. |
 
 **Graduation off `verification-results`.**

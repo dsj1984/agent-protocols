@@ -152,6 +152,10 @@ jobs:
     # branch-protection required checks — it is not a gate.
     name: select-matrix
     runs-on: ubuntu-latest
+    # Story #4936: a single `case` over the trigger event, no checkout and no
+    # install. 10 minutes is the gate's floor and orders of magnitude of
+    # headroom for a job that finishes in seconds.
+    timeout-minutes: 10
     outputs:
       include: ${{ steps.select.outputs.include }}
     steps:
@@ -185,6 +189,11 @@ jobs:
     # `install (npm / ubuntu-latest)` and `install (yarn / windows-latest)`.
     name: install (${{ matrix.package-manager }} / ${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+    # Story #4936: the slowest legs here do a real `npm pack` plus a cold
+    # third-party package-manager install on Windows, so this job gets the
+    # most generous bound the gate allows — 25 minutes still bounds a hung
+    # install to a fraction of GitHub's 360-minute default.
+    timeout-minutes: 25
     strategy:
       # Keep fail-fast off so one leg's failure does not mask the others
       # (required by the gating contract — both gate legs must report).
@@ -353,6 +362,9 @@ jobs:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     name: node-upper-bound
     runs-on: ubuntu-latest
+    # Story #4936: `npm ci` plus the quick test tier on an uncached Node
+    # major. 20 minutes covers a cold install with room to spare.
+    timeout-minutes: 20
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -404,6 +416,10 @@ jobs:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     name: install-contract (${{ matrix.leg }})
     runs-on: ubuntu-latest
+    # Story #4936: each leg packs the tarball and installs it into a scratch
+    # consumer project; the `update-reexec-pnpm` leg installs twice.
+    # 20 minutes bounds a hung leg without reddening a slow-but-honest run.
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:

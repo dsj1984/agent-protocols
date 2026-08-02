@@ -1,13 +1,20 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
 import { test } from 'node:test';
-import { FULL_TIER_GLOBS } from '../../.agents/scripts/lib/test-tiers.js';
-import { buildCoverageTestArgs } from '../../.agents/scripts/run-coverage.js';
 import {
   resolveTestConcurrency,
   TEST_CONCURRENCY_MAX,
   TEST_CONCURRENCY_MIN,
   TEST_RUNNER_FLAGS,
-} from '../../.agents/scripts/run-tests.js';
+} from '../../.agents/scripts/lib/test-runner-contract.js';
+import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
+import { FULL_TIER_GLOBS } from '../../.agents/scripts/lib/test-tiers.js';
+import {
+  buildCoverageTestArgs,
+  runCoveragePipeline,
+} from '../../.agents/scripts/run-coverage.js';
+import { buildNodeTestArgs } from '../../.agents/scripts/run-tests.js';
 
 // ---------------------------------------------------------------------------
 // buildCoverageTestArgs — host-aware --test-concurrency (Story #4254): the
@@ -108,4 +115,184 @@ test('buildCoverageTestArgs covers the colocated __tests__ roots', () => {
     ),
     'coverage argv must reach the colocated .agents/scripts/ __tests__ suites',
   );
+});
+
+// ---------------------------------------------------------------------------
+// Story #4936 — the two full-tier runners must not diverge on a `node --test`
+// flag. `--experimental-test-module-mocks` decides whether a `t.mock.module`
+// suite can execute at all, and `npm run test:coverage` is the *required* CI
+// job: a flag present in one runner and absent from the other turns a healthy
+// test into a CI-only failure with no source defect. The assertion below is
+// the tripwire that was missing — it fails if a flag is added to either
+// runner alone.
+// ---------------------------------------------------------------------------
+
+/** The flag portion of an argv: everything before the first positional. */
+function flagsOf(args) {
+  return args.filter((a) => a.startsWith('-'));
+}
+
+test('both runners build the same node --test flag set', () => {
+  const coverageFlags = flagsOf(buildCoverageTestArgs());
+  const testFlags = flagsOf(buildNodeTestArgs({ tier: 'full' }));
+
+  assert.deepEqual(
+    coverageFlags,
+    testFlags,
+    'run-coverage.js and run-tests.js must spawn `node --test` with an ' +
+      'identical flag set — a flag added to one runner only is exactly the ' +
+      'divergence Story #4936 closes',
+  );
+  assert.deepEqual(coverageFlags, [...TEST_RUNNER_FLAGS]);
+});
+
+test('the shared flag set carries --experimental-test-module-mocks into both runners', () => {
+  // The concrete regression: `tests/single-story-close-orchestration.test.js`
+  // and its siblings use `t.mock.module`, which is inert without this flag.
+  for (const args of [
+    buildCoverageTestArgs(),
+    buildNodeTestArgs({ tier: 'full' }),
+  ]) {
+    assert.ok(args.includes('--experimental-test-module-mocks'));
+  }
+});
+
+test('neither runner restates a flag literal of its own', () => {
+  // Inject a sentinel flag set into the coverage builder: if it carried a
+  // hardcoded flag of its own, that flag would survive the injection.
+  const injected = buildCoverageTestArgs({ runnerFlags: ['--sentinel'] });
+  assert.deepEqual(flagsOf(injected), ['--sentinel']);
+
+  const testSrc = fs.readFileSync(
+    new URL('../../.agents/scripts/run-tests.js', import.meta.url),
+    'utf8',
+  );
+  const coverageSrc = fs.readFileSync(
+    new URL('../../.agents/scripts/run-coverage.js', import.meta.url),
+    'utf8',
+  );
+  for (const [label, src] of [
+    ['run-tests.js', testSrc],
+    ['run-coverage.js', coverageSrc],
+  ]) {
+    assert.ok(
+      !/^(?!.*import).*'--experimental-test-module-mocks'/m.test(src),
+      `${label} must not restate the module-mock flag — it comes from ` +
+        'lib/test-runner-contract.js',
+    );
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Story #4936 — the coverage tier's preflight must execute, and execute
+// first. It used to be a `pretest:coverage` npm script that only fired
+// because CI named it by hand; `.npmrc`'s `ignore-scripts=true` (which stays)
+// meant nothing else ever ran it.
+// ---------------------------------------------------------------------------
+
+test('the coverage pipeline runs the full-tier preflight before anything else', () => {
+  const repoRoot = makeTempDir('coverage-pipeline-');
+  const order = [];
+  const status = runCoveragePipeline({
+    repoRoot,
+    preflight: (opts) => {
+      order.push(`preflight:${opts.tier}`);
+      return 0;
+    },
+    spawn: (_cmd, args) => {
+      order.push(args.includes('report') ? 'report' : args[0]);
+      return { status: 0 };
+    },
+    cleanup: () => order.push('cleanup'),
+  });
+
+  assert.equal(status, 0);
+  assert.equal(order[0], 'preflight:full', 'the preflight must run first');
+  assert.ok(order.includes('cleanup'));
+  // The coverage temp directory is created only after the preflight passes.
+  assert.ok(fs.existsSync(path.join(repoRoot, 'coverage', 'tmp')));
+  fs.rmSync(repoRoot, { recursive: true, force: true });
+});
+
+test('a refused coverage preflight aborts before the suite is spawned', () => {
+  const repoRoot = makeTempDir('coverage-refused-');
+  let spawned = false;
+  const status = runCoveragePipeline({
+    repoRoot,
+    preflight: () => 2,
+    spawn: () => {
+      spawned = true;
+      return { status: 0 };
+    },
+    cleanup: () => {},
+  });
+
+  assert.equal(status, 2, 'the refusal code must propagate');
+  assert.equal(spawned, false, 'no measured run may start behind a refusal');
+  assert.equal(
+    fs.existsSync(path.join(repoRoot, 'coverage', 'tmp')),
+    false,
+    'a refused preflight must not have created the coverage tree',
+  );
+  fs.rmSync(repoRoot, { recursive: true, force: true });
+});
+
+test('the coverage suite spawn carries NODE_V8_COVERAGE and the shared argv', () => {
+  const repoRoot = makeTempDir('coverage-argv-');
+  const spawns = [];
+  runCoveragePipeline({
+    repoRoot,
+    preflight: () => 0,
+    spawn: (cmd, args, opts) => {
+      spawns.push({ cmd, args, opts });
+      return { status: 0 };
+    },
+    cleanup: () => {},
+  });
+
+  const suiteRun = spawns[0];
+  assert.deepEqual(suiteRun.args, buildCoverageTestArgs());
+  assert.equal(
+    suiteRun.opts.env.NODE_V8_COVERAGE,
+    path.join(repoRoot, 'coverage', 'tmp'),
+  );
+  // The report and the baseline gate follow, in that order.
+  assert.ok(spawns[1].args.includes('report'));
+  assert.ok(spawns[2].args.some((a) => a.endsWith('check-baselines.js')));
+  assert.deepEqual(spawns[2].args.slice(-2), ['--gate', 'coverage']);
+  fs.rmSync(repoRoot, { recursive: true, force: true });
+});
+
+test('the pipeline returns the test status ahead of the report and gate statuses', () => {
+  // Diagnostic ordering guard: a failing TEST must be what the exit code
+  // reports, even though the coverage table and gate JSON print after it.
+  const repoRoot = makeTempDir('coverage-status-');
+  let call = 0;
+  const status = runCoveragePipeline({
+    repoRoot,
+    preflight: () => 0,
+    spawn: () => {
+      call += 1;
+      return { status: call === 1 ? 9 : 0 };
+    },
+    cleanup: () => {},
+  });
+  assert.equal(status, 9);
+  fs.rmSync(repoRoot, { recursive: true, force: true });
+});
+
+test('a failing coverage gate surfaces its own exit code', () => {
+  const repoRoot = makeTempDir('coverage-gate-');
+  let call = 0;
+  const status = runCoveragePipeline({
+    repoRoot,
+    preflight: () => 0,
+    spawn: () => {
+      call += 1;
+      return { status: call === 3 ? 1 : 0 };
+    },
+    cleanup: () => {},
+  });
+  assert.equal(status, 1);
+  fs.rmSync(repoRoot, { recursive: true, force: true });
 });

@@ -117,7 +117,7 @@ describe('runTestWrapperPreflight', () => {
   });
 });
 
-describe('test-wrapper.js wiring (no new dependencies; package.json pretest hook)', () => {
+describe('test-wrapper.js wiring (no new dependencies; runner-owned preflight)', () => {
   it('test-wrapper.js imports only from ./lib/* (no new npm dep)', () => {
     const src = readFileSync(TEST_WRAPPER, 'utf8');
     // Collect every `from '<spec>'` import specifier in the file.
@@ -145,16 +145,45 @@ describe('test-wrapper.js wiring (no new dependencies; package.json pretest hook
     }
   });
 
-  it('package.json pretest script points at the new wrapper', () => {
+  it('package.json declares no pretest* script that could never fire', () => {
+    // Story #4936. `.npmrc` sets `ignore-scripts=true` as supply-chain
+    // defence (CWE-1357) and that stays — but it also suppresses npm's
+    // `pre*` lifecycle hooks for `npm run`, so `pretest`, `pretest:quick`
+    // and `pretest:integration` executed for no tier at all while looking
+    // exactly like gates. A script that appears to be a preflight and never
+    // runs is worse than no script; the invocation lives in the runners now.
     const pkg = JSON.parse(readFileSync(PACKAGE_JSON, 'utf8'));
-    assert.ok(
-      pkg.scripts?.pretest,
-      'pretest script must exist in package.json',
+    const inert = Object.keys(pkg.scripts ?? {}).filter((name) =>
+      /^pretest/.test(name),
+    );
+    assert.deepEqual(
+      inert,
+      [],
+      `package.json declares ${inert.join(', ')} — npm pre* hooks cannot fire ` +
+        'under ignore-scripts=true. Invoke the preflight from the runner ' +
+        '(.agents/scripts/lib/test-runner-contract.js) instead.',
+    );
+  });
+
+  it('the runner contract is what invokes the wrapper, for every tier', () => {
+    const contract = readFileSync(
+      new URL(
+        '../.agents/scripts/lib/test-runner-contract.js',
+        import.meta.url,
+      ),
+      'utf8',
     );
     assert.match(
-      pkg.scripts.pretest,
+      contract,
       /test-wrapper\.js/,
-      'pretest must invoke .agents/scripts/test-wrapper.js',
+      'the tier preflight map must name .agents/scripts/test-wrapper.js',
     );
+    for (const tier of ['full', 'quick', 'integration']) {
+      assert.match(
+        contract,
+        new RegExp(`\\b${tier}:`),
+        `the preflight map must declare the ${tier} tier`,
+      );
+    }
   });
 });
