@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
+import { Logger } from '../../../.agents/scripts/lib/Logger.js';
 import { SPEC_SOFT_WORD_BUDGET } from '../../../.agents/scripts/lib/orchestration/spec-budget.js';
 import {
   _internal,
@@ -173,5 +174,53 @@ describe('ticket-validator: soft ## Spec word budget (Story #4723)', () => {
     const withoutSpec = story('no-spec');
     const validated = validateAndNormalizeTickets([withSpec, withoutSpec]);
     assert.deepEqual(specFindings(validated), []);
+  });
+
+  /**
+   * The threshold is retuned to 350 (Story #4907) and pinned by value here.
+   * The tests above reference `SPEC_SOFT_WORD_BUDGET` symbolically, so they
+   * follow the constant wherever it moves and cannot catch a regression in
+   * the number itself. A 300-word Spec is ordinary authoring variance under
+   * the ~250 target and must stay silent; 400 words is the outlier the
+   * warning exists for.
+   */
+  function specOf(words) {
+    return Array.from({ length: words }, (_v, i) => `word${i}`).join(' ');
+  }
+
+  it('is silent at 300 words and fires at 400 — the threshold is 350', () => {
+    const quiet = story('three-hundred');
+    quiet.body.spec = specOf(300);
+    assert.deepEqual(specFindings(validateAndNormalizeTickets([quiet])), []);
+
+    const loud = story('four-hundred');
+    loud.body.spec = specOf(400);
+    const findings = specFindings(validateAndNormalizeTickets([loud]));
+    assert.equal(findings.length, 1);
+    assert.equal(findings[0].budget, 350);
+  });
+
+  /**
+   * `spec-word-budget` was the only finding kind logged twice per run — once
+   * by this pass and again by plan-persist's soft-finding surface. The
+   * validator now computes without reporting, matching how it already treats
+   * the sizing and conflict kinds (Story #4907).
+   */
+  it('computes the finding without warning — reporting belongs to persist', (t) => {
+    const warn = t.mock.method(Logger, 'warn', () => {});
+    const s = story('over-budget-quiet');
+    s.body.spec = overBudgetSpec;
+
+    const validated = validateAndNormalizeTickets([s]);
+
+    assert.equal(specFindings(validated).length, 1);
+    const spoke = warn.mock.calls
+      .map((c) => String(c.arguments[0]))
+      .filter((l) => /spec-word-budget|## Spec is ~/.test(l));
+    assert.deepEqual(
+      spoke,
+      [],
+      'the validator must not warn; persist surfaces it exactly once',
+    );
   });
 });
