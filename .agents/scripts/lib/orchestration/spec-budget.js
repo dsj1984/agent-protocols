@@ -9,13 +9,24 @@
 import { parse as parseStoryBody } from '../story-body/story-body.js';
 
 /**
- * Soft advisory word budget for a Story's inline `## Spec` (Story #4723).
- * ~250 words is the #4707 contract-level-prose target: interfaces,
- * invariants, and load-bearing constraints — not route-by-route behavior
- * narration. Distinct from the hard ~1500-token fail-closed ceiling in
+ * Warn threshold (words) for a Story's inline `## Spec` (Story #4723,
+ * retuned by Story #4907). The budget carries **two distinct numbers**, and
+ * both belong in any surface that documents it:
+ *
+ * - **~250 words — the authoring target.** The #4707 contract-level-prose
+ *   aim: interfaces, invariants, and load-bearing constraints, not
+ *   route-by-route behavior narration. It lives in the story-author template
+ *   placeholder (`plan-context.js`), which is what an author actually reads.
+ * - **350 words — this warn threshold.** Deliberately slack against the
+ *   target so the warning marks a real outlier rather than ordinary
+ *   authoring variance. Measured over the 45 most recent Stories carrying a
+ *   Spec, a 250-word threshold fired on 22% of *accepted* work (median 233,
+ *   p75 249) — a warning that common trains its readers to ignore it.
+ *
+ * Distinct again from the hard ~1500-token fail-closed ceiling in
  * `spec-spill.js`: this budget only warns; it never fails the persist.
  */
-export const SPEC_SOFT_WORD_BUDGET = 250;
+export const SPEC_SOFT_WORD_BUDGET = 350;
 
 /**
  * Resolve a Story's Spec prose across both authoring shapes: the canonical

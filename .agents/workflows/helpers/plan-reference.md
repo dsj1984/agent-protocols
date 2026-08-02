@@ -215,12 +215,14 @@ ceilings on `STORY_SHAPE_CEILINGS` in
   against the repo before overriding one (authoring `creates` for a file
   that exists at base is a validator rejection). The persist gates stay
   authoritative: they probe the base branch ref, not the working tree.
-- **Keep `## Spec` near contract-level prose.** Persist emits an
-  **advisory** warning past ~250 words (`SPEC_SOFT_WORD_BUDGET`) — it never
-  fails the persist, but it is the nudge toward a contract-level
+- **Keep `## Spec` near contract-level prose.** **Aim for ~250 words; an
+  advisory warning fires past 350** (`SPEC_SOFT_WORD_BUDGET`). Two numbers,
+  two jobs: ~250 is the authoring target — the nudge toward a contract-level
   Spec (interfaces, invariants, load-bearing constraints; no per-file
-  behavior narration). The hard fail-closed ceiling (~1500 tokens,
-  `spec-spill.js`) is unchanged.
+  behavior narration) — while 350 is the slacker threshold at which persist
+  actually warns, so the warning marks a real outlier instead of ordinary
+  variance. Neither fails the persist. The hard fail-closed ceiling
+  (~1500 tokens, `spec-spill.js`) is unchanged.
 
 A faithfully-filled skeleton — placeholders replaced, pre-resolved entries
 kept, tags valid — passes the persist ticket validators with no

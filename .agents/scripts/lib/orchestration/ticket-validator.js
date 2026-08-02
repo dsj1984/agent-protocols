@@ -10,6 +10,7 @@ import {
   parseStoryBodyOrThrow,
 } from './story-body-gate.js';
 import {
+  CONFLICT_KINDS,
   computeConflictFindings,
   renderHardConflictError,
 } from './ticket-validator-conflicts.js';
@@ -666,25 +667,18 @@ export function validateAndNormalizeTickets(tickets, opts = {}) {
     policy: opts.conflictPolicy,
   });
   // Advisory `## Spec` word-budget pass (Story #4723) — soft findings only,
-  // surfaced as warnings here and via the persist soft-finding channel;
   // never promoted to `errors[]`, so an over-budget Spec cannot fail the
   // persist. Runs after `assertStoryBodiesParse`, so string bodies parse.
+  // This pass computes but does not report: the sole production caller always
+  // runs the persist soft-finding surface, which reports every soft kind
+  // uniformly. Warning here too made `spec-word-budget` the only kind logged
+  // twice per run (Story #4907).
   const specBudgetFindings = computeSpecBudgetFindings({ stories });
-  for (const finding of specBudgetFindings) {
-    Logger.warn(`[ticket-validator] spec-word-budget: ${finding.message}`);
-  }
   const findings = [
     ...sizingFindings,
     ...conflictFindings,
     ...specBudgetFindings,
   ];
-  const CONFLICT_KINDS = new Set([
-    'shared-editor',
-    'implicit-cross-story-dep',
-    'cross-cutting-registries',
-    'fan-out-warning',
-    'missing-bdd-scaffold',
-  ]);
   const errors = findings
     .filter((f) => f.severity === 'hard')
     .map((f) =>
