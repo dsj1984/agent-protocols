@@ -124,10 +124,26 @@ Two envelope-level reads come **before** any finding:
 
    | Kind | Regeneration script | Acknowledgment |
    | --- | --- | --- |
-   | `coverage` | `.agents/scripts/update-coverage-baseline.js` | `COVERAGE_REFRESH=1` |
-   | `crap` | `.agents/scripts/update-crap-baseline.js` | `CRAP_REFRESH=1` |
-   | `duplication` | `.agents/scripts/update-duplication-baseline.js` | `DUPLICATION_REFRESH=1` |
-   | `maintainability` | `.agents/scripts/update-maintainability-baseline.js` | `MAINTAINABILITY_REFRESH=1` |
+   | `coverage` | `npm run coverage:reanchor` | `COVERAGE_REFRESH=1` |
+   | `crap` | `npm run crap:reanchor` | `CRAP_REFRESH=1` |
+   | `duplication` | `npm run duplication:reanchor` | `DUPLICATION_REFRESH=1` |
+   | `maintainability` | `npm run maintainability:reanchor` | `MAINTAINABILITY_REFRESH=1` |
+
+   **Prescribe the `:reanchor` script, never the bare `:update` one.** Every
+   updater defaults to a **diff-scoped** refresh — only files changed in
+   `origin/main..HEAD` are re-scored, and everything else is preserved
+   verbatim. That is the right default for "I changed code, re-score what I
+   touched", and it is exactly wrong here: a baseline is stale because the
+   *world* moved (a scorer bump, a coverage-shape change, months of unrelated
+   drift), so a diff-scoped run leaves almost every stale row untouched and
+   the staleness finding re-fires on the next sweep. `:reanchor` is the same
+   script with `--full-scope`, which re-scores every file in every target
+   dir. Confirm the flag on any kind you are unsure of with that script's
+   `--help`.
+
+   Expect a re-anchor to touch far more rows than a code change would — that
+   breadth is the point, but say so in the finding so a reviewer can tell a
+   re-anchor from a mass regression.
 
    The acknowledgment is the kind upper-snaked. It demotes that kind's
    head-vs-base regressions to unchanged **for one run only** — floors stay
