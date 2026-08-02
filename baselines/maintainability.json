@@ -1,11 +1,11 @@
 {
   "$schema": ".agents/schemas/baselines/maintainability.schema.json",
   "kernelVersion": "0.1.0",
-  "generatedAt": "2026-08-02T15:28:05.123Z",
+  "generatedAt": "2026-08-02T18:02:38.851Z",
   "rollup": {
     "*": {
       "min": 74.146,
-      "p50": 98.173,
+      "p50": 98.143,
       "p95": 126.637
     }
   },
@@ -101,6 +101,10 @@
     {
       "path": ".agents/scripts/check-workflow-cli-lint.js",
       "mi": 89.165
+    },
+    {
+      "path": ".agents/scripts/check-workflow-timeouts.js",
+      "mi": 95.66
     },
     {
       "path": ".agents/scripts/cleanup-repo-test-temp.js",
@@ -1827,6 +1831,10 @@
       "mi": 99.299
     },
     {
+      "path": ".agents/scripts/lib/test-runner-contract.js",
+      "mi": 104.355
+    },
+    {
       "path": ".agents/scripts/lib/test-temp.js",
       "mi": 107.819
     },
@@ -2120,11 +2128,11 @@
     },
     {
       "path": ".agents/scripts/run-coverage.js",
-      "mi": 101.157
+      "mi": 98.949
     },
     {
       "path": ".agents/scripts/run-lint.js",
-      "mi": 108.887
+      "mi": 107.603
     },
     {
       "path": ".agents/scripts/run-test-profile.js",
@@ -2132,7 +2140,7 @@
     },
     {
       "path": ".agents/scripts/run-tests.js",
-      "mi": 98.588
+      "mi": 96.286
     },
     {
       "path": ".agents/scripts/run-verify.js",
