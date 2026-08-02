@@ -1,0 +1,215 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://mandrel/.agents/schemas/baselines/audit-baselines-envelope.schema.json",
+  "title": "AuditBaselinesEnvelope",
+  "description": "Evidence envelope emitted by `.agents/scripts/audit-baselines.js` (Story #4902). Unlike its siblings in this directory it does NOT describe a committed baseline — it describes an engine's read-only report ABOUT the baseline surface, so it deliberately does not extend baseline-envelope.schema.json. Four sections: gateSurface (instrument health per kind), hotspots (ranked per-file clusters joining top-N outliers across gates), trend (rollup deltas from each baseline file's git history), and headroom (configured floor vs measured rollup).",
+  "type": "object",
+  "required": [
+    "kind",
+    "schemaVersion",
+    "generatedAt",
+    "cwd",
+    "topN",
+    "configError",
+    "degradations",
+    "gateSurface",
+    "hotspots",
+    "trend",
+    "headroom"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "kind": { "const": "audit-baselines-envelope" },
+    "schemaVersion": { "type": "string", "minLength": 1 },
+    "generatedAt": { "type": "string", "format": "date-time" },
+    "cwd": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Repository root the engine ran against."
+    },
+    "topN": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Per-gate bound on extracted outlier rows. The envelope never embeds a full baseline; crap.json alone is ~650KB of per-method rows."
+    },
+    "configError": {
+      "type": ["string", "null"],
+      "description": "Message from a failed config resolution. Non-null means floors, targetDirs, and ignoreGlobs were unavailable and the engine fell back to default baseline paths."
+    },
+    "degradations": {
+      "type": "object",
+      "description": "Which optional inputs were unavailable. Each degradation collapses its rank multiplier to exactly 1.0 and never changes the exit code.",
+      "required": ["gitHistory", "importGraph", "frictionLedger"],
+      "additionalProperties": false,
+      "properties": {
+        "gitHistory": { "type": "boolean" },
+        "importGraph": { "type": "boolean" },
+        "frictionLedger": { "type": "boolean" }
+      }
+    },
+    "gateSurface": {
+      "type": "array",
+      "description": "One entry per kind across BOTH halves of the surface: the closed delivery.quality.gates kinds and the out-of-band ratchet baselines the CI baselines job owns.",
+      "items": {
+        "type": "object",
+        "required": [
+          "kind",
+          "surface",
+          "baselinePath",
+          "configured",
+          "baselineExists",
+          "stub",
+          "rowCount",
+          "generatedAt",
+          "staleDays",
+          "deadIgnoreGlobs",
+          "parseError"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "kind": { "type": "string", "minLength": 1 },
+          "surface": { "enum": ["gate", "ratchet"] },
+          "baselinePath": { "type": "string", "minLength": 1 },
+          "configured": {
+            "type": "boolean",
+            "description": "A gate block for this kind is present in the resolved config."
+          },
+          "baselineExists": { "type": "boolean" },
+          "stub": {
+            "type": "boolean",
+            "description": "Zero rows AND an all-zero rollup — an instrument that passes every run vacuously. Both halves are required, so a ratchet baseline with nothing to report (e.g. zero import cycles) is never mistaken for a dead instrument."
+          },
+          "rowCount": { "type": "integer", "minimum": 0 },
+          "generatedAt": { "type": ["string", "null"] },
+          "staleDays": {
+            "type": ["integer", "null"],
+            "description": "Whole days since generatedAt. Null when the stamp is absent or unparseable — never a fabricated 0."
+          },
+          "deadIgnoreGlobs": {
+            "type": "array",
+            "description": "Configured ignoreGlobs matching zero files on disk.",
+            "items": { "type": "string" }
+          },
+          "parseError": { "type": ["string", "null"] }
+        }
+      }
+    },
+    "hotspots": {
+      "type": "array",
+      "description": "Per-file clusters, highest rank first. Severity sums across gate memberships, so a file that is an outlier in two gates outranks a single-gate outlier of equal per-gate severity.",
+      "items": {
+        "type": "object",
+        "required": [
+          "path",
+          "gates",
+          "gateKinds",
+          "gateCount",
+          "severityWeight",
+          "churnWeight",
+          "centralityWeight",
+          "frictionWeight",
+          "rank"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Cluster key. A repository file path for every kind except lighthouse (route) and bundle-size (bundle name)."
+          },
+          "gates": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "required": [
+                "kind",
+                "metric",
+                "value",
+                "rowCount",
+                "severityWeight"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "kind": { "type": "string", "minLength": 1 },
+                "metric": { "type": "string", "minLength": 1 },
+                "value": { "type": "number" },
+                "rowCount": { "type": "integer", "minimum": 1 },
+                "severityWeight": { "type": "number", "minimum": 0 }
+              }
+            }
+          },
+          "gateKinds": { "type": "array", "items": { "type": "string" } },
+          "gateCount": { "type": "integer", "minimum": 1 },
+          "severityWeight": { "type": "number", "minimum": 0 },
+          "churnWeight": { "type": "number", "minimum": 1 },
+          "centralityWeight": { "type": "number", "minimum": 1 },
+          "frictionWeight": { "type": "number", "minimum": 1 },
+          "rank": { "type": "number", "minimum": 0 }
+        }
+      }
+    },
+    "trend": {
+      "type": "array",
+      "description": "Newest-vs-previous rollup deltas parsed from each baseline file's git history. Empty when no history is readable.",
+      "items": {
+        "type": "object",
+        "required": [
+          "kind",
+          "baselinePath",
+          "sampleCount",
+          "from",
+          "to",
+          "deltas"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "kind": { "type": "string", "minLength": 1 },
+          "baselinePath": { "type": "string", "minLength": 1 },
+          "sampleCount": { "type": "integer", "minimum": 2 },
+          "from": { "$ref": "#/definitions/commitRef" },
+          "to": { "$ref": "#/definitions/commitRef" },
+          "deltas": {
+            "type": "object",
+            "additionalProperties": { "type": "number" }
+          }
+        }
+      }
+    },
+    "headroom": {
+      "type": "array",
+      "description": "Configured floor vs measured rollup per axis. Positive headroom is slack the floor could be tightened into; negative means the floor is already breached.",
+      "items": {
+        "type": "object",
+        "required": [
+          "kind",
+          "axis",
+          "floor",
+          "measured",
+          "direction",
+          "headroom"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "kind": { "type": "string", "minLength": 1 },
+          "axis": { "type": "string", "minLength": 1 },
+          "floor": { "type": "number" },
+          "measured": { "type": ["number", "null"] },
+          "direction": { "enum": ["gte", "lte"] },
+          "headroom": { "type": ["number", "null"] }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "commitRef": {
+      "type": "object",
+      "required": ["sha", "committedAt"],
+      "additionalProperties": false,
+      "properties": {
+        "sha": { "type": "string", "minLength": 7 },
+        "committedAt": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}
