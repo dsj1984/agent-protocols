@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-21T13:53:23.232Z",
+  "generatedAt": "2026-08-02T11:35:53.522Z",
   "generator": "generate-skills-index.js@1",
   "skills": [
     {
@@ -48,7 +48,7 @@
       "category": "core",
       "path": ".agents/skills/core/diagnose-friction/SKILL.md",
       "description": "Wrap a shell command with diagnostic capture. On failure, print static suggestions and append a structured `friction` record to the per-Story signals.ndjson stream. Use whenever a script in the orchestration loop invokes a tool whose failure shape we want the analyzer to attribute.",
-      "policyCapsuleBullets": 8,
+      "policyCapsuleBullets": 9,
       "allowedTools": ["Bash", "Read"],
       "vendor": null
     },
