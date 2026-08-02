@@ -817,6 +817,28 @@ export function renderFanOutRemedy(finding) {
 }
 
 /**
+ * The finding kinds that are genuinely **cross-Story conflicts** — the SSOT
+ * for that question (Story #4907).
+ *
+ * Two readers need it and must not disagree: the validator, which renders
+ * these through {@link renderHardConflictError} when policy upgrades them to
+ * `errors[]`, and the persist soft-finding surface, which announces a
+ * conflict as a conflict and every other soft kind (`spec-word-budget`,
+ * `merge-candidate`, `unanchored-constant`, `missing-reason-to-exist`) as the
+ * advisory it is. A second copy of this list is how the two drift back apart,
+ * so it is defined exactly once and imported.
+ */
+export const CONFLICT_KINDS = Object.freeze(
+  new Set([
+    'shared-editor',
+    'implicit-cross-story-dep',
+    'cross-cutting-registries',
+    'fan-out-warning',
+    'missing-bdd-scaffold',
+  ]),
+);
+
+/**
  * Render a `'hard'`-severity conflict finding as a human-readable error
  * message. Used by the validator when policy flags upgrade a finding to
  * the AC-visible `errors[]` channel.

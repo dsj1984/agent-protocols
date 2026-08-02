@@ -7,6 +7,7 @@
 
 import { Logger } from '../../Logger.js';
 import {
+  CONFLICT_KINDS,
   renderFanOutEvidence,
   renderFanOutRemedy,
   renderHardConflictError,
@@ -54,6 +55,15 @@ export function enforceFanOutGate(
 }
 
 /**
+ * Report every soft finding the validator produced, each under its own kind.
+ *
+ * Only the {@link CONFLICT_KINDS} are cross-Story conflicts. The advisory
+ * kinds — `spec-word-budget` and the sizing findings — are single-Story
+ * nudges, and announcing them as conflicts overstated them and taught readers
+ * to discount the whole channel (Story #4907). `fan-out-warning` is excluded
+ * throughout: {@link enforceFanOutGate} owns it and has already either thrown
+ * or logged the override.
+ *
  * @param {object[]} findings
  * @param {string} [tag]
  */
@@ -62,10 +72,26 @@ export function surfaceSoftConflictFindings(findings, tag = 'plan-persist') {
     (f) => f?.severity === 'soft' && f?.kind !== 'fan-out-warning',
   );
   if (soft.length === 0) return;
-  Logger.warn(
-    `[${tag}] ${soft.length} soft cross-Story conflict finding(s) — review before approving the plan:`,
-  );
-  for (const finding of soft) {
-    Logger.warn(`[${tag}] soft conflict: ${renderHardConflictError(finding)}`);
+  const conflicts = soft.filter((f) => CONFLICT_KINDS.has(f?.kind));
+  const advisories = soft.filter((f) => !CONFLICT_KINDS.has(f?.kind));
+  if (conflicts.length > 0) {
+    Logger.warn(
+      `[${tag}] ${conflicts.length} soft cross-Story conflict finding(s) — review before approving the plan:`,
+    );
+    for (const finding of conflicts) {
+      Logger.warn(
+        `[${tag}] soft conflict: ${renderHardConflictError(finding)}`,
+      );
+    }
+  }
+  if (advisories.length > 0) {
+    Logger.warn(
+      `[${tag}] ${advisories.length} advisory finding(s) — the persist proceeds:`,
+    );
+    for (const finding of advisories) {
+      Logger.warn(
+        `[${tag}] advisory (${finding.kind}): ${renderHardConflictError(finding)}`,
+      );
+    }
   }
 }

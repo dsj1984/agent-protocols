@@ -229,7 +229,8 @@ export function renderStoriesTemplate({ complexitySignals = null } = {}) {
           'codes, security invariants, and load-bearing constraints with ' +
           'their why. Implementation choices belong to the deliverer unless ' +
           'load-bearing. No per-file behavior paragraphs, no current-state ' +
-          'narration. Keep it under ~250 words (soft advisory budget). ' +
+          'narration. Aim for ~250 words; an advisory warning fires past 350, ' +
+          'and it never fails the persist. ' +
           'Delete this field when acceptance[] carries the whole contract.',
         changes: buildTemplateChanges(complexitySignals),
         non_goals: [],
