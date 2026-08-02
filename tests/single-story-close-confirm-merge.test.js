@@ -23,8 +23,18 @@
  */
 
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
+import { mkdtempSync, readdirSync, readFileSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import { describe, it } from 'node:test';
+import { fileURLToPath } from 'node:url';
+import {
+  parseSprintArgs,
+  parseSprintArgsTolerant,
+} from '../.agents/scripts/lib/cli-args.js';
+import { TEST_TEMP_ROOT_ENV } from '../.agents/scripts/lib/config/temp-paths.js';
 import {
   enableAutoMergeWith,
   runAutoMergePhase,
@@ -43,7 +53,12 @@ import {
   parseCloseOptions,
   resolveWaitForMerge,
 } from '../.agents/scripts/lib/orchestration/single-story-close/phases/options.js';
-import { terminalFromWaitOutcome } from '../.agents/scripts/lib/orchestration/story-deliver-terminal.js';
+import {
+  TERMINAL_BEGIN_MARKER,
+  TERMINAL_END_MARKER,
+  terminalFromWaitOutcome,
+  validateTerminalEnvelope,
+} from '../.agents/scripts/lib/orchestration/story-deliver-terminal.js';
 import { confirmStoryMerged } from '../.agents/scripts/lib/single-story/confirm-merge.js';
 
 /**
@@ -1588,4 +1603,158 @@ describe('Story #4873 — shared poll primitive and progress heartbeat', () => {
     assert.match(heartbeat, /state=unknown/);
     assert.match(heartbeat, /probe error: PR probe failed: gh exploded/);
   });
+});
+
+/**
+ * Story #4959 — the argv path itself.
+ *
+ * Every `--merge-watch-mode` assertion above drives `parseCloseOptions`, the
+ * injection seam. That seam was green throughout the window in which the real
+ * CLI could not survive the flag at all: `parseSprintArgs` threw, and the
+ * catch in each entry's `main()` called `parseSprintArgs()` *again* to build
+ * its envelope, so the second throw escaped the handler. An unparseable argv
+ * produced a bare stack trace with no terminal envelope and no friction
+ * signal — on the two surfaces whose entire contract is that they emit one.
+ *
+ * These cases drive real argv, and the spawn cases drive the real process.
+ */
+describe('argv path — --merge-watch-mode (Story #4959)', () => {
+  /** Real argv shape: node:util slices the first two entries off. */
+  const argv = (...flags) => ['node', 'single-story-close.js', ...flags];
+
+  const scriptPath = (basename) =>
+    fileURLToPath(new URL(`../.agents/scripts/${basename}`, import.meta.url));
+
+  /** Pull the one envelope out from between the terminal markers. */
+  function readTerminalEnvelope(stdout) {
+    const begin = stdout.indexOf(TERMINAL_BEGIN_MARKER);
+    const end = stdout.indexOf(TERMINAL_END_MARKER);
+    assert.ok(
+      begin >= 0 && end > begin,
+      `stdout carried no terminal envelope:\n${stdout}`,
+    );
+    return JSON.parse(
+      stdout.slice(begin + TERMINAL_BEGIN_MARKER.length, end).trim(),
+    );
+  }
+
+  it('honours a valid --merge-watch-mode read off real argv', () => {
+    for (const [flags, expected] of [
+      [['--merge-watch-mode', 'async'], 'async'],
+      [['--merge-watch-mode=sync'], 'sync'],
+      [['--merge-watch-mode', '  ASYNC  '], 'async'],
+      [[], undefined],
+    ]) {
+      assert.equal(
+        parseSprintArgs(argv('--story', '7', ...flags)).mergeWatchMode,
+        expected,
+      );
+    }
+  });
+
+  it('an UNREGISTERED flag spelling parses to nothing — the silent class strict:false permits', () => {
+    // `strict: false` means `node:util`'s parseArgs neither rejects nor
+    // reports an unknown flag: a near-miss spelling is dropped on the floor
+    // and the run silently keeps the config default, with the wall clock as
+    // the only evidence. Pinned here so the hazard is asserted rather than
+    // assumed — and so the spawn cases below are read for what they also are:
+    // the canary that the REGISTERED spelling is still wired. Rename or drop
+    // `merge-watch-mode` from the parser spec and `bogus` parses to nothing,
+    // no error is raised, and those cases fail on a missing envelope.
+    const parsed = parseSprintArgs(
+      argv('--story', '7', '--merge-watch-modes', 'bogus'),
+    );
+    assert.equal(parsed.mergeWatchMode, undefined);
+    assert.equal(parsed.storyId, 7, 'the rest of argv still parses');
+  });
+
+  it('parseSprintArgsTolerant returns the rejection ALONGSIDE the fields, never instead of them', () => {
+    const { args, error } = parseSprintArgsTolerant(
+      argv('--story', '42', '--skip-validation', '--merge-watch-mode', 'bogus'),
+    );
+    assert.match(
+      error.message,
+      /--merge-watch-mode must be one of sync\|async/,
+    );
+    // The fields an error handler needs to report an envelope survive the
+    // rejection; only the flag that failed validation degrades to absent.
+    assert.equal(args.storyId, 42);
+    assert.equal(args.skipValidation, true);
+    assert.equal(args.mergeWatchMode, undefined);
+    // A clean argv reports no error and parses exactly as parseSprintArgs does.
+    const clean = parseSprintArgsTolerant(
+      argv('--story', '42', '--merge-watch-mode', 'async'),
+    );
+    assert.equal(clean.error, null);
+    assert.equal(clean.args.mergeWatchMode, 'async');
+  });
+
+  for (const basename of [
+    'single-story-close.js',
+    'single-story-confirm-merge.js',
+  ]) {
+    it(`AC-1: ${basename} emits a failed init envelope AND friction for an invalid --merge-watch-mode`, () => {
+      // A per-spawn scratch tempRoot: the child inherits the env, so its
+      // friction record lands here instead of the repo's real ledger, where a
+      // fixture story id has previously been mistaken for a live signal.
+      const scratch = mkdtempSync(path.join(tmpdir(), 'merge-watch-argv-'));
+      const storyId = 424242;
+      const run = spawnSync(
+        process.execPath,
+        [
+          scriptPath(basename),
+          '--story',
+          String(storyId),
+          '--merge-watch-mode',
+          'bogus',
+        ],
+        {
+          encoding: 'utf8',
+          env: { ...process.env, [TEST_TEMP_ROOT_ENV]: scratch },
+        },
+      );
+
+      assert.equal(run.status, 1, `expected exit 1, got ${run.status}`);
+      const envelope = readTerminalEnvelope(run.stdout);
+      const { valid, errors } = validateTerminalEnvelope(envelope);
+      assert.ok(
+        valid,
+        `envelope must be schema-valid: ${JSON.stringify(errors)}`,
+      );
+      assert.equal(envelope.status, 'failed');
+      // `init`, not a phase name: the flag is rejected before the pipeline
+      // starts, so nothing was mutated and the envelope must not imply it was.
+      assert.equal(envelope.phase, 'init');
+      assert.equal(envelope.storyId, storyId);
+      assert.match(
+        envelope.failure.reason,
+        /--merge-watch-mode must be one of/,
+      );
+
+      // Story #4578's contract: a close that dies before the runner can report
+      // its own terminal is exactly the friction the retro must see. Located
+      // by search rather than by a hand-built path — the scratch root is a
+      // base the configured `project.paths.tempRoot` nests under, so spelling
+      // the layout out here would couple the assertion to that config value.
+      const ledger = readdirSync(scratch, { recursive: true })
+        .map(String)
+        .find(
+          (entry) =>
+            entry.endsWith('signals.ndjson') &&
+            entry.includes(`story-${storyId}`),
+        );
+      assert.ok(ledger, `no signals ledger was written under ${scratch}`);
+      const signals = readFileSync(path.join(scratch, ledger), 'utf8');
+      const records = signals
+        .trim()
+        .split('\n')
+        .map((line) => JSON.parse(line));
+      assert.ok(
+        records.some(
+          (r) => r.kind === 'friction' && r.category === 'close-failed',
+        ),
+        `no close-failed friction record was emitted: ${signals}`,
+      );
+    });
+  }
 });

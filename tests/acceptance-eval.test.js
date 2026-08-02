@@ -270,6 +270,22 @@ describe('--expected-criteria — the merge contract (Story #4951)', () => {
     }
   });
 
+  it('AC-5: refuses a digit-prefixed value instead of truncating it (Story #4959)', () => {
+    // `Number.parseInt` stops at the first non-digit, so each of these used to
+    // resolve to a plausible-looking count. The guard exists to reject a
+    // wrong-sized verdict — accepting a malformed count is the one failure it
+    // cannot afford, because the resulting number is silently believed.
+    for (const raw of ['4abc', '4.9', '4 5', '0x10', '1e3', ' 4a ']) {
+      assert.throws(
+        () => resolveExpectedCriteria(raw),
+        /--expected-criteria must be a positive integer/,
+        `--expected-criteria ${raw} should be refused, not coerced`,
+      );
+    }
+    // Surrounding whitespace on an otherwise clean integer stays acceptable.
+    assert.equal(resolveExpectedCriteria(' 12 '), 12);
+  });
+
   it('passes a verdict covering exactly the expected criteria', () => {
     assert.doesNotThrow(() => assertCriteriaCoverage(clusterVerdict(4), 4));
   });
