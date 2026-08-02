@@ -321,6 +321,16 @@ export class TicketGateway {
    * avoid a read-before-write. When other PATCH fields are present, or when
    * removing labels, computes the final label set and returns it to the
    * caller for inclusion in the PATCH.
+   *
+   * The additive POST goes through `withTransientRetry` (Story #4961) on the
+   * same policy as every other call in this file. Story #4952 raised the
+   * `/plan` write loops that reach this endpoint — the `agent::ready` flips
+   * and the checkpoint fan-out — off serial, which is precisely what makes
+   * GitHub's secondary rate limit likelier; `gh-exec` already classifies that
+   * as transient, so the only thing missing was a backoff behind it.
+   * Retry does not change what the caller observes on a genuine failure: an
+   * exhausted or non-transient error still throws, so `markStoriesReady`
+   * still collects it into the complete failure set.
    */
   async _applyLabelMutations(
     ticketId,
@@ -331,11 +341,15 @@ export class TicketGateway {
     const { add = [], remove = [] } = labelMutations;
 
     if (add.length > 0 && remove.length === 0 && !hasOtherPatchFields) {
-      await this._gh.api({
-        method: 'POST',
-        endpoint: `/repos/${this.owner}/${this.repo}/issues/${ticketId}/labels`,
-        body: { labels: add },
-      });
+      await withTransientRetry(
+        () =>
+          this._gh.api({
+            method: 'POST',
+            endpoint: `/repos/${this.owner}/${this.repo}/issues/${ticketId}/labels`,
+            body: { labels: add },
+          }),
+        { label: `addLabels #${ticketId}`, onRetry: defaultRetryWarn },
+      );
       return { skipPatch: true };
     }
 
@@ -351,6 +365,11 @@ export class TicketGateway {
   }
 
   /**
+   * The issue PATCH is wrapped in `withTransientRetry` (Story #4961) for the
+   * same reason as the additive label POST above — see
+   * {@link TicketGateway#_applyLabelMutations}. Both are the write half of the
+   * fan-outs Story #4952 raised; the reads in this file were already wrapped.
+   *
    * @field-manifest PATCH /repos/{owner}/{repo}/issues/{n}:
    *                 body, assignees, state, state_reason, labels
    */
@@ -379,11 +398,15 @@ export class TicketGateway {
     }
 
     if (Object.keys(patch).length > 0) {
-      await this._gh.api({
-        method: 'PATCH',
-        endpoint: `/repos/${this.owner}/${this.repo}/issues/${ticketId}`,
-        body: patch,
-      });
+      await withTransientRetry(
+        () =>
+          this._gh.api({
+            method: 'PATCH',
+            endpoint: `/repos/${this.owner}/${this.repo}/issues/${ticketId}`,
+            body: patch,
+          }),
+        { label: `updateTicket #${ticketId}`, onRetry: defaultRetryWarn },
+      );
       this.invalidateTicket(ticketId);
     }
   }

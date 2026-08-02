@@ -31,25 +31,13 @@ import {
   renderAcceptanceSpecSystemPrompt,
   renderTechSpecSystemPrompt,
 } from '../templates/spec-author-prompts.js';
-import { concurrentMap } from '../util/concurrent-map.js';
+import { concurrentMap, FANOUT_CONCURRENCY } from '../util/concurrent-map.js';
 import { buildComplexitySignals } from './complexity-gate.js';
 import { parseDeliverySlicingTable } from './consolidation-precondition.js';
 import { buildDocsDigest } from './docs-digest.js';
 import { buildAuthoringContext } from './planning/authoring-context.js';
 import { buildDecomposerSystemPrompt } from './planning/decomposer-context.js';
 
-/** Bounded concurrency for `--tickets` source-ticket hydration. */
-const SOURCE_TICKET_FETCH_CONCURRENCY = 4;
-/**
- * Bounded concurrency for the per-mode envelope gathers (Story #4952).
- *
- * The duplicate search, the authoring-context fold and the docs digest have
- * no data dependency on one another — the serialization was incidental, and
- * `/plan` pays it with the operator waiting at Gate #1. Same small bound as
- * {@link SOURCE_TICKET_FETCH_CONCURRENCY}: the win here is overlapping three
- * unrelated waits, not saturating the GitHub API.
- */
-const ENVELOPE_GATHER_CONCURRENCY = 4;
 /**
  * Envelope byte ceiling (regression guard for the design's named PR2 risk:
  * two envelopes → one bigger one). This is the **only** live bound on
@@ -885,7 +873,11 @@ async function gatherEnvelopeInputs({
         }),
     ],
     (gather) => gather(),
-    { concurrency: ENVELOPE_GATHER_CONCURRENCY },
+    // The per-mode envelope gathers (Story #4952): the duplicate search, the
+    // authoring-context fold and the docs digest have no data dependency on
+    // one another, so their serialization was incidental and `/plan` paid it
+    // with the operator waiting at Gate #1.
+    { concurrency: FANOUT_CONCURRENCY },
   );
 
   return {
@@ -1040,7 +1032,8 @@ async function fetchSourceTickets(ticketIds, provider) {
         state: ticket.state ?? undefined,
       };
     },
-    { concurrency: SOURCE_TICKET_FETCH_CONCURRENCY },
+    // `--tickets` source-ticket hydration: one independent read per id.
+    { concurrency: FANOUT_CONCURRENCY },
   );
 }
 
@@ -1210,7 +1203,8 @@ async function buildAmendmentModeEnvelope({
         }),
     ],
     (gather) => gather(),
-    { concurrency: ENVELOPE_GATHER_CONCURRENCY },
+    // Same independent-gather fan-out as the seed-mode envelope above.
+    { concurrency: FANOUT_CONCURRENCY },
   );
 
   return {

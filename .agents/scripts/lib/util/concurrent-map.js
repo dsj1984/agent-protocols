@@ -14,6 +14,23 @@
  */
 
 /**
+ * The one bound every independent-write fan-out over the GitHub API uses
+ * (Story #4952 raised those loops off serial; Story #4961 made this the single
+ * owner of the number they share). Imported by the `/plan` context gathers,
+ * the persist checkpoint fan-out, the `agent::ready` flips and the supersede
+ * close loop, so re-tuning the policy is one edit rather than six.
+ *
+ * **Why bounded and not unbounded.** Every unit in those fan-outs is its own
+ * API round-trip, so an unbounded map over an N-Story plan dispatches N writes
+ * at once — and GitHub answers a burst with a secondary rate limit rather than
+ * with throughput. The goal is overlapping unrelated waits, not saturating the
+ * API, and four is enough to collapse the latency the serial loops paid while
+ * staying well under the burst threshold. Callers whose ordering is
+ * load-bearing (`createStoryIssues`) stay serial instead of importing this.
+ */
+export const FANOUT_CONCURRENCY = 4;
+
+/**
  * @template T, R
  * @param {ReadonlyArray<T>} items
  * @param {(item: T, index: number) => Promise<R> | R} mapper

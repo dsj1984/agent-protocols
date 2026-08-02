@@ -33,7 +33,7 @@ const ghExecMod = await import(
 
 const { TicketGateway } = ticketsMod;
 const { createInlineTicketCache } = cacheMod;
-const { createGh } = ghExecMod;
+const { createGh, GhExecError, GhRateLimitError } = ghExecMod;
 
 /**
  * Build a fake gh-exec facade that routes on the argv shape
@@ -59,6 +59,30 @@ function makeFakeGh(routes) {
         err.code = val.status;
         throw err;
       }
+    }
+    return { stdout: '{}', stderr: '', code: 0 };
+  };
+  exec.calls = calls;
+  const gh = createGh(exec);
+  gh.__exec = exec;
+  return gh;
+}
+
+/**
+ * Fake gh facade that rejects the first `failures` calls with `error()` and
+ * succeeds afterwards, so the write path's retry can be driven without a
+ * subprocess. `gh-exec` classifies a real secondary rate limit into
+ * `GhRateLimitError`, so throwing that class exercises the production shape
+ * rather than a message that merely looks like one.
+ */
+function makeFlakyGh({ failures, error }) {
+  let remaining = failures;
+  const calls = [];
+  const exec = async ({ args, input }) => {
+    calls.push({ args, input });
+    if (remaining > 0) {
+      remaining -= 1;
+      throw error();
     }
     return { stdout: '{}', stderr: '', code: 0 };
   };
@@ -431,6 +455,74 @@ describe('providers/github/tickets.js — TicketGateway', () => {
     assert.ok(body.labels.includes('fresh'));
     assert.ok(body.labels.includes('existing'));
     assert.ok(!body.labels.includes('old'));
+  });
+
+  it('updateTicket: the additive label POST retries a transient rate limit rather than surfacing it on the first attempt (Story #4961)', async () => {
+    const cache = createInlineTicketCache();
+    cache.set(70, { id: 70, title: 'T70', labels: [], body: '' });
+    const gh = makeFlakyGh({
+      failures: 1,
+      error: () => new GhRateLimitError('gh-exec: gh API rate limit exceeded'),
+    });
+    const gateway = new TicketGateway({ gh, owner: 'o', repo: 'r', cache });
+
+    await gateway.updateTicket(70, { labels: { add: ['agent::ready'] } });
+
+    assert.equal(
+      gh.__exec.calls.length,
+      2,
+      'the rate-limited POST is retried, not surfaced to the caller',
+    );
+    for (const call of gh.__exec.calls) {
+      assert.equal(call.args[2], 'POST');
+      assert.match(call.args[3], /\/issues\/70\/labels$/);
+    }
+    assert.equal(cache.has(70), false, 'the retried write still invalidates');
+  });
+
+  it('updateTicket: the issue PATCH retries a transient rate limit rather than surfacing it on the first attempt (Story #4961)', async () => {
+    const cache = createInlineTicketCache();
+    cache.set(80, { id: 80, title: 'T80', labels: [], body: '' });
+    const gh = makeFlakyGh({
+      failures: 1,
+      error: () => new GhRateLimitError('gh-exec: gh API rate limit exceeded'),
+    });
+    const gateway = new TicketGateway({ gh, owner: 'o', repo: 'r', cache });
+
+    await gateway.updateTicket(80, { body: 'new body' });
+
+    assert.equal(
+      gh.__exec.calls.length,
+      2,
+      'the rate-limited PATCH is retried, not surfaced to the caller',
+    );
+    for (const call of gh.__exec.calls) {
+      assert.equal(call.args[2], 'PATCH');
+      assert.equal(JSON.parse(call.input).body, 'new body');
+    }
+    assert.equal(cache.has(80), false);
+  });
+
+  it('updateTicket: a non-transient write failure still throws on the first attempt — the wrapper never converts it into a silent success (Story #4961)', async () => {
+    // What `markStoriesReady`'s collect-every-failure contract depends on:
+    // a real failure still reaches the caller, so the closing error can name
+    // the complete set of ids that need the label by hand.
+    const gh = makeFlakyGh({
+      failures: Number.POSITIVE_INFINITY,
+      error: () =>
+        new GhExecError('gh-exec: gh exited with code 422: Validation Failed'),
+    });
+    const gateway = new TicketGateway({ gh, owner: 'o', repo: 'r' });
+
+    await assert.rejects(
+      () => gateway.updateTicket(90, { body: 'x' }),
+      /Validation Failed/,
+    );
+    assert.equal(
+      gh.__exec.calls.length,
+      1,
+      'a permanent error bubbles on the first attempt — no backoff burned',
+    );
   });
 
   it('primeTicketCache / invalidateTicket: exposed for parent provider compatibility', () => {

@@ -33,6 +33,17 @@ import { PLAN_SUMMARY_COMMENT_TYPE } from '../../.agents/scripts/lib/orchestrati
 import { resolveSourceTicketIds } from '../../.agents/scripts/lib/orchestration/plan-persist/supersede-ops.js';
 import { serialize } from '../../.agents/scripts/lib/story-body/story-body.js';
 import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
+import { FANOUT_CONCURRENCY } from '../../.agents/scripts/lib/util/concurrent-map.js';
+
+/**
+ * Story sizes for the fan-out guards below. Every assertion about *how* a
+ * fan-out behaves — abandonment, phase ordering — has to run above the bound,
+ * because at or below it `concurrentMap` dispatches the whole set up front and
+ * the behaviour under test cannot occur. Derived from the bound rather than
+ * hard-coded, so a re-tune cannot silently make these guards inert again
+ * (Story #4961).
+ */
+const ABOVE_FANOUT_BOUND = FANOUT_CONCURRENCY + 1;
 
 function ticket(slug) {
   const acceptance = [`${slug} done`];
@@ -411,6 +422,11 @@ describe('runPlanPersist — flat Story ops', () => {
     // while story-plan-state was upserted afterwards, so a /deliver that picked
     // a Story up inside that window read a null checkpoint.
     // Ready must mean fully persisted.
+    //
+    // Story #4961 — run ABOVE the fan-out bound. This used to run at N=1 and
+    // assert `order.at(-1) === 'ready'`, which is true of a single Story
+    // however the two phases interleave; only a run wider than the bound can
+    // expose a ready flip that overlaps a still-pending checkpoint.
     const labelsAtCreate = [];
     const provider = fakeProvider({
       createHook: ({ labels }) => labelsAtCreate.push([...labels]),
@@ -432,29 +448,41 @@ describe('runPlanPersist — flat Story ops', () => {
       return updateTicket(id, mutations);
     };
 
+    const stories = Array.from({ length: ABOVE_FANOUT_BOUND }, (_, i) =>
+      ticket(`story-${i}`),
+    );
     const result = await runPlanPersist({
       provider,
-      artifacts: { stories: [ticket('solo')] },
+      artifacts: { stories },
       config: {},
       opts: { skipCleanup: true },
     });
 
-    assert.equal(labelsAtCreate.length, 1);
+    assert.equal(labelsAtCreate.length, ABOVE_FANOUT_BOUND);
+    for (const labels of labelsAtCreate) {
+      assert.ok(
+        labels.includes(TYPE_LABELS.STORY),
+        'the creating POST carries type::story',
+      );
+      assert.ok(
+        !labels.includes(AGENT_LABELS.READY),
+        'the creating POST must not carry agent::ready',
+      );
+      assert.deepEqual(
+        labels.filter((l) => l.startsWith('plan-run::')),
+        [result.planRunLabel],
+        'the creating POST carries the cohort grouping label (Story #4692)',
+      );
+    }
+    assert.equal(
+      order.filter((e) => e === 'checkpoint').length,
+      ABOVE_FANOUT_BOUND,
+    );
+    assert.equal(order.filter((e) => e === 'ready').length, ABOVE_FANOUT_BOUND);
     assert.ok(
-      labelsAtCreate[0].includes(TYPE_LABELS.STORY),
-      'the creating POST carries type::story',
+      order.lastIndexOf('checkpoint') < order.indexOf('ready'),
+      `every checkpoint must land before the first ready flip (${order.join(',')})`,
     );
-    assert.ok(
-      !labelsAtCreate[0].includes(AGENT_LABELS.READY),
-      'the creating POST must not carry agent::ready',
-    );
-    assert.deepEqual(
-      labelsAtCreate[0].filter((l) => l.startsWith('plan-run::')),
-      [result.planRunLabel],
-      'the creating POST carries the cohort grouping label (Story #4692)',
-    );
-    assert.equal(order.at(-1), 'ready', 'the ready flip must be terminal');
-    assert.ok(order.includes('checkpoint'));
     // And the end state is still a ready Story.
     assert.ok(
       provider.issues
@@ -1524,20 +1552,33 @@ describe('markStoriesReady — bounded concurrency (Story #4952)', () => {
     // COMPLETE set of ids that still need the label by hand, so every Story is
     // attempted even after an earlier PATCH rejects. concurrentMap's
     // first-rejection-wins policy would abandon the rest.
+    //
+    // Story #4961 — sized ABOVE the bound on purpose. At n <= concurrency every
+    // unit is dispatched before the first rejection can be observed, so an
+    // implementation that DID abandon the remainder would still attempt all of
+    // them and this assertion could never fail. The failures are seeded in the
+    // first dispatched window so the abandoned tail is the one being counted.
     const provider = fakeProvider();
-    const created = [
-      { id: 7100, slug: 'alpha' },
-      { id: 7101, slug: 'beta' },
-      { id: 7102, slug: 'gamma' },
-      { id: 7103, slug: 'delta' },
-    ];
+    const size = ABOVE_FANOUT_BOUND + 4;
+    const created = Array.from({ length: size }, (_, i) => ({
+      id: 7100 + i,
+      slug: `story-${i}`,
+    }));
+    assert.ok(
+      created.length > FANOUT_CONCURRENCY,
+      'the guard is only meaningful above the fan-out bound',
+    );
     for (const story of created) {
       provider.issues.set(story.id, { id: story.id, labels: [] });
     }
+    const failing = new Set([7100, 7102]);
     const attempted = [];
     provider.updateTicket = async (id) => {
       attempted.push(id);
-      if (id === 7100 || id === 7102) {
+      // Yield so the first rejections land while later units are still
+      // undispatched — the exact window an abandoning implementation loses.
+      await new Promise((resolve) => setTimeout(resolve, 1));
+      if (failing.has(id)) {
         throw new Error(`boom ${id}`);
       }
       provider.issues.get(id).labels.push(AGENT_LABELS.READY);
@@ -1546,20 +1587,26 @@ describe('markStoriesReady — bounded concurrency (Story #4952)', () => {
     await assert.rejects(
       () => markStoriesReady({ provider, created }),
       (err) => {
-        assert.match(err.message, /#7100 \(alpha\): boom 7100/);
-        assert.match(err.message, /#7102 \(gamma\): boom 7102/);
+        assert.match(err.message, /#7100 \(story-0\): boom 7100/);
+        assert.match(err.message, /#7102 \(story-2\): boom 7102/);
         assert.match(err.message, /2 Story\(ies\) were created/);
         return true;
       },
     );
     assert.deepEqual(
-      attempted.sort(),
-      [7100, 7101, 7102, 7103],
+      attempted.sort((a, b) => a - b),
+      created.map((s) => s.id),
       'the first failure must not abandon the remaining flips',
     );
-    // The Stories that could be flipped still were.
-    assert.ok(provider.issues.get(7101).labels.includes(AGENT_LABELS.READY));
-    assert.ok(provider.issues.get(7103).labels.includes(AGENT_LABELS.READY));
+    // Every Story that could be flipped still was — including the tail an
+    // abandoning fan-out would never have reached.
+    for (const story of created) {
+      if (failing.has(story.id)) continue;
+      assert.ok(
+        provider.issues.get(story.id).labels.includes(AGENT_LABELS.READY),
+        `#${story.id} must still have been flipped`,
+      );
+    }
   });
 });
 
@@ -1603,7 +1650,9 @@ describe('createStoryIssues — deliberately serial (Story #4952 AC-3)', () => {
 describe('persist write loops — concurrent, ordering preserved (Story #4952)', () => {
   it('fans the checkpoints out but lands every one before the first ready flip', async () => {
     // Story #4541's invariant survives the fan-out: agent::ready still means
-    // "fully persisted", so no phase may overlap the next.
+    // "fully persisted", so no phase may overlap the next. Sized above the
+    // bound (Story #4961) so the checkpoint phase cannot be dispatched in a
+    // single window — a leaked ready flip has somewhere to interleave.
     const provider = fakeProvider();
     const order = [];
     let checkpointsInFlight = 0;
@@ -1632,21 +1681,30 @@ describe('persist write loops — concurrent, ordering preserved (Story #4952)',
     const result = await runPlanPersist({
       provider,
       artifacts: {
-        stories: [ticket('one'), ticket('two'), ticket('three')],
+        stories: Array.from({ length: ABOVE_FANOUT_BOUND }, (_, i) =>
+          ticket(`story-${i}`),
+        ),
       },
       config: {},
       opts: { skipCleanup: true },
     });
 
-    assert.equal(result.stories.length, 3);
+    assert.equal(result.stories.length, ABOVE_FANOUT_BOUND);
     assert.ok(
       checkpointPeak > 1,
       `expected the checkpoint writes to overlap, peak=${checkpointPeak}`,
     );
+    assert.ok(
+      checkpointPeak <= FANOUT_CONCURRENCY,
+      `expected a bounded fan-out, peak=${checkpointPeak}`,
+    );
     const lastCheckpoint = order.lastIndexOf('checkpoint');
     const firstReady = order.indexOf('ready');
-    assert.equal(order.filter((e) => e === 'checkpoint').length, 3);
-    assert.equal(order.filter((e) => e === 'ready').length, 3);
+    assert.equal(
+      order.filter((e) => e === 'checkpoint').length,
+      ABOVE_FANOUT_BOUND,
+    );
+    assert.equal(order.filter((e) => e === 'ready').length, ABOVE_FANOUT_BOUND);
     assert.ok(
       lastCheckpoint < firstReady,
       `every checkpoint must land before the first ready flip (${order.join(',')})`,
@@ -1725,13 +1783,23 @@ describe('supersede close — bounded concurrency (Story #4952)', () => {
   });
 
   it('keeps per-unit failures per-unit — one bad ticket never abandons the rest', async () => {
-    const sourceIds = [950, 951, 952];
+    // Story #4961 — sized above the fan-out bound. At n <= concurrency every
+    // unit is already dispatched when the first one refuses, so a unit that
+    // let its rejection escape would still leave the rest closed and this
+    // assertion could not fail. The refusal is seeded in the first dispatched
+    // window so the tail is genuinely at risk.
+    const sourceIds = Array.from(
+      { length: ABOVE_FANOUT_BOUND + 2 },
+      (_, i) => 950 + i,
+    );
+    const refusedId = 951;
     const provider = fakeProvider({
       sources: sourceIds.map((id) => ({ id })),
     });
     const { updateTicket } = provider;
     provider.updateTicket = async (id, mutations) => {
-      if (id === 951 && mutations.state === 'closed') {
+      if (id === refusedId && mutations.state === 'closed') {
+        await new Promise((resolve) => setTimeout(resolve, 1));
         throw new Error('close refused');
       }
       return updateTicket(id, mutations);
@@ -1747,11 +1815,17 @@ describe('supersede close — bounded concurrency (Story #4952)', () => {
       opts: { skipCleanup: true, sourceTicketIds: sourceIds },
     });
 
-    assert.deepEqual(result.supersede.closed, [950, 952]);
+    const expectedClosed = sourceIds.filter((id) => id !== refusedId);
+    assert.deepEqual(
+      result.supersede.closed,
+      expectedClosed,
+      'one refused unit must not abandon the tail',
+    );
     assert.deepEqual(result.supersede.failed, [
-      { ticket: 951, reason: 'close refused' },
+      { ticket: refusedId, reason: 'close refused' },
     ]);
-    assert.equal(provider.issues.get(950).state, 'closed');
-    assert.equal(provider.issues.get(952).state, 'closed');
+    for (const id of expectedClosed) {
+      assert.equal(provider.issues.get(id).state, 'closed', `#${id} closed`);
+    }
   });
 });
