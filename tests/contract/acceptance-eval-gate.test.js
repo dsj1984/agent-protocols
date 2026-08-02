@@ -20,6 +20,7 @@ import addFormats from 'ajv-formats';
 
 import {
   runAcceptanceEval,
+  runAcceptanceEvalCli,
   validateVerdict,
 } from '../../.agents/scripts/acceptance-eval.js';
 
@@ -221,6 +222,87 @@ describe('runAcceptanceEval — decision → exit-code mapping + signal emission
     assert.equal(envelope.decision, 'proceed');
     assert.equal(exitCode, 0);
     assert.equal(envelope.signalEmitted, false);
+  });
+});
+
+/**
+ * Story #4951 — the gate boundary for the "one round = N parallel cluster
+ * critics → ONE merged verdict → ONE gate call" contract.
+ *
+ * These drive the real `runAcceptanceEval` (only the signal writer and the
+ * ledger resolver are injected) through the CLI core, so "consumes no round"
+ * is asserted where it is actually observable: the round signal that would
+ * have been appended is not.
+ */
+describe('one gate call per round — merged-verdict coverage (Story #4951)', () => {
+  const mergedVerdict = (count) =>
+    validVerdict({
+      storyId: 4951,
+      criteria: Array.from({ length: count }, (_, index) => ({
+        index,
+        criterion: `AC-${index + 1}`,
+        verdict: 'met',
+        evidence: `acceptance-eval.js covers AC-${index + 1}`,
+      })),
+    });
+
+  const cliDeps = (verdict, appended) => ({
+    readFileSyncImpl: () => JSON.stringify(verdict),
+    resolveConfigImpl: () => ({
+      delivery: { acceptanceEval: { maxRounds: 2 } },
+    }),
+    runAcceptanceEvalImpl: (args) =>
+      runAcceptanceEval(args, {
+        appendSignalFn: async ({ signal }) => {
+          appended.push(signal);
+          return true;
+        },
+        resolveRoundFn: () => ({ round: 1, replay: false }),
+      }),
+    logger: { info: () => {} },
+  });
+
+  it('scores a merged full-coverage verdict normally in one round', async () => {
+    const appended = [];
+    const envelope = await runAcceptanceEvalCli(
+      [
+        '--story',
+        '4951',
+        '--verdict',
+        'merged.json',
+        '--expected-criteria',
+        '4',
+      ],
+      cliDeps(mergedVerdict(4), appended),
+    );
+    assert.equal(envelope.decision, 'proceed');
+    assert.equal(envelope.totalCriteria, 4);
+    assert.equal(envelope.round, 1);
+    assert.equal(appended.length, 1, 'exactly one round is consumed');
+  });
+
+  it('rejects a partial cluster verdict without advancing the round counter', async () => {
+    const appended = [];
+    await assert.rejects(
+      () =>
+        runAcceptanceEvalCli(
+          [
+            '--story',
+            '4951',
+            '--verdict',
+            'cluster-1.json',
+            '--expected-criteria',
+            '4',
+          ],
+          cliDeps(mergedVerdict(2), appended),
+        ),
+      /verdict covers 2 criteria but --expected-criteria is 4/,
+    );
+    assert.deepEqual(
+      appended,
+      [],
+      'a refused verdict must append no acceptance-eval signal, so no round is spent',
+    );
   });
 });
 
