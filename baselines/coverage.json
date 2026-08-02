@@ -1,12 +1,12 @@
 {
   "$schema": ".agents/schemas/baselines/coverage.schema.json",
   "kernelVersion": "1.0.0",
-  "generatedAt": "2026-08-02T14:58:31.348Z",
+  "generatedAt": "2026-08-02T15:43:29.034Z",
   "rollup": {
     "*": {
-      "lines": 95.67,
-      "branches": 86.19,
-      "functions": 88.57
+      "lines": 95.68,
+      "branches": 86.18,
+      "functions": 88.55
     }
   },
   "rows": [
@@ -81,6 +81,12 @@
       "lines": 95.36,
       "branches": 87.23,
       "functions": 100
+    },
+    {
+      "path": ".agents/scripts/check-cyclomatic.js",
+      "lines": 95.33,
+      "branches": 85.19,
+      "functions": 80
     },
     {
       "path": ".agents/scripts/check-dead-exports.js",
@@ -1107,6 +1113,12 @@
       "lines": 91.83,
       "branches": 75.96,
       "functions": 100
+    },
+    {
+      "path": ".agents/scripts/lib/cyclomatic-ceiling.js",
+      "lines": 100,
+      "branches": 76.79,
+      "functions": 85.71
     },
     {
       "path": ".agents/scripts/lib/dead-exports-knip.js",
@@ -3090,8 +3102,8 @@
     },
     {
       "path": ".agents/scripts/quality-preview.js",
-      "lines": 97.33,
-      "branches": 82.28,
+      "lines": 97.82,
+      "branches": 84.95,
       "functions": 100
     },
     {

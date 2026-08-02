@@ -1,52 +1,12 @@
 {
   "$schema": "https://mandrel.dev/baselines/dead-exports.schema.json",
   "kernelVersion": "6.17.1",
-  "generatedAt": "2026-07-24T11:45:00.000Z",
+  "generatedAt": "2026-08-02T15:29:18.063Z",
   "mode": "production",
   "rows": [
     {
-      "file": ".agents/scripts/lib/Graph.js",
-      "symbol": "buildGraph"
-    },
-    {
-      "file": ".agents/scripts/lib/Graph.js",
-      "symbol": "computeChatDependencies"
-    },
-    {
-      "file": ".agents/scripts/lib/Graph.js",
-      "symbol": "computeReachability"
-    },
-    {
-      "file": ".agents/scripts/lib/Graph.js",
-      "symbol": "computeWaves"
-    },
-    {
-      "file": ".agents/scripts/lib/Graph.js",
-      "symbol": "topologicalSort"
-    },
-    {
-      "file": ".agents/scripts/lib/Graph.js",
-      "symbol": "transitiveReduction"
-    },
-    {
-      "file": ".agents/scripts/lib/Logger.js",
-      "symbol": "STDERR_LOGGER"
-    },
-    {
-      "file": ".agents/scripts/lib/Logger.js",
-      "symbol": "resolveLevel"
-    },
-    {
-      "file": ".agents/scripts/lib/Logger.js",
-      "symbol": "setLevel"
-    },
-    {
       "file": ".agents/scripts/lib/audit-suite/checklist-threading.js",
       "symbol": "DEFAULT_CHECKLIST_TOKEN_BUDGET"
-    },
-    {
-      "file": ".agents/scripts/lib/audit-suite/checklist-threading.js",
-      "symbol": "buildChecklistPayload"
     },
     {
       "file": ".agents/scripts/lib/audit-suite/checklist-threading.js",
@@ -70,22 +30,6 @@
     },
     {
       "file": ".agents/scripts/lib/audit-suite/index.js",
-      "symbol": "DEFAULT_CHECKLIST_TOKEN_BUDGET"
-    },
-    {
-      "file": ".agents/scripts/lib/audit-suite/index.js",
-      "symbol": "GLOBAL_LENS_ALLOWLIST"
-    },
-    {
-      "file": ".agents/scripts/lib/audit-suite/index.js",
-      "symbol": "LENS_TIERS"
-    },
-    {
-      "file": ".agents/scripts/lib/audit-suite/index.js",
-      "symbol": "NAVIGABILITY_LENS"
-    },
-    {
-      "file": ".agents/scripts/lib/audit-suite/index.js",
       "symbol": "buildChecklistPayload"
     },
     {
@@ -94,11 +38,19 @@
     },
     {
       "file": ".agents/scripts/lib/audit-suite/index.js",
+      "symbol": "DEFAULT_CHECKLIST_TOKEN_BUDGET"
+    },
+    {
+      "file": ".agents/scripts/lib/audit-suite/index.js",
+      "symbol": "GLOBAL_LENS_ALLOWLIST"
+    },
+    {
+      "file": ".agents/scripts/lib/audit-suite/index.js",
       "symbol": "isGlobalLens"
     },
     {
       "file": ".agents/scripts/lib/audit-suite/index.js",
-      "symbol": "matchLocalLenses"
+      "symbol": "LENS_TIERS"
     },
     {
       "file": ".agents/scripts/lib/audit-suite/index.js",
@@ -107,6 +59,14 @@
     {
       "file": ".agents/scripts/lib/audit-suite/index.js",
       "symbol": "matchesFilePattern"
+    },
+    {
+      "file": ".agents/scripts/lib/audit-suite/index.js",
+      "symbol": "matchLocalLenses"
+    },
+    {
+      "file": ".agents/scripts/lib/audit-suite/index.js",
+      "symbol": "NAVIGABILITY_LENS"
     },
     {
       "file": ".agents/scripts/lib/audit-suite/index.js",
@@ -126,11 +86,11 @@
     },
     {
       "file": ".agents/scripts/lib/audit-suite/lens-checklist.js",
-      "symbol": "MAX_CHECKLIST_LINES"
+      "symbol": "extractLensConcerns"
     },
     {
       "file": ".agents/scripts/lib/audit-suite/lens-checklist.js",
-      "symbol": "extractLensConcerns"
+      "symbol": "MAX_CHECKLIST_LINES"
     },
     {
       "file": ".agents/scripts/lib/audit-suite/lens-checklist.js",
@@ -142,18 +102,6 @@
     },
     {
       "file": ".agents/scripts/lib/audit-suite/selector.js",
-      "symbol": "GLOBAL_LENS_ALLOWLIST"
-    },
-    {
-      "file": ".agents/scripts/lib/audit-suite/selector.js",
-      "symbol": "LENS_TIERS"
-    },
-    {
-      "file": ".agents/scripts/lib/audit-suite/selector.js",
-      "symbol": "NAVIGABILITY_LENS"
-    },
-    {
-      "file": ".agents/scripts/lib/audit-suite/selector.js",
       "symbol": "_resetPersistenceLayerCache"
     },
     {
@@ -162,11 +110,11 @@
     },
     {
       "file": ".agents/scripts/lib/audit-suite/selector.js",
-      "symbol": "hasPersistenceLayer"
+      "symbol": "GLOBAL_LENS_ALLOWLIST"
     },
     {
       "file": ".agents/scripts/lib/audit-suite/selector.js",
-      "symbol": "hasWebSurface"
+      "symbol": "hasPersistenceLayer"
     },
     {
       "file": ".agents/scripts/lib/audit-suite/selector.js",
@@ -174,7 +122,15 @@
     },
     {
       "file": ".agents/scripts/lib/audit-suite/selector.js",
+      "symbol": "LENS_TIERS"
+    },
+    {
+      "file": ".agents/scripts/lib/audit-suite/selector.js",
       "symbol": "matchesFilePattern"
+    },
+    {
+      "file": ".agents/scripts/lib/audit-suite/selector.js",
+      "symbol": "NAVIGABILITY_LENS"
     },
     {
       "file": ".agents/scripts/lib/audit-suite/selector.js",
@@ -186,11 +142,11 @@
     },
     {
       "file": ".agents/scripts/lib/audit-suite/substitutions.js",
-      "symbol": "BUILT_IN_SUBSTITUTION_KEYS"
+      "symbol": "applyImplicitSubstitutions"
     },
     {
       "file": ".agents/scripts/lib/audit-suite/substitutions.js",
-      "symbol": "applyImplicitSubstitutions"
+      "symbol": "BUILT_IN_SUBSTITUTION_KEYS"
     },
     {
       "file": ".agents/scripts/lib/audit-suite/substitutions.js",
@@ -203,10 +159,6 @@
     {
       "file": ".agents/scripts/lib/audit-to-stories/audit-lenses.js",
       "symbol": "lensFromSourceReport"
-    },
-    {
-      "file": ".agents/scripts/lib/audit-to-stories/finding-adapter.js",
-      "symbol": "fingerprintAuditFinding"
     },
     {
       "file": ".agents/scripts/lib/audit-to-stories/parse-audit-md.js",
@@ -230,11 +182,11 @@
     },
     {
       "file": ".agents/scripts/lib/baseline-schema-registry.js",
-      "symbol": "BASELINE_SCHEMAS_DIR"
+      "symbol": "BASELINE_SCHEMA_FILES"
     },
     {
       "file": ".agents/scripts/lib/baseline-schema-registry.js",
-      "symbol": "BASELINE_SCHEMA_FILES"
+      "symbol": "BASELINE_SCHEMAS_DIR"
     },
     {
       "file": ".agents/scripts/lib/baselines/components.js",
@@ -302,11 +254,11 @@
     },
     {
       "file": ".agents/scripts/lib/baselines/kinds/crap.js",
-      "symbol": "CRAP_COMPAT_AXES"
+      "symbol": "checkCrapRegression"
     },
     {
       "file": ".agents/scripts/lib/baselines/kinds/crap.js",
-      "symbol": "checkCrapRegression"
+      "symbol": "CRAP_COMPAT_AXES"
     },
     {
       "file": ".agents/scripts/lib/baselines/kinds/crap.js",
@@ -342,11 +294,11 @@
     },
     {
       "file": ".agents/scripts/lib/baselines/reader.js",
-      "symbol": "BASELINE_KIND_SCHEMA_FILES"
+      "symbol": "_internals"
     },
     {
       "file": ".agents/scripts/lib/baselines/reader.js",
-      "symbol": "_internals"
+      "symbol": "BASELINE_KIND_SCHEMA_FILES"
     },
     {
       "file": ".agents/scripts/lib/baselines/reader.js",
@@ -414,6 +366,10 @@
     },
     {
       "file": ".agents/scripts/lib/bootstrap/issue-forms-template.js",
+      "symbol": "assembleBodyFromFormValues"
+    },
+    {
+      "file": ".agents/scripts/lib/bootstrap/issue-forms-template.js",
       "symbol": "CONFORMANCE_WORKFLOW_RELATIVE_PATH"
     },
     {
@@ -422,15 +378,11 @@
     },
     {
       "file": ".agents/scripts/lib/bootstrap/issue-forms-template.js",
-      "symbol": "STORY_FORM_RELATIVE_PATH"
-    },
-    {
-      "file": ".agents/scripts/lib/bootstrap/issue-forms-template.js",
-      "symbol": "assembleBodyFromFormValues"
-    },
-    {
-      "file": ".agents/scripts/lib/bootstrap/issue-forms-template.js",
       "symbol": "renderIssueForm"
+    },
+    {
+      "file": ".agents/scripts/lib/bootstrap/issue-forms-template.js",
+      "symbol": "STORY_FORM_RELATIVE_PATH"
     },
     {
       "file": ".agents/scripts/lib/bootstrap/manifest.js",
@@ -442,19 +394,15 @@
     },
     {
       "file": ".agents/scripts/lib/bootstrap/merge-methods.js",
-      "symbol": "TARGET_MERGE_METHODS"
+      "symbol": "diffMergeMethods"
     },
     {
       "file": ".agents/scripts/lib/bootstrap/merge-methods.js",
-      "symbol": "diffMergeMethods"
+      "symbol": "TARGET_MERGE_METHODS"
     },
     {
       "file": ".agents/scripts/lib/bootstrap/project-bootstrap.js",
       "symbol": "BOOTSTRAP_PHASES"
-    },
-    {
-      "file": ".agents/scripts/lib/bootstrap/project-bootstrap.js",
-      "symbol": "SYNC_AGENTS_COMMAND"
     },
     {
       "file": ".agents/scripts/lib/bootstrap/project-bootstrap.js",
@@ -502,6 +450,10 @@
     },
     {
       "file": ".agents/scripts/lib/bootstrap/project-bootstrap.js",
+      "symbol": "SYNC_AGENTS_COMMAND"
+    },
+    {
+      "file": ".agents/scripts/lib/bootstrap/project-bootstrap.js",
       "symbol": "throwIfFatal"
     },
     {
@@ -510,15 +462,11 @@
     },
     {
       "file": ".agents/scripts/lib/bootstrap/prompt.js",
-      "symbol": "KNOWN_FLAGS"
-    },
-    {
-      "file": ".agents/scripts/lib/bootstrap/prompt.js",
-      "symbol": "RESOLVERS"
-    },
-    {
-      "file": ".agents/scripts/lib/bootstrap/prompt.js",
       "symbol": "inferStoredProjectNumber"
+    },
+    {
+      "file": ".agents/scripts/lib/bootstrap/prompt.js",
+      "symbol": "KNOWN_FLAGS"
     },
     {
       "file": ".agents/scripts/lib/bootstrap/prompt.js",
@@ -553,12 +501,8 @@
       "symbol": "resolveInteractive"
     },
     {
-      "file": ".agents/scripts/lib/bootstrap/quality-bootstrap.js",
-      "symbol": "FRAMEWORK_PRE_COMMIT"
-    },
-    {
-      "file": ".agents/scripts/lib/bootstrap/quality-bootstrap.js",
-      "symbol": "QUALITY_CONFIG_DEFAULTS"
+      "file": ".agents/scripts/lib/bootstrap/prompt.js",
+      "symbol": "RESOLVERS"
     },
     {
       "file": ".agents/scripts/lib/bootstrap/quality-bootstrap.js",
@@ -575,6 +519,14 @@
     {
       "file": ".agents/scripts/lib/bootstrap/quality-bootstrap.js",
       "symbol": "ensureQualityNpmScripts"
+    },
+    {
+      "file": ".agents/scripts/lib/bootstrap/quality-bootstrap.js",
+      "symbol": "FRAMEWORK_PRE_COMMIT"
+    },
+    {
+      "file": ".agents/scripts/lib/bootstrap/quality-bootstrap.js",
+      "symbol": "QUALITY_CONFIG_DEFAULTS"
     },
     {
       "file": ".agents/scripts/lib/bootstrap/summary.js",
@@ -594,15 +546,15 @@
     },
     {
       "file": ".agents/scripts/lib/bootstrap/workflow-audit.js",
+      "symbol": "classifyWorkflow"
+    },
+    {
+      "file": ".agents/scripts/lib/bootstrap/workflow-audit.js",
       "symbol": "COMPATIBLE_WORKFLOWS"
     },
     {
       "file": ".agents/scripts/lib/bootstrap/workflow-audit.js",
       "symbol": "CONFLICTING_WORKFLOWS"
-    },
-    {
-      "file": ".agents/scripts/lib/bootstrap/workflow-audit.js",
-      "symbol": "classifyWorkflow"
     },
     {
       "file": ".agents/scripts/lib/branch-name-guard.js",
@@ -638,11 +590,11 @@
     },
     {
       "file": ".agents/scripts/lib/cli-usage.js",
-      "symbol": "HELP_FLAGS"
+      "symbol": "formatUsage"
     },
     {
       "file": ".agents/scripts/lib/cli-usage.js",
-      "symbol": "formatUsage"
+      "symbol": "HELP_FLAGS"
     },
     {
       "file": ".agents/scripts/lib/cli-usage.js",
@@ -653,88 +605,12 @@
       "symbol": "wantsHelp"
     },
     {
-      "file": ".agents/scripts/lib/cli-utils.js",
-      "symbol": "isDirectInvocation"
-    },
-    {
       "file": ".agents/scripts/lib/cli/standard-args.js",
       "symbol": "FLAG_NAMES"
     },
     {
       "file": ".agents/scripts/lib/cli/standard-args.js",
       "symbol": "SUPPORTED_FLAGS"
-    },
-    {
-      "file": ".agents/scripts/lib/codebase-snapshot.js",
-      "symbol": "CODEBASE_SNAPSHOT_TIERS"
-    },
-    {
-      "file": ".agents/scripts/lib/codebase-snapshot.js",
-      "symbol": "resolveSnapshotConfig"
-    },
-    {
-      "file": ".agents/scripts/lib/config-resolver.js",
-      "symbol": "BASELINES_DEFAULTS"
-    },
-    {
-      "file": ".agents/scripts/lib/config-resolver.js",
-      "symbol": "CI_DELIVERY_DEFAULTS"
-    },
-    {
-      "file": ".agents/scripts/lib/config-resolver.js",
-      "symbol": "CODING_GUARDRAILS_DEFAULTS"
-    },
-    {
-      "file": ".agents/scripts/lib/config-resolver.js",
-      "symbol": "COMMANDS_DEFAULTS"
-    },
-    {
-      "file": ".agents/scripts/lib/config-resolver.js",
-      "symbol": "LIMITS_DEFAULTS"
-    },
-    {
-      "file": ".agents/scripts/lib/config-resolver.js",
-      "symbol": "NOTIFICATIONS_DEFAULTS"
-    },
-    {
-      "file": ".agents/scripts/lib/config-resolver.js",
-      "symbol": "WORKTREE_ISOLATION_DEFAULTS"
-    },
-    {
-      "file": ".agents/scripts/lib/config-resolver.js",
-      "symbol": "defaultNodeModulesStrategy"
-    },
-    {
-      "file": ".agents/scripts/lib/config-resolver.js",
-      "symbol": "getCiDelivery"
-    },
-    {
-      "file": ".agents/scripts/lib/config-resolver.js",
-      "symbol": "resolveCodingGuardrails"
-    },
-    {
-      "file": ".agents/scripts/lib/config-resolver.js",
-      "symbol": "resolveListValue"
-    },
-    {
-      "file": ".agents/scripts/lib/config-resolver.js",
-      "symbol": "resolveMaintainabilityCrap"
-    },
-    {
-      "file": ".agents/scripts/lib/config-resolver.js",
-      "symbol": "resolveQuality"
-    },
-    {
-      "file": ".agents/scripts/lib/config-resolver.js",
-      "symbol": "resolveSessionId"
-    },
-    {
-      "file": ".agents/scripts/lib/config-resolver.js",
-      "symbol": "resolveWorkingPath"
-    },
-    {
-      "file": ".agents/scripts/lib/config-resolver.js",
-      "symbol": "resolveWorktreeEnabled"
     },
     {
       "file": ".agents/scripts/lib/config-schema-shared.js",
@@ -746,19 +622,19 @@
     },
     {
       "file": ".agents/scripts/lib/config-schema-shared.js",
-      "symbol": "BASELINE_SCHEMAS_DIR"
-    },
-    {
-      "file": ".agents/scripts/lib/config-schema-shared.js",
       "symbol": "BASELINE_SCHEMA_FILES"
     },
     {
       "file": ".agents/scripts/lib/config-schema-shared.js",
-      "symbol": "SHELL_INJECTION_RE"
+      "symbol": "BASELINE_SCHEMAS_DIR"
     },
     {
       "file": ".agents/scripts/lib/config-schema-shared.js",
       "symbol": "buildBaselineSchemaAjv"
+    },
+    {
+      "file": ".agents/scripts/lib/config-schema-shared.js",
+      "symbol": "SHELL_INJECTION_RE"
     },
     {
       "file": ".agents/scripts/lib/config-schema.js",
@@ -809,18 +685,6 @@
       "symbol": "ACCEPTANCE_EVAL_MAX_ROUNDS_CEILING"
     },
     {
-      "file": ".agents/scripts/lib/config/baselines.js",
-      "symbol": "BASELINES_DEFAULTS"
-    },
-    {
-      "file": ".agents/scripts/lib/config/ci.js",
-      "symbol": "CI_DELIVERY_DEFAULTS"
-    },
-    {
-      "file": ".agents/scripts/lib/config/commands.js",
-      "symbol": "COMMANDS_DEFAULTS"
-    },
-    {
       "file": ".agents/scripts/lib/config/defaults.js",
       "symbol": "FULL_AGENTRC_PATH"
     },
@@ -861,8 +725,8 @@
       "symbol": "MERGE_METHODS_DEFAULTS"
     },
     {
-      "file": ".agents/scripts/lib/config/github.js",
-      "symbol": "NOTIFICATIONS_DEFAULTS"
+      "file": ".agents/scripts/lib/config/limits.js",
+      "symbol": "getSignals"
     },
     {
       "file": ".agents/scripts/lib/config/limits.js",
@@ -870,15 +734,11 @@
     },
     {
       "file": ".agents/scripts/lib/config/limits.js",
-      "symbol": "SIGNALS_DEFAULTS"
-    },
-    {
-      "file": ".agents/scripts/lib/config/limits.js",
-      "symbol": "getSignals"
-    },
-    {
-      "file": ".agents/scripts/lib/config/limits.js",
       "symbol": "resolveLimits"
+    },
+    {
+      "file": ".agents/scripts/lib/config/limits.js",
+      "symbol": "SIGNALS_DEFAULTS"
     },
     {
       "file": ".agents/scripts/lib/config/paths.js",
@@ -887,10 +747,6 @@
     {
       "file": ".agents/scripts/lib/config/quality.js",
       "symbol": "BASELINE_EPSILON_DEFAULTS"
-    },
-    {
-      "file": ".agents/scripts/lib/config/quality.js",
-      "symbol": "CODING_GUARDRAILS_DEFAULTS"
     },
     {
       "file": ".agents/scripts/lib/config/quality.js",
@@ -909,36 +765,12 @@
       "symbol": "resolveBaselineEpsilon"
     },
     {
-      "file": ".agents/scripts/lib/config/quality.js",
-      "symbol": "resolveCodingGuardrails"
-    },
-    {
-      "file": ".agents/scripts/lib/config/quality.js",
-      "symbol": "resolveMaintainabilityCrap"
-    },
-    {
-      "file": ".agents/scripts/lib/config/quality.js",
-      "symbol": "resolveQuality"
-    },
-    {
       "file": ".agents/scripts/lib/config/runners.js",
       "symbol": "DEFAULT_CODE_REVIEW"
     },
     {
       "file": ".agents/scripts/lib/config/runners.js",
       "symbol": "DEFAULT_DECOMPOSER"
-    },
-    {
-      "file": ".agents/scripts/lib/config/runtime.js",
-      "symbol": "resolveSessionId"
-    },
-    {
-      "file": ".agents/scripts/lib/config/runtime.js",
-      "symbol": "resolveWorkingPath"
-    },
-    {
-      "file": ".agents/scripts/lib/config/runtime.js",
-      "symbol": "resolveWorktreeEnabled"
     },
     {
       "file": ".agents/scripts/lib/config/sync-agentrc.js",
@@ -950,19 +782,11 @@
     },
     {
       "file": ".agents/scripts/lib/config/temp-paths.js",
-      "symbol": "TEST_ALLOW_REAL_TEMP_ENV"
-    },
-    {
-      "file": ".agents/scripts/lib/config/temp-paths.js",
       "symbol": "_clearMainCheckoutRootCache"
     },
     {
       "file": ".agents/scripts/lib/config/temp-paths.js",
       "symbol": "_clearTestContextScratchCache"
-    },
-    {
-      "file": ".agents/scripts/lib/config/temp-paths.js",
-      "symbol": "mainCheckoutRoot"
     },
     {
       "file": ".agents/scripts/lib/config/temp-paths.js",
@@ -973,12 +797,16 @@
       "symbol": "storyManifestPath"
     },
     {
-      "file": ".agents/scripts/lib/config/worktree-isolation.js",
-      "symbol": "WORKTREE_ISOLATION_DEFAULTS"
+      "file": ".agents/scripts/lib/config/temp-paths.js",
+      "symbol": "TEST_ALLOW_REAL_TEMP_ENV"
     },
     {
-      "file": ".agents/scripts/lib/config/worktree-isolation.js",
-      "symbol": "defaultNodeModulesStrategy"
+      "file": ".agents/scripts/lib/coverage-baseline.js",
+      "symbol": "axisToleranceFor"
+    },
+    {
+      "file": ".agents/scripts/lib/coverage-baseline.js",
+      "symbol": "compareScores"
     },
     {
       "file": ".agents/scripts/lib/coverage-baseline.js",
@@ -994,14 +822,6 @@
     },
     {
       "file": ".agents/scripts/lib/coverage-baseline.js",
-      "symbol": "axisToleranceFor"
-    },
-    {
-      "file": ".agents/scripts/lib/coverage-baseline.js",
-      "symbol": "compareScores"
-    },
-    {
-      "file": ".agents/scripts/lib/coverage-baseline.js",
       "symbol": "readBaseline"
     },
     {
@@ -1014,11 +834,11 @@
     },
     {
       "file": ".agents/scripts/lib/coverage-capture.js",
-      "symbol": "COVERAGE_TIMEOUT_EXIT_CODE"
+      "symbol": "captureStampPath"
     },
     {
       "file": ".agents/scripts/lib/coverage-capture.js",
-      "symbol": "captureStampPath"
+      "symbol": "COVERAGE_TIMEOUT_EXIT_CODE"
     },
     {
       "file": ".agents/scripts/lib/coverage-capture.js",
@@ -1106,6 +926,10 @@
     },
     {
       "file": ".agents/scripts/lib/feedback-loop/graduator-core.js",
+      "symbol": "createFollowUpIssue"
+    },
+    {
+      "file": ".agents/scripts/lib/feedback-loop/graduator-core.js",
       "symbol": "CROSS_REPO_DEFERRED_COMMENT_TYPE"
     },
     {
@@ -1118,14 +942,6 @@
     },
     {
       "file": ".agents/scripts/lib/feedback-loop/graduator-core.js",
-      "symbol": "VERIFICATION_RESULTS_MARKER"
-    },
-    {
-      "file": ".agents/scripts/lib/feedback-loop/graduator-core.js",
-      "symbol": "createFollowUpIssue"
-    },
-    {
-      "file": ".agents/scripts/lib/feedback-loop/graduator-core.js",
       "symbol": "probeMarkerExists"
     },
     {
@@ -1133,20 +949,8 @@
       "symbol": "probePathStatus"
     },
     {
-      "file": ".agents/scripts/lib/feedback-loop/memory-freshness.js",
-      "symbol": "default"
-    },
-    {
-      "file": ".agents/scripts/lib/feedback-loop/memory-freshness.js",
-      "symbol": "extractReferences"
-    },
-    {
-      "file": ".agents/scripts/lib/feedback-loop/memory-freshness.js",
-      "symbol": "parseFrontmatter"
-    },
-    {
-      "file": ".agents/scripts/lib/feedback-loop/memory-freshness.js",
-      "symbol": "renderFrontmatter"
+      "file": ".agents/scripts/lib/feedback-loop/graduator-core.js",
+      "symbol": "VERIFICATION_RESULTS_MARKER"
     },
     {
       "file": ".agents/scripts/lib/feedback-loop/prior-feedback-fetcher.js",
@@ -1210,6 +1014,18 @@
     },
     {
       "file": ".agents/scripts/lib/gh-exec.js",
+      "symbol": "classify"
+    },
+    {
+      "file": ".agents/scripts/lib/gh-exec.js",
+      "symbol": "default"
+    },
+    {
+      "file": ".agents/scripts/lib/gh-exec.js",
+      "symbol": "getSpawnCount"
+    },
+    {
+      "file": ".agents/scripts/lib/gh-exec.js",
       "symbol": "GhAuthError"
     },
     {
@@ -1226,23 +1042,7 @@
     },
     {
       "file": ".agents/scripts/lib/gh-exec.js",
-      "symbol": "GhRateLimitError"
-    },
-    {
-      "file": ".agents/scripts/lib/gh-exec.js",
       "symbol": "GhScopeError"
-    },
-    {
-      "file": ".agents/scripts/lib/gh-exec.js",
-      "symbol": "classify"
-    },
-    {
-      "file": ".agents/scripts/lib/gh-exec.js",
-      "symbol": "default"
-    },
-    {
-      "file": ".agents/scripts/lib/gh-exec.js",
-      "symbol": "getSpawnCount"
     },
     {
       "file": ".agents/scripts/lib/gh-exec.js",
@@ -1250,11 +1050,11 @@
     },
     {
       "file": ".agents/scripts/lib/git-branch-cleanup.js",
-      "symbol": "deleteBranchEverywhere"
+      "symbol": "deleteBranchesBatched"
     },
     {
       "file": ".agents/scripts/lib/git-branch-cleanup.js",
-      "symbol": "deleteBranchesBatched"
+      "symbol": "deleteBranchEverywhere"
     },
     {
       "file": ".agents/scripts/lib/git-branch-lifecycle.js",
@@ -1273,22 +1073,6 @@
       "symbol": "ensureLocalBranch"
     },
     {
-      "file": ".agents/scripts/lib/git-utils.js",
-      "symbol": "__resetCleanGitEnv"
-    },
-    {
-      "file": ".agents/scripts/lib/git-utils.js",
-      "symbol": "__setGitRunners"
-    },
-    {
-      "file": ".agents/scripts/lib/git-utils.js",
-      "symbol": "__setSleep"
-    },
-    {
-      "file": ".agents/scripts/lib/git-utils.js",
-      "symbol": "slugify"
-    },
-    {
       "file": ".agents/scripts/lib/git/cached-fetch.js",
       "symbol": "__DEFAULT_WINDOW_MS"
     },
@@ -1305,12 +1089,40 @@
       "symbol": "cachedGitFetchSync"
     },
     {
+      "file": ".agents/scripts/lib/Graph.js",
+      "symbol": "buildGraph"
+    },
+    {
+      "file": ".agents/scripts/lib/Graph.js",
+      "symbol": "computeChatDependencies"
+    },
+    {
+      "file": ".agents/scripts/lib/Graph.js",
+      "symbol": "computeReachability"
+    },
+    {
+      "file": ".agents/scripts/lib/Graph.js",
+      "symbol": "computeWaves"
+    },
+    {
+      "file": ".agents/scripts/lib/Graph.js",
+      "symbol": "topologicalSort"
+    },
+    {
+      "file": ".agents/scripts/lib/Graph.js",
+      "symbol": "transitiveReduction"
+    },
+    {
       "file": ".agents/scripts/lib/install-cmd-parser.js",
       "symbol": "parseInstallCmd"
     },
     {
       "file": ".agents/scripts/lib/label-constants.js",
       "symbol": "ACCEPTANCE_NA"
+    },
+    {
+      "file": ".agents/scripts/lib/label-constants.js",
+      "symbol": "isValidTransition"
     },
     {
       "file": ".agents/scripts/lib/label-constants.js",
@@ -1321,8 +1133,16 @@
       "symbol": "VALID_TRANSITIONS"
     },
     {
-      "file": ".agents/scripts/lib/label-constants.js",
-      "symbol": "isValidTransition"
+      "file": ".agents/scripts/lib/Logger.js",
+      "symbol": "resolveLevel"
+    },
+    {
+      "file": ".agents/scripts/lib/Logger.js",
+      "symbol": "setLevel"
+    },
+    {
+      "file": ".agents/scripts/lib/Logger.js",
+      "symbol": "STDERR_LOGGER"
     },
     {
       "file": ".agents/scripts/lib/maintainability-engine.js",
@@ -1390,6 +1210,10 @@
     },
     {
       "file": ".agents/scripts/lib/orchestration/context-envelope.js",
+      "symbol": "buildEnvelope"
+    },
+    {
+      "file": ".agents/scripts/lib/orchestration/context-envelope.js",
       "symbol": "DEFAULT_ELIDE_POLICIES"
     },
     {
@@ -1398,23 +1222,19 @@
     },
     {
       "file": ".agents/scripts/lib/orchestration/context-envelope.js",
-      "symbol": "PROMPT_SECTION_SEPARATOR"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/context-envelope.js",
-      "symbol": "SECTION_RENDER_ORDER"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/context-envelope.js",
-      "symbol": "buildEnvelope"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/context-envelope.js",
       "symbol": "elideEnvelope"
     },
     {
       "file": ".agents/scripts/lib/orchestration/context-envelope.js",
       "symbol": "envelopeToPrompt"
+    },
+    {
+      "file": ".agents/scripts/lib/orchestration/context-envelope.js",
+      "symbol": "PROMPT_SECTION_SEPARATOR"
+    },
+    {
+      "file": ".agents/scripts/lib/orchestration/context-envelope.js",
+      "symbol": "SECTION_RENDER_ORDER"
     },
     {
       "file": ".agents/scripts/lib/orchestration/deliver-recover.js",
@@ -1490,18 +1310,6 @@
     },
     {
       "file": ".agents/scripts/lib/orchestration/lifecycle/listeners/watcher.js",
-      "symbol": "RECOGNIZED_CHECK_STATES"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/lifecycle/listeners/watcher.js",
-      "symbol": "STILL_RUNNING"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/lifecycle/listeners/watcher.js",
-      "symbol": "Watcher"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/lifecycle/listeners/watcher.js",
       "symbol": "allTerminal"
     },
     {
@@ -1530,7 +1338,19 @@
     },
     {
       "file": ".agents/scripts/lib/orchestration/lifecycle/listeners/watcher.js",
+      "symbol": "RECOGNIZED_CHECK_STATES"
+    },
+    {
+      "file": ".agents/scripts/lib/orchestration/lifecycle/listeners/watcher.js",
       "symbol": "reduceOutcomes"
+    },
+    {
+      "file": ".agents/scripts/lib/orchestration/lifecycle/listeners/watcher.js",
+      "symbol": "STILL_RUNNING"
+    },
+    {
+      "file": ".agents/scripts/lib/orchestration/lifecycle/listeners/watcher.js",
+      "symbol": "Watcher"
     },
     {
       "file": ".agents/scripts/lib/orchestration/light-suitability.js",
@@ -1562,14 +1382,6 @@
     },
     {
       "file": ".agents/scripts/lib/orchestration/plan-context.js",
-      "symbol": "PLAN_CONTEXT_ENVELOPE_BYTE_CEILING"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/plan-context.js",
-      "symbol": "TICKET_SCHEMA_DESCRIPTOR"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/plan-context.js",
       "symbol": "buildDeliverLightSuggestion"
     },
     {
@@ -1585,6 +1397,14 @@
       "symbol": "buildSystemPrompts"
     },
     {
+      "file": ".agents/scripts/lib/orchestration/plan-context.js",
+      "symbol": "PLAN_CONTEXT_ENVELOPE_BYTE_CEILING"
+    },
+    {
+      "file": ".agents/scripts/lib/orchestration/plan-context.js",
+      "symbol": "TICKET_SCHEMA_DESCRIPTOR"
+    },
+    {
       "file": ".agents/scripts/lib/orchestration/plan-critic-conditions.js",
       "symbol": "CONSOLIDATION_STORY_THRESHOLD"
     },
@@ -1594,11 +1414,11 @@
     },
     {
       "file": ".agents/scripts/lib/orchestration/plan-metrics.js",
-      "symbol": "PLAN_METRICS_KIND_CRITIC_SKIP"
+      "symbol": "appendPlanMetric"
     },
     {
       "file": ".agents/scripts/lib/orchestration/plan-metrics.js",
-      "symbol": "appendPlanMetric"
+      "symbol": "PLAN_METRICS_KIND_CRITIC_SKIP"
     },
     {
       "file": ".agents/scripts/lib/orchestration/plan-persist/persist-helpers.js",
@@ -1611,10 +1431,6 @@
     {
       "file": ".agents/scripts/lib/orchestration/plan-persist/run-plan-persist.js",
       "symbol": "reapStalePlanDirs"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/plan-persist/story-ops.js",
-      "symbol": "PLAN_RUN_LABEL_PREFIX"
     },
     {
       "file": ".agents/scripts/lib/orchestration/plan-persist/story-ops.js",
@@ -1634,6 +1450,10 @@
     },
     {
       "file": ".agents/scripts/lib/orchestration/plan-persist/story-ops.js",
+      "symbol": "PLAN_RUN_LABEL_PREFIX"
+    },
+    {
+      "file": ".agents/scripts/lib/orchestration/plan-persist/story-ops.js",
       "symbol": "planRunLabel"
     },
     {
@@ -1643,10 +1463,6 @@
     {
       "file": ".agents/scripts/lib/orchestration/plan-persist/story-ops.js",
       "symbol": "sanitizeAuthoredLabels"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/plan-persist/supersede-ops.js",
-      "symbol": "SUPERSEDE_CLOSE_REASON"
     },
     {
       "file": ".agents/scripts/lib/orchestration/plan-persist/supersede-ops.js",
@@ -1661,16 +1477,8 @@
       "symbol": "normalizeSourceTicketIds"
     },
     {
-      "file": ".agents/scripts/lib/orchestration/planning/spec-authoring-grounding.js",
-      "symbol": "MAX_CITED_ABSENT"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/planning/spec-authoring-grounding.js",
-      "symbol": "buildTruncationSignal"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/planning/spec-authoring-grounding.js",
-      "symbol": "findCitedButAbsent"
+      "file": ".agents/scripts/lib/orchestration/plan-persist/supersede-ops.js",
+      "symbol": "SUPERSEDE_CLOSE_REASON"
     },
     {
       "file": ".agents/scripts/lib/orchestration/reassert-status-column.js",
@@ -1682,11 +1490,11 @@
     },
     {
       "file": ".agents/scripts/lib/orchestration/remote-verifier.js",
-      "symbol": "REMOTE_PROBE_TIMEOUT_MS"
+      "symbol": "probeRemoteBranch"
     },
     {
       "file": ".agents/scripts/lib/orchestration/remote-verifier.js",
-      "symbol": "probeRemoteBranch"
+      "symbol": "REMOTE_PROBE_TIMEOUT_MS"
     },
     {
       "file": ".agents/scripts/lib/orchestration/resolve-stories.js",
@@ -1702,11 +1510,11 @@
     },
     {
       "file": ".agents/scripts/lib/orchestration/resolves-token.js",
-      "symbol": "RESOLVES_TRAILER_RE"
+      "symbol": "parseResolvesStoryId"
     },
     {
       "file": ".agents/scripts/lib/orchestration/resolves-token.js",
-      "symbol": "parseResolvesStoryId"
+      "symbol": "RESOLVES_TRAILER_RE"
     },
     {
       "file": ".agents/scripts/lib/orchestration/resolves-token.js",
@@ -1722,18 +1530,6 @@
     },
     {
       "file": ".agents/scripts/lib/orchestration/review-providers/codex.js",
-      "symbol": "CODEX_REMEDIATIONS"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/review-providers/codex.js",
-      "symbol": "CODEX_SEVERITY_MAP"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/review-providers/codex.js",
-      "symbol": "DEFAULT_PLUGIN_MARKERS"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/review-providers/codex.js",
       "symbol": "buildCodexReviewPrompt"
     },
     {
@@ -1742,7 +1538,19 @@
     },
     {
       "file": ".agents/scripts/lib/orchestration/review-providers/codex.js",
+      "symbol": "CODEX_REMEDIATIONS"
+    },
+    {
+      "file": ".agents/scripts/lib/orchestration/review-providers/codex.js",
+      "symbol": "CODEX_SEVERITY_MAP"
+    },
+    {
+      "file": ".agents/scripts/lib/orchestration/review-providers/codex.js",
       "symbol": "createCodexProvider"
+    },
+    {
+      "file": ".agents/scripts/lib/orchestration/review-providers/codex.js",
+      "symbol": "DEFAULT_PLUGIN_MARKERS"
     },
     {
       "file": ".agents/scripts/lib/orchestration/review-providers/codex.js",
@@ -1767,10 +1575,6 @@
     {
       "file": ".agents/scripts/lib/orchestration/review-providers/findings-renderer.js",
       "symbol": "renderManualPromptsSection"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/review-providers/native.js",
-      "symbol": "SERIAL_THRESHOLD"
     },
     {
       "file": ".agents/scripts/lib/orchestration/review-providers/native.js",
@@ -1809,6 +1613,10 @@
       "symbol": "scoreSourceReport"
     },
     {
+      "file": ".agents/scripts/lib/orchestration/review-providers/native.js",
+      "symbol": "SERIAL_THRESHOLD"
+    },
+    {
       "file": ".agents/scripts/lib/orchestration/review-providers/parse-findings.js",
       "symbol": "buildFinding"
     },
@@ -1830,10 +1638,6 @@
     },
     {
       "file": ".agents/scripts/lib/orchestration/review-providers/review-provider-factory.js",
-      "symbol": "DEFAULT_PROVIDER_NAME"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/review-providers/review-provider-factory.js",
       "symbol": "buildGate"
     },
     {
@@ -1843,6 +1647,10 @@
     {
       "file": ".agents/scripts/lib/orchestration/review-providers/review-provider-factory.js",
       "symbol": "createChainProvider"
+    },
+    {
+      "file": ".agents/scripts/lib/orchestration/review-providers/review-provider-factory.js",
+      "symbol": "DEFAULT_PROVIDER_NAME"
     },
     {
       "file": ".agents/scripts/lib/orchestration/review-providers/review-provider-factory.js",
@@ -1859,18 +1667,6 @@
     {
       "file": ".agents/scripts/lib/orchestration/review-providers/review-provider-factory.js",
       "symbol": "listRegisteredProviders"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/review-providers/security-review.js",
-      "symbol": "SECURITY_REVIEW_INVOKE_PROMPT"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/review-providers/security-review.js",
-      "symbol": "SECURITY_REVIEW_REMEDIATIONS"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/review-providers/security-review.js",
-      "symbol": "SECURITY_REVIEW_SEVERITY_MAP"
     },
     {
       "file": ".agents/scripts/lib/orchestration/review-providers/security-review.js",
@@ -1905,8 +1701,16 @@
       "symbol": "parseSecurityReviewFindings"
     },
     {
-      "file": ".agents/scripts/lib/orchestration/review-providers/ultrareview.js",
-      "symbol": "ULTRAREVIEW_PROMPT_TEMPLATE"
+      "file": ".agents/scripts/lib/orchestration/review-providers/security-review.js",
+      "symbol": "SECURITY_REVIEW_INVOKE_PROMPT"
+    },
+    {
+      "file": ".agents/scripts/lib/orchestration/review-providers/security-review.js",
+      "symbol": "SECURITY_REVIEW_REMEDIATIONS"
+    },
+    {
+      "file": ".agents/scripts/lib/orchestration/review-providers/security-review.js",
+      "symbol": "SECURITY_REVIEW_SEVERITY_MAP"
     },
     {
       "file": ".agents/scripts/lib/orchestration/review-providers/ultrareview.js",
@@ -1917,8 +1721,8 @@
       "symbol": "createUltrareviewProvider"
     },
     {
-      "file": ".agents/scripts/lib/orchestration/run-epilogue.js",
-      "symbol": "RUN_EPILOGUE_STEP_KINDS"
+      "file": ".agents/scripts/lib/orchestration/review-providers/ultrareview.js",
+      "symbol": "ULTRAREVIEW_PROMPT_TEMPLATE"
     },
     {
       "file": ".agents/scripts/lib/orchestration/run-epilogue.js",
@@ -1927,6 +1731,10 @@
     {
       "file": ".agents/scripts/lib/orchestration/run-epilogue.js",
       "symbol": "resolveRunBaseSha"
+    },
+    {
+      "file": ".agents/scripts/lib/orchestration/run-epilogue.js",
+      "symbol": "RUN_EPILOGUE_STEP_KINDS"
     },
     {
       "file": ".agents/scripts/lib/orchestration/single-story-close/phases/auto-merge.js",
@@ -1994,10 +1802,6 @@
     },
     {
       "file": ".agents/scripts/lib/orchestration/single-story-lease-guard.js",
-      "symbol": "releaseStoryLease"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/single-story-lease-guard.js",
       "symbol": "resolveOperator"
     },
     {
@@ -2017,20 +1821,8 @@
       "symbol": "validateAcceptancePartition"
     },
     {
-      "file": ".agents/scripts/lib/orchestration/story-close/phases/code-review.js",
-      "symbol": "STORY_SCOPE_LENS_DEPTH"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/story-close/phases/code-review.js",
-      "symbol": "enumerateChangedFiles"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/story-close/phases/code-review.js",
-      "symbol": "runLocalLensReview"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/story-close/phases/code-review.js",
-      "symbol": "runStoryCodeReview"
+      "file": ".agents/scripts/lib/orchestration/story-deliver-terminal.js",
+      "symbol": "persistTerminalEnvelope"
     },
     {
       "file": ".agents/scripts/lib/orchestration/story-deliver-terminal.js",
@@ -2054,10 +1846,6 @@
     },
     {
       "file": ".agents/scripts/lib/orchestration/story-deliver-terminal.js",
-      "symbol": "persistTerminalEnvelope"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/story-deliver-terminal.js",
       "symbol": "validateTerminalEnvelope"
     },
     {
@@ -2074,10 +1862,6 @@
     },
     {
       "file": ".agents/scripts/lib/orchestration/task-body-validator.js",
-      "symbol": "VERIFY_TIER_VALUES"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/task-body-validator.js",
       "symbol": "collectTaskBodyErrors"
     },
     {
@@ -2089,12 +1873,8 @@
       "symbol": "validateTaskBodyShape"
     },
     {
-      "file": ".agents/scripts/lib/orchestration/ticket-lease.js",
-      "symbol": "OPERATOR_HANDLE_PLACEHOLDER"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/ticket-lease.js",
-      "symbol": "currentOwner"
+      "file": ".agents/scripts/lib/orchestration/task-body-validator.js",
+      "symbol": "VERIFY_TIER_VALUES"
     },
     {
       "file": ".agents/scripts/lib/orchestration/ticket-lease.js",
@@ -2103,6 +1883,10 @@
     {
       "file": ".agents/scripts/lib/orchestration/ticket-lease.js",
       "symbol": "isClaimLive"
+    },
+    {
+      "file": ".agents/scripts/lib/orchestration/ticket-lease.js",
+      "symbol": "OPERATOR_HANDLE_PLACEHOLDER"
     },
     {
       "file": ".agents/scripts/lib/orchestration/ticket-validator-conflicts.js",
@@ -2118,19 +1902,11 @@
     },
     {
       "file": ".agents/scripts/lib/orchestration/ticket-validator.js",
-      "symbol": "validateAcFreshness"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/ticket-validator.js",
       "symbol": "validateAcceptanceSubjectPrefix"
     },
     {
-      "file": ".agents/scripts/lib/orchestration/ticketing.js",
-      "symbol": "STRUCTURED_COMMENT_TYPES"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/ticketing.js",
-      "symbol": "WAVE_TYPE_PATTERN"
+      "file": ".agents/scripts/lib/orchestration/ticket-validator.js",
+      "symbol": "validateAcFreshness"
     },
     {
       "file": ".agents/scripts/lib/orchestration/ticketing.js",
@@ -2154,10 +1930,6 @@
     },
     {
       "file": ".agents/scripts/lib/orchestration/ticketing.js",
-      "symbol": "findStructuredComment"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/ticketing.js",
       "symbol": "isValidStructuredCommentType"
     },
     {
@@ -2166,11 +1938,19 @@
     },
     {
       "file": ".agents/scripts/lib/orchestration/ticketing.js",
+      "symbol": "STRUCTURED_COMMENT_TYPES"
+    },
+    {
+      "file": ".agents/scripts/lib/orchestration/ticketing.js",
       "symbol": "toggleTasklistCheckbox"
     },
     {
       "file": ".agents/scripts/lib/orchestration/ticketing.js",
       "symbol": "transitionStoryDirect"
+    },
+    {
+      "file": ".agents/scripts/lib/orchestration/ticketing.js",
+      "symbol": "WAVE_TYPE_PATTERN"
     },
     {
       "file": ".agents/scripts/lib/orchestration/ticketing/bulk.js",
@@ -2183,22 +1963,6 @@
     {
       "file": ".agents/scripts/lib/orchestration/ticketing/bulk.js",
       "symbol": "deriveParentState"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/ticketing/reads.js",
-      "symbol": "CLAIM_TYPE_PATTERN"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/ticketing/reads.js",
-      "symbol": "LIFECYCLE_TYPE_PATTERN"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/ticketing/reads.js",
-      "symbol": "STRUCTURED_COMMENT_TYPES"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/ticketing/reads.js",
-      "symbol": "WAVE_TYPE_PATTERN"
     },
     {
       "file": ".agents/scripts/lib/orchestration/ticketing/reads.js",
@@ -2226,11 +1990,27 @@
     },
     {
       "file": ".agents/scripts/lib/orchestration/ticketing/reads.js",
+      "symbol": "CLAIM_TYPE_PATTERN"
+    },
+    {
+      "file": ".agents/scripts/lib/orchestration/ticketing/reads.js",
       "symbol": "getProviderRawCommentsCache"
     },
     {
       "file": ".agents/scripts/lib/orchestration/ticketing/reads.js",
       "symbol": "isValidStructuredCommentType"
+    },
+    {
+      "file": ".agents/scripts/lib/orchestration/ticketing/reads.js",
+      "symbol": "LIFECYCLE_TYPE_PATTERN"
+    },
+    {
+      "file": ".agents/scripts/lib/orchestration/ticketing/reads.js",
+      "symbol": "STRUCTURED_COMMENT_TYPES"
+    },
+    {
+      "file": ".agents/scripts/lib/orchestration/ticketing/reads.js",
+      "symbol": "WAVE_TYPE_PATTERN"
     },
     {
       "file": ".agents/scripts/lib/orchestration/ticketing/state.js",
@@ -2362,18 +2142,6 @@
     },
     {
       "file": ".agents/scripts/lib/temp-retention.js",
-      "symbol": "KEEP_BASENAMES"
-    },
-    {
-      "file": ".agents/scripts/lib/temp-retention.js",
-      "symbol": "PURGE_CLASS_NAMES"
-    },
-    {
-      "file": ".agents/scripts/lib/temp-retention.js",
-      "symbol": "TEMP_RETENTION_DEFAULTS"
-    },
-    {
-      "file": ".agents/scripts/lib/temp-retention.js",
       "symbol": "collectTempEntries"
     },
     {
@@ -2382,7 +2150,19 @@
     },
     {
       "file": ".agents/scripts/lib/temp-retention.js",
+      "symbol": "KEEP_BASENAMES"
+    },
+    {
+      "file": ".agents/scripts/lib/temp-retention.js",
+      "symbol": "PURGE_CLASS_NAMES"
+    },
+    {
+      "file": ".agents/scripts/lib/temp-retention.js",
       "symbol": "resolveTempRetention"
+    },
+    {
+      "file": ".agents/scripts/lib/temp-retention.js",
+      "symbol": "TEMP_RETENTION_DEFAULTS"
     },
     {
       "file": ".agents/scripts/lib/test-env.js",
@@ -2414,10 +2194,6 @@
     },
     {
       "file": ".agents/scripts/lib/test-temp.js",
-      "symbol": "SUITE_ROOT_PREFIX"
-    },
-    {
-      "file": ".agents/scripts/lib/test-temp.js",
       "symbol": "_currentSuiteTempRoot"
     },
     {
@@ -2434,6 +2210,10 @@
     },
     {
       "file": ".agents/scripts/lib/test-temp.js",
+      "symbol": "SUITE_ROOT_PREFIX"
+    },
+    {
+      "file": ".agents/scripts/lib/test-temp.js",
       "symbol": "suiteTempRoot"
     },
     {
@@ -2443,10 +2223,6 @@
     {
       "file": ".agents/scripts/lib/ticket-body-sections.js",
       "symbol": "ACCEPTANCE_TABLE_HEADING"
-    },
-    {
-      "file": ".agents/scripts/lib/ticket-body-sections.js",
-      "symbol": "TICKET_BODY_SECTIONS"
     },
     {
       "file": ".agents/scripts/lib/ticket-body-sections.js",
@@ -2466,11 +2242,11 @@
     },
     {
       "file": ".agents/scripts/lib/ticket-body-sections.js",
-      "symbol": "upsertTicketSection"
+      "symbol": "TICKET_BODY_SECTIONS"
     },
     {
-      "file": ".agents/scripts/lib/validation-evidence.js",
-      "symbol": "SCHEMA_VERSION"
+      "file": ".agents/scripts/lib/ticket-body-sections.js",
+      "symbol": "upsertTicketSection"
     },
     {
       "file": ".agents/scripts/lib/validation-evidence.js",
@@ -2485,8 +2261,8 @@
       "symbol": "loadEvidence"
     },
     {
-      "file": ".agents/scripts/lib/wave-runner/ready-set.js",
-      "symbol": "classifyStory"
+      "file": ".agents/scripts/lib/validation-evidence.js",
+      "symbol": "SCHEMA_VERSION"
     },
     {
       "file": ".agents/scripts/lib/wave-runner/ready-set.js",
@@ -2495,10 +2271,6 @@
     {
       "file": ".agents/scripts/lib/wave-runner/ready-set.js",
       "symbol": "storyFootprint"
-    },
-    {
-      "file": ".agents/scripts/lib/wave-runner/ready-set.js",
-      "symbol": "storyIdOf"
     },
     {
       "file": ".agents/scripts/lib/workspace-provisioner.js",
@@ -2554,11 +2326,11 @@
     },
     {
       "file": ".agents/scripts/lib/worktree/lifecycle/pending-cleanup.js",
-      "symbol": "MAX_SWEEP_ATTEMPTS"
+      "symbol": "manifestPath"
     },
     {
       "file": ".agents/scripts/lib/worktree/lifecycle/pending-cleanup.js",
-      "symbol": "manifestPath"
+      "symbol": "MAX_SWEEP_ATTEMPTS"
     },
     {
       "file": ".agents/scripts/lib/worktree/lifecycle/pending-cleanup.js",
@@ -2582,10 +2354,6 @@
     },
     {
       "file": ".agents/scripts/lib/worktree/node-modules-strategy.js",
-      "symbol": "PNPM_STORE_PRIME_SENTINEL"
-    },
-    {
-      "file": ".agents/scripts/lib/worktree/node-modules-strategy.js",
       "symbol": "cloneNodeModules"
     },
     {
@@ -2603,6 +2371,10 @@
     {
       "file": ".agents/scripts/lib/worktree/node-modules-strategy.js",
       "symbol": "lockfileHash"
+    },
+    {
+      "file": ".agents/scripts/lib/worktree/node-modules-strategy.js",
+      "symbol": "PNPM_STORE_PRIME_SENTINEL"
     },
     {
       "file": ".agents/scripts/lib/worktree/node-modules-strategy.js",
@@ -2654,11 +2426,11 @@
     },
     {
       "file": ".agents/scripts/providers/github/issues.js",
-      "symbol": "SUBTICKET_HYDRATION_CONCURRENCY"
+      "symbol": "paginateRest"
     },
     {
       "file": ".agents/scripts/providers/github/issues.js",
-      "symbol": "paginateRest"
+      "symbol": "SUBTICKET_HYDRATION_CONCURRENCY"
     },
     {
       "file": ".agents/scripts/providers/github/labels.js",

@@ -1,33 +1,51 @@
 {
   "$schema": ".agents/schemas/baselines/duplication.schema.json",
   "kernelVersion": "1.0.0",
-  "generatedAt": "2026-06-14T17:17:02.554Z",
+  "generatedAt": "2026-08-02T15:40:21.518Z",
   "rollup": {
     "*": {
-      "percentage": 8.85,
-      "duplicatedLines": 2857,
-      "totalLines": 32293,
-      "filesWithDuplication": 99
+      "percentage": 8.3,
+      "duplicatedLines": 1945,
+      "totalLines": 23423,
+      "filesWithDuplication": 82
     }
   },
   "rows": [
     {
-      "path": ".agents/scripts/agents-bootstrap-github.js",
-      "duplicatedLines": 17,
-      "totalLines": 632,
-      "percentage": 2.69
+      "path": ".agents/scripts/check-arch-cycles.js",
+      "duplicatedLines": 41,
+      "totalLines": 323,
+      "percentage": 12.69
+    },
+    {
+      "path": ".agents/scripts/check-context-budget.js",
+      "duplicatedLines": 36,
+      "totalLines": 625,
+      "percentage": 5.76
+    },
+    {
+      "path": ".agents/scripts/check-cyclomatic.js",
+      "duplicatedLines": 12,
+      "totalLines": 214,
+      "percentage": 5.61
+    },
+    {
+      "path": ".agents/scripts/check-dead-exports.js",
+      "duplicatedLines": 12,
+      "totalLines": 271,
+      "percentage": 4.43
     },
     {
       "path": ".agents/scripts/check-lifecycle-doc-drift.js",
       "duplicatedLines": 10,
-      "totalLines": 402,
-      "percentage": 2.49
+      "totalLines": 411,
+      "percentage": 2.43
     },
     {
       "path": ".agents/scripts/check-lifecycle-lint.js",
       "duplicatedLines": 22,
-      "totalLines": 379,
-      "percentage": 5.8
+      "totalLines": 376,
+      "percentage": 5.85
     },
     {
       "path": ".agents/scripts/check-windows-git-perf.js",
@@ -36,70 +54,64 @@
       "percentage": 11.59
     },
     {
-      "path": ".agents/scripts/epic-audit-prepare.js",
-      "duplicatedLines": 15,
-      "totalLines": 206,
-      "percentage": 7.28
-    },
-    {
-      "path": ".agents/scripts/epic-audit-recheck.js",
-      "duplicatedLines": 18,
-      "totalLines": 241,
-      "percentage": 7.47
-    },
-    {
-      "path": ".agents/scripts/epic-deliver-preflight.js",
+      "path": ".agents/scripts/check-workflow-citations.js",
       "duplicatedLines": 11,
-      "totalLines": 407,
-      "percentage": 2.7
+      "totalLines": 332,
+      "percentage": 3.31
     },
     {
-      "path": ".agents/scripts/epic-execute-record-wave.js",
-      "duplicatedLines": 7,
-      "totalLines": 414,
-      "percentage": 1.69
-    },
-    {
-      "path": ".agents/scripts/evidence-gate.js",
-      "duplicatedLines": 35,
-      "totalLines": 235,
-      "percentage": 14.89
+      "path": ".agents/scripts/check-workflow-cli-lint.js",
+      "duplicatedLines": 9,
+      "totalLines": 299,
+      "percentage": 3.01
     },
     {
       "path": ".agents/scripts/generate-config-docs.js",
       "duplicatedLines": 40,
-      "totalLines": 516,
-      "percentage": 7.75
+      "totalLines": 624,
+      "percentage": 6.41
+    },
+    {
+      "path": ".agents/scripts/generate-lens-checklists.js",
+      "duplicatedLines": 9,
+      "totalLines": 231,
+      "percentage": 3.9
     },
     {
       "path": ".agents/scripts/generate-lifecycle-docs.js",
       "duplicatedLines": 46,
-      "totalLines": 224,
-      "percentage": 20.54
+      "totalLines": 237,
+      "percentage": 19.41
     },
     {
       "path": ".agents/scripts/generate-skills-index.js",
       "duplicatedLines": 12,
-      "totalLines": 252,
-      "percentage": 4.76
+      "totalLines": 268,
+      "percentage": 4.48
     },
     {
-      "path": ".agents/scripts/lib/baseline-snapshot.js",
-      "duplicatedLines": 18,
-      "totalLines": 703,
-      "percentage": 2.56
+      "path": ".agents/scripts/generate-workflows-doc.js",
+      "duplicatedLines": 24,
+      "totalLines": 214,
+      "percentage": 11.21
+    },
+    {
+      "path": ".agents/scripts/lib/baselines/kinds/_shared-metric.js",
+      "duplicatedLines": 14,
+      "totalLines": 220,
+      "percentage": 6.36
     },
     {
       "path": ".agents/scripts/lib/baselines/kinds/bundle-size.js",
-      "duplicatedLines": 14,
+      "duplicatedLines": 6,
       "totalLines": 157,
-      "percentage": 8.92
+      "percentage": 3.82
     },
     {
-      "path": ".agents/scripts/lib/baselines/kinds/crap.js",
-      "duplicatedLines": 69,
-      "totalLines": 595,
-      "percentage": 11.6
+      "path": ".agents/scripts/lib/baselines/kinds/coverage.js",
+      "duplicatedLines": 12,
+      "totalLines": 78,
+      "percentage": 15.38
     },
     {
       "path": ".agents/scripts/lib/baselines/kinds/kind-factory.js",
@@ -108,34 +120,40 @@
       "percentage": 7.29
     },
     {
+      "path": ".agents/scripts/lib/baselines/kinds/lighthouse.js",
+      "duplicatedLines": 12,
+      "totalLines": 86,
+      "percentage": 13.95
+    },
+    {
       "path": ".agents/scripts/lib/baselines/kinds/lint.js",
-      "duplicatedLines": 20,
+      "duplicatedLines": 6,
       "totalLines": 172,
-      "percentage": 11.63
+      "percentage": 3.49
     },
     {
       "path": ".agents/scripts/lib/baselines/kinds/maintainability.js",
       "duplicatedLines": 9,
-      "totalLines": 247,
-      "percentage": 3.64
+      "totalLines": 219,
+      "percentage": 4.11
     },
     {
-      "path": ".agents/scripts/lib/baselines/preview-gates.js",
-      "duplicatedLines": 7,
-      "totalLines": 298,
-      "percentage": 2.35
+      "path": ".agents/scripts/lib/baselines/maintainability-baseline-io.js",
+      "duplicatedLines": 19,
+      "totalLines": 59,
+      "percentage": 32.2
     },
     {
       "path": ".agents/scripts/lib/baselines/reader.js",
-      "duplicatedLines": 70,
-      "totalLines": 321,
-      "percentage": 21.81
+      "duplicatedLines": 90,
+      "totalLines": 337,
+      "percentage": 26.71
     },
     {
-      "path": ".agents/scripts/lib/bootstrap/branch-protection.js",
-      "duplicatedLines": 17,
-      "totalLines": 222,
-      "percentage": 7.66
+      "path": ".agents/scripts/lib/baselines/refresh-service.js",
+      "duplicatedLines": 9,
+      "totalLines": 747,
+      "percentage": 1.2
     },
     {
       "path": ".agents/scripts/lib/bootstrap/gh-list.js",
@@ -145,39 +163,45 @@
     },
     {
       "path": ".agents/scripts/lib/bootstrap/gh-preflight.js",
-      "duplicatedLines": 22,
-      "totalLines": 215,
-      "percentage": 10.23
+      "duplicatedLines": 24,
+      "totalLines": 304,
+      "percentage": 7.89
     },
     {
       "path": ".agents/scripts/lib/bootstrap/preflight.js",
       "duplicatedLines": 16,
-      "totalLines": 161,
-      "percentage": 9.94
+      "totalLines": 198,
+      "percentage": 8.08
     },
     {
-      "path": ".agents/scripts/lib/bootstrap/project-bootstrap.js",
-      "duplicatedLines": 9,
-      "totalLines": 723,
-      "percentage": 1.24
+      "path": ".agents/scripts/lib/close-validation/commands.js",
+      "duplicatedLines": 10,
+      "totalLines": 188,
+      "percentage": 5.32
     },
     {
-      "path": ".agents/scripts/lib/bootstrap/quality-bootstrap.js",
-      "duplicatedLines": 20,
-      "totalLines": 370,
-      "percentage": 5.41
+      "path": ".agents/scripts/lib/close-validation/projections/crap.js",
+      "duplicatedLines": 8,
+      "totalLines": 303,
+      "percentage": 2.64
     },
     {
       "path": ".agents/scripts/lib/close-validation/projections/maintainability.js",
-      "duplicatedLines": 6,
-      "totalLines": 293,
-      "percentage": 2.05
+      "duplicatedLines": 8,
+      "totalLines": 286,
+      "percentage": 2.8
+    },
+    {
+      "path": ".agents/scripts/lib/close-validation/runner.js",
+      "duplicatedLines": 22,
+      "totalLines": 418,
+      "percentage": 5.26
     },
     {
       "path": ".agents/scripts/lib/config-settings-schema.js",
       "duplicatedLines": 20,
-      "totalLines": 469,
-      "percentage": 4.26
+      "totalLines": 523,
+      "percentage": 3.82
     },
     {
       "path": ".agents/scripts/lib/config/gates/shared.js",
@@ -187,171 +211,45 @@
     },
     {
       "path": ".agents/scripts/lib/crap-utils.js",
-      "duplicatedLines": 54,
-      "totalLines": 402,
-      "percentage": 13.43
+      "duplicatedLines": 100,
+      "totalLines": 881,
+      "percentage": 11.35
     },
     {
-      "path": ".agents/scripts/lib/feedback-loop/audit-results-graduator.js",
-      "duplicatedLines": 51,
-      "totalLines": 471,
-      "percentage": 10.83
-    },
-    {
-      "path": ".agents/scripts/lib/feedback-loop/code-review-graduator.js",
-      "duplicatedLines": 51,
-      "totalLines": 472,
-      "percentage": 10.81
+      "path": ".agents/scripts/lib/findings/semantic-issue-search.js",
+      "duplicatedLines": 10,
+      "totalLines": 217,
+      "percentage": 4.61
     },
     {
       "path": ".agents/scripts/lib/git-utils.js",
-      "duplicatedLines": 155,
-      "totalLines": 363,
-      "percentage": 42.7
+      "duplicatedLines": 55,
+      "totalLines": 377,
+      "percentage": 14.59
     },
     {
-      "path": ".agents/scripts/lib/maintainability-utils.js",
-      "duplicatedLines": 10,
-      "totalLines": 343,
-      "percentage": 2.92
+      "path": ".agents/scripts/lib/import-graph.js",
+      "duplicatedLines": 11,
+      "totalLines": 156,
+      "percentage": 7.05
     },
     {
-      "path": ".agents/scripts/lib/onboard/detect-stack.js",
-      "duplicatedLines": 12,
-      "totalLines": 300,
-      "percentage": 4
-    },
-    {
-      "path": ".agents/scripts/lib/orchestration/context-hydration-engine.js",
-      "duplicatedLines": 29,
-      "totalLines": 600,
-      "percentage": 4.83
-    },
-    {
-      "path": ".agents/scripts/lib/orchestration/dispatch-pipeline.js",
-      "duplicatedLines": 8,
+      "path": ".agents/scripts/lib/mandrel-catalog.js",
+      "duplicatedLines": 49,
       "totalLines": 206,
-      "percentage": 3.88
+      "percentage": 23.79
     },
     {
-      "path": ".agents/scripts/lib/orchestration/epic-plan-decompose/phases/creation.js",
+      "path": ".agents/scripts/lib/onboard/init-tail.js",
       "duplicatedLines": 11,
-      "totalLines": 223,
-      "percentage": 4.93
-    },
-    {
-      "path": ".agents/scripts/lib/orchestration/epic-plan-spec/phases/run-spec-phase.js",
-      "duplicatedLines": 20,
-      "totalLines": 189,
-      "percentage": 10.58
-    },
-    {
-      "path": ".agents/scripts/lib/orchestration/epic-runner/progress-signals/crap-drift.js",
-      "duplicatedLines": 113,
-      "totalLines": 300,
-      "percentage": 37.67
-    },
-    {
-      "path": ".agents/scripts/lib/orchestration/epic-runner/progress-signals/maintainability-drift.js",
-      "duplicatedLines": 71,
-      "totalLines": 184,
-      "percentage": 38.59
-    },
-    {
-      "path": ".agents/scripts/lib/orchestration/epic-runner/story-run-progress-writer.js",
-      "duplicatedLines": 64,
-      "totalLines": 415,
-      "percentage": 15.42
-    },
-    {
-      "path": ".agents/scripts/lib/orchestration/epic-spec-reconciler-diff.js",
-      "duplicatedLines": 11,
-      "totalLines": 620,
-      "percentage": 1.77
-    },
-    {
-      "path": ".agents/scripts/lib/orchestration/file-assumptions.js",
-      "duplicatedLines": 23,
-      "totalLines": 286,
-      "percentage": 8.04
-    },
-    {
-      "path": ".agents/scripts/lib/orchestration/finalize/open-or-locate-pr.js",
-      "duplicatedLines": 20,
-      "totalLines": 241,
-      "percentage": 8.3
+      "totalLines": 206,
+      "percentage": 5.34
     },
     {
       "path": ".agents/scripts/lib/orchestration/git-cleanup/phases/git-probes.js",
       "duplicatedLines": 34,
-      "totalLines": 426,
-      "percentage": 7.98
-    },
-    {
-      "path": ".agents/scripts/lib/orchestration/lifecycle/listeners/acceptance-reconciler.js",
-      "duplicatedLines": 11,
-      "totalLines": 382,
-      "percentage": 2.88
-    },
-    {
-      "path": ".agents/scripts/lib/orchestration/lifecycle/listeners/automerge-armer.js",
-      "duplicatedLines": 37,
-      "totalLines": 252,
-      "percentage": 14.68
-    },
-    {
-      "path": ".agents/scripts/lib/orchestration/lifecycle/listeners/automerge-predicate.js",
-      "duplicatedLines": 38,
-      "totalLines": 468,
-      "percentage": 8.12
-    },
-    {
-      "path": ".agents/scripts/lib/orchestration/lifecycle/listeners/branch-cleaner.js",
-      "duplicatedLines": 10,
-      "totalLines": 263,
-      "percentage": 3.8
-    },
-    {
-      "path": ".agents/scripts/lib/orchestration/lifecycle/listeners/cleaner.js",
-      "duplicatedLines": 45,
-      "totalLines": 359,
-      "percentage": 12.53
-    },
-    {
-      "path": ".agents/scripts/lib/orchestration/lifecycle/listeners/finalizer.js",
-      "duplicatedLines": 61,
-      "totalLines": 665,
-      "percentage": 9.17
-    },
-    {
-      "path": ".agents/scripts/lib/orchestration/lifecycle/listeners/merge-watcher.js",
-      "duplicatedLines": 35,
-      "totalLines": 425,
-      "percentage": 8.24
-    },
-    {
-      "path": ".agents/scripts/lib/orchestration/lifecycle/listeners/notify-dispatcher.js",
-      "duplicatedLines": 18,
-      "totalLines": 167,
-      "percentage": 10.78
-    },
-    {
-      "path": ".agents/scripts/lib/orchestration/lifecycle/listeners/watcher.js",
-      "duplicatedLines": 35,
-      "totalLines": 668,
-      "percentage": 5.24
-    },
-    {
-      "path": ".agents/scripts/lib/orchestration/lifecycle/trace-logger.js",
-      "duplicatedLines": 11,
-      "totalLines": 324,
-      "percentage": 3.4
-    },
-    {
-      "path": ".agents/scripts/lib/orchestration/manifest-builder.js",
-      "duplicatedLines": 35,
-      "totalLines": 216,
-      "percentage": 16.2
+      "totalLines": 510,
+      "percentage": 6.67
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-runner/worktree-sweep.js",
@@ -360,82 +258,52 @@
       "percentage": 3.77
     },
     {
-      "path": ".agents/scripts/lib/orchestration/retro/phases/compose-body.js",
-      "duplicatedLines": 22,
-      "totalLines": 443,
-      "percentage": 4.97
+      "path": ".agents/scripts/lib/orchestration/project-meta-cache.js",
+      "duplicatedLines": 16,
+      "totalLines": 238,
+      "percentage": 6.72
     },
     {
-      "path": ".agents/scripts/lib/orchestration/review-providers/codex.js",
-      "duplicatedLines": 49,
-      "totalLines": 363,
-      "percentage": 13.5
+      "path": ".agents/scripts/lib/orchestration/run-epilogue.js",
+      "duplicatedLines": 28,
+      "totalLines": 832,
+      "percentage": 3.37
     },
     {
-      "path": ".agents/scripts/lib/orchestration/review-providers/native.js",
-      "duplicatedLines": 8,
-      "totalLines": 692,
-      "percentage": 1.16
+      "path": ".agents/scripts/lib/orchestration/story-close/format-autofix.js",
+      "duplicatedLines": 11,
+      "totalLines": 520,
+      "percentage": 2.12
     },
     {
-      "path": ".agents/scripts/lib/orchestration/review-providers/security-review.js",
-      "duplicatedLines": 48,
-      "totalLines": 373,
-      "percentage": 12.87
+      "path": ".agents/scripts/lib/orchestration/story-follow-ups.js",
+      "duplicatedLines": 12,
+      "totalLines": 705,
+      "percentage": 1.7
     },
     {
-      "path": ".agents/scripts/lib/orchestration/spec-freshness.js",
-      "duplicatedLines": 31,
-      "totalLines": 320,
-      "percentage": 9.69
-    },
-    {
-      "path": ".agents/scripts/lib/orchestration/spec-renderer.js",
-      "duplicatedLines": 19,
-      "totalLines": 456,
-      "percentage": 4.17
-    },
-    {
-      "path": ".agents/scripts/lib/orchestration/story-close/auto-refresh-runner.js",
-      "duplicatedLines": 6,
-      "totalLines": 769,
-      "percentage": 0.78
-    },
-    {
-      "path": ".agents/scripts/lib/orchestration/story-close/baseline-attribution/phases/refresh-commit.js",
-      "duplicatedLines": 23,
-      "totalLines": 329,
-      "percentage": 6.99
-    },
-    {
-      "path": ".agents/scripts/lib/orchestration/story-close/baseline-attribution/phases/scope-discovery.js",
-      "duplicatedLines": 6,
-      "totalLines": 50,
-      "percentage": 12
+      "path": ".agents/scripts/lib/orchestration/ticket-validator-conflicts.js",
+      "duplicatedLines": 18,
+      "totalLines": 896,
+      "percentage": 2.01
     },
     {
       "path": ".agents/scripts/lib/orchestration/ticketing/bulk.js",
-      "duplicatedLines": 80,
-      "totalLines": 771,
-      "percentage": 10.38
-    },
-    {
-      "path": ".agents/scripts/lib/signals/detectors/hotspot.js",
-      "duplicatedLines": 43,
-      "totalLines": 298,
-      "percentage": 14.43
+      "duplicatedLines": 21,
+      "totalLines": 633,
+      "percentage": 3.32
     },
     {
       "path": ".agents/scripts/lib/signals/detectors/retry.js",
-      "duplicatedLines": 44,
-      "totalLines": 289,
-      "percentage": 15.22
+      "duplicatedLines": 29,
+      "totalLines": 253,
+      "percentage": 11.46
     },
     {
       "path": ".agents/scripts/lib/signals/detectors/rework.js",
-      "duplicatedLines": 83,
-      "totalLines": 204,
-      "percentage": 40.69
+      "duplicatedLines": 29,
+      "totalLines": 167,
+      "percentage": 17.37
     },
     {
       "path": ".agents/scripts/lib/single-story-sweep/protection.js",
@@ -444,64 +312,52 @@
       "percentage": 5.11
     },
     {
-      "path": ".agents/scripts/lib/skills/walk-skill-files.js",
-      "duplicatedLines": 11,
-      "totalLines": 56,
-      "percentage": 19.64
-    },
-    {
-      "path": ".agents/scripts/lib/spec/loader.js",
-      "duplicatedLines": 27,
-      "totalLines": 425,
-      "percentage": 6.35
-    },
-    {
       "path": ".agents/scripts/lib/test-isolate/runner.js",
       "duplicatedLines": 40,
       "totalLines": 483,
       "percentage": 8.28
     },
     {
-      "path": ".agents/scripts/lib/wave-runner/tick.js",
-      "duplicatedLines": 11,
-      "totalLines": 613,
-      "percentage": 1.79
+      "path": ".agents/scripts/lib/validation-evidence.js",
+      "duplicatedLines": 14,
+      "totalLines": 333,
+      "percentage": 4.2
+    },
+    {
+      "path": ".agents/scripts/lib/workers/combined-mi-crap-worker.js",
+      "duplicatedLines": 19,
+      "totalLines": 175,
+      "percentage": 10.86
     },
     {
       "path": ".agents/scripts/lib/workers/crap-worker.js",
-      "duplicatedLines": 21,
-      "totalLines": 193,
-      "percentage": 10.88
+      "duplicatedLines": 20,
+      "totalLines": 173,
+      "percentage": 11.56
     },
     {
       "path": ".agents/scripts/lib/workers/maintainability-report-worker.js",
-      "duplicatedLines": 26,
-      "totalLines": 91,
-      "percentage": 28.57
+      "duplicatedLines": 12,
+      "totalLines": 137,
+      "percentage": 8.76
     },
     {
       "path": ".agents/scripts/lib/workers/maintainability-worker.js",
-      "duplicatedLines": 26,
-      "totalLines": 79,
-      "percentage": 32.91
+      "duplicatedLines": 12,
+      "totalLines": 84,
+      "percentage": 14.29
     },
     {
-      "path": ".agents/scripts/lifecycle-diff.js",
-      "duplicatedLines": 11,
-      "totalLines": 274,
-      "percentage": 4.01
-    },
-    {
-      "path": ".agents/scripts/lifecycle-emit-story-dispatch.js",
-      "duplicatedLines": 11,
-      "totalLines": 194,
-      "percentage": 5.67
+      "path": ".agents/scripts/lib/worktree/lifecycle/force-drain.js",
+      "duplicatedLines": 28,
+      "totalLines": 366,
+      "percentage": 7.65
     },
     {
       "path": ".agents/scripts/lint-label-vocabulary.js",
       "duplicatedLines": 22,
-      "totalLines": 237,
-      "percentage": 9.28
+      "totalLines": 236,
+      "percentage": 9.32
     },
     {
       "path": ".agents/scripts/post-structured-comment.js",
@@ -512,56 +368,68 @@
     {
       "path": ".agents/scripts/providers/github/mappers.js",
       "duplicatedLines": 33,
-      "totalLines": 126,
-      "percentage": 26.19
+      "totalLines": 116,
+      "percentage": 28.45
     },
     {
-      "path": ".agents/scripts/providers/github/tickets.js",
-      "duplicatedLines": 11,
-      "totalLines": 326,
-      "percentage": 3.37
+      "path": ".agents/scripts/providers/github/search-query.js",
+      "duplicatedLines": 10,
+      "totalLines": 71,
+      "percentage": 14.08
     },
     {
       "path": ".agents/scripts/quality-preview.js",
-      "duplicatedLines": 14,
-      "totalLines": 327,
-      "percentage": 4.28
+      "duplicatedLines": 13,
+      "totalLines": 459,
+      "percentage": 2.83
     },
     {
       "path": ".agents/scripts/quality-watch.js",
-      "duplicatedLines": 14,
+      "duplicatedLines": 13,
       "totalLines": 223,
-      "percentage": 6.28
+      "percentage": 5.83
+    },
+    {
+      "path": ".agents/scripts/resolve-doc-tiers.js",
+      "duplicatedLines": 11,
+      "totalLines": 106,
+      "percentage": 10.38
     },
     {
       "path": ".agents/scripts/resync-status-column.js",
-      "duplicatedLines": 21,
-      "totalLines": 154,
-      "percentage": 13.64
+      "duplicatedLines": 10,
+      "totalLines": 184,
+      "percentage": 5.43
     },
     {
-      "path": ".agents/scripts/select-audits.js",
-      "duplicatedLines": 92,
-      "totalLines": 168,
-      "percentage": 54.76
+      "path": ".agents/scripts/sync-claude-agents.js",
+      "duplicatedLines": 10,
+      "totalLines": 165,
+      "percentage": 6.06
     },
     {
-      "path": ".agents/scripts/story-phase.js",
-      "duplicatedLines": 11,
-      "totalLines": 333,
-      "percentage": 3.3
+      "path": ".agents/scripts/sync-claude-commands.js",
+      "duplicatedLines": 10,
+      "totalLines": 290,
+      "percentage": 3.45
+    },
+    {
+      "path": ".agents/scripts/update-coverage-baseline.js",
+      "duplicatedLines": 10,
+      "totalLines": 159,
+      "percentage": 6.29
     },
     {
       "path": ".agents/scripts/update-crap-baseline.js",
       "duplicatedLines": 6,
-      "totalLines": 145,
-      "percentage": 4.14
+      "totalLines": 228,
+      "percentage": 2.63
     },
     {
       "path": ".agents/scripts/update-duplication-baseline.js",
       "duplicatedLines": 7,
-      "totalLines": 134,
-      "percentage": 5.22
+      "totalLines": 168,
+      "percentage": 4.17
     },
     {
       "path": ".agents/scripts/validate-skills.js",
@@ -570,10 +438,10 @@
       "percentage": 11.51
     },
     {
-      "path": ".agents/scripts/wave-tick.js",
-      "duplicatedLines": 24,
-      "totalLines": 272,
-      "percentage": 8.82
+      "path": "lib/cli/init.js",
+      "duplicatedLines": 11,
+      "totalLines": 442,
+      "percentage": 2.49
     },
     {
       "path": "lib/cli/migrate.js",
@@ -582,28 +450,58 @@
       "percentage": 25.38
     },
     {
-      "path": "lib/cli/registry.js",
-      "duplicatedLines": 12,
-      "totalLines": 726,
-      "percentage": 1.65
+      "path": "lib/cli/sync-agents.js",
+      "duplicatedLines": 54,
+      "totalLines": 157,
+      "percentage": 34.39
+    },
+    {
+      "path": "lib/cli/sync-commands.js",
+      "duplicatedLines": 54,
+      "totalLines": 159,
+      "percentage": 33.96
     },
     {
       "path": "lib/cli/sync.js",
-      "duplicatedLines": 21,
-      "totalLines": 299,
-      "percentage": 7.02
+      "duplicatedLines": 7,
+      "totalLines": 461,
+      "percentage": 1.52
     },
     {
       "path": "lib/cli/version-helpers.js",
       "duplicatedLines": 35,
-      "totalLines": 59,
-      "percentage": 59.32
+      "totalLines": 197,
+      "percentage": 17.77
     },
     {
       "path": "lib/migrations/index.js",
       "duplicatedLines": 68,
-      "totalLines": 164,
-      "percentage": 41.46
+      "totalLines": 177,
+      "percentage": 38.42
+    },
+    {
+      "path": "lib/migrations/steps/2.1.0-retire-mi-drop-knobs.js",
+      "duplicatedLines": 53,
+      "totalLines": 100,
+      "percentage": 53
+    },
+    {
+      "path": "lib/migrations/steps/2.1.0-retire-verify-concurrency-cap.js",
+      "duplicatedLines": 55,
+      "totalLines": 101,
+      "percentage": 54.46
+    },
+    {
+      "path": "lib/migrations/steps/2.11.0-retire-max-seed-words.js",
+      "duplicatedLines": 53,
+      "totalLines": 92,
+      "percentage": 57.61
+    },
+    {
+      "path": "lib/migrations/steps/2.20.0-retire-codebase-snapshot.js",
+      "duplicatedLines": 55,
+      "totalLines": 113,
+      "percentage": 48.67
     }
   ]
 }

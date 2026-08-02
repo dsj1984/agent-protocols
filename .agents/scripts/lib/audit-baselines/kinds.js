@@ -29,6 +29,7 @@ export const GATE_KINDS = Object.freeze(
 const RATCHET_KINDS = Object.freeze([
   'arch-cycles',
   'context-budget',
+  'cyclomatic',
   'dead-exports',
   'dead-exports-production',
 ]);
@@ -196,6 +197,12 @@ export const KIND_SPECS = Object.freeze({
     worse: 'higher',
     idKind: 'path',
     rows: contextBudgetRows,
+  },
+  cyclomatic: {
+    metric: 'maxCyclomatic',
+    worse: 'higher',
+    idKind: 'path',
+    rows: envelopeRows('file', 'maxCyclomatic'),
   },
   'dead-exports': {
     metric: 'deadExports',

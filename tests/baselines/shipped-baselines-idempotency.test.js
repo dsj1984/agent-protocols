@@ -41,11 +41,16 @@ import { write } from '../../.agents/scripts/lib/baselines/writer.js';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, '..', '..');
 
+// Story #4923 — `baselines/lint.json` left this list because it left the
+// repository: it was a zero-row, all-zero-rollup placeholder with no producer
+// here, and a round-trip contract over an empty envelope pins nothing.
+// `duplication` takes its slot — a real committed baseline that was not
+// covered before.
 const SHIPPED = [
-  { kind: 'lint', file: 'baselines/lint.json' },
   { kind: 'coverage', file: 'baselines/coverage.json' },
   { kind: 'crap', file: 'baselines/crap.json' },
   { kind: 'maintainability', file: 'baselines/maintainability.json' },
+  { kind: 'duplication', file: 'baselines/duplication.json' },
 ];
 
 function loadShipped(file) {

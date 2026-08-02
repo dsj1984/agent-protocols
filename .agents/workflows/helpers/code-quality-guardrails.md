@@ -35,8 +35,15 @@ thresholds, sourced from
 | CC range | Action |
 | --- | --- |
 | ≤ 8 | Pass — no annotation required. |
-| > 8 (default `cyclomaticFlag`) | **Flag** in review: explain why, or split. The function is allowed to land but the audit report names it. |
-| > 12 (default `cyclomaticMustFix`) | **Must-fix**: refactor before the Story commits. `quality:preview` reports it as a violation; the close-validation chain refuses the merge. |
+| > 8 (default `cyclomaticFlag`) | **Flag** — `quality:preview` counts the function in its `new-method count over c=<flag>` column. The function is allowed to land but the report names it. |
+| > 12 (default `cyclomaticMustFix`) | **Must-fix**: `check-cyclomatic.js` fails when a file gains a function above the ceiling, or when its worst function gets worse than the recorded baseline. |
+
+`check-cyclomatic.js` is a **ratchet**, not a cliff: `baselines/cyclomatic.json`
+records the over-ceiling functions a repository already carries, so adopting
+the gate never demands a mass refactor. Burning a recorded breach down is
+always allowed and re-records itself on the next `--update`; adding one is
+what fails. It runs in the same required-check slot as `check-arch-cycles.js`
+and `check-dead-exports.js`.
 
 A common refactor that pulls a 13-CC function under 8 is extracting the early-
 return guard chain into a named predicate, then collapsing the remaining

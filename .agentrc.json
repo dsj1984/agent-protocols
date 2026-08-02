@@ -37,21 +37,19 @@
           "floors": { "*": { "lines": 94, "branches": 85, "functions": 87 } }
         },
         "crap": {
-          "floors": { "*": { "methodsAbove20": 13 } },
+          "floors": { "*": { "methodsAbove20": 8 } },
           "targetDirs": [".agents/scripts", "bin", "lib"],
           "ignoreGlobs": [
-            ".agents/scripts/lifecycle-emit.js",
             ".agents/scripts/**/__tests__/**",
             "lib/cli/update.js"
           ]
         },
         "maintainability": {
-          "floors": { "*": { "min": 70 } },
+          "floors": { "*": { "min": 74 } },
           "targetDirs": [".agents/scripts", "bin", "lib"],
           "tolerance": { "kind": "absolute", "value": 0.5 },
           "ignoreGlobs": [
             ".agents/scripts/lib/config-settings-schema*.js",
-            ".agents/scripts/lib/orchestration/lifecycle/listeners/index.js",
             ".agents/scripts/**/__tests__/**",
             "lib/**/__tests__/**"
           ]

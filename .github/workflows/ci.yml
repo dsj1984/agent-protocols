@@ -217,12 +217,20 @@ jobs:
         # prose is resident context, so provenance asides are charged at the
         # instruction rate, and nothing but a ratchet stops them
         # re-accumulating one well-meaning citation at a time.
+        #
+        # Story #4923: the cyclomatic ratchet (check-cyclomatic.js, baseline
+        # baselines/cyclomatic.json) joins the slot as the first consumer of
+        # `codingGuardrails.cyclomaticMustFix`, which had been schema-validated,
+        # bootstrap-defaulted and resolver-resolved while being read by nothing.
+        # It records the existing over-ceiling functions per file and fails when
+        # a change adds one or worsens a file's worst function.
         run: |
           node .agents/scripts/check-arch-cycles.js --format text
           node .agents/scripts/check-dead-exports.js
           node .agents/scripts/check-dead-exports.js --production
           node .agents/scripts/check-context-budget.js
           node .agents/scripts/check-workflow-citations.js
+          node .agents/scripts/check-cyclomatic.js
 
   windows-smoke:
     # Story #3389 — advisory Windows leg. Exercises bootstrap, command sync,

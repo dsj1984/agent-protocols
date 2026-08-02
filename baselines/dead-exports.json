@@ -1,7 +1,7 @@
 {
   "$schema": "https://mandrel.dev/baselines/dead-exports.schema.json",
   "kernelVersion": "6.17.1",
-  "generatedAt": "2026-07-15T14:51:53.493Z",
+  "generatedAt": "2026-08-02T15:29:16.413Z",
   "rows": [
     {
       "file": ".agents/scripts/lib/audit-suite/index.js",
@@ -25,11 +25,11 @@
     },
     {
       "file": ".agents/scripts/lib/audit-suite/selector.js",
-      "symbol": "GLOBAL_LENS_ALLOWLIST"
+      "symbol": "_resetPersistenceLayerCache"
     },
     {
       "file": ".agents/scripts/lib/audit-suite/selector.js",
-      "symbol": "_resetPersistenceLayerCache"
+      "symbol": "GLOBAL_LENS_ALLOWLIST"
     },
     {
       "file": ".agents/scripts/lib/audit-suite/selector.js",
@@ -102,10 +102,6 @@
     {
       "file": ".agents/scripts/lib/bootstrap/manifest.js",
       "symbol": "PHASE_GROUP_VALUES"
-    },
-    {
-      "file": ".agents/scripts/lib/bootstrap/project-bootstrap.js",
-      "symbol": "checkParity"
     },
     {
       "file": ".agents/scripts/lib/bootstrap/project-bootstrap.js",
@@ -184,14 +180,6 @@
       "symbol": "AGENT_SETTINGS_STRING_FIELDS"
     },
     {
-      "file": ".agents/scripts/lib/config-settings-schema.js",
-      "symbol": "COMMENT_EVENT_NAMES"
-    },
-    {
-      "file": ".agents/scripts/lib/config-settings-schema.js",
-      "symbol": "WEBHOOK_EVENT_NAMES"
-    },
-    {
       "file": ".agents/scripts/lib/config/gates/shared.js",
       "symbol": "COMPONENTS_SCHEMA"
     },
@@ -244,32 +232,12 @@
       "symbol": "DEFAULT_RUN_CHILD_TIMEOUT_MS"
     },
     {
-      "file": ".agents/scripts/lib/feedback-loop/memory-freshness.js",
-      "symbol": "default"
-    },
-    {
-      "file": ".agents/scripts/lib/feedback-loop/memory-freshness.js",
-      "symbol": "extractReferences"
-    },
-    {
-      "file": ".agents/scripts/lib/feedback-loop/memory-freshness.js",
-      "symbol": "parseFrontmatter"
-    },
-    {
-      "file": ".agents/scripts/lib/feedback-loop/memory-freshness.js",
-      "symbol": "renderFrontmatter"
-    },
-    {
       "file": ".agents/scripts/lib/feedback-loop/prior-feedback-fetcher.js",
       "symbol": "default"
     },
     {
       "file": ".agents/scripts/lib/feedback-loop/prior-feedback-fetcher.js",
       "symbol": "extractRecurringDefectClasses"
-    },
-    {
-      "file": ".agents/scripts/lib/feedback-loop/retro-proposals-graduator.js",
-      "symbol": "buildContentMarker"
     },
     {
       "file": ".agents/scripts/lib/feedback-loop/retro-proposals-graduator.js",
@@ -284,36 +252,12 @@
       "symbol": "__testing"
     },
     {
-      "file": ".agents/scripts/lib/findings/route-finding.js",
-      "symbol": "__testing"
-    },
-    {
-      "file": ".agents/scripts/lib/git-utils.js",
-      "symbol": "slugify"
-    },
-    {
       "file": ".agents/scripts/lib/install-cmd-parser.js",
       "symbol": "parseInstallCmd"
     },
     {
       "file": ".agents/scripts/lib/Logger.js",
       "symbol": "STDERR_LOGGER"
-    },
-    {
-      "file": ".agents/scripts/lib/observability/hook-heartbeat.js",
-      "symbol": "heartbeatMarkerName"
-    },
-    {
-      "file": ".agents/scripts/lib/observability/hook-heartbeat.js",
-      "symbol": "resolveHeartbeatTarget"
-    },
-    {
-      "file": ".agents/scripts/lib/observability/hook-heartbeat.js",
-      "symbol": "shouldEmitHeartbeat"
-    },
-    {
-      "file": ".agents/scripts/lib/observability/source-classifier.js",
-      "symbol": "__testing"
     },
     {
       "file": ".agents/scripts/lib/observability/tool-trace-hook.js",
@@ -344,18 +288,6 @@
       "symbol": "defaultGhRunner"
     },
     {
-      "file": ".agents/scripts/lib/orchestration/git-cleanup/phases/phase-drivers.js",
-      "symbol": "executeBranchPhase"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/git-cleanup/phases/phase-drivers.js",
-      "symbol": "executeFastForwardPhase"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/git-cleanup/phases/phase-drivers.js",
-      "symbol": "executeStashPhase"
-    },
-    {
       "file": ".agents/scripts/lib/orchestration/lifecycle/listeners/watcher.js",
       "symbol": "hasFailingCheck"
     },
@@ -374,10 +306,6 @@
     {
       "file": ".agents/scripts/lib/orchestration/lifecycle/trace-logger.js",
       "symbol": "formatDurationChunk"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/plan-persist/persist-helpers.js",
-      "symbol": "makeDefaultFanOutCounter"
     },
     {
       "file": ".agents/scripts/lib/orchestration/reassert-status-column.js",
@@ -428,10 +356,6 @@
       "symbol": "SECURITY_REVIEW_INVOKE_PROMPT"
     },
     {
-      "file": ".agents/scripts/lib/orchestration/single-story-close/phases/auto-merge.js",
-      "symbol": "runAutoMergePhase"
-    },
-    {
       "file": ".agents/scripts/lib/orchestration/single-story-close/phases/base-sync.js",
       "symbol": "runBaseSyncPhase"
     },
@@ -477,15 +401,7 @@
     },
     {
       "file": ".agents/scripts/lib/orchestration/story-follow-ups.js",
-      "symbol": "captureStoryFollowUps"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/story-follow-ups.js",
       "symbol": "FOLLOW_UPS_COMMENT_TYPE"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/story-follow-ups.js",
-      "symbol": "gatherStoryFrictionSignals"
     },
     {
       "file": ".agents/scripts/lib/orchestration/ticket-lease.js",
