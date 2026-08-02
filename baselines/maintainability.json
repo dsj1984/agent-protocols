@@ -1,11 +1,11 @@
 {
   "$schema": ".agents/schemas/baselines/maintainability.schema.json",
   "kernelVersion": "0.1.0",
-  "generatedAt": "2026-08-02T18:02:38.851Z",
+  "generatedAt": "2026-08-02T17:58:57.314Z",
   "rollup": {
     "*": {
       "min": 74.146,
-      "p50": 98.143,
+      "p50": 98.173,
       "p95": 126.637
     }
   },
@@ -87,6 +87,10 @@
       "mi": 88.159
     },
     {
+      "path": ".agents/scripts/check-schema-references.js",
+      "mi": 99.343
+    },
+    {
       "path": ".agents/scripts/check-test-temp-hygiene.js",
       "mi": 93.47
     },
@@ -101,10 +105,6 @@
     {
       "path": ".agents/scripts/check-workflow-cli-lint.js",
       "mi": 89.165
-    },
-    {
-      "path": ".agents/scripts/check-workflow-timeouts.js",
-      "mi": 95.66
     },
     {
       "path": ".agents/scripts/cleanup-repo-test-temp.js",
@@ -1831,10 +1831,6 @@
       "mi": 99.299
     },
     {
-      "path": ".agents/scripts/lib/test-runner-contract.js",
-      "mi": 104.355
-    },
-    {
       "path": ".agents/scripts/lib/test-temp.js",
       "mi": 107.819
     },
@@ -2128,11 +2124,11 @@
     },
     {
       "path": ".agents/scripts/run-coverage.js",
-      "mi": 98.949
+      "mi": 101.157
     },
     {
       "path": ".agents/scripts/run-lint.js",
-      "mi": 107.603
+      "mi": 108.887
     },
     {
       "path": ".agents/scripts/run-test-profile.js",
@@ -2140,7 +2136,7 @@
     },
     {
       "path": ".agents/scripts/run-tests.js",
-      "mi": 96.286
+      "mi": 98.588
     },
     {
       "path": ".agents/scripts/run-verify.js",

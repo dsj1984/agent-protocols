@@ -47,10 +47,11 @@ the floor-vs-ratchet policy are tooling commitments rather than ADRs and live in
 
 <!-- ADR-INDEX:START -->
 
-**In force (34).** Each governs the surface named beside it.
+**In force (35).** Each governs the surface named beside it.
 
 | Decision | Governs | Surface |
 | --- | --- | --- |
+| [`20260802-4938-schema-compilers`](#adr-20260802-4938-schema-compilers-a-schema-is-compiled-by-code-or-declares-in-file-why-not) | A schema is compiled by code, or declares in-file why not | `.agents/scripts/check-schema-references.js` |
 | [`20260726-v2-story-collapse`](#adr-20260726-v2-story-collapse-story-only-ticket-model-one-plan-one-deliver-one-engine) | Story-only ticket model; one /plan, one /deliver, one engine | `.agents/workflows/deliver.md` |
 | [`20260624-loop-units-division-of-labor`](#adr-20260624-loop-units-division-of-labor-mandrel-owns-content--oracle--contract-the-host-owns-cadence--iteration) | mandrel owns content + oracle + contract; the host owns cadence +… | `.agents/scripts/sync-claude-commands.js` |
 | [`20260610-lifecycle-bus-retained`](#adr-20260610-lifecycle-bus-retained-keep-the-lifecycle-bus-collapse-by-deletion-is-already-done) | Keep the lifecycle bus; collapse-by-deletion is already done | `.agents/scripts/lib/orchestration/lifecycle/bus.js` |
@@ -118,6 +119,38 @@ at the release tag named in the entry.
 - [Earlier ADRs (001 / 002 / 003)](#earlier-adrs-001--002--003)
 
 <!-- ADR-INDEX:END -->
+
+## ADR 20260802-4938-schema-compilers: A schema is compiled by code, or declares in-file why not
+
+**Status:** Accepted
+**Date:** 2026-08-02
+**Surface:** `.agents/scripts/check-schema-references.js`
+
+### Context
+
+`friction-event.schema.json` outlived the Epic #4406 cutover that superseded
+it. Nothing compiled it, but it parsed and sat where enforced contracts live,
+so readers took it for one — an `/audit-documentation` lens graded a High
+finding against it, and that reached an acceptance criterion before a
+delivering worker overruled it. Existence plus valid syntax passed for
+authority at every layer.
+
+### Decision
+
+A schema under `.agents/schemas/` must be compiled by some code path;
+`check-schema-references.js` gates it, resolving a literal basename, a `$ref`,
+or a computed-path directory whose stem is the runtime key — comments
+stripped, since counting a docblock would let the gate certify itself. One
+kept deliberately says so in a root `x-mandrel-uncompiled` block naming the
+`runtimeGate` that really enforces the shape: in the document, not a side-car
+allowlist, because the failure was a reader trusting the document.
+
+### Consequences
+
+`friction-event.schema.json` is deleted, its shape surviving in the
+data-dictionary archive. The first run found a second case,
+`model-attribution.schema.json`, now declared in-file. The gate asks "is
+anything compiling this?", never "is what compiles it faithful to it?".
 
 ## ADR 20260726-v2-story-collapse: Story-only ticket model; one /plan, one /deliver, one engine
 

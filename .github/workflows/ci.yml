@@ -234,6 +234,14 @@ jobs:
         # bootstrap-defaulted and resolver-resolved while being read by nothing.
         # It records the existing over-ceiling functions per file and fails when
         # a change adds one or worsens a file's worst function.
+        #
+        # Story #4938: the orphan-schema gate (check-schema-references.js) joins
+        # the slot. A schema under `.agents/schemas/` that no code path compiles
+        # still reads as an enforced contract to every human and every audit
+        # lens — one such file produced a High audit finding and a wrong
+        # acceptance criterion before anyone read the validator. The gate has no
+        # baseline: the answer is always zero, and a deliberate exception is
+        # declared in the schema's own `x-mandrel-uncompiled` block.
         run: |
           node .agents/scripts/check-arch-cycles.js --format text
           node .agents/scripts/check-dead-exports.js
@@ -241,6 +249,7 @@ jobs:
           node .agents/scripts/check-context-budget.js
           node .agents/scripts/check-workflow-citations.js
           node .agents/scripts/check-cyclomatic.js
+          node .agents/scripts/check-schema-references.js
 
   windows-smoke:
     # Story #3389 — advisory Windows leg. Exercises bootstrap, command sync,

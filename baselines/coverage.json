@@ -1,12 +1,12 @@
 {
   "$schema": ".agents/schemas/baselines/coverage.schema.json",
   "kernelVersion": "1.0.0",
-  "generatedAt": "2026-08-02T18:02:38.609Z",
+  "generatedAt": "2026-08-02T18:00:55.757Z",
   "rollup": {
     "*": {
-      "lines": 95.77,
-      "branches": 86.25,
-      "functions": 88.67
+      "lines": 95.69,
+      "branches": 86.21,
+      "functions": 88.59
     }
   },
   "rows": [
@@ -119,6 +119,12 @@
       "functions": 83.33
     },
     {
+      "path": ".agents/scripts/check-schema-references.js",
+      "lines": 98.98,
+      "branches": 88.57,
+      "functions": 100
+    },
+    {
       "path": ".agents/scripts/check-test-temp-hygiene.js",
       "lines": 99.7,
       "branches": 91.96,
@@ -141,12 +147,6 @@
       "lines": 91.97,
       "branches": 96,
       "functions": 85.71
-    },
-    {
-      "path": ".agents/scripts/check-workflow-timeouts.js",
-      "lines": 98.28,
-      "branches": 94.64,
-      "functions": 87.5
     },
     {
       "path": ".agents/scripts/cleanup-repo-test-temp.js",
@@ -2729,12 +2729,6 @@
       "functions": 100
     },
     {
-      "path": ".agents/scripts/lib/test-runner-contract.js",
-      "lines": 100,
-      "branches": 100,
-      "functions": 100
-    },
-    {
       "path": ".agents/scripts/lib/test-temp.js",
       "lines": 99.36,
       "branches": 93.55,
@@ -3144,9 +3138,9 @@
     },
     {
       "path": ".agents/scripts/run-coverage.js",
-      "lines": 98.98,
-      "branches": 55.56,
-      "functions": 100
+      "lines": 62.28,
+      "branches": 50,
+      "functions": 50
     },
     {
       "path": ".agents/scripts/run-lint.js",

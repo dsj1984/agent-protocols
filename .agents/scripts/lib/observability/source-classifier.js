@@ -96,6 +96,7 @@ const FRAMEWORK_SCRIPT_BASENAMES = Object.freeze([
   'check-gherkin-placeholders.js',
   'check-lifecycle-doc-drift.js',
   'check-lifecycle-lint.js',
+  'check-schema-references.js',
   'check-test-temp-hygiene.js',
   'check-windows-git-perf.js',
   'check-workflow-citations.js',

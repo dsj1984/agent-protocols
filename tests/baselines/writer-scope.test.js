@@ -16,11 +16,22 @@
  */
 
 import assert from 'node:assert/strict';
+import path from 'node:path';
 import { describe, it } from 'node:test';
+import { fileURLToPath } from 'node:url';
 
+import {
+  buildWriterScopeArgs,
+  readPriorBaselineRows,
+} from '../../.agents/scripts/lib/baselines/diff-scope-cli.js';
 import { write } from '../../.agents/scripts/lib/baselines/writer.js';
 
 const FIXED = '2026-05-15T00:00:00Z';
+
+const REPO_ROOT = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  '../..',
+);
 
 const PRIOR_MI_ROWS = [
   { path: 'src/a.js', mi: 70 },
@@ -202,5 +213,222 @@ describe('writer.write — scope parameter (Story #1974)', () => {
     // Without scope, the merger does not run — out-of-scope prior rows are
     // NOT backfilled. (Same contract as pre-#1974.)
     assert.equal(byPath['src/b.js'], undefined);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Story #4937 — the prior reader must dispatch per kind, or scope
+// preservation and epsilon damping are both inert for every kind whose rows
+// are not keyed on `mi`.
+// ---------------------------------------------------------------------------
+
+/**
+ * One canonical row per baseline kind, in the exact shape that kind's
+ * `projectRow` emits. The fixture is the audit: a kind whose rows survive
+ * this reader is a kind the reader models correctly.
+ */
+const CANONICAL_ROWS_BY_KIND = Object.freeze({
+  'bundle-size': [{ bundle: 'main', rawKb: 120.5, gzippedKb: 40.25 }],
+  coverage: [{ path: 'src/a.js', lines: 90, branches: 80, functions: 85 }],
+  crap: [{ path: 'src/a.js', method: 'render', startLine: 12, crap: 18 }],
+  duplication: [
+    { path: 'src/a.js', duplicatedLines: 10, totalLines: 100, percentage: 10 },
+  ],
+  lighthouse: [
+    {
+      route: 'dashboard',
+      performance: 92,
+      accessibility: 96,
+      bestPractices: 90,
+      seo: 88,
+    },
+  ],
+  lint: [{ path: 'src/a.js', errorCount: 0, warningCount: 3 }],
+  maintainability: [{ path: 'src/a.js', mi: 70 }],
+  mutation: [{ path: 'src/a.js', score: 81, killed: 8, survived: 2 }],
+});
+
+/** The pre-#4937 default reader, kept verbatim as the regression oracle. */
+function legacyMaintainabilityFilter(rows) {
+  return rows.filter(
+    (r) => r && typeof r.path === 'string' && typeof r.mi === 'number',
+  );
+}
+
+/** An `fs` seam that serves one in-memory baseline envelope. */
+function fsServing(envelope) {
+  return { readFileSync: () => JSON.stringify(envelope) };
+}
+
+/** A `spawnSync` seam that reports `files` as the diff footprint. */
+function spawnDiffing(files) {
+  return () => ({ status: 0, stdout: `${files.join('\n')}\n` });
+}
+
+describe('readPriorBaselineRows — per-kind dispatch (Story #4937)', () => {
+  it('AC-4: every kind reads its own rows back, whether or not they carry `mi`', () => {
+    for (const [kind, rows] of Object.entries(CANONICAL_ROWS_BY_KIND)) {
+      const prior = readPriorBaselineRows({
+        kind,
+        absBaselinePath: `/virtual/${kind}.json`,
+        fsImpl: fsServing({ rows }),
+      });
+      assert.deepEqual(
+        prior,
+        rows,
+        `kind "${kind}" must read its own canonical rows back intact`,
+      );
+    }
+  });
+
+  it('AC-4: the kinds that regressed are exactly those whose rows lack `mi`', () => {
+    // Guards the fix against a silent re-introduction: if a kind's rows
+    // survive the legacy `mi` filter, that kind was never at risk; every
+    // other kind was returning an empty prior before this Story.
+    const wouldHaveBeenEmptied = Object.entries(CANONICAL_ROWS_BY_KIND)
+      .filter(
+        ([kind, rows]) =>
+          kind !== 'crap' && legacyMaintainabilityFilter(rows).length === 0,
+      )
+      .map(([kind]) => kind);
+    assert.deepEqual(wouldHaveBeenEmptied.sort(), [
+      'bundle-size',
+      'coverage',
+      'duplication',
+      'lighthouse',
+      'lint',
+      'mutation',
+    ]);
+  });
+
+  it('AC-1: a kind with no declared row contract throws instead of borrowing one', () => {
+    assert.throws(
+      () =>
+        readPriorBaselineRows({
+          kind: 'not-a-kind',
+          absBaselinePath: '/virtual/none.json',
+          fsImpl: fsServing({ rows: [] }),
+        }),
+      /no prior-row contract registered for kind "not-a-kind"/,
+    );
+  });
+
+  it('AC-2: the committed duplication baseline reads back as a non-empty prior', () => {
+    const prior = readPriorBaselineRows({
+      kind: 'duplication',
+      absBaselinePath: path.join(REPO_ROOT, 'baselines/duplication.json'),
+    });
+    assert.ok(Array.isArray(prior), 'prior must be an array');
+    assert.ok(
+      prior.length > 0,
+      'update-duplication-baseline.js must receive a non-empty prior',
+    );
+    assert.equal(typeof prior[0].percentage, 'number');
+  });
+
+  it('AC-3: a --diff-scope duplication run PRESERVES out-of-scope rows', () => {
+    const priorRows = [
+      {
+        path: 'src/a.js',
+        duplicatedLines: 10,
+        totalLines: 100,
+        percentage: 10,
+      },
+      {
+        path: 'src/b.js',
+        duplicatedLines: 30,
+        totalLines: 100,
+        percentage: 30,
+      },
+      { path: 'src/c.js', duplicatedLines: 5, totalLines: 100, percentage: 5 },
+    ];
+    // The CLI's own compose call, with only the I/O seams substituted.
+    const scopeArgs = buildWriterScopeArgs({
+      kind: 'duplication',
+      absBaselinePath: '/virtual/duplication.json',
+      epsilon: 0.5,
+      argv: ['--diff-scope', 'main'],
+      logTag: '[Duplication]',
+      fsImpl: fsServing({ rows: priorRows }),
+      spawnImpl: spawnDiffing(['src/a.js']),
+    });
+    // A rescan: src/a.js is the only file in the diff. src/b.js comes back
+    // re-measured and src/c.js does not come back at all (jscpd only reports
+    // files it currently finds clones in). Both are out of scope, so both
+    // must land from the prior — the second is the truncation case.
+    const env = write({
+      kind: 'duplication',
+      rows: [
+        {
+          path: 'src/a.js',
+          duplicatedLines: 40,
+          totalLines: 100,
+          percentage: 40,
+        },
+        {
+          path: 'src/b.js',
+          duplicatedLines: 0,
+          totalLines: 100,
+          percentage: 0,
+        },
+      ],
+      generatedAt: FIXED,
+      ...scopeArgs,
+    });
+    assert.deepEqual(
+      env.rows.map((r) => r.path).sort(),
+      ['src/a.js', 'src/b.js', 'src/c.js'],
+      'a diff-scoped run must not truncate the baseline to the diff',
+    );
+    const byPath = Object.fromEntries(
+      env.rows.map((r) => [r.path, r.percentage]),
+    );
+    assert.equal(byPath['src/a.js'], 40, 'in-scope row is regenerated');
+    assert.equal(byPath['src/b.js'], 30, 'out-of-scope row preserved verbatim');
+    assert.equal(
+      byPath['src/c.js'],
+      5,
+      'an out-of-scope row absent from the rescan is carried forward, not dropped',
+    );
+  });
+
+  it('AC-5: an explicit epsilon folds a sub-epsilon percentage back to the prior', () => {
+    const priorRows = [
+      {
+        path: 'src/a.js',
+        duplicatedLines: 10,
+        totalLines: 100,
+        percentage: 10,
+      },
+    ];
+    const scopeArgs = buildWriterScopeArgs({
+      kind: 'duplication',
+      absBaselinePath: '/virtual/duplication.json',
+      epsilon: 0.5,
+      argv: ['--diff-scope', 'main'],
+      logTag: '[Duplication]',
+      fsImpl: fsServing({ rows: priorRows }),
+      spawnImpl: spawnDiffing(['src/a.js']),
+    });
+    assert.equal(scopeArgs.epsilon, 0.5, 'a readable prior arms epsilon');
+    const env = write({
+      kind: 'duplication',
+      // In-scope, and 0.3pp away from the prior — inside epsilon.
+      rows: [
+        {
+          path: 'src/a.js',
+          duplicatedLines: 10,
+          totalLines: 100,
+          percentage: 10.3,
+        },
+      ],
+      generatedAt: FIXED,
+      ...scopeArgs,
+    });
+    assert.equal(
+      env.rows[0].percentage,
+      10,
+      'a sub-epsilon reading must fold back to the prior percentage',
+    );
   });
 });
