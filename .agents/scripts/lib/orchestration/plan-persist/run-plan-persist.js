@@ -42,7 +42,10 @@ import { getLimits, PROJECT_ROOT } from '../../config-resolver.js';
 import { gitSpawn } from '../../git-utils.js';
 import { Logger } from '../../Logger.js';
 import { sweepTempRetention } from '../../temp-retention.js';
-import { concurrentMap } from '../../util/concurrent-map.js';
+import {
+  concurrentMap,
+  FANOUT_CONCURRENCY,
+} from '../../util/concurrent-map.js';
 import {
   deriveStoryShape,
   LITE_ROUTE_LABEL,
@@ -82,14 +85,6 @@ const PLAN_CHECKPOINT_SCHEMA_VERSION_V2 = 2;
 
 /** Structured-comment type for the per-plan Story checkpoint. */
 const STORY_PLAN_STATE_TYPE = 'story-plan-state';
-
-/**
- * Bounded concurrency for the per-Story checkpoint upserts (Story #4952).
- * Each upsert targets a different issue and reads nothing another writes, so
- * the loop was serial only by construction — but see
- * {@link persistStoryArtifacts} for the ordering that is *not* incidental.
- */
-const CHECKPOINT_WRITE_CONCURRENCY = 4;
 
 /**
  * Write the `story-plan-state` checkpoint on a Story.
@@ -521,7 +516,11 @@ async function persistStoryArtifacts({
         // is the standard full path.
         ...(route ? { route } : {}),
       }),
-    { concurrency: CHECKPOINT_WRITE_CONCURRENCY },
+    // The per-Story checkpoint upserts (Story #4952): each targets a
+    // different issue and reads nothing another writes, so this loop was
+    // serial only by construction — but see {@link persistStoryArtifacts}
+    // for the phase ordering that is *not* incidental.
+    { concurrency: FANOUT_CONCURRENCY },
   );
   await upsertStructuredComment(
     provider,

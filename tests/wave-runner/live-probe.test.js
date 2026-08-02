@@ -803,7 +803,7 @@ describe('probeLiveState — inFlightRecords feed the footprint reservation', ()
     assert.deepEqual(envelope.ready, [103]);
     assert.equal(envelope.inFlightReservation.available, true);
     assert.deepEqual(envelope.inFlightReservation.withheld, [
-      { id: 102, blockedBy: 101 },
+      { id: 102, blockedBy: 101, reason: 'in-flight-earlier-beat' },
     ]);
   });
 
@@ -816,5 +816,67 @@ describe('probeLiveState — inFlightRecords feed the footprint reservation', ()
 
     assert.deepEqual(envelope.ready, [102, 103]);
     assert.deepEqual(envelope.inFlightReservation.withheld, []);
+  });
+
+  it('names a foreign-lease blocker as such, not as an earlier beat (Story #4960)', async () => {
+    // #101 is held by another operator's lease, so the probe folds it into the
+    // in-flight set and it reserves lib/shared.js — sound, and it stays. But
+    // THIS run never dispatched it and no later beat of this run clears it, so
+    // reporting #102 as racing "a Story still in flight from an earlier beat"
+    // was simply false.
+    const { envelope } = await tick(
+      {
+        101: issue(101, { assignees: ['bob'], changes: ['lib/shared.js'] }),
+        102: issue(102, { changes: ['lib/shared.js'] }),
+        103: issue(103, { changes: ['lib/other.js'] }),
+      },
+      { self: 'dsj1984' },
+    );
+
+    assert.deepEqual(envelope.ready, [103]);
+    assert.deepEqual(envelope.foreignHeld, [{ id: 101, holder: 'bob' }]);
+    assert.deepEqual(envelope.inFlightReservation.withheld, [
+      { id: 102, blockedBy: 101, reason: 'foreign-lease' },
+    ]);
+    assert.match(
+      envelope.inFlightReservation.note,
+      /another operator's lease holds/,
+    );
+    assert.doesNotMatch(
+      envelope.inFlightReservation.note,
+      /still in flight from an earlier beat/,
+      'the earlier-beat wording must not be applied to a foreign lease',
+    );
+  });
+
+  it('keeps the two reasons apart when one beat has both', async () => {
+    const { envelope } = await tick(
+      {
+        101: issue(101, { assignees: ['bob'], changes: ['lib/shared.js'] }),
+        102: issue(102, {
+          labels: ['agent::executing'],
+          changes: ['lib/other.js'],
+        }),
+        103: issue(103, { changes: ['lib/shared.js'] }),
+        104: issue(104, { changes: ['lib/other.js'] }),
+      },
+      { self: 'dsj1984' },
+    );
+
+    assert.deepEqual(envelope.ready, []);
+    assert.deepEqual(envelope.inFlightReservation.withheld, [
+      { id: 103, blockedBy: 101, reason: 'foreign-lease' },
+      { id: 104, blockedBy: 102, reason: 'in-flight-earlier-beat' },
+    ]);
+    assert.match(envelope.inFlightReservation.note, /#103 ← #101/);
+    assert.match(envelope.inFlightReservation.note, /#104 ← #102/);
+    assert.match(
+      envelope.inFlightReservation.note,
+      /still in flight from an earlier beat/,
+    );
+    assert.match(
+      envelope.inFlightReservation.note,
+      /another operator's lease holds/,
+    );
   });
 });

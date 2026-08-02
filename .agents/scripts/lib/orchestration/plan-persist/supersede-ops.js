@@ -36,23 +36,14 @@
  */
 
 import { Logger } from '../../Logger.js';
-import { concurrentMap } from '../../util/concurrent-map.js';
+import {
+  concurrentMap,
+  FANOUT_CONCURRENCY,
+} from '../../util/concurrent-map.js';
 import { upsertStructuredComment } from '../ticketing.js';
 
 /** Structured-comment type marking a source issue as superseded. */
 const SUPERSEDED_BY_COMMENT_TYPE = 'superseded-by';
-
-/**
- * Bounded concurrency for the per-source-ticket close (Story #4952).
- *
- * The fan-out is across **distinct** tickets — `assertSupersedePartition` has
- * already failed the run closed if two Stories claim the same id, so no two
- * units in flight can touch the same issue. Within one unit the probe →
- * comment → close sequence stays strictly ordered: commenting on an issue the
- * probe reported closed, or closing one the comment never landed on, is the
- * whole failure mode this phase is careful about.
- */
-const SUPERSEDE_CLOSE_CONCURRENCY = 4;
 
 /**
  * GitHub `state_reason` used when closing a superseded source issue.
@@ -476,7 +467,14 @@ export async function closeSupersededTickets({
         sourceTicketIds: sources,
       });
     },
-    { concurrency: SUPERSEDE_CLOSE_CONCURRENCY },
+    // The per-source-ticket close (Story #4952) fans out across **distinct**
+    // tickets — `assertSupersedePartition` has already failed the run closed
+    // if two Stories claim the same id, so no two units in flight can touch
+    // the same issue. Within one unit the probe → comment → close sequence
+    // stays strictly ordered: commenting on an issue the probe reported
+    // closed, or closing one the comment never landed on, is the whole
+    // failure mode this phase is careful about.
+    { concurrency: FANOUT_CONCURRENCY },
   );
 
   const report = emptyReport({ enabled: true, dryRun });

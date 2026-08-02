@@ -17,16 +17,12 @@ import { getPaths, PROJECT_ROOT } from '../../config-resolver.js';
 import { fetchPriorFeedback } from '../../feedback-loop/prior-feedback-fetcher.js';
 import { Logger } from '../../Logger.js';
 import { hasTicketSection } from '../../ticket-body-sections.js';
-import { concurrentMap } from '../../util/concurrent-map.js';
+import {
+  concurrentMap,
+  FANOUT_CONCURRENCY,
+} from '../../util/concurrent-map.js';
 import { ensureDocsDigest } from '../docs-digest.js';
 import { buildMemoryPoolAdvisory } from './memory-pool-advisory.js';
-
-/**
- * Bounded concurrency for the independent context gathers (Story #4952).
- * Small on purpose and consistent with the other `/plan`-path fan-outs: these
- * are a handful of local probes plus one `gh` read, not an API sweep.
- */
-const CONTEXT_GATHER_CONCURRENCY = 4;
 
 /**
  * Build the digest-first `docsContext` envelope field (Story #4433 — hard
@@ -170,7 +166,10 @@ export async function buildAuthoringContext(
         }),
     ],
     (gather) => gather(),
-    { concurrency: CONTEXT_GATHER_CONCURRENCY },
+    // The independent context gathers (Story #4952): a handful of local
+    // probes plus one `gh` read, so this rides the shared fan-out bound
+    // rather than declaring its own.
+    { concurrency: FANOUT_CONCURRENCY },
   );
 
   // Story #4811 — the codebase snapshot (#2634), its authoring grounding
