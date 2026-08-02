@@ -80,6 +80,17 @@ const tasks = [
     args: ['.agents/scripts/lint-label-vocabulary.js'],
   },
   {
+    // GitHub Actions job-timeout gate (Story #4936). Enumerates every
+    // `jobs.<id>` key across `.github/workflows/*.yml` and fails when one
+    // sets no `timeout-minutes` (inheriting GitHub's 360-minute default) or
+    // sets one above the ceiling. A deadlocked Windows job burned 44 minutes
+    // of a runner and withheld the failing required check's logs for the
+    // whole time; nothing but this check would have caught the gap.
+    name: 'workflow-timeouts',
+    cmd: 'node',
+    args: ['.agents/scripts/check-workflow-timeouts.js'],
+  },
+  {
     // Architecture cycle ratchet (Story #3991). Detects directed import
     // cycles under `.agents/scripts/` and fails on any cycle not in the
     // committed allowlist (`baselines/arch-cycles.json`). Mirrors the

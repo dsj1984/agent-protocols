@@ -1,12 +1,12 @@
 {
   "$schema": ".agents/schemas/baselines/coverage.schema.json",
   "kernelVersion": "1.0.0",
-  "generatedAt": "2026-08-02T18:00:55.757Z",
+  "generatedAt": "2026-08-02T18:18:02.692Z",
   "rollup": {
     "*": {
-      "lines": 95.69,
-      "branches": 86.21,
-      "functions": 88.59
+      "lines": 95.77,
+      "branches": 86.26,
+      "functions": 88.69
     }
   },
   "rows": [
@@ -147,6 +147,12 @@
       "lines": 91.97,
       "branches": 96,
       "functions": 85.71
+    },
+    {
+      "path": ".agents/scripts/check-workflow-timeouts.js",
+      "lines": 98.28,
+      "branches": 94.64,
+      "functions": 87.5
     },
     {
       "path": ".agents/scripts/cleanup-repo-test-temp.js",
@@ -2729,6 +2735,12 @@
       "functions": 100
     },
     {
+      "path": ".agents/scripts/lib/test-runner-contract.js",
+      "lines": 100,
+      "branches": 100,
+      "functions": 100
+    },
+    {
       "path": ".agents/scripts/lib/test-temp.js",
       "lines": 99.36,
       "branches": 93.55,
@@ -3138,9 +3150,9 @@
     },
     {
       "path": ".agents/scripts/run-coverage.js",
-      "lines": 62.28,
-      "branches": 50,
-      "functions": 50
+      "lines": 98.98,
+      "branches": 55.56,
+      "functions": 100
     },
     {
       "path": ".agents/scripts/run-lint.js",

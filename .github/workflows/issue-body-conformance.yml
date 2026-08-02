@@ -23,6 +23,9 @@ jobs:
   conformance:
     name: Parse issue body
     runs-on: ubuntu-latest
+    # Story #4936: checkout, setup-node, and one Node script that reads an
+    # issue body. 10 minutes is the gate's floor and ample here.
+    timeout-minutes: 10
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4

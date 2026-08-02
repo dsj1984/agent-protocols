@@ -604,21 +604,6 @@ function warnOnDivergentSameTitleStory(story, idsByTitle) {
  * sibling `depends_on` slugs resolved to real issue ids, plus the invisible
  * plan-fingerprint marker that makes the create loop resumable.
  *
- * **The dependent branch re-serializes, so it must re-carry the provenance**
- * (Story #4935). `assembleOnePlanStory` appends the audit footers to the
- * serialized body *string*, but a `blocked by #N` footer cannot be written
- * until the sibling's real issue number exists — so this function rebuilds the
- * markdown from `bodyObject`, which never held those footers. Without the
- * re-carry, provenance was silently dropped for exactly the Stories carrying an
- * edge (observed live on `plan-run::6cc05d2b`: the two Stories with a
- * `depends_on` persisted with zero footers while their three siblings carried
- * the full union), which makes them invisible to `/audit-to-stories` Phase 6's
- * footer confirmation and re-files work already planned. `story.body` is the
- * carried assembly, so it is the provenance source here;
- * `carryProvenanceFooters` is additive, union-preserving and idempotent, so
- * re-applying it is safe by construction. The fingerprint is computed upstream
- * over `story.body` and is untouched by this — no re-minting.
- *
  * @param {object} story
  * @param {Map<string, number>} idBySlug
  * @returns {string}
@@ -627,17 +612,13 @@ function renderStoryBodyForCreate(story, idBySlug) {
   const dependencyRefs = story.depends_on.map(
     (slug) => `#${idBySlug.get(slug)}`,
   );
-  let base = story.body;
-  if (dependencyRefs.length > 0) {
-    const reserialized = serializeStoryBody(
-      { ...story.bodyObject, depends_on: dependencyRefs },
-      { includeFooter: true },
-    );
-    base = carryProvenanceFooters({
-      from: story.body,
-      into: reserialized,
-    }).body;
-  }
+  const base =
+    dependencyRefs.length === 0
+      ? story.body
+      : serializeStoryBody(
+          { ...story.bodyObject, depends_on: dependencyRefs },
+          { includeFooter: true },
+        );
   return `${base}\n\n${planFingerprintMarker(story.fingerprint)}`;
 }
 
