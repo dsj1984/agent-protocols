@@ -9,6 +9,11 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { describe, it } from 'node:test';
 import {
+  createGh,
+  GhExecError,
+  GhRateLimitError,
+} from '../../.agents/scripts/lib/gh-exec.js';
+import {
   AGENT_LABELS,
   TYPE_LABELS,
 } from '../../.agents/scripts/lib/label-constants.js';
@@ -34,6 +39,7 @@ import { resolveSourceTicketIds } from '../../.agents/scripts/lib/orchestration/
 import { serialize } from '../../.agents/scripts/lib/story-body/story-body.js';
 import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
 import { FANOUT_CONCURRENCY } from '../../.agents/scripts/lib/util/concurrent-map.js';
+import { TicketGateway } from '../../.agents/scripts/providers/github/tickets.js';
 
 /**
  * Story sizes for the fan-out guards below. Every assertion about *how* a
@@ -1607,6 +1613,67 @@ describe('markStoriesReady — bounded concurrency (Story #4952)', () => {
         `#${story.id} must still have been flipped`,
       );
     }
+  });
+
+  it('keeps collecting every failure when the flips run through the real retrying write path (Story #4961)', async () => {
+    // The two halves of this Story meet here: the ready flip now goes through
+    // `withTransientRetry` inside TicketGateway, and `markStoriesReady` must
+    // still report the COMPLETE failure set on the other side of it. Driven
+    // through the real gateway rather than a hand-rolled fake, so the retry is
+    // the production one.
+    //
+    // #7200 is rate-limited once and then succeeds — it must NOT appear as a
+    // failure. #7201 is refused permanently — it must, and on the first
+    // attempt, because a permanent error is not retry-eligible.
+    const rateLimitedOnce = new Set([7200]);
+    const calls = [];
+    const exec = async ({ args }) => {
+      const id = Number(args[3].match(/issues\/(\d+)/)[1]);
+      calls.push(id);
+      if (rateLimitedOnce.has(id)) {
+        rateLimitedOnce.delete(id);
+        throw new GhRateLimitError('gh-exec: gh API rate limit exceeded');
+      }
+      if (id === 7201) {
+        throw new GhExecError('gh-exec: gh exited with code 422: refused');
+      }
+      return { stdout: '{}', stderr: '', code: 0 };
+    };
+    const provider = new TicketGateway({
+      gh: createGh(exec),
+      owner: 'o',
+      repo: 'r',
+    });
+    const created = [
+      { id: 7200, slug: 'retried' },
+      { id: 7201, slug: 'refused' },
+      { id: 7202, slug: 'clean' },
+    ];
+
+    await assert.rejects(
+      () => markStoriesReady({ provider, created }),
+      (err) => {
+        assert.match(err.message, /#7201 \(refused\): .*refused/);
+        assert.doesNotMatch(
+          err.message,
+          /#7200/,
+          'a retried-then-successful flip is not a failure',
+        );
+        assert.match(err.message, /1 Story\(ies\) were created/);
+        return true;
+      },
+    );
+    assert.deepEqual(
+      calls.filter((id) => id === 7200).length,
+      2,
+      'the rate-limited flip was retried',
+    );
+    assert.equal(
+      calls.filter((id) => id === 7201).length,
+      1,
+      'the permanent refusal was not retried',
+    );
+    assert.ok(calls.includes(7202), 'the remaining flip was still attempted');
   });
 });
 
