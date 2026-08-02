@@ -54,21 +54,32 @@ the only sanctioned landing. A silent local build is not a delivery.
 ## 3. Change set — computed once, handed to everyone
 
 One enumeration per Story. A critic that re-runs its own `git diff`
-can score a different set than the one that routed it:
+can score a different set than the one that routed it. Both routing calls take
+a single options object and are **total — they never throw**, so a wrong-shaped
+argument is absorbed into the `null` fail-safe and reports nothing:
 
 ```bash
 node --input-type=module -e '
-  import { computeChangeSet } from "<main-repo>/.agents/scripts/lib/orchestration/change-set.js";
+  const lib = "<main-repo>/.agents/scripts/lib/orchestration";
+  const { computeChangeSet } = await import(`${lib}/change-set.js`);
+  const { deriveChangeLevel } = await import(`${lib}/review-depth.js`);
+  const { resolveCeremonyForRisk } = await import(`${lib}/ceremony-routing.js`);
   const { files } = computeChangeSet({ baseRef: "main", headRef: "story-<storyId>" });
-  console.log(JSON.stringify(files));
+  // deriveChangeLevel({ changedFiles, injectedRules?, selectSensitivePathClassesFn? })
+  //   -> { level, classes } — an OBJECT, never a bare level.
+  const { level, classes } = deriveChangeLevel({ changedFiles: files });
+  // resolveCeremonyForRisk({ derivedLevel, clusterIndex?, freshCriticSampleRate?,
+  //   ceremonyProfile? }) -> { mode, reason, sampled, profile, verdictOwner }.
+  // derivedLevel is that level STRING. Handing it the object above matches no
+  // tier, so it routes to the null fail-safe: a fresh critic, silently.
+  const ceremony = resolveCeremonyForRisk({ derivedLevel: level, clusterIndex: 0 });
+  console.log(JSON.stringify({ files, level, classes, ...ceremony }));
 '
 ```
 
-Derive the level with `deriveChangeLevel`
-([`review-depth.js`](../../scripts/lib/orchestration/review-depth.js)) over
-that one list: a sensitive path registered in `audit-rules.json` → `high`, none
-→ `low`, an unenumerable diff (`files === null`) → `null`. Resolve
-fresh-vs-inline critics with `resolveCeremonyForRisk`
+Level rules ([`review-depth.js`](../../scripts/lib/orchestration/review-depth.js)):
+a sensitive path registered in `audit-rules.json` → `high`, none → `low`, an
+unenumerable diff (`files === null`) → `null`. Ceremony rules
 ([`ceremony-routing.js`](../../scripts/lib/orchestration/ceremony-routing.js)):
 `minimal` → always inline, `strict` → always fresh, `standard` → `high`/`null`
 → fresh and `low` → inline unless the `freshCriticSampleRate` floor forces
