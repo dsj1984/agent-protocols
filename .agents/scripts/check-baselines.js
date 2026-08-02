@@ -65,6 +65,22 @@ export {
   selectEnabledGates,
 };
 
+/**
+ * Run the dispatcher and *return* its exit code rather than calling
+ * `process.exit()`.
+ *
+ * The return is load-bearing (Story #4783's defect, reintroduced here):
+ * `process.exit()` terminates before a queued async pipe write drains, so a
+ * full `--gate coverage` report — a quarter of a megabyte of JSON — arrived
+ * truncated at the 64 KiB pipe boundary under the `| tee` in CI's coverage
+ * step, while still exiting 0. Handing the code back to `runAsCli`'s
+ * `propagateExitCode` path settles it through `settleCli`/`flushStdio`
+ * instead, which assigns `process.exitCode` and lets Node terminate once
+ * stdout has drained. The 0/1/2/3/4 contract in `lib/baselines/exit-codes.js`
+ * is unchanged — only *when* the process leaves is.
+ *
+ * @returns {Promise<number>} An exit code from the `EXIT_*` contract.
+ */
 async function main() {
   let result;
   try {
@@ -74,14 +90,14 @@ async function main() {
     process.stdout.write(
       `${JSON.stringify({ schemaVersion: '1', error: message }, null, 2)}\n`,
     );
-    process.exit(EXIT_CONFIG);
-    return;
+    return EXIT_CONFIG;
   }
   process.stdout.write(`${result.output}\n`);
-  process.exit(result.exitCode);
+  return result.exitCode;
 }
 
 runAsCli(import.meta.url, main, {
   source: 'check-baselines',
   usage: HELP_TEXT,
+  propagateExitCode: true,
 });
