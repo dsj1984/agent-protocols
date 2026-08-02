@@ -158,6 +158,21 @@ describe('parseDoneIds', () => {
     assert.strictEqual(ids, null);
     assert.ok(error);
   });
+
+  it('expands a dash range, so a ranged run reports back in the same shape', () => {
+    const { ids, error } = parseDoneIds('101,103-105');
+    assert.strictEqual(error, null);
+    assert.deepEqual(
+      [...ids].sort((a, b) => a - b),
+      [101, 103, 104, 105],
+    );
+  });
+
+  it('rejects a backwards range', () => {
+    const { ids, error } = parseDoneIds('105-103');
+    assert.strictEqual(ids, null);
+    assert.match(error, /--done/);
+  });
 });
 
 // ---------------------------------------------------------------------------

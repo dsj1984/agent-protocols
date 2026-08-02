@@ -5,6 +5,7 @@
  *
  * Usage:
  *   node .agents/scripts/plan-run-epilogue.js --stories 1,2,3
+ *   node .agents/scripts/plan-run-epilogue.js --stories 101-104   # inclusive range
  *
  * Keyed on the delivered id set: an `adhoc-<sorted-ids>` run id is
  * synthesized from `--stories`. Story #4540 retired the `--run <planRunId>`
@@ -19,6 +20,7 @@ import { resolveConfig } from './lib/config-resolver.js';
 import { Logger } from './lib/Logger.js';
 import { runPlanRunEpilogue } from './lib/orchestration/run-epilogue.js';
 import { createProvider } from './lib/provider-factory.js';
+import { expandIdList } from './lib/util/parse-id-list.js';
 
 const CLI_OPTIONS = {
   stories: { type: 'string' },
@@ -65,10 +67,17 @@ export async function main(argv = process.argv.slice(2), deps = {}) {
   // along with the label itself. The epilogue is keyed on the delivered id
   // set, and the synthesized `adhoc-<ids>` id it already used for positional
   // runs is now the only id it needs.
-  const stories = values.stories
-    .split(',')
-    .map((s) => Number(s.trim()))
-    .filter((n) => Number.isInteger(n) && n > 0);
+  // Range tokens expand here too (`--stories 101-104`): /deliver blesses the
+  // dash range at the operator surface, so the id set the epilogue is keyed on
+  // must read the same shape. Rejecting a bad token is deliberate — the old
+  // silent filter turned a typo into an empty, wrongly-keyed rollup.
+  const { ids: stories, error: storiesError } = expandIdList(values.stories, {
+    flag: '--stories',
+    prefix: '[plan-run-epilogue] ',
+  });
+  if (storiesError) {
+    throw new Error(storiesError);
+  }
 
   const planRunId = `adhoc-${[...stories].sort((a, b) => a - b).join('-')}`;
 
@@ -162,7 +171,10 @@ await runAsCli(import.meta.url, main, {
     summary:
       'Close out a delivery run: roll up the delivered Stories’ signals and report the run’s loop health.',
     flags: [
-      ['--stories <ids>', 'Comma-separated delivered Story ids (required).'],
+      [
+        '--stories <ids>',
+        'Comma-separated delivered Story ids, singles or A-B ranges (required).',
+      ],
       ['--cwd <path>', 'Repository root (default: process cwd).'],
     ],
   },
