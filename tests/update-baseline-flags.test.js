@@ -4,24 +4,24 @@
  * Acceptance:
  *   - `--diff-scope <ref>` parser handles `--flag value` and `--flag=value`
  *     forms; throws when value is missing.
- *   - `resolveDiffScopeFiles` invokes `git diff --name-only <ref>...HEAD`
- *     against the cwd and returns a forward-slash-normalised Set.
- *   - `--diff-scope main` narrows writes to files changed since main —
- *     `resolveDiffScope` returns the scope ready to pass into the writer.
  *   - Coverage `writeBaseline` accepts `opts.scope` / `opts.epsilon` and
  *     forwards them through to the per-kind writer (proves the wiring
  *     reaches the writer; the writer's own tests cover the merge math).
+ *
+ * Story #4944 removed the `resolveDiffScopeFiles` / `resolveDiffScope`
+ * suites along with the functions themselves. Their job — turning a ref into
+ * a changed-file set and handing it to the writer — moved wholesale into
+ * `refresh-service.js` when `update-duplication-baseline.js` became the last
+ * CLI to migrate onto `refreshBaseline()`. The equivalent coverage now lives
+ * in `tests/baselines/refresh-service.diff-scope.test.js`, which exercises
+ * the service's own `execFile`-based derivation.
  */
 
 import assert from 'node:assert/strict';
 import path from 'node:path';
 import { describe, it } from 'node:test';
 
-import {
-  parseDiffScopeFlag,
-  resolveDiffScope,
-  resolveDiffScopeFiles,
-} from '../.agents/scripts/lib/baselines/diff-scope-cli.js';
+import { parseDiffScopeFlag } from '../.agents/scripts/lib/baselines/diff-scope-cli.js';
 import { writeBaseline } from '../.agents/scripts/lib/coverage-baseline.js';
 
 // ---------------------------------------------------------------------------
@@ -68,63 +68,6 @@ describe('parseDiffScopeFlag', () => {
       () => parseDiffScopeFlag(['--diff-scope=']),
       /requires a non-empty <ref> value/,
     );
-  });
-});
-
-// ---------------------------------------------------------------------------
-// File resolver
-// ---------------------------------------------------------------------------
-
-describe('resolveDiffScopeFiles', () => {
-  it('returns an empty Set when ref is missing', () => {
-    const out = resolveDiffScopeFiles({ ref: '' });
-    assert.equal(out.size, 0);
-  });
-
-  it('returns an empty Set when git exits non-zero', () => {
-    const spawnImpl = () => ({ status: 1, stdout: '', stderr: 'bad ref' });
-    const out = resolveDiffScopeFiles({ ref: 'main', spawnImpl });
-    assert.equal(out.size, 0);
-  });
-
-  it('parses `git diff --name-only` stdout into a forward-slash Set', () => {
-    const spawnImpl = (cmd, args) => {
-      assert.equal(cmd, 'git');
-      assert.deepEqual(args, ['diff', '--name-only', 'main...HEAD']);
-      return {
-        status: 0,
-        stdout: 'src\\a.js\nsrc/b.js\n\nsrc/c.js\n',
-        stderr: '',
-      };
-    };
-    const out = resolveDiffScopeFiles({ ref: 'main', spawnImpl });
-    assert.deepEqual([...out].sort(), ['src/a.js', 'src/b.js', 'src/c.js']);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// resolveDiffScope (one-call helper)
-// ---------------------------------------------------------------------------
-
-describe('resolveDiffScope', () => {
-  it('returns null when --diff-scope is absent', () => {
-    const out = resolveDiffScope({ argv: ['--baseline', 'x'] });
-    assert.equal(out, null);
-  });
-
-  it('AC: --diff-scope main narrows writes to files changed since main', () => {
-    const spawnImpl = (cmd, args) => {
-      assert.equal(cmd, 'git');
-      assert.deepEqual(args, ['diff', '--name-only', 'main...HEAD']);
-      return { status: 0, stdout: 'src/changed.js\n', stderr: '' };
-    };
-    const out = resolveDiffScope({
-      argv: ['--diff-scope', 'main'],
-      spawnImpl,
-    });
-    assert.equal(out.ref, 'main');
-    assert.equal(out.scope.mode, 'diff');
-    assert.deepEqual([...out.scope.files], ['src/changed.js']);
   });
 });
 

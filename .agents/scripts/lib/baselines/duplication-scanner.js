@@ -26,10 +26,37 @@
  */
 
 import { readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import path from 'node:path';
 
 const DEFAULT_MIN_TOKENS = 50;
 const DEFAULT_FORMATS = Object.freeze(['javascript']);
+
+const require = createRequire(import.meta.url);
+
+/**
+ * Resolve jscpd's `detectClones` lazily. The jscpd ESM entrypoint has a
+ * broken transitive `colors/safe` specifier under Node's strict ESM
+ * resolver, so we load the CJS build via `createRequire`. Isolated behind a
+ * function so the rest of the module stays import-pure and testable — no
+ * importer of this file pays the jscpd load unless it actually scans.
+ *
+ * Lives here rather than in `update-duplication-baseline.js` since Story
+ * #4944: the refresh service's default duplication scorer needs the same
+ * seam, and a second copy in the CLI would be the classic "two
+ * implementations of one probe" divergence.
+ *
+ * @returns {(opts: object) => Promise<Array<object>>}
+ */
+export function resolveDetectClones() {
+  const jscpd = require('jscpd');
+  if (typeof jscpd.detectClones !== 'function') {
+    throw new Error(
+      "[Duplication] jscpd.detectClones is not available — run 'npm install'",
+    );
+  }
+  return jscpd.detectClones;
+}
 
 /**
  * Normalise a jscpd `sourceId` (or any path) to a canonical POSIX

@@ -153,18 +153,6 @@
       "symbol": "_internals"
     },
     {
-      "file": ".agents/scripts/lib/baselines/diff-scope-cli.js",
-      "symbol": "readPriorBaselineRows"
-    },
-    {
-      "file": ".agents/scripts/lib/baselines/diff-scope-cli.js",
-      "symbol": "resolveDiffScope"
-    },
-    {
-      "file": ".agents/scripts/lib/baselines/diff-scope-cli.js",
-      "symbol": "resolveDiffScopeFiles"
-    },
-    {
       "file": ".agents/scripts/lib/baselines/duplication-scanner.js",
       "symbol": "buildDuplicationRows"
     },
