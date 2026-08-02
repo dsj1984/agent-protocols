@@ -170,12 +170,14 @@ const PRIOR_ROW_METRIC_FIELDS = Object.freeze({
  * every unlisted kind the maintainability filter, so an unmodelled kind
  * read as "prior is empty" instead of "prior is unreadable".
  *
- * Pure; no I/O.
+ * Pure; no I/O. Module-private: `readPriorBaselineRows` is the only caller
+ * and the only surface tests drive it through, so exporting it would add an
+ * unused export the dead-export ratchet refuses.
  *
  * @param {string} kind
  * @returns {(row: object) => boolean}
  */
-export function priorRowPredicateFor(kind) {
+function priorRowPredicateFor(kind) {
   const metricFields = PRIOR_ROW_METRIC_FIELDS[kind];
   if (!metricFields) {
     throw new Error(
