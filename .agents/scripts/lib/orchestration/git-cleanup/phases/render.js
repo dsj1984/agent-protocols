@@ -61,11 +61,28 @@ function contentMergedNote(candidate) {
     : '';
 }
 
-/** Pure: render the dry-run plan as the operator-facing text block. */
+/**
+ * Pure: render the branch-phase candidate list as the operator-facing text
+ * block.
+ *
+ * The header states the run mode: `execute` opts into the reap wording and
+ * defaults to `false`, so a caller that forgets it still gets the harmless
+ * preview line. Prefer {@link renderCandidateList}, which derives the mode
+ * from the phase's own CLI options rather than making the caller restate
+ * it — the header used to be hardcoded to the preview wording, so an
+ * `--execute` run announced "nothing deleted" and then reaped.
+ *
+ * @param {{ candidates: Array, skipped?: Array, ghDegraded?: boolean }} plan
+ * @param {{ baseBranch?: string|null, now?: number, execute?: boolean }} [opts]
+ * @returns {string[]}
+ */
 export function renderDryRun(plan, opts = {}) {
-  const { baseBranch = null, now } = opts;
+  const { baseBranch = null, now, execute = false } = opts;
+  const count = plan.candidates.length;
   const lines = [
-    `${TAG} DRY RUN (nothing deleted) — ${plan.candidates.length} candidate(s)`,
+    execute
+      ? `${TAG} EXECUTE — ${count} candidate(s) to reap`
+      : `${TAG} DRY RUN (nothing deleted) — ${count} candidate(s)`,
   ];
   if (plan.candidates.length === 0) {
     lines.push('  (no merged branches to clean up)');
@@ -103,6 +120,25 @@ export function renderDryRun(plan, opts = {}) {
     );
   }
   return lines;
+}
+
+/**
+ * Pure: the branch phase's candidate-list block, with the header's run
+ * mode derived from the phase's own CLI options — the same `opts.dryRun`
+ * the reap path reads. Taking the whole bag (rather than a restated
+ * boolean) is the point: the driver cannot get the wording wrong because
+ * it never names the flag, so a destructive `--execute` run can no longer
+ * announce itself as a `DRY RUN (nothing deleted)` preview and then
+ * delete every candidate.
+ *
+ * @param {object} args
+ * @param {{ candidates: Array, skipped?: Array }} args.plan
+ * @param {{ dryRun?: boolean }} args.opts   Parsed CLI options.
+ * @param {string|null} [args.baseBranch]
+ * @returns {string[]}
+ */
+export function renderCandidateList({ plan, opts = {}, baseBranch = null }) {
+  return renderDryRun(plan, { baseBranch, execute: !opts.dryRun });
 }
 
 /**

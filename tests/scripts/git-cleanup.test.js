@@ -29,6 +29,7 @@ import {
   renderPruneLine,
   stashRefIndex,
 } from '../../.agents/scripts/git-cleanup.js';
+import { renderCandidateList } from '../../.agents/scripts/lib/orchestration/git-cleanup/phases/render.js';
 
 describe('git-cleanup.parseCleanupArgs', () => {
   it('defaults to dry-run with no flags', () => {
@@ -1187,6 +1188,18 @@ describe('git-cleanup renderers', () => {
   it('renderDryRun says "no merged branches" when empty', () => {
     const lines = renderDryRun({ candidates: [] });
     assert.match(lines[1], /no merged branches to clean up/);
+  });
+
+  it('renderDryRun promises "nothing deleted" unless the caller opts into execute', () => {
+    const plan = { candidates: [{ branch: 'fix/a', prNumber: 1 }] };
+    assert.match(
+      renderDryRun(plan)[0],
+      /DRY RUN \(nothing deleted\) — 1 candidate\(s\)/,
+    );
+    assert.match(
+      renderDryRun(plan, { execute: true })[0],
+      /EXECUTE — 1 candidate\(s\) to reap/,
+    );
   });
 
   it('renderDryRun marks remote-only candidates with a (remote-only) note', () => {
@@ -2520,5 +2533,58 @@ describe('git-cleanup.renderDryRun content-merged distinctness (Story #4395)', (
       skipped: [],
     });
     assert.doesNotMatch(lines[1], /weaker signal/);
+  });
+});
+
+describe('git-cleanup.renderCandidateList — header states the run mode', () => {
+  // Regression: the branches phase used to render this block through a
+  // helper hardcoded to the dry-run header, so `--execute` printed
+  // "DRY RUN (nothing deleted)" and then reaped every candidate. The
+  // wording now comes from the phase's own opts bag, which is also what
+  // the reap path reads.
+  const plan = {
+    candidates: [{ branch: 'fix/a', prNumber: 1, detectedBy: 'gh' }],
+    skipped: [],
+  };
+
+  it('promises "nothing deleted" on a dry run', () => {
+    const [header] = renderCandidateList({ plan, opts: { dryRun: true } });
+    assert.match(header, /DRY RUN \(nothing deleted\) — 1 candidate\(s\)/);
+  });
+
+  it('announces the reap — never a dry run — under --execute', () => {
+    const [header] = renderCandidateList({
+      plan,
+      opts: { dryRun: false, yes: true },
+    });
+    assert.match(header, /EXECUTE — 1 candidate\(s\) to reap/);
+    assert.doesNotMatch(header, /DRY RUN|nothing deleted/);
+  });
+
+  it('treats an absent dryRun flag as execute, not as a preview', () => {
+    const [header] = renderCandidateList({ plan, opts: {} });
+    assert.doesNotMatch(header, /DRY RUN|nothing deleted/);
+  });
+
+  it('the dry-run and --execute headers differ', () => {
+    const [preview] = renderCandidateList({ plan, opts: { dryRun: true } });
+    const [reap] = renderCandidateList({ plan, opts: { dryRun: false } });
+    assert.notEqual(preview, reap);
+  });
+
+  it('still renders the candidate rows and the current-head hint', () => {
+    const lines = renderCandidateList({
+      plan: {
+        candidates: plan.candidates,
+        skipped: [{ branch: 'feat/wip', reason: 'current-head' }],
+      },
+      opts: { dryRun: true },
+      baseBranch: 'main',
+    });
+    assert.match(lines[1], /fix\/a — PR #1/);
+    assert.match(
+      lines.find((l) => /current HEAD/.test(l)),
+      /checkout main first/,
+    );
   });
 });
