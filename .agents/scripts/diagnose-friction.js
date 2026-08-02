@@ -16,7 +16,11 @@
  *
  * Usage:
  *   node diagnose-friction.js [--story <STORY_ID>] \
- *     [--epic <EPIC_ID>] --cmd <command with args...>
+ *     [--epic <EPIC_ID>] --cmd <cmd> <args...>
+ *
+ * `--cmd` consumes the remaining argv as separate words and spawns them with
+ * no shell. Quoting the whole command as one string is a usage error, not
+ * friction — it is refused loudly and writes no ledger row.
  *
  * Story/Epic resolution order:
  *   1. CLI flags (--story, --epic).
@@ -108,6 +112,16 @@ function classifyFrictionCategory(errorOutput) {
  */
 const INTERCEPTOR_TIMEOUT_SIGNAL = 'SIGTERM';
 
+/**
+ * A `maxBuffer` overflow presents identically to a timeout — `status: null`,
+ * `signal: 'SIGTERM'` — because Node kills the child the same way. The only
+ * discriminator is `result.error.code`, so a SIGTERM carrying this code is a
+ * buffer overflow and must never be reported as a timeout (Story #4915).
+ *
+ * @type {string}
+ */
+const OVERFLOW_ERROR_CODE = 'ENOBUFS';
+
 /** Shell convention for "the process died by signal N": exit `128 + N`. */
 const SIGNAL_EXIT_BASE = 128;
 
@@ -118,8 +132,10 @@ const SIGNAL_EXIT_BASE = 128;
  * interceptor would report success for a command it just watched get killed
  * (Story #4851).
  *
- * Which signal fired is the diagnostic value: SIGTERM points at the
- * interceptor's own bound, anything else at the host. Recording that plus the
+ * Which signal fired is the diagnostic value: SIGTERM points at one of the
+ * interceptor's own bounds, anything else at the host. A SIGTERM splits again
+ * on `error.code`: `ENOBUFS` means the output blew past `executionMaxBuffer`,
+ * anything else means `executionTimeoutMs` fired. Recording that plus the
  * bound itself is what makes the row actionable to a consumer who cannot edit
  * the materialized framework tree.
  *
@@ -128,13 +144,17 @@ const SIGNAL_EXIT_BASE = 128;
  * the file's per-file maintainability-delta headroom. The CLI contract is the
  * seam the unit tests drive.
  *
- * @param {{signal: (string|null), error?: {message?: string}}} result A
- *   `spawnSync` result whose `status` is `null`.
- * @param {number} executionTimeoutMs The resolved interceptor bound, in ms.
+ * @param {{signal: (string|null), error?: {message?: string, code?: string}}}
+ *   result A `spawnSync` result whose `status` is `null`.
+ * @param {{executionTimeoutMs: number, executionMaxBuffer: number}} bounds The
+ *   resolved interceptor bounds — the timeout in ms, the buffer in bytes.
  * @returns {{category: string, remediation: string, details: object,
  *   preview: string, exitCode: number}}
  */
-function describeAbnormalExit(result, executionTimeoutMs) {
+function describeAbnormalExit(
+  result,
+  { executionTimeoutMs, executionMaxBuffer },
+) {
   const signal = typeof result.signal === 'string' ? result.signal : null;
   if (signal === null) {
     return {
@@ -150,15 +170,42 @@ function describeAbnormalExit(result, executionTimeoutMs) {
     };
   }
 
-  const timedOut = signal === INTERCEPTOR_TIMEOUT_SIGNAL;
-  const killOrigin = timedOut ? 'interceptor-timeout' : 'external';
+  const sentByInterceptor = signal === INTERCEPTOR_TIMEOUT_SIGNAL;
+  const overflowed =
+    sentByInterceptor && result.error?.code === OVERFLOW_ERROR_CODE;
+  let killOrigin = 'external';
+  if (overflowed) killOrigin = 'buffer-overflow';
+  else if (sentByInterceptor) killOrigin = 'interceptor-timeout';
+
+  const shapes = {
+    'buffer-overflow': {
+      category: 'Tool Limitation',
+      remediation: ` - ${signal} was sent because the command's output overflowed the interceptor's executionMaxBuffer bound (${executionMaxBuffer} bytes / 10 MiB) — the executionTimeoutMs bound (${executionTimeoutMs}ms) did not fire. Do NOT split the command into smaller steps: quieten or redirect its output, or raise the buffer bound.`,
+      extraDetails: { executionMaxBuffer },
+    },
+    'interceptor-timeout': {
+      category: 'Execution Timeout',
+      remediation: ` - ${signal} matches the interceptor's own executionTimeoutMs bound (${executionTimeoutMs}ms), so the command was almost certainly cut off rather than broken. Split it into smaller steps, or raise the bound.`,
+      extraDetails: {},
+    },
+    external: {
+      category: 'Execution Killed',
+      remediation: ` - ${signal} originated outside the interceptor — the executionTimeoutMs bound (${executionTimeoutMs}ms) did not fire, so suspect an OOM kill or a hard kill from the host. Reduce the command's memory footprint or give the host more headroom.`,
+      extraDetails: {},
+    },
+  };
+
+  const shape = shapes[killOrigin];
   const signum = osConstants.signals[signal];
   return {
-    category: timedOut ? 'Execution Timeout' : 'Execution Killed',
-    remediation: timedOut
-      ? ` - ${signal} matches the interceptor's own executionTimeoutMs bound (${executionTimeoutMs}ms), so the command was almost certainly cut off rather than broken. Split it into smaller steps, or raise the bound.`
-      : ` - ${signal} originated outside the interceptor — the executionTimeoutMs bound (${executionTimeoutMs}ms) did not fire, so suspect an OOM kill or a hard kill from the host. Reduce the command's memory footprint or give the host more headroom.`,
-    details: { killedBySignal: signal, killOrigin, executionTimeoutMs },
+    category: shape.category,
+    remediation: shape.remediation,
+    details: {
+      killedBySignal: signal,
+      killOrigin,
+      executionTimeoutMs,
+      ...shape.extraDetails,
+    },
     preview: `Command terminated by signal ${signal} (${killOrigin}); executionTimeoutMs=${executionTimeoutMs}.`,
     exitCode: Number.isInteger(signum) ? SIGNAL_EXIT_BASE + signum : 1,
   };
@@ -221,7 +268,23 @@ export async function main(args = process.argv.slice(2)) {
 
   if (cmdArgs.length === 0) {
     throw new Error(
-      'Usage: node diagnose-friction.js [--story <STORY_ID>] [--epic <EPIC_ID>] --cmd <command with args...>',
+      'Usage: node diagnose-friction.js [--story <STORY_ID>] [--epic <EPIC_ID>] --cmd <cmd> <args...>',
+    );
+  }
+
+  // Story #4915 — the interceptor spawns `cmdArgs[0]` directly, with no shell.
+  // A single argument containing whitespace therefore names an executable that
+  // cannot exist, and the resulting ENOENT is a usage error in the
+  // interceptor's OWN invocation, not friction in the wrapped command. It must
+  // be reported as one and MUST NOT reach the ledger — otherwise the real
+  // friction is discarded and the roll-up eventually auto-files a framework-gap
+  // ticket about the framework's own instrumentation being misused. The
+  // discriminator is this argv shape, never the ENOENT result: a correctly
+  // split command whose binary is genuinely absent yields the identical
+  // `spawnSync` result and stays real friction.
+  if (cmdArgs.length === 1 && /\s/.test(cmdArgs[0])) {
+    throw new Error(
+      `Usage: --cmd takes the command as separate argv words, not one quoted string. Received a single quoted argument: "${cmdArgs[0]}". Drop the quotes so each word is its own argv entry — \`--cmd ${cmdArgs[0]}\`. No friction signal was recorded.`,
     );
   }
 
@@ -251,7 +314,10 @@ export async function main(args = process.argv.slice(2)) {
     // `result.signal`, not in the status.
     const abnormal =
       result.status === null
-        ? describeAbnormalExit(result, executionTimeoutMs)
+        ? describeAbnormalExit(result, {
+            executionTimeoutMs,
+            executionMaxBuffer,
+          })
         : null;
     // With both streams empty an abnormal termination names its signal; the
     // `Unknown exit code` fallback is therefore reachable only with a real
@@ -343,15 +409,15 @@ runAsCli(import.meta.url, main, {
   source: 'DiagnoseFriction',
   usage: {
     invocation:
-      'node .agents/scripts/diagnose-friction.js [--story <id>] [--epic <id>] --cmd <command with args...>',
+      'node .agents/scripts/diagnose-friction.js [--story <id>] [--epic <id>] --cmd <cmd> <args...>',
     summary:
       'Run a command through the diagnostic interceptor: stream its output, then append a local friction signal describing the failure. Never posts to the ticket.',
     flags: [
       ['--story <id>', 'Story the friction belongs to.'],
       ['--epic <id>', 'Epic the friction belongs to.'],
       [
-        '--cmd <command...>',
-        'The command to execute; everything after it is the argv (required).',
+        '--cmd <cmd> <args...>',
+        'The command to execute; everything after it is the argv, as separate words — never one quoted string (required).',
       ],
     ],
   },

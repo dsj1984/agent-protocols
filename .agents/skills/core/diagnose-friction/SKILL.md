@@ -15,6 +15,7 @@ allowed_tools:
 ## Policy Capsule
 
 - Invoke via the wrapping CLI `node .agents/scripts/diagnose-friction.js --story <id> [--epic <id>] --cmd <command args...>`; this is the single supported entry point.
+- `--cmd` takes the command as **separate argv words** — the CLI spawns them with no shell. Quoting the whole command as one string (`--cmd "npm run lint"`) makes the entire string the executable name, so the spawn fails ENOENT. That is a usage error in your own invocation, not friction: the CLI refuses it with a usage message and appends **no** ledger row. Re-run it unquoted.
 - Pass the wrapped command's stdout and stderr through **unchanged** — never reformat, redact, or buffer in a way that loses the original failure shape.
 - Never mutate the wrapped command's exit code. The Skill observes; the caller decides whether the failure is fatal.
 - Operate as **best-effort observation**: a write failure on the signals stream MUST NOT halt the runner. A missing signal is preferable to a stalled wave.
@@ -39,7 +40,9 @@ that want to dispatch via the Skill tool rather than spawn the CLI.
 
 ## Inputs
 
-- `--cmd <command args...>` — the command to invoke and observe.
+- `--cmd <command args...>` — the command to invoke and observe, passed as
+  separate argv words. A single whitespace-containing argument is rejected as
+  a quoting mistake before anything is spawned or recorded.
 - `--story <id>` / `--epic <id>` (optional) — when resolved, the Skill
   appends a `friction` signal to
   `temp/run-<eid>/stories/story-<sid>/signals.ndjson` on non-zero exit

@@ -19,7 +19,7 @@
 
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { readFileSync, rmSync } from 'node:fs';
+import { existsSync, readFileSync, rmSync } from 'node:fs';
 import { constants as osConstants } from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
@@ -45,11 +45,12 @@ afterEach(() => {
   rmSync(tmpRoot, { recursive: true, force: true });
 });
 
-function runScript(extraArgs, extraEnv = {}) {
+function runScript(extraArgs, extraEnv = {}, spawnOverrides = {}) {
   return spawnSync('node', [SCRIPT_PATH, ...extraArgs], {
     cwd: tmpRoot,
     encoding: 'utf-8',
-    timeout: 15000,
+    timeout: 60000,
+    ...spawnOverrides,
     env: {
       ...process.env,
       GITHUB_TOKEN: 'fake-token-for-test',
@@ -131,6 +132,88 @@ describe('diagnose-friction.js — v5 (CLI contract)', () => {
       combined.includes('Auto-Remediation Suggestions'),
       'Should print auto-remediation suggestions on failure',
     );
+  });
+});
+
+describe('diagnose-friction.js — quoted-command usage error (Story #4915)', () => {
+  /** Where a signal for the story/epic pair used below would land. */
+  function ledgerPath(epicId = 1030, storyId = 1042) {
+    return path.join(
+      tmpRoot,
+      'temp',
+      `run-${epicId}`,
+      'stories',
+      `story-${storyId}`,
+      'signals.ndjson',
+    );
+  }
+
+  it('refuses a whole command passed as one quoted argument, naming the mistake', () => {
+    // AC-2: `cmdArgs.length === 1` with whitespace inside can only be a caller
+    // that quoted the command; the interceptor spawns argv words with no shell,
+    // so the string could never be an executable name.
+    const result = runScript([
+      '--story',
+      '1042',
+      '--epic',
+      '1030',
+      '--cmd',
+      'npm run lint',
+    ]);
+
+    assert.notEqual(result.status, 0, 'a usage error must exit non-zero');
+    const combined = (result.stdout ?? '') + (result.stderr ?? '');
+    assert.match(
+      combined,
+      /Usage:/,
+      'the failure is reported as a usage error, not a wrapped-command failure',
+    );
+    assert.match(
+      combined,
+      /quoted/i,
+      'the message names the quoting mistake rather than the ENOENT symptom',
+    );
+    assert.match(
+      combined,
+      /--cmd npm run lint/,
+      'the message shows the corrected argv-split invocation',
+    );
+  });
+
+  it('appends no ledger row for the quoting mistake', () => {
+    // AC-2: recording it would discard the friction the caller meant to log and
+    // eventually auto-file a framework-gap ticket about the interceptor itself.
+    runScript(['--story', '1042', '--epic', '1030', '--cmd', 'npm run lint']);
+    assert.equal(
+      existsSync(ledgerPath()),
+      false,
+      'a usage error in the interceptor own invocation is not friction',
+    );
+  });
+
+  it('still records a genuinely missing executable as spawn-failure friction', () => {
+    // AC-3: the missing binary and the quoted misuse are indistinguishable from
+    // the spawnSync result (both `status: null` + ENOENT). This pins that the
+    // discrimination happens on `cmdArgs`, so real missing-tool friction lives.
+    const result = runScript([
+      '--story',
+      '1042',
+      '--epic',
+      '1030',
+      '--cmd',
+      '__mandrel_no_such_executable__',
+      '--version',
+    ]);
+
+    assert.notEqual(result.status, 0, 'a missing executable still fails');
+    const signal = readSignal();
+    assert.equal(signal.category, 'Execution Error');
+    assert.equal(
+      signal.details.killOrigin,
+      'spawn-failure',
+      'the missing-tool friction signal is preserved unchanged',
+    );
+    assert.equal(signal.details.killedBySignal, null);
   });
 });
 
@@ -443,6 +526,88 @@ describe(
         result.status,
         128 + osConstants.signals.SIGKILL,
         'exit code follows the shell 128 + signum convention',
+      );
+    });
+
+    it('separates a maxBuffer overflow from a timeout, though both are SIGTERM (Story #4915)', () => {
+      // AC-7 + AC-8: Node kills a `maxBuffer` overflow with SIGTERM too, so the
+      // two shapes are distinguishable only by `error.code: 'ENOBUFS'`. Drive
+      // both through the CLI seam and pin that they cannot silently re-merge.
+      // The child's output must exceed the interceptor's 10 MiB
+      // `executionMaxBuffer`; this test's own capture buffer must exceed that
+      // again, since the interceptor passes the truncated output through.
+      const overflow = runScript(
+        [
+          '--story',
+          '1042',
+          '--epic',
+          '1030',
+          '--cmd',
+          'node',
+          '-e',
+          "process.stdout.write('x'.repeat(11 * 1024 * 1024))",
+        ],
+        {},
+        { maxBuffer: 64 * 1024 * 1024 },
+      );
+      assert.notEqual(overflow.status, 0, 'an overflowed child is a failure');
+      const overflowSignal = readSignal();
+      assert.equal(
+        overflowSignal.details.killedBySignal,
+        'SIGTERM',
+        'the overflow presents as SIGTERM, exactly like a timeout',
+      );
+      assert.equal(
+        overflowSignal.details.killOrigin,
+        'buffer-overflow',
+        'ENOBUFS gets its own killOrigin, distinct from interceptor-timeout',
+      );
+      assert.equal(
+        overflowSignal.details.executionMaxBuffer,
+        10485760,
+        'the row records the bound that actually fired',
+      );
+      const overflowStderr = overflow.stderr ?? '';
+      assert.match(
+        overflowStderr,
+        /executionMaxBuffer bound \(10485760 bytes \/ 10 MiB\)/,
+        'remediation names the buffer bound, not the timeout bound',
+      );
+      assert.match(
+        overflowStderr,
+        /Do NOT split the command into smaller steps/,
+        'the overflow must not inherit the timeout advice to split the command',
+      );
+
+      rmSync(path.join(tmpRoot, 'temp'), { recursive: true, force: true });
+
+      const timeout = runSelfKill('SIGTERM');
+      const timeoutSignal = readSignal();
+      assert.equal(
+        timeoutSignal.details.killedBySignal,
+        'SIGTERM',
+        'both shapes report the same signal — only error.code separates them',
+      );
+      assert.notEqual(
+        timeoutSignal.details.killOrigin,
+        overflowSignal.details.killOrigin,
+        'SIGTERM with and without ENOBUFS must yield different killOrigin',
+      );
+      assert.equal(timeoutSignal.details.killOrigin, 'interceptor-timeout');
+      assert.equal(
+        timeoutSignal.details.executionMaxBuffer,
+        undefined,
+        'a real timeout carries no buffer bound — its details are unchanged',
+      );
+      assert.match(
+        timeout.stderr ?? '',
+        /Split it into smaller steps, or raise the bound/,
+        'the timeout keeps the remediation it emits today',
+      );
+      assert.notEqual(
+        timeout.stderr,
+        overflowStderr,
+        'the two shapes must not share remediation text',
       );
     });
 
