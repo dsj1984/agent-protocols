@@ -33,6 +33,9 @@ const REPO_ROOT = path.resolve(__dirname, '..', '..', '..', '..', '..');
 const EXPECTED_RATCHETS = [
   'arch-cycles',
   'context-budget',
+  // Story #4923 — the cyclomatic ceiling ratchet, the first consumer of
+  // `codingGuardrails.cyclomaticMustFix`.
+  'cyclomatic',
   'dead-exports',
   'dead-exports-production',
 ];
@@ -194,18 +197,26 @@ describe('buildGateSurface over the live repository', () => {
     assert.equal(entries.length, GATE_KINDS.length + EXPECTED_RATCHETS.length);
   });
 
-  it('marks lighthouse, mutation, lint, and bundle-size as stub instruments', () => {
+  it('reports no stub instrument — Story #4923 removed the four it found', () => {
+    // This suite used to assert that `lighthouse`, `mutation`, `lint`, and
+    // `bundle-size` WERE stubs: zero rows, all-zero rollups, green since
+    // 2026-05-15 over surfaces this package does not have. Story #4923 deleted
+    // those four committed baselines, so the honest assertion flipped — the
+    // repo now names no instrument it cannot produce. `stub` detection itself
+    // stays exercised by the synthetic-fixture cases above.
     const stubs = entries
       .filter((e) => e.stub)
       .map((e) => e.kind)
       .sort();
-    assert.deepEqual(stubs, ['bundle-size', 'lighthouse', 'lint', 'mutation']);
+    assert.deepEqual(stubs, []);
   });
 
-  it('reports every stub as present on disk with zero rows', () => {
-    for (const entry of entries.filter((e) => e.stub)) {
-      assert.equal(entry.rowCount, 0, `${entry.kind} rowCount`);
-      assert.equal(entry.baselineExists, true, `${entry.kind} exists`);
+  it('reports the deleted kinds as absent rather than empty', () => {
+    for (const kind of ['bundle-size', 'lighthouse', 'lint', 'mutation']) {
+      const entry = byKind.get(kind);
+      assert.equal(entry.baselineExists, false, `${kind} should be absent`);
+      assert.equal(entry.configured, false, `${kind} should have no gate`);
+      assert.equal(entry.rowCount, 0, `${kind} rowCount`);
     }
   });
 

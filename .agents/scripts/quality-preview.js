@@ -30,6 +30,8 @@ import {
   runMaintainabilityPreview,
 } from './lib/baselines/preview-gates.js';
 import { respondToHelp } from './lib/cli-usage.js';
+import { getQuality, resolveConfig } from './lib/config-resolver.js';
+import { resolveCyclomaticPolicy } from './lib/cyclomatic-ceiling.js';
 
 const USAGE = {
   invocation:
@@ -45,6 +47,14 @@ const USAGE = {
     ['--json', 'Emit both gate envelopes plus the merged table as JSON.'],
   ],
 };
+
+/**
+ * Framework default for `delivery.quality.codingGuardrails.cyclomaticFlag`,
+ * used only when a caller drives `mergeEnvelopes` / `renderTable` without a
+ * resolved config in hand (tests, and the pure-function surface). `runCli`
+ * always passes the resolved value.
+ */
+const DEFAULT_CYCLOMATIC_FLAG = 8;
 
 /**
  * Parse `--changed-since <ref>` from argv. Defaults to `HEAD` when the flag is
@@ -98,6 +108,47 @@ export function parseStagedFlag(argv) {
 }
 
 /**
+ * Coerce a caller-supplied flag ceiling to a usable number, falling back to
+ * the framework default for anything non-finite.
+ *
+ * @param {unknown} value
+ * @returns {number}
+ */
+function normalizeFlag(value) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : DEFAULT_CYCLOMATIC_FLAG;
+}
+
+/**
+ * Fold one CRAP violation into its per-file aggregate row. Mutates `row`.
+ *
+ * Split out of `mergeEnvelopes` (Story #4923): threading the resolved
+ * `cyclomaticFlag` through pushed that function from c=12 — exactly at the
+ * must-fix ceiling — to c=13, and the same Story starts *enforcing* that
+ * ceiling. Recording its own breach in `baselines/cyclomatic.json` would have
+ * been the first re-spend of the slack the Story reclaims.
+ *
+ * @param {{ worstCrapDelta: number, newOverCeilingMethods: number }} row
+ * @param {{ crap?: number, ceiling?: number, baseline?: number, cyclomatic?: number, kind?: string }} v
+ * @param {number} flag resolved `codingGuardrails.cyclomaticFlag`
+ * @returns {void}
+ */
+function foldCrapViolation(row, v, flag) {
+  const crap = Number(v.crap ?? 0);
+  const isNew = v.kind === 'new';
+  const against = Number((isNew ? v.ceiling : v.baseline) ?? 0);
+  const delta = crap - against;
+  if (Number.isFinite(delta) && delta > row.worstCrapDelta) {
+    row.worstCrapDelta = delta;
+  }
+  if (!isNew) return;
+  const cyclomatic = Number(v.cyclomatic ?? 0);
+  if (Number.isFinite(cyclomatic) && cyclomatic > flag) {
+    row.newOverCeilingMethods += 1;
+  }
+}
+
+/**
  * Merge an MI envelope (from `runMaintainabilityPreview`) and a CRAP
  * envelope (from `runCrapPreview`) into a per-file delta map. Pure —
  * no I/O, no spawn. Tests pin the math without invoking the runners.
@@ -109,9 +160,16 @@ export function parseStagedFlag(argv) {
  *     methods (max of `crap - baseline` for matched-baseline rows, `crap`
  *     for new-method rows). 0 when the file has no CRAP violations.
  *   - `newOverCeilingMethods`: count of new-method violations (kind:'new')
- *     scoring above the `c=8` ceiling (matches the column header
- *     "new-method count over c=8" in the AC). The CRAP envelope's
- *     `cyclomatic` field is the per-method `c` reading.
+ *     scoring above the flag ceiling. The CRAP envelope's `cyclomatic` field
+ *     is the per-method `c` reading.
+ *
+ * `cyclomaticFlag` is the resolved
+ * `delivery.quality.codingGuardrails.cyclomaticFlag` (Story #4923). It used to
+ * be the literal `8` written into this function and into the column header, so
+ * a consumer that tuned the knob saw its own value validated by the schema,
+ * defaulted by the bootstrap, resolved by `lib/config/quality.js` — and then
+ * ignored here. The parameter defaults to the framework default so a caller
+ * with no config in hand still gets the historical reading.
  *
  * @param {{ violations?: Array<{ file: string, drop?: number }> } | null} miEnvelope
  * @param {{ violations?: Array<{
@@ -122,6 +180,7 @@ export function parseStagedFlag(argv) {
  *   cyclomatic: number,
  *   kind: 'new' | 'regression' | 'drifted-regression' | string,
  * }>} | null} crapEnvelope
+ * @param {{ cyclomaticFlag?: number }} [opts]
  * @returns {{
  *   rows: Array<{
  *     file: string,
@@ -130,9 +189,15 @@ export function parseStagedFlag(argv) {
  *     newOverCeilingMethods: number,
  *   }>,
  *   totals: { miRegressions: number, crapViolations: number },
+ *   cyclomaticFlag: number,
  * }}
  */
-export function mergeEnvelopes(miEnvelope, crapEnvelope) {
+export function mergeEnvelopes(
+  miEnvelope,
+  crapEnvelope,
+  { cyclomaticFlag = DEFAULT_CYCLOMATIC_FLAG } = {},
+) {
+  const flag = normalizeFlag(cyclomaticFlag);
   /** @type {Map<string, { miDrop: number, worstCrapDelta: number, newOverCeilingMethods: number }>} */
   const byFile = new Map();
   const ensure = (file) => {
@@ -155,25 +220,7 @@ export function mergeEnvelopes(miEnvelope, crapEnvelope) {
   const crapViolations = crapEnvelope?.violations ?? [];
   for (const v of crapViolations) {
     if (!v?.file) continue;
-    const row = ensure(v.file);
-    const crap = Number(v.crap ?? 0);
-    if (v.kind === 'new') {
-      const ceiling = Number(v.ceiling ?? 0);
-      const delta = crap - ceiling;
-      if (Number.isFinite(delta) && delta > row.worstCrapDelta) {
-        row.worstCrapDelta = delta;
-      }
-      const cyclomatic = Number(v.cyclomatic ?? 0);
-      if (Number.isFinite(cyclomatic) && cyclomatic > 8) {
-        row.newOverCeilingMethods += 1;
-      }
-    } else {
-      const baseline = Number(v.baseline ?? 0);
-      const delta = crap - baseline;
-      if (Number.isFinite(delta) && delta > row.worstCrapDelta) {
-        row.worstCrapDelta = delta;
-      }
-    }
+    foldCrapViolation(ensure(v.file), v, flag);
   }
 
   const rows = Array.from(byFile.entries())
@@ -188,6 +235,7 @@ export function mergeEnvelopes(miEnvelope, crapEnvelope) {
         (crapEnvelope?.summary?.regressions ?? 0) +
         (crapEnvelope?.summary?.newViolations ?? 0),
     },
+    cyclomaticFlag: flag,
   };
 }
 
@@ -239,21 +287,28 @@ export function computeExitCode(merged, miExit, crapExit) {
 }
 
 /**
- * Render the per-file delta table. Header columns match the AC verbatim:
- *   "file", "MI delta", "worst CRAP delta", "new-method count over c=8".
+ * Render the per-file delta table. Columns:
+ *   "file", "MI delta", "worst CRAP delta", "new-method count over c=<flag>".
+ *
+ * The last header used to hardcode `c=8`, which quietly lied to any consumer
+ * that had tuned `codingGuardrails.cyclomaticFlag`. It now names the value the
+ * count was actually taken against, read off the merge result.
  *
  * Pure — accepts pre-computed merge rows and returns a multi-line string. The
  * table renders even on a clean diff so operators see the "no drift" signal.
  *
- * @param {{ rows: Array<{ file: string, miDrop: number, worstCrapDelta: number, newOverCeilingMethods: number }>, totals: { miRegressions: number, crapViolations: number } }} merged
+ * @param {{ rows: Array<{ file: string, miDrop: number, worstCrapDelta: number, newOverCeilingMethods: number }>, totals: { miRegressions: number, crapViolations: number }, cyclomaticFlag?: number }} merged
  * @returns {string}
  */
 export function renderTable(merged) {
+  const flag = Number.isFinite(Number(merged?.cyclomaticFlag))
+    ? Number(merged.cyclomaticFlag)
+    : DEFAULT_CYCLOMATIC_FLAG;
   const header = [
     'file',
     'MI delta',
     'worst CRAP delta',
-    'new-method count over c=8',
+    `new-method count over c=${flag}`,
   ];
   const lines = [];
   lines.push(`| ${header.join(' | ')} |`);
@@ -272,6 +327,31 @@ export function renderTable(merged) {
     `Totals: MI regressions=${merged.totals.miRegressions} · CRAP violations=${merged.totals.crapViolations}`,
   );
   return lines.join('\n');
+}
+
+/**
+ * Resolve `codingGuardrails.cyclomaticFlag` for the tree at `cwd`
+ * (Story #4923), falling back to the framework default when the config cannot
+ * be resolved at all.
+ *
+ * Best-effort by design: `quality:preview` is a developer-facing report, and a
+ * run in a tree with no readable `.agentrc.json` should still render its table
+ * rather than abort. Extracted from `runCli` rather than inlined so the CLI
+ * body stays under the cyclomatic must-fix ceiling this same Story starts
+ * enforcing — a gate whose own delivery breaches it is not a gate.
+ *
+ * @param {{ cwd: string, stderr: { write: (s: string) => void } }} args
+ * @returns {number}
+ */
+function resolveCyclomaticFlag({ cwd, stderr }) {
+  try {
+    return resolveCyclomaticPolicy(getQuality(resolveConfig({ cwd }))).flag;
+  } catch (err) {
+    stderr.write(
+      `[quality:preview] config resolution failed, using cyclomaticFlag=${DEFAULT_CYCLOMATIC_FLAG}: ${err?.message ?? err}\n`,
+    );
+    return DEFAULT_CYCLOMATIC_FLAG;
+  }
 }
 
 /**
@@ -319,7 +399,11 @@ export async function runCli({
   const crapExit = crapResult.exitCode;
   const miEnvelope = miResult.envelope;
   const crapEnvelope = crapResult.envelope;
-  const merged = mergeEnvelopes(miEnvelope, crapEnvelope);
+  // Story #4923 — the over-ceiling column counts against the *resolved*
+  // `codingGuardrails.cyclomaticFlag`, not the literal that used to be written
+  // into `mergeEnvelopes` and the column header.
+  const cyclomaticFlag = resolveCyclomaticFlag({ cwd, stderr });
+  const merged = mergeEnvelopes(miEnvelope, crapEnvelope, { cyclomaticFlag });
 
   if (json) {
     stdout.write(

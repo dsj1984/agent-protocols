@@ -1,11 +1,11 @@
 {
   "$schema": ".agents/schemas/baselines/maintainability.schema.json",
   "kernelVersion": "0.1.0",
-  "generatedAt": "2026-08-02T15:07:20.867Z",
+  "generatedAt": "2026-08-02T15:28:05.123Z",
   "rollup": {
     "*": {
       "min": 74.146,
-      "p50": 98.282,
+      "p50": 98.143,
       "p95": 126.196
     }
   },
@@ -61,6 +61,10 @@
     {
       "path": ".agents/scripts/check-context-budget.js",
       "mi": 89.447
+    },
+    {
+      "path": ".agents/scripts/check-cyclomatic.js",
+      "mi": 85.308
     },
     {
       "path": ".agents/scripts/check-dead-exports.js",
@@ -176,7 +180,7 @@
     },
     {
       "path": ".agents/scripts/lib/audit-baselines/kinds.js",
-      "mi": 98.649
+      "mi": 97.921
     },
     {
       "path": ".agents/scripts/lib/audit-baselines/outliers.js",
@@ -749,6 +753,10 @@
     {
       "path": ".agents/scripts/lib/crap-utils.js",
       "mi": 87.082
+    },
+    {
+      "path": ".agents/scripts/lib/cyclomatic-ceiling.js",
+      "mi": 93.888
     },
     {
       "path": ".agents/scripts/lib/dead-exports-knip.js",
@@ -2088,7 +2096,7 @@
     },
     {
       "path": ".agents/scripts/quality-preview.js",
-      "mi": 94.696
+      "mi": 95.699
     },
     {
       "path": ".agents/scripts/quality-watch.js",

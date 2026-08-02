@@ -1,13 +1,13 @@
 {
   "$schema": ".agents/schemas/baselines/duplication.schema.json",
   "kernelVersion": "1.0.0",
-  "generatedAt": "2026-08-02T15:07:11.767Z",
+  "generatedAt": "2026-08-02T15:28:13.366Z",
   "rollup": {
     "*": {
-      "percentage": 8.35,
-      "duplicatedLines": 1931,
-      "totalLines": 23125,
-      "filesWithDuplication": 81
+      "percentage": 8.3,
+      "duplicatedLines": 1945,
+      "totalLines": 23423,
+      "filesWithDuplication": 82
     }
   },
   "rows": [
@@ -24,10 +24,16 @@
       "percentage": 5.76
     },
     {
+      "path": ".agents/scripts/check-cyclomatic.js",
+      "duplicatedLines": 12,
+      "totalLines": 214,
+      "percentage": 5.61
+    },
+    {
       "path": ".agents/scripts/check-dead-exports.js",
-      "duplicatedLines": 10,
+      "duplicatedLines": 12,
       "totalLines": 271,
-      "percentage": 3.69
+      "percentage": 4.43
     },
     {
       "path": ".agents/scripts/check-lifecycle-doc-drift.js",
@@ -374,8 +380,8 @@
     {
       "path": ".agents/scripts/quality-preview.js",
       "duplicatedLines": 13,
-      "totalLines": 375,
-      "percentage": 3.47
+      "totalLines": 459,
+      "percentage": 2.83
     },
     {
       "path": ".agents/scripts/quality-watch.js",

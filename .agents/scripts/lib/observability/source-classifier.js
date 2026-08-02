@@ -90,6 +90,7 @@ const FRAMEWORK_SCRIPT_BASENAMES = Object.freeze([
   'check-baseline-drift.js',
   'check-baselines.js',
   'check-context-budget.js',
+  'check-cyclomatic.js',
   'check-dead-exports.js',
   'check-doc-links.js',
   'check-gherkin-placeholders.js',

@@ -284,6 +284,42 @@ default and the deep-merge extender form).
 
 ---
 
+## Cyclomatic ceiling ratchet
+
+`delivery.quality.codingGuardrails.cyclomaticMustFix` (default `12`) is the
+per-function complexity ceiling, enforced by `check-cyclomatic.js`. It is a
+**standalone ratchet** — the same slot as `check-arch-cycles.js`,
+`check-dead-exports.js`, and `check-context-budget.js` — not a
+`delivery.quality.gates` kind, so it needs no gate block and no floor.
+
+```bash
+node .agents/scripts/check-cyclomatic.js            # the gate
+node .agents/scripts/check-cyclomatic.js --update   # re-record the breaches
+```
+
+`baselines/cyclomatic.json` records, per file, how many functions currently
+sit above the ceiling and how bad the worst one is. The gate fails when a
+file's over-ceiling count rises (including `0 → 1`, a brand-new breach) or
+when its worst function gets worse than recorded. Shrinking and disappearing
+are the success signals and never fail.
+
+Recording existing breaches is what makes the ceiling adoptable: a repository
+with dozens of over-ceiling functions can turn the gate on today and burn them
+down on its own schedule, instead of disabling a gate that fails on the first
+commit. Re-run `--update` after a deliberate refactor; that is the only motion
+allowed to raise a recorded count, and it shows up in review as a baseline
+diff.
+
+The scan reuses `delivery.quality.gates.maintainability.targetDirs` /
+`ignoreGlobs` — both instruments read the same coverage-free escomplex
+surface, so a separate scope declaration could only ever restate it.
+
+`cyclomaticFlag` (default `8`) is the softer half of the pair: it is not
+gated, and names the ceiling `quality:preview` counts new methods against in
+its `new-method count over c=<flag>` column.
+
+---
+
 ## CRAP gate — Consumer onboarding
 
 > Baseline envelope, axes, and component model: see the

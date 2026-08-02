@@ -287,6 +287,72 @@ test('renderTable — header columns match the AC verbatim', () => {
   assert.match(out, /no per-file regressions/);
 });
 
+// --- Story #4923 (AC-4): the flag ceiling is the resolved config value ------
+//
+// `codingGuardrails.cyclomaticFlag` was schema-validated, bootstrap-defaulted
+// and resolver-resolved, then shadowed here by a literal `8` — so a consumer
+// that tuned it saw the knob accepted and ignored. These two cases pin the
+// tuned reading; a hardcoded literal cannot satisfy both.
+
+test('mergeEnvelopes — the over-ceiling count uses the supplied cyclomaticFlag', () => {
+  const crap = makeCrapEnvelope({
+    newViolations: [
+      {
+        file: 'lib/b.js',
+        cyclomatic: 6,
+        crap: 35,
+        baseline: null,
+        ceiling: 30,
+        kind: 'new',
+      },
+    ],
+  });
+  // c=6 is under the framework default of 8 …
+  assert.equal(
+    mergeEnvelopes(makeMiEnvelope([], 0), crap).rows[0].newOverCeilingMethods,
+    0,
+  );
+  // … and over a tuned flag of 5.
+  const tuned = mergeEnvelopes(makeMiEnvelope([], 0), crap, {
+    cyclomaticFlag: 5,
+  });
+  assert.equal(tuned.rows[0].newOverCeilingMethods, 1);
+  assert.equal(tuned.cyclomaticFlag, 5);
+});
+
+test('renderTable — the header names the flag the count was taken against', () => {
+  const merged = mergeEnvelopes(makeMiEnvelope([], 0), makeCrapEnvelope(), {
+    cyclomaticFlag: 5,
+  });
+  assert.match(renderTable(merged), /new-method count over c=5/);
+});
+
+test('runCli — reads the resolved cyclomaticFlag from the project config', async () => {
+  const root = makeTempDir('quality-preview-flag-');
+  fs.writeFileSync(
+    path.join(root, '.agentrc.json'),
+    JSON.stringify({
+      project: {
+        paths: { agentRoot: '.agents', docsRoot: 'docs', tempRoot: 'temp' },
+      },
+      github: { owner: 'x', repo: 'y', operatorHandle: '@ci' },
+      delivery: { quality: { codingGuardrails: { cyclomaticFlag: 4 } } },
+    }),
+  );
+  const out = makeStreamCapture();
+  const { merged } = await runCli({
+    argv: [],
+    cwd: root,
+    stdout: out,
+    stderr: makeStreamCapture(),
+    runMi: makeMiStub(makeMiEnvelope([], 0)),
+    runCrap: makeCrapStub(makeCrapEnvelope()),
+  });
+  assert.equal(merged.cyclomaticFlag, 4);
+  assert.match(out.lines.join(''), /new-method count over c=4/);
+  fs.rmSync(root, { recursive: true, force: true });
+});
+
 function makeMiStub(envelope, exitCode = 0) {
   return async () => ({ exitCode, envelope });
 }
@@ -294,6 +360,29 @@ function makeMiStub(envelope, exitCode = 0) {
 function makeCrapStub(envelope, exitCode = 0) {
   return async () => ({ exitCode, envelope });
 }
+
+test('runCli — an unreadable config degrades to the framework flag, not a crash', async () => {
+  // `quality:preview` is a developer-facing report: a tree whose `.agentrc.json`
+  // cannot be parsed should still render its table at the framework default
+  // rather than abort the pre-commit hook over a config error it did not cause.
+  const root = makeTempDir('quality-preview-badcfg-');
+  fs.writeFileSync(path.join(root, '.agentrc.json'), '{ not json');
+  const out = makeStreamCapture();
+  const err = makeStreamCapture();
+  const { merged, exitCode } = await runCli({
+    argv: [],
+    cwd: root,
+    stdout: out,
+    stderr: err,
+    runMi: makeMiStub(makeMiEnvelope([], 0)),
+    runCrap: makeCrapStub(makeCrapEnvelope()),
+  });
+  assert.equal(exitCode, 0);
+  assert.equal(merged.cyclomaticFlag, 8);
+  assert.match(err.lines.join(''), /config resolution failed/);
+  assert.match(out.lines.join(''), /new-method count over c=8/);
+  fs.rmSync(root, { recursive: true, force: true });
+});
 
 test('runCli — passing pair returns empty envelopes and exits 0', async () => {
   const out = makeStreamCapture();
