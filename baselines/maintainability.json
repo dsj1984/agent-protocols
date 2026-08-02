@@ -1,7 +1,7 @@
 {
   "$schema": ".agents/schemas/baselines/maintainability.schema.json",
   "kernelVersion": "0.1.0",
-  "generatedAt": "2026-08-02T15:28:05.123Z",
+  "generatedAt": "2026-08-02T17:58:57.314Z",
   "rollup": {
     "*": {
       "min": 74.146,
@@ -85,6 +85,10 @@
     {
       "path": ".agents/scripts/check-lifecycle-lint.js",
       "mi": 88.159
+    },
+    {
+      "path": ".agents/scripts/check-schema-references.js",
+      "mi": 99.343
     },
     {
       "path": ".agents/scripts/check-test-temp-hygiene.js",

@@ -42,51 +42,19 @@ being reserved names with no shipped detector.
 
 ## Retired vocabulary (archived)
 
-Four sections whose entire body recorded that a surface was gone — they defined
+Five sections whose entire body recorded that a surface was gone — they defined
 no live vocabulary — are archived verbatim:
 [StoryPerfSummary / EpicPerfReport](archive/data-dictionary-2026-08.md#storyperfsummary--epicperfreport),
 [Dispatch Manifest](archive/data-dictionary-2026-08.md#dispatch-manifest),
 [Health-Monitor Refresh Cadence](archive/data-dictionary-2026-08.md#health-monitor-refresh-cadence),
-[Retro Heuristic](archive/data-dictionary-2026-08.md#retro-heuristic).
+[Retro Heuristic](archive/data-dictionary-2026-08.md#retro-heuristic),
+[FrictionEvent](archive/data-dictionary-2026-08.md#frictionevent-retired-shape).
 
----
-
-## FrictionEvent (retired shape — not the live `friction` record)
-
-**A live `friction` record is a `SignalEvent` with `kind: "friction"`** — see
-the table above. `appendSignal` validates against `signal-event.schema.json`
-(the only file `signal-validator.js` compiles), and
-`diagnose-friction.js#buildFrictionSignal` is the producer.
-
-`friction-event.schema.json` was the pre-cutover document from Epic #1030,
-superseded by `signal-event.schema.json` in the Epic #4406 envelope cutover.
-**Story #4938 deleted the file**: it had no writer, reader, or validator, and a
-well-formed schema with nothing behind it reads as an enforced contract — an
-`/audit-documentation` lens graded a High finding against it on exactly that
-basis, and the finding reached an acceptance criterion before a delivering
-worker caught it. The table below is now the whole surviving record of the
-retired shape, kept so the two are never confused:
-
-| Field      | Type                | Required | Description                                                            |
-| ---------- | ------------------- | -------- | ---------------------------------------------------------------------- |
-| `eventId`  | `uuid string`       | Yes      | Unique event identifier.                                               |
-| `timestamp`| `ISO8601 date-time` | Yes      | When the event occurred. The live envelope's key is `ts`.               |
-| `sprintId` | `string`            | Yes      | Epic identifier the event belongs to. The live envelope's key is `epicId`. |
-| `category` | `enum`              | Yes      | One of `Prompt Ambiguity`, `Missing Skill`, `Incorrect Persona`, `Tool Limitation`, `Execution Error`. |
-| `details`  | `string`            | Yes      | Specific error message or observation. The live envelope requires an **object** here. |
-| `source`   | `object`            | No       | `{ tool?, command? }` — failed tool / command. The live envelope moved this to `emitter` and reuses `source` for the framework/consumer tag. |
-| `context`  | `object`            | No       | `{ protocolFile?: string }` — relevant protocol file path.              |
-
-`required` was exactly `["eventId", "timestamp", "sprintId", "category",
-"details"]`. **`taskId` was not in it and was not a property of the retired
-schema at all** — its `additionalProperties: false` rejected it outright. (The
-live `SignalEvent` envelope does carry an optional `taskId`, always `null`
-since the 2-tier hierarchy landed.)
-
-Nothing in `.agents/schemas/` is allowed back into that state:
-`check-schema-references.js` fails on any schema there that no code path
-compiles, unless the schema itself declares the exemption in a root
-`x-mandrel-uncompiled` block.
+A live `friction` record is a `SignalEvent` with `kind: "friction"` — see the
+table above. The retired `FrictionEvent` shape it replaced is field-for-field
+in the archive; Story #4938 deleted the schema file itself, and
+`check-schema-references.js` keeps `.agents/schemas/` from accumulating another
+contract nothing compiles.
 
 ---
 

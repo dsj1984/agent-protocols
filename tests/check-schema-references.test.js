@@ -29,7 +29,11 @@ import path from 'node:path';
 import { after, describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import { auditSchemaReferences } from '../.agents/scripts/check-schema-references.js';
+import {
+  auditSchemaReferences,
+  main,
+  parseArgv,
+} from '../.agents/scripts/check-schema-references.js';
 import { makeTempDir } from '../.agents/scripts/lib/test-temp.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -202,6 +206,64 @@ describe('in-file exemption', () => {
   });
 });
 
+describe('the CLI surface', () => {
+  /** Run `main` with stdout captured. */
+  async function run(argv) {
+    const original = process.stdout.write;
+    let out = '';
+    process.stdout.write = (chunk) => {
+      out += chunk;
+      return true;
+    };
+    try {
+      return { code: await main(argv), out };
+    } finally {
+      process.stdout.write = original;
+    }
+  }
+
+  it('parses --root and --json, defaulting to cwd and text', () => {
+    assert.deepEqual(parseArgv([]), { root: process.cwd(), json: false });
+    const parsed = parseArgv(['--json', '--root', '.']);
+    assert.equal(parsed.json, true);
+    assert.equal(parsed.root, path.resolve('.'));
+  });
+
+  it('ignores a trailing --root with no value rather than crashing', () => {
+    assert.equal(parseArgv(['--root']).root, process.cwd());
+  });
+
+  it('exits 1 and names the offender when a schema is uncompiled', async () => {
+    const root = makeFixture({
+      schemas: { 'orphan.schema.json': SCHEMA_BODY },
+    });
+    const { code, out } = await run(['--root', root]);
+    assert.equal(code, 1);
+    assert.match(out, /orphan\.schema\.json/);
+    assert.match(out, /x-mandrel-uncompiled/);
+  });
+
+  it('exits 0 with a single-line JSON envelope under --json', async () => {
+    const root = makeFixture({
+      schemas: { 'wired.schema.json': SCHEMA_BODY },
+      sources: { 'lib/load.js': "const p = 'wired.schema.json';\n" },
+    });
+    const { code, out } = await run(['--root', root, '--json']);
+    assert.equal(code, 0);
+    assert.equal(
+      out.trimEnd().includes('\n'),
+      false,
+      'envelope must be one line',
+    );
+    assert.deepEqual(JSON.parse(out), {
+      schemaCount: 1,
+      referenced: 1,
+      exempt: [],
+      findings: [],
+    });
+  });
+});
+
 describe('this repository', () => {
   const report = auditSchemaReferences({ root: REPO_ROOT });
 
@@ -240,7 +302,7 @@ describe('this repository', () => {
         ),
       ),
       false,
-      'friction-event.schema.json is retired — its shape lives in docs/data-dictionary.md',
+      'friction-event.schema.json is retired — its shape lives in docs/archive/data-dictionary-2026-08.md',
     );
   });
 

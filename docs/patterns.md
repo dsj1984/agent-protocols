@@ -550,9 +550,8 @@ must not halt the runner) and are picked up out-of-band by the analyzer
    category, emitter: { tool, command }, details: { errorPreview, ... } }`.
    The pre-cutover `friction-event.schema.json` was deleted in Story #4938 —
    nothing loaded it, and a payload authored from it is dropped for the
-   missing `ts` / `kind`. Its retired shape survives only as a table in
-   [`data-dictionary.md`](data-dictionary.md), where it cannot be mistaken
-   for an enforced contract.
+   missing `ts` / `kind`. Its shape survives as a table in
+   [the data-dictionary archive](archive/data-dictionary-2026-08.md#frictionevent-retired-shape).
 2. **Consumers.** `diagnose-friction.js` (per-failure detector) and the
    quality-gate friction path (`lib/gates/friction.js`, fronting the
    unified `check-baselines.js` gate and its per-kind logic under

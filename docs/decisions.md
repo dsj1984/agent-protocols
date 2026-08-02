@@ -128,56 +128,29 @@ at the release tag named in the entry.
 
 ### Context
 
-`friction-event.schema.json` was superseded by `signal-event.schema.json` in
-the Epic #4406 envelope cutover, and the file was left in `.agents/schemas/`.
-Nothing compiled it. It was still well-formed, still named after a live record
-type, and still sitting in the directory where enforced contracts live.
-
-Every reader that met it concluded it was the contract. An
-`/audit-documentation` lens graded a **High** finding against it on that basis.
-The finding was carried into an acceptance criterion on a delivery Story, and
-the worker had to overrule its own criterion mid-flight: complying literally
-would have written a payload `signal-validator.js` drops, re-creating the
-silent-drop defect that Story existed to fix.
-
-The instructive part is what did not catch it. The lens read the schema; the
-planner read the lens; the criterion read the planner. Each layer verified
-against the one above it, and the file's existence and syntactic validity were
-taken for authority at every step. Only reading the validator disproved it —
-and nothing in the pipeline required anyone to.
+`friction-event.schema.json` outlived the Epic #4406 cutover that superseded
+it. Nothing compiled it, but it parsed and sat where enforced contracts live,
+so readers took it for one — an `/audit-documentation` lens graded a High
+finding against it, and that reached an acceptance criterion before a
+delivering worker overruled it. Existence plus valid syntax passed for
+authority at every layer.
 
 ### Decision
 
-A schema under `.agents/schemas/` must be compiled by some code path.
-`check-schema-references.js` enforces it, resolving a reference through a
-literal basename in a source, a `$ref` from a referenced schema, or a
-directory loaded by computed path where the schema's stem is the runtime key.
-Comments are stripped before matching: a docblock naming a schema is prose,
-not enforcement, and counting it would let the gate certify itself.
-
-A schema deliberately kept without a compiler declares that **in its own
-body**, in a root `x-mandrel-uncompiled` block carrying a `reason` and the
-`runtimeGate` that actually enforces the shape. Not a side-car allowlist — the
-failure was a reader trusting the schema document, so the correction has to be
-legible in that same document.
-
-The gate has no baseline and no ratchet. The tolerable count is zero, and a
-deliberate exception is a two-line edit to the file in question.
+A schema under `.agents/schemas/` must be compiled by some code path;
+`check-schema-references.js` gates it, resolving a literal basename, a `$ref`,
+or a computed-path directory whose stem is the runtime key — comments
+stripped, since counting a docblock would let the gate certify itself. One
+kept deliberately says so in a root `x-mandrel-uncompiled` block naming the
+`runtimeGate` that really enforces the shape: in the document, not a side-car
+allowlist, because the failure was a reader trusting the document.
 
 ### Consequences
 
-`friction-event.schema.json` is deleted; its retired shape survives as a table
-in `docs/data-dictionary.md`, where nothing can mistake it for a contract.
-
-The first run of the gate found a second instance nobody had flagged:
-`model-attribution.schema.json` is a documented SSOT with a hand-rolled
-validator behind it, by an explicit earlier choice not to pull AJV into the
-structured-comment path. That is legitimate and now says so in-file. It also
-names the real risk the marker accepts — the schema and its hand-rolled mirror
-can drift, and only a reader comparing them will notice.
-
-This gate answers "is anything compiling this?" and not "is what compiles it
-faithful to it?". A schema whose validator has silently diverged still passes.
+`friction-event.schema.json` is deleted, its shape surviving in the
+data-dictionary archive. The first run found a second case,
+`model-attribution.schema.json`, now declared in-file. The gate asks "is
+anything compiling this?", never "is what compiles it faithful to it?".
 
 ## ADR 20260726-v2-story-collapse: Story-only ticket model; one /plan, one /deliver, one engine
 

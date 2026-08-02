@@ -1025,12 +1025,10 @@ They differ only in:
   Payloads with extra keys or free-text discriminators fail validation
   rather than silently passing.
 - **No orphan contracts**: `check-schema-references.js` fails when a
-  schema under `.agents/schemas/` is compiled by no code path. A schema
-  deliberately kept without a compiler must say so in its own body, in a
-  root `x-mandrel-uncompiled` block naming the reason and the runtime
-  gate that actually enforces the shape — an existing, well-formed schema
-  is otherwise read as authoritative by humans and audit lenses alike,
-  and a wrong reading of one has already reached an acceptance criterion
+  schema under `.agents/schemas/` is compiled by no code path. One kept
+  deliberately declares it in a root `x-mandrel-uncompiled` block naming
+  its real runtime gate — a well-formed schema is otherwise read as
+  authoritative, and one such reading reached an acceptance criterion
   (Story #4938).
 
 ### HITL pause point

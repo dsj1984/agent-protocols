@@ -71,8 +71,9 @@
  *
  * Story #4938 left the tree with exactly one: `friction-event.schema.json` was
  * deleted outright (its shape preserved field-for-field in
- * `docs/data-dictionary.md`), and `model-attribution.schema.json` — a
- * documented SSOT with a hand-rolled validator behind it — declared the marker.
+ * `docs/archive/data-dictionary-2026-08.md`), and
+ * `model-attribution.schema.json` — a documented SSOT with a hand-rolled
+ * validator behind it — declared the marker.
  *
  * The gate answers "is anything compiling this?", not "is what compiles it
  * faithful to it?". A schema whose hand-rolled mirror has silently drifted
