@@ -774,6 +774,97 @@ describe('merge wait — async mode (Story #4698)', () => {
   });
 });
 
+/**
+ * Story #4949 — `--merge-watch-mode` exists because run topology is invisible
+ * from inside close. Close sees one Story; only the orchestrator knows whether
+ * a sibling's close is queued behind this one, and therefore whether the
+ * foreground merge wait is the cheapest ending or the run's dominant
+ * serialized cost. The config default deliberately stays `sync`.
+ */
+describe('merge wait — --merge-watch-mode override (Story #4949)', () => {
+  it('AC-1: the explicit mode wins over delivery.mergeWatch.mode in both directions', () => {
+    // Config sync (and config-absent) → the override selects async.
+    assert.equal(resolveMergeWaitConfig({}).mode, 'sync');
+    assert.equal(resolveMergeWaitConfig({}, undefined, 'async').mode, 'async');
+    assert.equal(
+      resolveMergeWaitConfig(
+        { delivery: { mergeWatch: { mode: 'sync' } } },
+        undefined,
+        'async',
+      ).mode,
+      'async',
+    );
+    // Config async → the override selects sync. An override that could only
+    // ever escalate would leave an async-configured consumer unable to ask a
+    // solo close for the cheaper foreground wait.
+    const asyncConfig = { delivery: { mergeWatch: { mode: 'async' } } };
+    assert.equal(resolveMergeWaitConfig(asyncConfig).mode, 'async');
+    assert.equal(
+      resolveMergeWaitConfig(asyncConfig, undefined, 'sync').mode,
+      'sync',
+    );
+  });
+
+  it('AC-1: an absent override defers to the config, exactly as --max-wait-seconds does', () => {
+    const asyncConfig = { delivery: { mergeWatch: { mode: 'async' } } };
+    for (const absent of [undefined, null]) {
+      assert.equal(
+        resolveMergeWaitConfig(asyncConfig, undefined, absent).mode,
+        'async',
+      );
+      assert.equal(resolveMergeWaitConfig({}, undefined, absent).mode, 'sync');
+    }
+  });
+
+  it('AC-1: the mode override carries the async probe cap, and --max-wait-seconds still wins over it', () => {
+    // Mode override alone → the same clamp a config-selected async gets.
+    assert.equal(
+      resolveMergeWaitConfig({}, undefined, 'async').maxWaitSeconds,
+      ASYNC_PROBE_WINDOW_SECONDS,
+    );
+    // The two flags compose and stay mode-agnostic: the explicit bound wins
+    // over the probe cap regardless of where the async mode came from.
+    const composed = resolveMergeWaitConfig({}, 3600, 'async');
+    assert.equal(composed.mode, 'async');
+    assert.equal(composed.maxWaitSeconds, 3600);
+    // A sync override leaves the configured bound untouched.
+    assert.equal(
+      resolveMergeWaitConfig(
+        { delivery: { mergeWatch: { mode: 'async', maxWaitSeconds: 300 } } },
+        undefined,
+        'sync',
+      ).maxWaitSeconds,
+      300,
+    );
+  });
+
+  it('AC-1: the phase honours the override — a sync-configured close returns pending inside the probe window', async () => {
+    const provider = makeFakeProvider();
+    const emitted = [];
+    const outcome = await runConfirmMergePhase(
+      phaseArgs({
+        provider,
+        // Config says sync — only the per-invocation flag asks for async.
+        config: { delivery: { mergeWatch: { mode: 'sync' } } },
+        mergeWatchMode: 'async',
+        nowMsFn: makeClock(40_000),
+        readPrWaitProbeFn: async () => openProbe(),
+        emitMergeUnlandedFn: () => emitted.push('unlanded'),
+      }),
+    );
+    assert.equal(outcome.terminal, 'pending');
+    assert.equal(
+      outcome.waitBudget.maxWaitSeconds,
+      ASYNC_PROBE_WINDOW_SECONDS,
+      'the flag must reach resolveMergeWaitConfig, not just the log line',
+    );
+    // The async ending is the SAME resumable pending contract: nothing mutated.
+    assert.equal(emitted.length, 0);
+    assert.equal(provider._updates().length, 0);
+    assert.equal(provider._comments().length, 0);
+  });
+});
+
 describe('merge wait — a PR that falls behind its base', () => {
   it('updates a BEHIND PR within a bounded number of attempts', async () => {
     let updates = 0;
@@ -1143,6 +1234,35 @@ describe('parseCloseOptions / resolveWaitForMerge — flag compatibility', () =>
       parseCloseOptions({ storyIdParam: 1 }).maxWaitSeconds,
       undefined,
     );
+  });
+
+  it('AC-1: accepts --merge-watch-mode sync|async and REFUSES anything else before a phase runs', () => {
+    for (const [raw, expected] of [
+      ['async', 'async'],
+      ['sync', 'sync'],
+      ['  ASYNC  ', 'async'],
+    ]) {
+      assert.equal(
+        parseCloseOptions({ storyIdParam: 1, mergeWatchModeParam: raw })
+          .mergeWatchMode,
+        expected,
+      );
+    }
+    // Absent → undefined, which is what defers to delivery.mergeWatch.mode.
+    assert.equal(
+      parseCloseOptions({ storyIdParam: 1 }).mergeWatchMode,
+      undefined,
+    );
+    // Fail closed. Coercing a typo to the config default would silently put a
+    // multi-Story run back on synchronous merge-watch — every close burning
+    // its foreground slot, with the wall clock as the only evidence. Parsing
+    // runs before the first phase, so this throw costs no mutation.
+    for (const bad of ['ASYNCH', 'true', 'background', '', 1]) {
+      assert.throws(
+        () => parseCloseOptions({ storyIdParam: 1, mergeWatchModeParam: bad }),
+        /--merge-watch-mode must be one of sync\|async/,
+      );
+    }
   });
 
   it('--no-wait-merge always wins; an un-armed PR is never waited on', () => {
