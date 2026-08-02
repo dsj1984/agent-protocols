@@ -19,9 +19,11 @@
 //     from the JSON alone (AC-7).
 
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
+import { fileURLToPath } from 'node:url';
 
 import { runCheckBaselines } from '../.agents/scripts/check-baselines.js';
 import { EXIT_CONFIG } from '../.agents/scripts/lib/baselines/exit-codes.js';
@@ -155,6 +157,43 @@ describe('check-baselines — base-read failure fails closed (#4914)', () => {
     assert.equal(thrown.exitCode, 3);
     assert.equal(thrown.code, 'EXIT_CONFIG');
     assert.match(thrown.message, /could not read the base baseline/);
+  });
+
+  // AC-5 — the same failure driven through the real CLI, so the assertion is
+  // the process exit status rather than a mapping read off the source. A `git`
+  // shim earlier on PATH fails the `show` the way a broken read fails it; the
+  // shim is a POSIX shell script, so the leg is skipped on Windows.
+  it('the check-baselines CLI exits 3 (not 0) when the base read fails', {
+    skip: process.platform === 'win32' ? 'POSIX git shim' : false,
+  }, () => {
+    const binDir = path.join(root, 'shim-bin');
+    mkdirSync(binDir, { recursive: true });
+    const shim = path.join(binDir, 'git');
+    // `show` fails hard (status 1 — not 128, so not "path absent"); every
+    // other subcommand succeeds emptily so nothing else is disturbed.
+    writeFileSync(
+      shim,
+      '#!/bin/sh\nif [ "$1" = "show" ]; then\n' +
+        '  echo "fatal: simulated hard read failure" >&2\n  exit 1\nfi\nexit 0\n',
+      { mode: 0o755 },
+    );
+
+    const cli = fileURLToPath(
+      new URL('../.agents/scripts/check-baselines.js', import.meta.url),
+    );
+    const res = spawnSync(process.execPath, [cli, '--no-friction'], {
+      cwd: root,
+      encoding: 'utf-8',
+      env: { ...process.env, PATH: `${binDir}:${process.env.PATH}` },
+    });
+
+    assert.equal(
+      res.status,
+      3,
+      `expected EXIT_CONFIG; got ${res.status}\nstdout: ${res.stdout}\nstderr: ${res.stderr}`,
+    );
+    assert.notEqual(res.status, 0, 'the pre-fix behaviour was a green exit 0');
+    assert.match(res.stdout, /could not read the base baseline/);
   });
 
   // AC-6 — the pre-fix scenario stated as its own assertion: the exact shape
