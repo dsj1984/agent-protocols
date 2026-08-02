@@ -29,53 +29,34 @@
  */
 
 import { spawnSync } from 'node:child_process';
-import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { assertNoReservedIdStreams } from './check-test-temp-hygiene.js';
 import { cleanupRepoTestTempArtifacts } from './cleanup-repo-test-temp.js';
 import { runAsCli } from './lib/cli-utils.js';
 import { buildWebhookSafeTestEnv } from './lib/test-env.js';
+import {
+  resolveTestConcurrency,
+  runTierPreflight,
+  TEST_CONCURRENCY_MAX,
+  TEST_CONCURRENCY_MIN,
+  TEST_RUNNER_FLAGS,
+} from './lib/test-runner-contract.js';
 import { listTestFilesForTier, parseTierArgv } from './lib/test-tiers.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..', '..');
 
-/** Minimum and maximum bounds for `--test-concurrency`. */
-export const TEST_CONCURRENCY_MIN = 1;
-export const TEST_CONCURRENCY_MAX = 16;
-
-/**
- * Resolve the `--test-concurrency` value for the current host.
- *
- * Uses `os.availableParallelism()` (Node ≥18.14 / ≥20.0) clamped to the
- * range `[TEST_CONCURRENCY_MIN, TEST_CONCURRENCY_MAX]`.  The `parallelism`
- * parameter is injected in tests so the clamping logic is verifiable
- * without touching the OS.
- *
- * @param {number} [parallelism] - defaults to `os.availableParallelism()`
- * @returns {number}
- */
-export function resolveTestConcurrency(
-  parallelism = os.availableParallelism(),
-) {
-  return Math.min(
-    TEST_CONCURRENCY_MAX,
-    Math.max(TEST_CONCURRENCY_MIN, parallelism),
-  );
-}
-
-/**
- * Fixed `node --test` flags applied to every spawn (every chunk).
- * `--test-concurrency` is derived at startup from the host's available
- * parallelism so the value is appropriate for the machine running the suite
- * rather than being pinned to the historical constant of 8.
- */
-export const TEST_RUNNER_FLAGS = Object.freeze([
-  '--experimental-test-module-mocks',
-  '--test',
-  `--test-concurrency=${resolveTestConcurrency()}`,
-]);
+// The runner contract (flag set, concurrency clamp, tier preflight) is
+// declared once in `lib/test-runner-contract.js` so `run-coverage.js` shares
+// it by construction. Re-exported here because this module is the runner's
+// public face for its own unit tests.
+export {
+  resolveTestConcurrency,
+  TEST_CONCURRENCY_MAX,
+  TEST_CONCURRENCY_MIN,
+  TEST_RUNNER_FLAGS,
+};
 
 /**
  * Per-spawn character budget for the joined *targets* portion of the argv.
@@ -167,8 +148,17 @@ export function runTestSuite({
   listTargets = listTestFilesForTier,
   maxTargetChars = resolveMaxTargetChars(),
   fixtureStreamGuard = assertNoReservedIdStreams,
+  preflight = runTierPreflight,
 } = {}) {
   const { tier, rest } = parseTierArgv(argv);
+
+  // Preflight first, and abort on refusal — the tier's checks exist to stop
+  // the suite starting from a known-bad state, so running them after the
+  // spawn would be pointless. Nothing has been created yet, so there is
+  // nothing to clean up on this path.
+  const preflightStatus = preflight({ tier, repoRoot: cwd });
+  if (preflightStatus !== 0) return preflightStatus;
+
   const targets = listTargets(tier, cwd);
   const chunks = chunkTestTargets(targets, maxTargetChars);
 

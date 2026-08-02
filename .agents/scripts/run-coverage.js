@@ -10,6 +10,11 @@
  * Node script keeps the env injection portable.
  *
  * Pipeline:
+ *   0. Run the full tier's preflight (`runTierPreflight`). Story #4936: this
+ *      used to be a `pretest:coverage` npm script that CI had to name
+ *      explicitly, because `.npmrc`'s `ignore-scripts=true` (CWE-1357
+ *      defence, which stays) suppresses every `pre*` hook. The runner
+ *      invokes it now, so it executes however the coverage run is started.
  *   1. Run the test suite under `NODE_V8_COVERAGE` so each worker writes
  *      raw V8 dumps under `coverage/tmp/`. The suite targets are the
  *      shared `FULL_TIER_GLOBS` from `lib/test-tiers.js` — the same set
@@ -31,13 +36,15 @@
  * while producing an identical `coverage-final.json` artifact for the
  * CRAP gate.
  *
- * Test-runner concurrency: the suite spawn reuses `TEST_RUNNER_FLAGS`
- * from `run-tests.js` — the single source of truth for the
- * `--test-concurrency` value, derived at startup from the host's
- * available parallelism and clamped to `[TEST_CONCURRENCY_MIN,
- * TEST_CONCURRENCY_MAX]`. This keeps the coverage gate (which runs the
- * suite at every story close on both delivery paths) host-aware instead
- * of pinned to the historical literal of 8.
+ * Test-runner flags: the suite spawn reuses `TEST_RUNNER_FLAGS` from
+ * `lib/test-runner-contract.js` — the single source of truth for the
+ * `node --test` flag set, including the host-derived
+ * `--test-concurrency` value clamped to `[TEST_CONCURRENCY_MIN,
+ * TEST_CONCURRENCY_MAX]`. Story #4936: sharing the whole flag set (not
+ * just the concurrency number) is what stops this runner and
+ * `run-tests.js` disagreeing about whether a test can execute at all —
+ * `--experimental-test-module-mocks` decides whether `t.mock.module`
+ * works, and this is the *required* CI job.
  */
 
 import { spawnSync } from 'node:child_process';
@@ -49,15 +56,16 @@ import { fileURLToPath } from 'node:url';
 import { cleanupRepoTestTempArtifacts } from './cleanup-repo-test-temp.js';
 import { C8_CLI } from './lib/c8-cli-path.js';
 import { buildWebhookSafeTestEnv } from './lib/test-env.js';
+import {
+  runTierPreflight,
+  TEST_RUNNER_FLAGS,
+} from './lib/test-runner-contract.js';
 import { FULL_TIER_GLOBS } from './lib/test-tiers.js';
-import { TEST_RUNNER_FLAGS } from './run-tests.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..', '..');
-const COVERAGE_DIR = path.join(ROOT, 'coverage');
 const require = createRequire(import.meta.url);
 const C8_CONFIG = require('../../.c8rc.cjs');
-const V8_TMP = path.join(COVERAGE_DIR, 'tmp');
 
 /**
  * Build the `node --test` argv for the coverage suite spawn.
@@ -90,26 +98,48 @@ export function buildCoverageTestArgs({
 }
 
 /**
- * Execute the coverage pipeline: run the suite under `NODE_V8_COVERAGE`,
- * post-process the dumps with `c8 report`, then gate on the coverage
- * baseline. Returns the first non-zero exit code across the three stages
- * (or the baseline check's status when both prior stages pass).
+ * Execute the coverage pipeline: run the full tier's preflight, run the
+ * suite under `NODE_V8_COVERAGE`, post-process the dumps with `c8 report`,
+ * then gate on the coverage baseline. Returns the first non-zero exit code
+ * across the stages (or the baseline check's status when the prior stages
+ * pass); a refused preflight short-circuits before anything is spawned or
+ * removed.
  *
+ * Every collaborator is injected so the pipeline's wiring — above all
+ * *that the preflight actually runs, and runs first* — is assertable
+ * without spawning the real suite.
+ *
+ * @param {object} [opts]
+ * @param {typeof spawnSync} [opts.spawn]
+ * @param {(opts: { tier: string, repoRoot: string }) => number} [opts.preflight]
+ * @param {(opts: { repoRoot: string }) => unknown} [opts.cleanup]
+ * @param {string} [opts.repoRoot]
  * @returns {number}
  */
-function runCoveragePipeline() {
-  rmSync(COVERAGE_DIR, { recursive: true, force: true });
-  mkdirSync(V8_TMP, { recursive: true });
+export function runCoveragePipeline({
+  spawn = spawnSync,
+  preflight = runTierPreflight,
+  cleanup = cleanupRepoTestTempArtifacts,
+  repoRoot = ROOT,
+} = {}) {
+  const coverageDir = path.join(repoRoot, 'coverage');
+  const v8Tmp = path.join(coverageDir, 'tmp');
 
-  const testRun = spawnSync(process.execPath, buildCoverageTestArgs(), {
-    cwd: ROOT,
+  const preflightStatus = preflight({ tier: 'full', repoRoot });
+  if (preflightStatus !== 0) return preflightStatus;
+
+  rmSync(coverageDir, { recursive: true, force: true });
+  mkdirSync(v8Tmp, { recursive: true });
+
+  const testRun = spawn(process.execPath, buildCoverageTestArgs(), {
+    cwd: repoRoot,
     stdio: 'inherit',
     // GIT_*-scrubbed: under a husky pre-push from a linked worktree the
     // inherited GIT_DIR poisons fixture `git init` runs (#4580).
-    env: { ...buildWebhookSafeTestEnv(process.env), NODE_V8_COVERAGE: V8_TMP },
+    env: { ...buildWebhookSafeTestEnv(process.env), NODE_V8_COVERAGE: v8Tmp },
   });
 
-  cleanupRepoTestTempArtifacts({ repoRoot: ROOT });
+  cleanup({ repoRoot });
 
   const includeArgs = (C8_CONFIG.include ?? []).flatMap((p) => [
     '--include',
@@ -126,7 +156,7 @@ function runCoveragePipeline() {
   // #4922). Reading it off the config keeps `.c8rc.cjs` the one declaration.
   const allArgs = C8_CONFIG.all ? ['--all'] : [];
 
-  const reportRun = spawnSync(
+  const reportRun = spawn(
     process.execPath,
     [
       C8_CLI,
@@ -135,21 +165,21 @@ function runCoveragePipeline() {
       '--reporter=text',
       ...allArgs,
       '--temp-directory',
-      V8_TMP,
+      v8Tmp,
       ...includeArgs,
       ...excludeArgs,
     ],
-    { cwd: ROOT, stdio: 'inherit', shell: false },
+    { cwd: repoRoot, stdio: 'inherit', shell: false },
   );
 
-  const checkRun = spawnSync(
+  const checkRun = spawn(
     process.execPath,
     [
-      path.join(ROOT, '.agents', 'scripts', 'check-baselines.js'),
+      path.join(repoRoot, '.agents', 'scripts', 'check-baselines.js'),
       '--gate',
       'coverage',
     ],
-    { cwd: ROOT, stdio: 'inherit' },
+    { cwd: repoRoot, stdio: 'inherit' },
   );
 
   return testRun.status !== 0

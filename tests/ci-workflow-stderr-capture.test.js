@@ -52,21 +52,27 @@ test('CI workflow Run Tests with Coverage step preserves stderr-capture regressi
 // Story #4922 — the coverage instrument's CI wiring.
 // ---------------------------------------------------------------------------
 
-test('the coverage step runs the pretest preflight explicitly', () => {
+test('the coverage step leaves the preflight to the runner, not to a named script', () => {
+  // Story #4922 had CI name `pretest:coverage` explicitly, because .npmrc's
+  // `ignore-scripts=true` (CWE-1357 defence, which stays) suppresses every
+  // pre*/post* lifecycle hook for `npm run` as well as for installs. Story
+  // #4936 moved the invocation into run-coverage.js, so the preflight now
+  // fires for every tier and every caller. If a `pretest*` script ever comes
+  // back, this step must not be the only thing that runs it.
   const source = readFileSync(CI_WORKFLOW, 'utf8');
   const step = getTestCoverageStep(source);
-  assert.match(
-    step,
-    /npm run pretest:coverage/,
-    "The coverage step must invoke the preflight by name. npm's `pre<script>` " +
-      'hook cannot be relied on here: .npmrc sets ignore-scripts=true, which ' +
-      'suppresses every pre*/post* lifecycle script for `npm run` as well as ' +
-      'for installs, so `pretest:coverage` never fires as a hook.',
-  );
   assert.ok(
-    step.indexOf('npm run pretest:coverage') <
-      step.indexOf('npm run test:coverage 2>&1'),
-    'the preflight must run BEFORE the measured suite',
+    !/npm run pretest/.test(step),
+    'the coverage step must not name a pretest* script — the runner owns ' +
+      'the preflight (lib/test-runner-contract.js#runTierPreflight)',
+  );
+  assert.match(
+    readFileSync(
+      new URL('../.agents/scripts/run-coverage.js', import.meta.url),
+      'utf8',
+    ),
+    /runTierPreflight/,
+    'run-coverage.js must invoke the tier preflight itself',
   );
 });
 

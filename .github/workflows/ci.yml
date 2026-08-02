@@ -30,6 +30,13 @@ jobs:
     # `windows-smoke` job below (Story #3389). See #1267 for the per-OS
     # baseline plan if matrix-shaped CI is ever reinstated.
     runs-on: ubuntu-latest
+    # Story #4936: every job here used to inherit GitHub's 360-minute default,
+    # so a deadlock cost six hours of runner time and — while the run stayed
+    # `in_progress` — withheld the logs of the failing required check on the
+    # same run. Sized from this job's observed 155s: 20 minutes is ~8x
+    # headroom over the heaviest leg (audit + TruffleHog + node-pty source
+    # build + the full coverage suite) while still catching a hang fast.
+    timeout-minutes: 20
     permissions:
       contents: read
     steps:
@@ -111,18 +118,18 @@ jobs:
         # gate both emit failures on stderr, and a stdout-only redirect
         # hides them in the uploaded artifact (see Epic #441 Story 4.1).
         #
-        # Story #4922: the preflight is invoked EXPLICITLY, not left to npm's
-        # `pre<script>` hook. This repo's `.npmrc` sets `ignore-scripts=true`
-        # (supply-chain defence, CWE-1357), and that config suppresses every
-        # `pre*` / `post*` lifecycle hook for `npm run` as well as for
-        # installs — so `pretest`, `pretest:quick`, `pretest:integration` and
-        # `pretest:coverage` are all inert as hooks. The coverage tier is the
-        # measuring run, so it names its preflight rather than assuming npm
-        # will fire it. `npm run pretest:coverage` is still the single
-        # definition of what that preflight is.
+        # Story #4922 made this step name `pretest:coverage` explicitly,
+        # because `.npmrc`'s `ignore-scripts=true` (supply-chain defence,
+        # CWE-1357, which stays) suppresses every `pre*` / `post*` lifecycle
+        # hook for `npm run` as well as for installs. Story #4936 moved the
+        # invocation into the runner itself
+        # (`lib/test-runner-contract.js#runTierPreflight`), so the preflight
+        # now fires for every tier and for every caller — including a bare
+        # `node .agents/scripts/run-coverage.js` — instead of only where a
+        # caller remembered to name it. There is deliberately no `pretest*`
+        # script left to invoke here.
         run: |
           set -o pipefail
-          npm run pretest:coverage
           npm run test:coverage 2>&1 | tee test-output.txt
 
       - name: Assert temp hygiene (post-test)
@@ -173,6 +180,9 @@ jobs:
     # collapsed to `["lint", "test", "baselines"]`.
     name: baselines
     runs-on: ubuntu-latest
+    # Observed 19s of pure-Node ratchets. 10 minutes is the floor the
+    # workflow-timeout gate enforces and still ~30x headroom here.
+    timeout-minutes: 10
     permissions:
       contents: read
     steps:
@@ -242,6 +252,10 @@ jobs:
     # full Windows matrix leg (#1270).
     name: Windows Smoke
     runs-on: windows-latest
+    # This is the job that deadlocked and burned 44 minutes. Observed 141s on
+    # a healthy run; 15 minutes leaves ~6x headroom for a slow Windows runner
+    # boot plus `npm ci`, and bounds the next deadlock to a quarter hour.
+    timeout-minutes: 15
     permissions:
       contents: read
     steps:

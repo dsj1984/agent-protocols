@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import { listTestFilesForTier } from '../../.agents/scripts/lib/test-tiers.js';
 import {
@@ -91,6 +92,7 @@ test('runTestSuite cleans reserved temp even when the test process fails', () =>
     cleanup: (opts) => {
       calls.push({ kind: 'cleanup', opts });
     },
+    preflight: () => 0,
   });
 
   assert.equal(status, 12);
@@ -202,6 +204,7 @@ test('runTestSuite issues one spawn per chunk and never builds an unbounded argv
       return { status: 0 };
     },
     cleanup: () => {},
+    preflight: () => 0,
   });
 
   assert.equal(status, 0);
@@ -240,6 +243,7 @@ test('runTestSuite returns the first non-zero chunk exit code', () => {
       return { status: call === 2 ? 7 : 0 };
     },
     cleanup: () => {},
+    preflight: () => 0,
   });
   assert.equal(status, 7);
 });
@@ -256,8 +260,86 @@ test('runTestSuite cleans up then throws on a spawn error', () => {
         cleanup: () => {
           cleaned = true;
         },
+        preflight: () => 0,
       }),
     /ENOENT/,
   );
   assert.ok(cleaned, 'cleanup must run before the throw');
+});
+
+// ---------------------------------------------------------------------------
+// Story #4936 — the tier preflight must actually execute. `.npmrc` sets
+// `ignore-scripts=true` (CWE-1357 defence, which stays), and that suppresses
+// npm's `pre*` hooks for `npm run` too, so `pretest`, `pretest:quick` and
+// `pretest:integration` fired for no tier at all. The runner owns the
+// invocation now; these are the assertions that hold it to that.
+// ---------------------------------------------------------------------------
+
+test('runTestSuite runs the preflight for the tier before spawning the suite', () => {
+  const order = [];
+  const status = runTestSuite({
+    argv: ['--tier', 'quick'],
+    cwd: '/repo',
+    listTargets: () => ['tests/a.test.js'],
+    preflight: (opts) => {
+      order.push(`preflight:${opts.tier}:${opts.repoRoot}`);
+      return 0;
+    },
+    spawn: () => {
+      order.push('spawn');
+      return { status: 0 };
+    },
+    cleanup: () => {},
+  });
+
+  assert.equal(status, 0);
+  assert.deepEqual(order, ['preflight:quick:/repo', 'spawn']);
+});
+
+test('runTestSuite passes each tier through to the preflight', () => {
+  for (const tier of ['full', 'quick', 'integration']) {
+    const seen = [];
+    runTestSuite({
+      argv: ['--tier', tier],
+      cwd: '/repo',
+      listTargets: () => [],
+      preflight: (opts) => {
+        seen.push(opts.tier);
+        return 0;
+      },
+      spawn: () => ({ status: 0 }),
+      cleanup: () => {},
+    });
+    assert.deepEqual(seen, [tier], `tier ${tier} must reach the preflight`);
+  }
+});
+
+test('a refused preflight aborts before the test runner is ever spawned', () => {
+  let spawned = false;
+  const status = runTestSuite({
+    argv: [],
+    cwd: '/repo',
+    listTargets: () => ['tests/a.test.js'],
+    // 2 is the project-wide "preflight refused" reservation.
+    preflight: () => 2,
+    spawn: () => {
+      spawned = true;
+      return { status: 0 };
+    },
+    cleanup: () => {},
+  });
+
+  assert.equal(status, 2, 'the preflight exit code must propagate');
+  assert.equal(spawned, false, 'no suite may run behind a refused preflight');
+});
+
+test('the runner defaults to the shared preflight rather than a no-op', () => {
+  // Injecting nothing must not silently skip the preflight: the default is
+  // the real `runTierPreflight`, which is what makes `npm test` and a bare
+  // `node .agents/scripts/run-tests.js` behave identically.
+  const src = readFileSync(
+    new URL('../../.agents/scripts/run-tests.js', import.meta.url),
+    'utf8',
+  );
+  assert.match(src, /preflight = runTierPreflight/);
 });
