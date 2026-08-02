@@ -103,6 +103,12 @@ it to an operator or add it to an attended run.
    `node .agents/scripts/plan-run-epilogue.js --stories 101,102`. N=1 skips it
    ([reference § Per-run epilogue](helpers/deliver-reference.md)).
 
+5. **Correct what the change invalidated.** If a memory you recalled this
+   session is now wrong — a trap this landed, a budget it moved — fix that
+   entry now, while both the old belief and the new fact are in context, and
+   say so when you report. No memory substrate → skip silently. Sweeping the
+   whole pool is [`/memory-consolidate`](memory-consolidate.md), not this step.
+
 ## Closing what the workers hand back {#tail}
 
 **The tail is the orchestrator's, not the worker's.** A dispatched

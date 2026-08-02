@@ -7,7 +7,6 @@
  * the provider call needed to load the Epic.
  */
 
-import * as os from 'node:os';
 import path from 'node:path';
 import {
   resolveFeatureRoots,
@@ -15,39 +14,11 @@ import {
 } from '../../bdd-runner-detect.js';
 import { scanBddScenarios } from '../../bdd-scenario-scanner.js';
 import { getPaths, PROJECT_ROOT } from '../../config-resolver.js';
-import { scanMemoryFreshness } from '../../feedback-loop/memory-freshness.js';
 import { fetchPriorFeedback } from '../../feedback-loop/prior-feedback-fetcher.js';
 import { Logger } from '../../Logger.js';
 import { hasTicketSection } from '../../ticket-body-sections.js';
 import { ensureDocsDigest } from '../docs-digest.js';
-
-/**
- * Resolve the per-project memory directory used by the memory-freshness
- * pre-flight (Story #2557 / Epic #2547).
- *
- * Resolution order:
- *   1. `MANDREL_MEMORY_DIR` environment variable (test seam and operator
- *      override).
- *   2. `~/.claude/projects/<repo>/memory/` — the standard Claude Code
- *      memory substrate path, scoped by the configured GitHub repo so each
- *      consumer project gets its own memory pool.
- *   3. `null` when neither is resolvable. The scanner tolerates a missing
- *      `memoryDir` and surfaces a single `errors[]` entry.
- *
- * @param {{ github?: { owner?: string, repo?: string }|null }} opts
- * @returns {string|null}
- */
-function resolveMemoryDir({ github } = {}) {
-  if (
-    typeof process.env.MANDREL_MEMORY_DIR === 'string' &&
-    process.env.MANDREL_MEMORY_DIR.length > 0
-  ) {
-    return process.env.MANDREL_MEMORY_DIR;
-  }
-  const repo = github?.repo;
-  if (typeof repo !== 'string' || repo.length === 0) return null;
-  return path.join(os.homedir(), '.claude', 'projects', repo, 'memory');
-}
+import { buildMemoryPoolAdvisory } from './memory-pool-advisory.js';
 
 /**
  * Build the digest-first `docsContext` envelope field (Story #4433 — hard
@@ -154,18 +125,16 @@ export async function buildAuthoringContext(
     Logger.warn(`[plan-context] BDD scenario scan skipped: ${err.message}`);
   }
 
-  // Story #2557 — memory-freshness pre-flight runs BEFORE the prior-feedback
-  // fetch so the planner sees a deduplicated, currently-actionable memory
-  // store. The scanner is best-effort: missing memory dir or gh-CLI failures
-  // land in `memoryFreshness.errors[]` and never throw.
+  // Story #4919 — the memory-freshness pre-flight (#2557 / #4414) is retired
+  // and this advisory replaces it in the same slot. The scanner marked an
+  // entry stale when a cited issue was closed, but the memory corpus is
+  // delivery retrospectives whose subject IS a delivered Story — and its
+  // directory (`~/.claude/projects/<repo>/memory/`) never resolved, because
+  // harness project dirs are cwd-slugs. This renders no per-entry verdict at
+  // all: it stats and counts, and the `/plan` spine surfaces `recommend` at
+  // Gate #1. Filesystem-only and total — it never throws.
   const githubCfg = opts.github ?? null;
-  const memoryDir = resolveMemoryDir({ github: githubCfg });
-  const memoryFreshness = await scanMemoryFreshness({
-    memoryDir,
-    owner: githubCfg?.owner,
-    repo: githubCfg?.repo,
-    projectRoot: PROJECT_ROOT,
-  });
+  const memoryPoolAdvisory = buildMemoryPoolAdvisory({ cwd: PROJECT_ROOT });
 
   // Story #2554 — surface open meta feedback issues to the planner so retro
   // signals are routed into durable substrates rather than lost in chat.
@@ -211,7 +180,7 @@ export async function buildAuthoringContext(
     docsContext,
     bddRunner,
     bddScenarios,
-    memoryFreshness,
+    memoryPoolAdvisory,
     priorFeedback,
   };
 }
