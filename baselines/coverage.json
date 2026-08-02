@@ -1,11 +1,11 @@
 {
   "$schema": ".agents/schemas/baselines/coverage.schema.json",
   "kernelVersion": "1.0.0",
-  "generatedAt": "2026-08-02T15:41:26.135Z",
+  "generatedAt": "2026-08-02T15:43:29.034Z",
   "rollup": {
     "*": {
-      "lines": 95.67,
-      "branches": 86.15,
+      "lines": 95.68,
+      "branches": 86.18,
       "functions": 88.55
     }
   },
@@ -84,8 +84,8 @@
     },
     {
       "path": ".agents/scripts/check-cyclomatic.js",
-      "lines": 93.46,
-      "branches": 81.48,
+      "lines": 95.33,
+      "branches": 85.19,
       "functions": 80
     },
     {
@@ -1116,8 +1116,8 @@
     },
     {
       "path": ".agents/scripts/lib/cyclomatic-ceiling.js",
-      "lines": 95.09,
-      "branches": 69.09,
+      "lines": 100,
+      "branches": 76.79,
       "functions": 85.71
     },
     {
@@ -3103,7 +3103,7 @@
     {
       "path": ".agents/scripts/quality-preview.js",
       "lines": 97.82,
-      "branches": 82.02,
+      "branches": 84.95,
       "functions": 100
     },
     {
