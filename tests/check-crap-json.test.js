@@ -1,11 +1,13 @@
 import assert from 'node:assert';
 import fs from 'node:fs';
 import path from 'node:path';
-import { test } from 'node:test';
+import { describe, it, test } from 'node:test';
 import Ajv from 'ajv';
 import {
+  assertBaselineCompatible,
   buildCrapReport,
   compareCrap,
+  envelopeExtras,
 } from '../.agents/scripts/lib/baselines/kinds/crap.js';
 import { crapFormula } from '../.agents/scripts/lib/crap-engine.js';
 import { KERNEL_VERSION } from '../.agents/scripts/lib/crap-utils.js';
@@ -280,4 +282,227 @@ test('buildCrapReport — drifted-regression kind surfaces through the envelope'
     envelope.violations[0].fixGuidance.minComplexityAt100Cov,
     2,
   );
+});
+
+// ---------------------------------------------------------------------------
+// Story #4969 — the re-keying, seen from the comparator and the artefact.
+//
+// `tests/lib/crap-engine.test.js` proves the identity itself is
+// order-independent. These assert what the gate does with it: a real
+// regression is still caught, the old baseline is refused wholesale rather
+// than drift-paired, and the shipped baseline validates re-keyed.
+// ---------------------------------------------------------------------------
+
+const BASELINE_SCHEMA_PATH = path.resolve(
+  '.agents/schemas/baselines/crap.schema.json',
+);
+const ENVELOPE_SCHEMA_PATH = path.resolve(
+  '.agents/schemas/baselines/baseline-envelope.schema.json',
+);
+
+test('AC-3: a genuine regression on an anonymous method is still reported', () => {
+  // The method kept its identity across the edit — that is the whole point —
+  // so it matches its baseline row exactly and is scored against THAT row.
+  // A body-derived identity would re-key the method on the very edit that made
+  // it worse, landing it in the `new` bucket to be judged against the ceiling
+  // instead of its own baseline: the wrong target, and a `regressions` count
+  // of zero on a real regression.
+  const identity = '<anon buildScorer/(files,opts)#0>';
+  const result = compareCrap({
+    currentRows: [makeRegressionRow({ method: identity, anonymous: true })],
+    baselineRows: [makeBaselineRow({ method: identity, anonymous: true })],
+    newMethodCeiling: 30,
+    tolerance: 0.001,
+  });
+  assert.strictEqual(result.regressions, 1);
+  assert.strictEqual(result.newViolations, 0);
+  assert.strictEqual(result.violations[0].kind, 'regression');
+  assert.strictEqual(result.violations[0].baseline, 18);
+});
+
+test('AC-1: an unrelated insertion no longer drift-pairs two anonymous methods', () => {
+  // Two same-file anonymous methods whose lines shifted by one because
+  // something was inserted above them. Their identities are unchanged, so each
+  // pairs with its OWN baseline row and neither regresses. Under the ordinal
+  // scheme both labels shifted by one, `pickDriftCandidate` paired each with
+  // the neighbour's row, and the cheap one inherited the expensive one's score.
+  const cheap = '<anon host/(a)#0>';
+  const costly = '<anon host/(b)#0>';
+  const result = compareCrap({
+    currentRows: [
+      {
+        file: 'lib/a.js',
+        method: cheap,
+        anonymous: true,
+        startLine: 11,
+        cyclomatic: 8,
+        coverage: 1,
+        crap: 8,
+      },
+      {
+        file: 'lib/a.js',
+        method: costly,
+        anonymous: true,
+        startLine: 21,
+        cyclomatic: 8,
+        coverage: 1,
+        crap: 8,
+      },
+    ],
+    baselineRows: [
+      {
+        file: 'lib/a.js',
+        method: cheap,
+        anonymous: true,
+        startLine: 10,
+        crap: 8,
+      },
+      {
+        file: 'lib/a.js',
+        method: costly,
+        anonymous: true,
+        startLine: 20,
+        crap: 8,
+      },
+    ],
+    newMethodCeiling: 30,
+    tolerance: 0.001,
+  });
+  assert.strictEqual(result.regressions, 0, 'no phantom regression');
+  assert.strictEqual(result.newViolations, 0, 'neither method reads as new');
+  assert.strictEqual(result.removed, 0, 'neither baseline row is orphaned');
+  assert.strictEqual(result.drifted, 2, 'both moved by one line, and matched');
+});
+
+describe('AC-4: the migration is refused, not drift-paired', () => {
+  it('bumps SCORING_SEMANTICS off the value the old rows were scored under', () => {
+    assert.notStrictEqual(
+      envelopeExtras().scoringSemantics,
+      'coverage-join-v2',
+      'rows keyed by the ordinal scheme must not claim the current semantics',
+    );
+  });
+
+  it('refuses a baseline stamped with the previous semantics', () => {
+    const message = assertBaselineCompatible({
+      scoringSemantics: 'coverage-join-v2',
+      provenanceStamped: true,
+      rows: [{ path: 'lib/a.js', method: 'run', startLine: 1, crap: 1 }],
+    });
+    assert.match(message, /scoring semantics changed/);
+    assert.match(message, /crap:update -- --full-scope/);
+  });
+
+  it('refuses a HALF-migrated baseline the semantics stamp cannot see', () => {
+    // A diff-scoped refresh preserves out-of-scope rows verbatim, so a
+    // baseline can carry ordinal-keyed rows under a current stamp. The
+    // semantics axis passes it; `anon-identity-unstamped` is what catches it.
+    const message = assertBaselineCompatible({
+      scoringSemantics: envelopeExtras().scoringSemantics,
+      provenanceStamped: true,
+      rows: [
+        {
+          path: 'lib/new.js',
+          method: '<anon host/(x)#0>',
+          anonymous: true,
+          startLine: 1,
+          crap: 1,
+        },
+        {
+          path: 'lib/stale.js',
+          method: '<anon method-4>',
+          startLine: 9,
+          crap: 1,
+        },
+      ],
+    });
+    assert.match(message, /superseded/);
+    assert.match(message, /lib\/stale\.js/);
+  });
+
+  it('passes a fully migrated baseline', () => {
+    assert.strictEqual(
+      assertBaselineCompatible({
+        scoringSemantics: envelopeExtras().scoringSemantics,
+        provenanceStamped: true,
+        rows: [
+          {
+            path: 'lib/a.js',
+            method: '<anon host/(x)#0>',
+            anonymous: true,
+            startLine: 1,
+            crap: 1,
+          },
+          { path: 'lib/a.js', method: 'named', startLine: 5, crap: 1 },
+        ],
+      }),
+      null,
+    );
+  });
+});
+
+describe('AC-5: the shipped baseline validates, re-keyed', () => {
+  const baseline = () =>
+    JSON.parse(fs.readFileSync(path.resolve('baselines/crap.json'), 'utf-8'));
+
+  it('validates against crap.schema.json with the new field admitted', () => {
+    const ajv = new Ajv({ allErrors: true, strict: false });
+    ajv.addSchema(
+      JSON.parse(fs.readFileSync(ENVELOPE_SCHEMA_PATH, 'utf-8')),
+      'baseline-envelope.schema.json',
+    );
+    const validate = ajv.compile(
+      JSON.parse(fs.readFileSync(BASELINE_SCHEMA_PATH, 'utf-8')),
+    );
+    const b = baseline();
+    assert.ok(
+      validate(b),
+      `baselines/crap.json failed its schema: ${JSON.stringify(validate.errors?.slice(0, 4), null, 2)}`,
+    );
+  });
+
+  it('carries no ordinal-keyed row, and marks every derived identity', () => {
+    const rows = baseline().rows;
+    const ordinal = rows.filter((r) => /^<anon method-\d+>$/.test(r.method));
+    assert.deepStrictEqual(
+      ordinal.map((r) => `${r.path}::${r.method}`),
+      [],
+      'every anonymous row must be re-keyed onto a scope path',
+    );
+    const unmarked = rows.filter(
+      (r) => r.method.startsWith('<anon ') && r.anonymous !== true,
+    );
+    assert.deepStrictEqual(
+      unmarked.map((r) => r.path),
+      [],
+    );
+    assert.ok(
+      rows.some((r) => r.anonymous === true),
+      'the fixture would be vacuous if no row were anonymous',
+    );
+  });
+
+  it('keys every row uniquely — the re-keying collapsed nothing', () => {
+    const rows = baseline().rows;
+    const keys = rows.map((r) => `${r.path}::${r.method}@${r.startLine}`);
+    assert.strictEqual(new Set(keys).size, keys.length);
+    // Stronger: `path::method` alone must be unique too, or two methods would
+    // share a drift-candidate pool and be paired by line distance again.
+    const pairs = rows.map((r) => `${r.path}::${r.method}`);
+    assert.strictEqual(
+      new Set(pairs).size,
+      pairs.length,
+      'two methods sharing one identity would reintroduce nearest-line pairing',
+    );
+  });
+
+  it('leaves named rows at the four-key shape', () => {
+    const named = baseline().rows.find((r) => !r.method.startsWith('<anon '));
+    assert.deepStrictEqual(Object.keys(named).sort(), [
+      'crap',
+      'method',
+      'path',
+      'startLine',
+    ]);
+  });
 });

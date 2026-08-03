@@ -1,5 +1,6 @@
 import escomplex from 'typhonjs-escomplex';
 import { coverageForMethodInEntry } from './coverage-utils.js';
+import { deriveMethodIdentities } from './crap-method-identity.js';
 
 /**
  * The two line coordinate systems a CRAP row's `startLine` can be expressed
@@ -47,6 +48,7 @@ export const COORDINATE_TRANSPILED = 'transpiled';
  * @param {((line: number) => number|null)|null} [mapLine]
  * @returns {Array<{
  *   method: string,
+ *   anonymous: boolean,
  *   startLine: number,
  *   cyclomatic: number,
  *   coverage: number|null,
@@ -78,8 +80,14 @@ function resolveCoordinate(rawStartLine, mapLine) {
 
 export function methodRowsFromReport(report, coverageForFile, mapLine = null) {
   const methods = report?.methods ?? [];
+  // Identities are derived over the WHOLE method list, before any row is
+  // skipped, and read back by index (Story #4969). Deriving them from the
+  // surviving rows instead would let an unscorable method's absence shift its
+  // siblings' ordinals — reintroducing, through the back door, exactly the
+  // position dependence this replaces.
+  const identities = deriveMethodIdentities(methods);
   const rows = [];
-  for (const m of methods) {
+  for (const [i, m] of methods.entries()) {
     const rawStartLine = m?.lineStart;
     if (typeof rawStartLine !== 'number') continue;
     const { startLine, coordinateSystem } = resolveCoordinate(
@@ -93,7 +101,7 @@ export function methodRowsFromReport(report, coverageForFile, mapLine = null) {
         : null;
     const crap = coverage === null ? null : crapFormula(cyclomatic, coverage);
     rows.push({
-      method: m.name,
+      ...identities[i],
       startLine,
       cyclomatic,
       coverage,
@@ -174,15 +182,15 @@ export function finalizeMethodRows(
     }
     const coverage = unresolved ? 0 : mr.coverage;
     const crap = unresolved ? crapFormula(mr.cyclomatic, 0) : mr.crap;
+    // Everything the scan decided is carried forward; this step overrides only
+    // what its own policy resolves. Spreading rather than re-listing each field
+    // is why the row's identity marker (Story #4969) and its provenance
+    // (Story #4866) survive the step without a line each to remember them —
+    // a hand-rebuilt row is how a marker silently stops reaching the baseline.
     rows.push({
-      method: mr.method,
-      startLine: mr.startLine,
-      cyclomatic: mr.cyclomatic,
+      ...mr,
       coverage,
       crap,
-      // Provenance survives the policy step (Story #4866): a row scored 0%
-      // under `requireCoverage: false` may still be carrying a transpiled
-      // coordinate, and the compare needs to know that before it keys on it.
       coordinateSystem: mr.coordinateSystem ?? COORDINATE_ORIGINAL,
     });
   }
@@ -213,6 +221,7 @@ export function finalizeMethodRows(
  *   original line resolver; see `methodRowsFromReport`.
  * @returns {Array<{
  *   method: string,
+ *   anonymous: boolean,
  *   startLine: number,
  *   cyclomatic: number,
  *   coverage: number|null,

@@ -140,25 +140,8 @@ const KIND_FILE_PREDICATES = Object.freeze({
   // admitted here simply yields no row on either side of the merge —
   // over-inclusive is inert, under-inclusive would silently pin a changed
   // file's prior row. Erring wide is the safe direction.
-  //
-  // Spelled as a hoisted declaration rather than a fourth arrow so it does
-  // not consume an anonymous-function slot: the CRAP baseline keys rows on
-  // `<anon method-N>` ordinals, so inserting an arrow here would renumber
-  // every anon below it and report ~40 phantom regressions on functions
-  // this Story never touched.
-  duplication: isDuplicationScoredPath,
+  duplication: (p) => /\.(?:m?[jt]sx?)$/i.test(p),
 });
-
-/**
- * Diff-scope admission test for the duplication kind. See the note in
- * `KIND_FILE_PREDICATES` for why this one is a declaration.
- *
- * @param {string} p canonical POSIX repo-relative path
- * @returns {boolean}
- */
-function isDuplicationScoredPath(p) {
-  return /\.(?:m?[jt]sx?)$/i.test(p);
-}
 
 /**
  * Resolve the normalized quality block for a kind from a `config` /

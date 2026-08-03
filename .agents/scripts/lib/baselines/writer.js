@@ -261,21 +261,26 @@ export function writeFile(absPath, envelope, opts = {}) {
   // across runs and platforms. Per-kind row keys retain their natural
   // declaration order; the row sort is done by `sortRows()`.
   //
-  // Story #4775: the projection is deliberately explicit, so any per-kind
-  // envelope stamp (`scoringSemantics`, and `tsTranspilerVersion` since Story
-  // #4866) must be carried through by name or it is silently dropped on the
-  // way to disk — the stamp would then be present in memory, validated, and
-  // absent from the file it exists to protect.
+  // The projection is deliberately explicit (Story #4775): a per-kind envelope
+  // stamp reaches disk only if it is named here, so an unlisted one is present
+  // in memory, passes validation, and is absent from the file it exists to
+  // protect. That is not hypothetical — Story #4901 added `provenanceStamped`
+  // to `envelopeExtras()` and not to this list, and every baseline written
+  // between then and Story #4969 lost it at this boundary, leaving the
+  // `provenance-unstamped` axis reading an absence its own writer had
+  // manufactured.
+  //
+  // A stamp a kind does not set is simply `undefined`, and `JSON.stringify`
+  // omits an undefined-valued key — so naming all three unconditionally emits
+  // exactly what the per-key `undefined` guards used to, with nothing to
+  // half-apply when the next stamp is added.
   const canonical = {
     $schema: envelope.$schema,
     kernelVersion: envelope.kernelVersion,
     generatedAt: envelope.generatedAt,
-    ...(envelope.scoringSemantics === undefined
-      ? {}
-      : { scoringSemantics: envelope.scoringSemantics }),
-    ...(envelope.tsTranspilerVersion === undefined
-      ? {}
-      : { tsTranspilerVersion: envelope.tsTranspilerVersion }),
+    scoringSemantics: envelope.scoringSemantics,
+    tsTranspilerVersion: envelope.tsTranspilerVersion,
+    provenanceStamped: envelope.provenanceStamped,
     rollup: envelope.rollup,
     rows: envelope.rows,
   };

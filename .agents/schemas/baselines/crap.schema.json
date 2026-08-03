@@ -53,6 +53,10 @@
           "method": { "type": "string" },
           "startLine": { "type": "integer", "minimum": 1 },
           "crap": { "type": "number", "minimum": 0 },
+          "anonymous": {
+            "enum": [true],
+            "description": "Marks `method` as a DERIVED identity rather than a name the source carries (Story #4969). escomplex labels an unnamed function `<anon method-N>`, where N is a per-module counter, so inserting one anonymous function renumbers every later one and re-keys 34.6% of this baseline's rows; the derived identity is the method's enclosing-scope path plus its parameter list, which is invariant under edits elsewhere in the file. Written ONLY when true, mirroring `coordinateSystem`: a named row keeps the exact four-key shape it always had. Absence on a row whose `method` still looks anonymous is the signature of a half-migrated baseline — rows preserved verbatim by a diff-scoped refresh under an envelope stamped with the current semantics — which the `anon-identity-unstamped` compat axis fails closed."
+          },
           "coordinateSystem": {
             "enum": ["transpiled"],
             "description": "Coordinate provenance of startLine (Story #4866). Written ONLY when the row kept transpiled coordinates because its sourcemap lookup did not resolve — the absent-means-'original' default keeps a pure-JavaScript baseline byte-identical, since JavaScript coordinates already ARE original-source coordinates. A row carrying this key is not comparable to one without it: the compare refuses to resolve the two through its nearest-line drift heuristic rather than manufacturing a regression from the gap between two coordinate systems."

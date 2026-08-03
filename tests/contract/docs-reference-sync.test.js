@@ -476,6 +476,10 @@ describe('data-dictionary.md — crap.json row mirrors the live schema (Story #4
       'startLine',
     ]);
     assert.deepEqual(rowProps.sort(), [
+      // `anonymous` (Story #4969) is optional on the same terms as
+      // `coordinateSystem`: written only for a row whose `method` is a derived
+      // scope-path identity rather than a name the source carries.
+      'anonymous',
       'coordinateSystem',
       'crap',
       'method',
