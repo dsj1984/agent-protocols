@@ -12,6 +12,7 @@ import {
   resolveFeatureRoots,
   verifyBddRunnerPendingTag,
 } from '../../bdd-runner-detect.js';
+import { capBddScenarios } from '../../bdd-scenario-budget.js';
 import { scanBddScenarios } from '../../bdd-scenario-scanner.js';
 import { getPaths, PROJECT_ROOT } from '../../config-resolver.js';
 import { fetchPriorFeedback } from '../../feedback-loop/prior-feedback-fetcher.js';
@@ -73,18 +74,24 @@ async function buildPlanningDocsContext({ seedIssueId, settings, cwd }) {
 /**
  * Story #2637 — index existing BDD scenarios so the Acceptance Engineer step
  * can annotate planned ACs with matches from the project's `.feature` files.
- * Empty array when the project has not adopted BDD; the scanner is
- * best-effort and never throws on filesystem errors.
+ * Empty (capped-shape) result when the project has not adopted BDD; the
+ * scanner is best-effort and never throws on filesystem errors.
  *
- * @returns {Array<object>}
+ * Story #4977 — the scan itself stays uncapped (a faithful `.feature`
+ * index), but the envelope-bound result is truncated to
+ * `BDD_SCENARIOS_BYTE_BUDGET` via `capBddScenarios` so a mature Gherkin
+ * corpus cannot alone consume the `/plan` context-envelope ceiling. Callers
+ * needing the raw count read `totalScenarios` vs `includedScenarios`.
+ *
+ * @returns {ReturnType<typeof capBddScenarios>}
  */
 function scanBddScenariosBestEffort() {
   try {
     const featureRoots = resolveFeatureRoots({ cwd: PROJECT_ROOT });
-    return scanBddScenarios({ featureRoots });
+    return capBddScenarios(scanBddScenarios({ featureRoots }));
   } catch (err) {
     Logger.warn(`[plan-context] BDD scenario scan skipped: ${err.message}`);
-    return [];
+    return capBddScenarios([]);
   }
 }
 
