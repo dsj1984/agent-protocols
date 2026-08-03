@@ -58,7 +58,7 @@ export function resolveQueueIncrementalFields(
  * @param {Map<string, object>|null} baselineByKey
  * @returns {boolean}
  */
-export function isIncrementalJoinActive(touched, baselineByKey) {
+function isIncrementalJoinActive(touched, baselineByKey) {
   return !touched && baselineByKey != null && baselineByKey.size > 0;
 }
 

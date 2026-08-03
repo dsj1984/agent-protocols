@@ -195,6 +195,29 @@ export function writeCaptureStamp({
 }
 
 /**
+ * Read a persisted capture stamp's digest and scope tag back into the shape
+ * `isCoverageFresh` needs, applying the Story #4981 scope-asymmetry rule
+ * (AC-4) in one place. Extracted so the parent function's own branching
+ * stays under the cyclomatic ceiling.
+ *
+ * @param {{digest?: unknown, scope?: unknown} | null} stamp
+ * @param {'full' | 'incremental'} requireScope
+ * @returns {{ digest: string } | { scopeMismatch: true } | null} `null`
+ *   means the stamp is missing/unreadable/digest-less — fall through to the
+ *   mtime heuristic.
+ */
+function readStampForScope(stamp, requireScope) {
+  if (typeof stamp?.digest !== 'string' || stamp.digest.length === 0) {
+    return null;
+  }
+  const stampScope = stamp.scope === 'incremental' ? 'incremental' : 'full';
+  if (stampScope === 'incremental' && requireScope !== 'incremental') {
+    return { scopeMismatch: true };
+  }
+  return { digest: stamp.digest };
+}
+
+/**
  * Decide whether the existing coverage artifact is "fresh".
  *
  * Primary test (content-aware, Story #3982): when a capture stamp exists
@@ -251,14 +274,14 @@ export function isCoverageFresh({
     } catch {
       // Corrupt/unreadable stamp → fall through to the mtime heuristic.
     }
-    if (typeof stamp?.digest === 'string' && stamp.digest.length > 0) {
-      const stampScope = stamp.scope === 'incremental' ? 'incremental' : 'full';
-      if (stampScope === 'incremental' && requireScope !== 'incremental') {
-        return { fresh: false, reason: 'scope-mismatch' };
-      }
+    const resolved = readStampForScope(stamp, requireScope);
+    if (resolved?.scopeMismatch) {
+      return { fresh: false, reason: 'scope-mismatch' };
+    }
+    if (resolved) {
       const current = computeDigest(cwd, targetDirs);
       if (typeof current === 'string' && current.length > 0) {
-        return current === stamp.digest
+        return current === resolved.digest
           ? { fresh: true, reason: 'fresh' }
           : { fresh: false, reason: 'stale' };
       }
