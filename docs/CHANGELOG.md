@@ -15,6 +15,13 @@ All notable changes to this project will be documented in this file.
 -->
 <!-- markdownlint-disable-file MD004 MD012 MD037 -->
 
+## [2.29.0](https://github.com/dsj1984/mandrel/compare/mandrel-v2.28.0...mandrel-v2.29.0) (2026-08-03)
+
+
+### Added
+
+* incremental coverage-capture: scope the close-time coverage run to the Story diff and join unchanged files from the committed CRAP baseline ([#4981](https://github.com/dsj1984/mandrel/issues/4981)) ([#4982](https://github.com/dsj1984/mandrel/issues/4982)) ([3d73875](https://github.com/dsj1984/mandrel/commit/3d73875deb170edf69f6f480d5d1abfffebcb47d))
+
 ## [2.28.0](https://github.com/dsj1984/mandrel/compare/mandrel-v2.27.0...mandrel-v2.28.0) (2026-08-03)
 
 
