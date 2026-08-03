@@ -180,8 +180,9 @@ auto-graduates every non-blocking finding (severity high/medium/low/suggestion
 `<!-- audit-results-followup: epic-<id>-finding-<idx> -->` idempotency marker.
 Toggle: `delivery.feedbackLoop.auditResultsAutoFile` (default `true`). The
 graduator keeps its `audit-results` name and label prefix from when it read a
-separate `audit-results` comment; that comment type is retired (Stories #4411 /
-#4412 folded it into `verification-results`) but the graduator is unchanged.
+separate `audit-results` comment; that comment type is retired — Stories #4411
+and #4412 folded it into `verification-results` — but the graduator is
+unchanged.
 
 The `mcp__mandrel__post_structured_comment` tool is **gone**; the
 direct CLI is the only path. Earlier dispatcher snapshots referencing the MCP

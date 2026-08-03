@@ -131,7 +131,6 @@ The instruction layer defines **what agents are** and **how they must behave**.
 | Skills        | `.agents/skills/{core,stack}/` | Two-tier library of callable capabilities.                                                                                                       |
 | Role agents   | `.agents/agents/*.md`          | Optional role-scoped spawn boot contexts (`delivery.routing.roleScopedAgents`). No `persona::*` GitHub label axis.                              |
 
-
 #### Skill Architecture
 
 Skills use a **two-tier layout**:

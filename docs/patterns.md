@@ -118,16 +118,20 @@ tree, never beside them.
 ## Self-Healing Protocol
 
 ### Problem
+
 Static instructions (system prompts and skills) become outdated as the tech stack evolves or as agents encounter recurring edge cases. The same pattern applies at the workflow level: format drift introduced by upstream waves can break downstream pre-merge gates, and `lint-staged` globs can miss file types (Epic #990 hit this with JSON schemas). The fix is to make the close pipeline self-healing: `runFormatAutofix` (added in Epic #990) runs `biome format --write` and creates a `style:` fixup commit on the story branch when biome rewrites files, eliminating manual operator intervention for inherited drift.
 
 ### Solution
+
 Implement a **Self-Healing Protocol** pattern:
+
 1.  **Logging Phase:** Agents record "friction events" whenever a tool fails or a goal is blocked.
 2.  **Synthesis Phase:** An analyzer clusters these events into patterns.
 3.  **Healing Phase:** A refiner agent modifies the protocol (skills/rules) to prevent the recurring issue.
 4.  **Verification Phase:** An impact tracker validates that the change actually reduced friction in subsequent tasks.
 
 ### Structure
+
 ```mermaid
 graph LR
     Log[Friction Log] --> Analyze[Pattern Detection]
@@ -141,11 +145,13 @@ graph LR
 ## Story-Level Branching
 
 ### Problem
+
 A shared, long-lived integration branch (the pre-v2 `epic/<id>` model)
 becomes massive and prone to merge conflicts when every Story commits into
 it, and its lifetime couples otherwise-independent Stories.
 
 ### Solution
+
 The **Story-Level Branching** pattern gives each Story its own short-lived
 branch integrated directly into `main`. The ticket model is Story-only
 (`label-constants.js` `TYPE_LABELS` defines only `STORY`), so this is the
@@ -166,9 +172,10 @@ the Ticket Hierarchy / branch model in
 [`docs/architecture.md`](architecture.md#ticket-hierarchy).
 
 ### Benefits
-*   Reduced integration surface area.
-*   Parallel development of independent stories without conflict.
-*   Easier cherry-picking and rollback.
+
+-   Reduced integration surface area.
+-   Parallel development of independent stories without conflict.
+-   Easier cherry-picking and rollback.
 
 ---
 
@@ -249,15 +256,15 @@ rule content and rewrite any violations.
 
 ### Benefits
 
-*   Reviewers have exactly one place to verify tag or pattern validity.
-*   Additions to the taxonomy require a rule PR — a deliberate, visible
+-   Reviewers have exactly one place to verify tag or pattern validity.
+-   Additions to the taxonomy require a rule PR — a deliberate, visible
     act rather than a silent divergence in a skill.
-*   Skills stay short and focused on applied craft, not vocabulary.
+-   Skills stay short and focused on applied craft, not vocabulary.
 
 ### Trade-offs
 
-*   Higher friction to add a new tag or forbidden pattern (rule PR + review).
-*   Mitigated by designing extensible dimensions into the rule itself — e.g.
+-   Higher friction to add a new tag or forbidden pattern (rule PR + review).
+-   Mitigated by designing extensible dimensions into the rule itself — e.g.
     `@domain-<slug>` lets consumers add project-specific domains without
     touching the rule.
 
@@ -310,23 +317,23 @@ and to `run-audit-suite.js`, decomposed into helpers under `lib/audit-suite/`.
 
 ### Benefits
 
-*   Downstream consumers keep their import paths verbatim — no caller
+-   Downstream consumers keep their import paths verbatim — no caller
     edits outside the three target areas.
-*   Each submodule is individually unit-testable without mocking the
+-   Each submodule is individually unit-testable without mocking the
     entire class hierarchy.
-*   Future behaviour changes land in the submodule that owns the
+-   Future behaviour changes land in the submodule that owns the
     concern, not a 1,000-LOC grab-bag.
-*   The split merges are bisectable one-by-one because every
+-   The split merges are bisectable one-by-one because every
     intermediate state still preserves the public contract.
 
 ### Trade-offs
 
-*   Backwards-compat delegates on the facade are technical debt —
+-   Backwards-compat delegates on the facade are technical debt —
     they exist solely to keep monkey-patch-heavy tests green. They
     must be actively retired as tests migrate. The five `_`-prefixed
     delegates on `WorktreeManager` were paid down in Epic #946
     (v5.31.1) once the legacy test file was migrated off them.
-*   Two-level indirection (facade → submodule helper) is a small
+-   Two-level indirection (facade → submodule helper) is a small
     readability tax on follow-up contributors; ADR and
     `architecture.md` must explicitly note which paths are the stable
     public surface.
@@ -436,12 +443,12 @@ surfaced via `Logger.fatal()` at the CLI boundary.
 
 ### Accepted exceptions
 
-*   **`lib/Logger.js`** — defines `Logger.fatal`, the one sanctioned
+-   **`lib/Logger.js`** — defines `Logger.fatal`, the one sanctioned
     call site of `process.exit(1)`.
-*   **`lib/cli-utils.js`** — `runAsCli` is the default CLI error
+-   **`lib/cli-utils.js`** — `runAsCli` is the default CLI error
     handler; its `process.exit(exitCode)` implements the contract for
     all entry-point scripts.
-*   **One-shot utility CLIs** (e.g. `update-ticket-state.js`,
+-   **One-shot utility CLIs** (e.g. `update-ticket-state.js`,
     `generate-lifecycle-docs.js`) may call `Logger.fatal()` explicitly
     when the error has already been logged in a structured form and a
     raw stack trace would add noise. Orchestration scripts MUST `throw`
@@ -498,24 +505,24 @@ that own their own cadence.
 
 ### When to reach for it
 
-*   Waiting for an external label / state transition driven by another
+-   Waiting for an external label / state transition driven by another
     agent or a human operator.
-*   Waiting for a file or structured comment to materialise on a ticket.
+-   Waiting for a file or structured comment to materialise on a ticket.
 
 ### When NOT to use it
 
-*   Tight sub-second polling — `pollUntil` is designed for the tens-of-
+-   Tight sub-second polling — `pollUntil` is designed for the tens-of-
     seconds to minutes regime typical of orchestrator pauses. For
     sub-second work use an event or a direct await.
-*   Anything where the callee can tell you when it's done (a Promise, an
+-   Anything where the callee can tell you when it's done (a Promise, an
     emitter) — don't poll around it.
 
 ### Benefits
 
-*   Timeout + interval behaviour is consistent across every orchestrator
+-   Timeout + interval behaviour is consistent across every orchestrator
     pause site.
-*   One module to audit for jitter / abort / rate-limit behaviour.
-*   Test fixtures can inject a fake clock against one module instead of
+-   One module to audit for jitter / abort / rate-limit behaviour.
+-   Test fixtures can inject a fake clock against one module instead of
     three.
 
 ## Per-Story friction signal emission (NDJSON)

@@ -373,12 +373,12 @@ fan-out → `epic-execute-record-wave.js` (the only advancer of `currentWave`) �
 loop. Story #3909 already retired the write-only wave **bus** events with no
 reader (`wave-tick`, `epic-complete`), consolidating durable wave progress to
 **checkpoint + ledger + one `epic-run-progress` comment** — the exact "keep
-three" target of §2.2. The working crash-recovery paths are preserved: Story
-#3907's mode-B empty-returns reconcile (`--returns '[]'` re-derives `plan[N]`
-from GitHub so `currentWave` advances after a post-children/pre-record crash)
-and the §2e idle watchdog with branch-commit liveness (#3900). No further
-hop-set collapse is available without reintroducing a write-only surface or
-removing a crash-recovery branch.
+three" target of §2.2. The working crash-recovery paths are preserved:
+Story #3907's mode-B empty-returns reconcile (`--returns '[]'` re-derives
+`plan[N]` from GitHub so `currentWave` advances after a
+post-children/pre-record crash) and the §2e idle watchdog with branch-commit
+liveness (#3900). No further hop-set collapse is available without
+reintroducing a write-only surface or removing a crash-recovery branch.
 
 **3. Residual structural cleanup carried by this Story.** The #3908 deletion
 left three stale references to deleted modules in surviving code/prose, which
@@ -597,8 +597,8 @@ with no plugin/marketplace/enablement plumbing.
 Revert to a **flat projection**: `sync-claude-commands.js` writes each
 top-level `.agents/workflows/*.md` into `.claude/commands/<name>.md`, invoked
 as a bare `/<name>` command. No plugin manifest, no repo-local marketplace, no
-`enabledPlugins` / `extraKnownMarketplaces`. On a machine that synced under
-#3576, the next sync **reaps** the stale `.claude/plugins/mandrel/` +
+`enabledPlugins` / `extraKnownMarketplaces`. On a machine that synced
+under #3576, the next sync **reaps** the stale `.claude/plugins/mandrel/` +
 `.claude/.claude-plugin/`. The cwd-rooted resolution (Story #3588) and the
 frontmatter-preserving header injection (`lib/command-header.js#applyHeader`,
 so each command's `description` parses) are kept.
@@ -1495,7 +1495,7 @@ two script-name allowlists and its own test. The check passes on a file
 nothing calls.
 **Epic:** #702
 
-**Supersedes:** ADR-20260422-441b (_Canonical structured-comment writer is the MCP tool_),
+**Supersedes:** ADR-20260422-441b (*Canonical structured-comment writer is the MCP tool*),
 which is retained below for historical context only — its conclusion no longer
 applies now that the MCP server is gone.
 
@@ -1702,8 +1702,8 @@ and are preserved in the project's Git history. ADR 004
 Epic #269 introduces a BDD authoring framework: one rule
 (`.agents/rules/gherkin-standards.md`), two skills
 (`skills/stack/qa/gherkin-authoring`, `skills/stack/qa/playwright-bdd`), one
-acceptance-execution workflow (the headless BDD runner, later retired in Epic
-#3214 in favor of the agent-driven `/qa-run`), and a pyramid-aware
+acceptance-execution workflow (the headless BDD runner, later retired in
+Epic #3214 in favor of the agent-driven `/qa-run`), and a pyramid-aware
 rewrite of `testing-standards.md`. Without a single source of truth for the tag taxonomy
 and forbidden patterns, the two skills and every consuming project would
 inevitably drift into parallel vocabularies — exactly the failure mode that
@@ -1728,18 +1728,18 @@ tests rather than encoding them in `.feature` files.
 
 ### Consequences
 
-*   **Positive:**
-    *   One place to look for the tag grammar; reviewers can mechanically
+-   **Positive:**
+    -   One place to look for the tag grammar; reviewers can mechanically
         reject unknown tags.
-    *   `gherkin-authoring` and `playwright-bdd` stay focused on *how* and
+    -   `gherkin-authoring` and `playwright-bdd` stay focused on *how* and
         *when* without redefining *what*.
-    *   The audit from Task #294 becomes a repeatable pattern — grep the
+    -   The audit from Task #294 becomes a repeatable pattern — grep the
         skills for redefinition, point at the rule.
-*   **Negative:**
-    *   Rule-level changes are higher friction than editing a skill; adding a
+-   **Negative:**
+    -   Rule-level changes are higher friction than editing a skill; adding a
         new domain tag requires a PR to the rule.
-*   **Mitigation:**
-    *   `@domain-<slug>` is extensible by design — consumers pick their own
+-   **Mitigation:**
+    -   `@domain-<slug>` is extensible by design — consumers pick their own
         slug without touching the rule. Only the top-level tag *categories*
         are closed.
 
@@ -1784,27 +1784,27 @@ submodule paths are internal implementation detail.
 
 ### Consequences
 
-*   **Positive:**
-    *   No caller needs to change — `dispatcher.js`,
+-   **Positive:**
+    -   No caller needs to change — `dispatcher.js`,
         `mcp-orchestration script`, `sprint-story-{init,close}.js`, and every
         test file continue to import from the existing paths.
-    *   Each submodule owns one responsibility and is individually
+    -   Each submodule owns one responsibility and is individually
         unit-testable; 65 new per-submodule tests landed alongside the
         refactor (13 manifest + 35 worktree + 17 orchestration).
-    *   Future behaviour changes touch the submodule that owns the
+    -   Future behaviour changes touch the submodule that owns the
         concern, not a 1,000-LOC grab-bag.
-*   **Negative:**
-    *   The facade carries a handful of backwards-compat `_*` delegate
+-   **Negative:**
+    -   The facade carries a handful of backwards-compat `_*` delegate
         methods on `WorktreeManager` so the existing 46-test
         `worktree-manager.test.js` keeps passing without edits. They are
         technical debt to be retired once those tests migrate to
         per-submodule imports.
-    *   One new lazy-VerboseLogger implementation (`dispatch-logger.js`)
+    -   One new lazy-VerboseLogger implementation (`dispatch-logger.js`)
         duplicates the pattern used elsewhere in the codebase.
-*   **Mitigation:**
-    *   Retro action items track both the delegate retirement and the
+-   **Mitigation:**
+    -   Retro action items track both the delegate retirement and the
         lazy-logger consolidation.
-    *   Downstream consumers are explicitly told (in `architecture.md`
+    -   Downstream consumers are explicitly told (in `architecture.md`
         and this ADR) that only the facade paths are stable — submodule
         paths may be renamed without a major version bump.
 
@@ -1822,9 +1822,9 @@ Triggered Epic-level orchestration from a GitHub label via `epic-orchestrator.ym
 
 ## ADR-20260421-321b: Retire `risk::high` runtime gating
 
-*   **Status:** Accepted (Epic #321 Story #334, v5.14.0).
-*   **Surface:** `.agents/instructions.md`
-*   **Materially dead:** the outcome holds — no runtime `risk::high` gate
+-   **Status:** Accepted (Epic #321 Story #334, v5.14.0).
+-   **Surface:** `.agents/instructions.md`
+-   **Materially dead:** the outcome holds — no runtime `risk::high` gate
     exists — but every mechanism below is gone and the Surface is a doc file
     that cannot witness it either way. `risk-gate-handler.js`,
     `wave-dispatcher.js`, `story-close.js` are absent;
@@ -1832,28 +1832,28 @@ Triggered Epic-level orchestration from a GitHub label via `epic-orchestrator.ym
     `hitl.riskHighApproval` / `hitl.riskHighRuntimeGate` are not config keys —
     the escape hatch this ADR preserved went with the in-process stratum.
     Read the Decision as a 2026-04 record, not as live wiring.
-*   **Context:** `risk-gate-handler.js` halted the dispatcher on
+-   **Context:** `risk-gate-handler.js` halted the dispatcher on
     `risk::high` tasks, and `story-close.js` halted close for
     `risk::high` stories. In the new HITL-minimal model this becomes
     two per-ticket gates the orchestrator must pause on — incompatible
     with unattended remote runs.
-*   **Decision:** The runtime halt is removed. `handleRiskHighGate`
+-   **Decision:** The runtime halt is removed. `handleRiskHighGate`
     reduces to a log-only warning; `wave-dispatcher.js` dispatches
     `risk::high` tasks unconditionally; `story-close.js` gates
     only when both `hitl.riskHighApproval` **and**
     `hitl.riskHighRuntimeGate` are explicitly `true` (both default
     `false`). The label is preserved — retros and planning can still
     query it as metadata.
-*   **Alternatives considered:** rename the label to
+-   **Alternatives considered:** rename the label to
     `metadata::risk-high` to make its informational nature legible —
     deferred to Epic #349 as it is a breaking taxonomy change.
-*   **Consequences:**
-    *   Destructive-action containment moves from runtime approval to
+-   **Consequences:**
+    -   Destructive-action containment moves from runtime approval to
         (a) GitHub branch protection on `main`, (b) executor sub-agent
         `agent::blocked` escalation when an unauthorized destructive
         action is detected, (c) `epic::auto-close` as a deliberate
         opt-in that must be set at dispatch.
-    *   `handleHighRiskGate` in `story-close.js` becomes dead
+    -   `handleHighRiskGate` in `story-close.js` becomes dead
         code behind a hidden opt-in flag — cleanup tracked in Epic
         #349 Wave 0.
 
@@ -1861,9 +1861,9 @@ Triggered Epic-level orchestration from a GitHub label via `epic-orchestrator.ym
 
 ## ADR-20260422-380a: Two-stage Windows worktree reap (fs.rm retry + deferred sweep)
 
-*   **Status:** Accepted (Epic #380 Story #386, v5.15.1).
-*   **Surface:** `.agents/scripts/lib/worktree/lifecycle-manager.js`
-*   **Context:** The v5.7.0 worktree-per-story model ships a clean
+-   **Status:** Accepted (Epic #380 Story #386, v5.15.1).
+-   **Surface:** `.agents/scripts/lib/worktree/lifecycle-manager.js`
+-   **Context:** The v5.7.0 worktree-per-story model ships a clean
     `reap` path for POSIX, but on Windows `git worktree remove` + the
     follow-up `fs.rm` routinely fail with `EBUSY` / `ENOTEMPTY` because
     antivirus, indexing, and `node_modules` file handles hold the
@@ -1871,7 +1871,7 @@ Triggered Epic-level orchestration from a GitHub label via `epic-orchestrator.ym
     symptom was `branchDeleted: false` from `/sprint-story-close` plus
     orphan `.worktrees/story-<id>/` residue that broke the next
     `npm run lint` (nested `biome.json` in the orphan was picked up).
-*   **Decision:** Reap is now a two-stage operation inside
+-   **Decision:** Reap is now a two-stage operation inside
     `lifecycle-manager.js`:
 
     1. Primary path retries `fs.rm(..., { recursive: true, force: true,
@@ -1880,28 +1880,28 @@ Triggered Epic-level orchestration from a GitHub label via `epic-orchestrator.ym
        `.worktrees/.pending-cleanup.json` and drained on the next
        worktree-manager run by `worktree-sweep.js`.
 
-*   **Explicitly rejected approaches:**
-    *   **Shelling out to `rm -rf` / `cmd /c rd /s /q`** — makes the
+-   **Explicitly rejected approaches:**
+    -   **Shelling out to `rm -rf` / `cmd /c rd /s /q`** — makes the
         deletion opaque to Node, silently succeeds while antivirus is
         still scanning, and would require per-platform branching. The
         `fs.rm` retry path surfaces real errors and is test-drivable
         with an injected adapter.
-    *   **Switching the default `node_modules` strategy to `symlink` or
+    -   **Switching the default `node_modules` strategy to `symlink` or
         `pnpm-store`** to shrink the reap surface — rejected; the
         `per-worktree` strategy is the only one that is correct on every
         platform and CI image, and the original Epic #229 ADR
         (ADR 003) documents why. The Windows reap problem is worth
         fixing on its own terms without touching the install model.
-    *   **Global mutex around reap** — rejected for the same reason the
+    -   **Global mutex around reap** — rejected for the same reason the
         fetch path refused one: it would erase the parallelism the
         worktree model is designed to enable.
-*   **Consequences:**
-    *   `/sprint-story-close` reports `branchDeleted: true` on Windows
+-   **Consequences:**
+    -   `/sprint-story-close` reports `branchDeleted: true` on Windows
         across the common antivirus failure modes; the remaining tail
         is handled asynchronously by the sweep.
-    *   New artefact: `.worktrees/.pending-cleanup.json` (see
+    -   New artefact: `.worktrees/.pending-cleanup.json` (see
         `docs/data-dictionary.md#8-epic-380-artefacts-v5151`).
-    *   Orphan-worktree biome lint block (documented in operator
+    -   Orphan-worktree biome lint block (documented in operator
         auto-memory) disappears once the sweep drains a queued entry.
 
 ---
@@ -1938,21 +1938,21 @@ Made `sprint-story-close` recovery explicit via `--resume` / `--restart` rather 
 
 ## ADR-20260422-441a: Force-reap worktrees whose Story branch is already merged
 
-*   **Status:** Accepted (Epic #441 Story #451, v5.15.3) — rule stands; the
+-   **Status:** Accepted (Epic #441 Story #451, v5.15.3) — rule stands; the
     `/sprint-close` Phase 4 mechanics below are superseded. The
     force-reap-when-already-merged rule now lives in the protected boot sweep
     (`boot-sweep.js`), which reaps a local branch only when its PR is MERGED
     and HEAD matches the merged `headRefOid`; content-merged branches are
     report-only.
-*   **Surface:** `.agents/scripts/boot-sweep.js`
-*   **Context:** Epic #413's `/sprint-close` Phase 4 reaper left 3 of 6
+-   **Surface:** `.agents/scripts/boot-sweep.js`
+-   **Context:** Epic #413's `/sprint-close` Phase 4 reaper left 3 of 6
     worktrees orphaned (`story-420`, `story-423`, `story-424`) with
     `reap-skipped: uncommitted-changes`, even though every Story branch
     had already merged into `epic/413`. The "uncommitted" content was
     biome-format drift and already-merged agent edits — safe to
     discard, but the reaper's conservative default preserved them and
     required manual `rmdir` + `git worktree prune` + `git branch -D`.
-*   **Decision:** When `git merge-base --is-ancestor` confirms the
+-   **Decision:** When `git merge-base --is-ancestor` confirms the
     Story branch is already part of `epic/<id>`, Phase 4 force-reaps
     the worktree by default (`git worktree remove --force` + prune +
     `branch -D`). The destructive step is bounded to "already-merged"
@@ -1961,19 +1961,19 @@ Made `sprint-story-close` recovery explicit via `--resume` / `--restart` rather 
     conservative behavior. Force-reap emits a `friction` structured
     comment naming the Story and listing the discarded paths so the
     signal isn't lost.
-*   **Alternatives considered:**
-    *   Move the assertion check before the reaper (so the reap runs
+-   **Alternatives considered:**
+    -   Move the assertion check before the reaper (so the reap runs
         against the still-unmerged branch) — rejected; it conflates
         merge state with reap state and does not solve the "Windows
         worktree is EBUSY because a process holds a file handle" case.
-    *   Require every close to commit format drift onto the Story
+    -   Require every close to commit format drift onto the Story
         branch before merging — rejected; increases pre-merge noise
         without changing the post-merge "discard is safe" property.
-*   **Consequences:**
-    *   The manual reap recipe becomes obsolete for the `already-merged`
+-   **Consequences:**
+    -   The manual reap recipe becomes obsolete for the `already-merged`
         case; truly-in-progress worktrees are now the exclusive domain
         of the `--no-` override.
-    *   Operators who intentionally leave work-in-progress in a
+    -   Operators who intentionally leave work-in-progress in a
         worktree after close must pass the override explicitly.
 
 ## ADR-20260422-441b: Canonical structured-comment writer is the MCP tool (superseded)
@@ -2008,25 +2008,25 @@ Kept Feature tickets inside the completion cascade while excluding Epics and pla
 
 ## ADR-20260423-511b: `transitionTicketState.fromState` lookup keeps its swallow, now with a debug log
 
-*   **Status:** Accepted
-*   **Date:** 2026-04-23
-*   **Surface:** `.agents/scripts/providers/github/tickets.js`
-*   **Epic:** #511
-*   **Context:** `transitionTicketState()` wraps the prior-state label
+-   **Status:** Accepted
+-   **Date:** 2026-04-23
+-   **Surface:** `.agents/scripts/providers/github/tickets.js`
+-   **Epic:** #511
+-   **Context:** `transitionTicketState()` wraps the prior-state label
     lookup in a silent try/catch — any error leaves `fromState` as `null`
     and downstream notifier payloads ship `{ fromState: null, toState: … }`.
     The review under Epic #511 asked: deliberate or accidental?
-*   **Decision:** Deliberate — keep swallowing. A transient network flake
+-   **Decision:** Deliberate — keep swallowing. A transient network flake
     reading the prior label must not block a legitimate state transition;
     the transition itself is the authoritative event. Add a `debug`-level
     log so the operator can correlate a null `fromState` with the
     underlying error, and document `null` as a valid value in the notifier
     payload contract.
-*   **Consequences:**
-    *   Transitions remain resilient to read flakes.
-    *   Consumers that branch on `fromState` must handle `null`
+-   **Consequences:**
+    -   Transitions remain resilient to read flakes.
+    -   Consumers that branch on `fromState` must handle `null`
         explicitly (existing contract now documented).
-    *   Silent failures are observable at `debug` log level.
+    -   Silent failures are observable at `debug` log level.
 
 ---
 
@@ -2062,11 +2062,11 @@ Made per-phase timing a first-class Epic-runner surface, posting a `phase-timing
 
 ## ADR-20260424-596a: CRAP as a sibling gate, not a replacement for MI
 
-*   **Status:** Accepted
-*   **Date:** 2026-04-24
-*   **Surface:** `baselines/maintainability.json`
-*   **Epic:** #596
-*   **Context:** The maintainability (MI) gate ratchets a per-file composite
+-   **Status:** Accepted
+-   **Date:** 2026-04-24
+-   **Surface:** `baselines/maintainability.json`
+-   **Epic:** #596
+-   **Context:** The maintainability (MI) gate ratchets a per-file composite
     score, but is coverage-blind: a 30-branch function scores identically
     whether it has 0% or 100% test coverage. MI tells operators *what to
     refactor*; it does not tell them *what to test next*. Per-method
@@ -2076,7 +2076,7 @@ Made per-phase timing a first-class Epic-runner surface, posting a `phase-timing
     have churned every existing consumer baseline and conflated two distinct
     questions (file-level refactor priority vs. method-level test priority)
     onto one ratchet.
-*   **Decision:** Ship CRAP as a **sibling pipeline** with its own baseline
+-   **Decision:** Ship CRAP as a **sibling pipeline** with its own baseline
     artefact (`crap-baseline.json`), CLIs (`check-crap`, `update-crap-
     baseline`), and config block (`delivery.quality.gates.crap`).
     Wire it at the same three sites as MI (close-validation, ci.yml, pre-
@@ -2086,12 +2086,12 @@ Made per-phase timing a first-class Epic-runner surface, posting a `phase-timing
     never a failure. Both gates share an envelope shape
     (`{ kernelVersion, summary, violations }`) so agent workflows can consume
     both with one parser.
-*   **Consequences:**
-    *   Existing `maintainability-baseline.json` stays valid — no consumer
+-   **Consequences:**
+    -   Existing `maintainability-baseline.json` stays valid — no consumer
         repo gets a free baseline reshuffle on adoption.
-    *   The two questions separate cleanly: MI = "where is the rot?", CRAP
+    -   The two questions separate cleanly: MI = "where is the rot?", CRAP
         = "where is the untested complexity?".
-    *   A future Epic can refactor both gates onto a shared envelope/helper
+    -   A future Epic can refactor both gates onto a shared envelope/helper
         base if/when symmetry pays off; today's parity is shape-level only.
 
 ## ADR-20260424-596b: Base-branch-enforced anti-gaming guardrail (reverted)
@@ -2106,31 +2106,31 @@ Read quality-gate thresholds from the base branch rather than the PR branch, so 
 
 ## ADR-20260424-596c: Kernel-version stamp on the CRAP baseline
 
-*   **Status:** Accepted
-*   **Date:** 2026-04-24
-*   **Surface:** `baselines/crap.json`
-*   **Epic:** #596
-*   **Context:** `typhonjs-escomplex` makes scoring decisions that change
+-   **Status:** Accepted
+-   **Date:** 2026-04-24
+-   **Surface:** `baselines/crap.json`
+-   **Epic:** #596
+-   **Context:** `typhonjs-escomplex` makes scoring decisions that change
     between minor versions. Without a version stamp, an upstream dependency
     bump silently rescores every method, producing a ghost baseline that
     looks healthy but compares against numbers no one ran. Worse, an
     "everything passes" run after a bump masks real regressions in the
     delta. Consumer repos pulling the framework as a submodule absorb the
     bump without warning.
-*   **Decision:** Stamp `crap-baseline.json` with two version fields:
+-   **Decision:** Stamp `crap-baseline.json` with two version fields:
     `kernelVersion` (the inline CRAP formula's contract) and
     `escomplexVersion` (the dep). On any mismatch with the running scorer,
     `check-crap` exits 1 with `[CRAP] scorer changed from X to Y — run 'npm
     run crap:update'`. The bootstrap path (no baseline at all) still exits 0
     with a different message — first-run on a consumer repo must never hard-
     fail.
-*   **Consequences:**
-    *   Dependency bumps surface explicitly with a clear remediation, not
+-   **Consequences:**
+    -   Dependency bumps surface explicitly with a clear remediation, not
         as a quiet rescore.
-    *   Bootstrap and version-mismatch are distinct exit codes (0 vs 1)
+    -   Bootstrap and version-mismatch are distinct exit codes (0 vs 1)
         and distinct messages — operators do not have to diff stdout to
         tell a fresh repo from a dependency drift.
-    *   The `kernelVersion` field gives us a future-proof seam for
+    -   The `kernelVersion` field gives us a future-proof seam for
         in-formula changes (e.g., switching from `(1−cov)³` to `(1−cov)²`)
         without a destructive force-rescore on every consumer.
 
@@ -2138,18 +2138,18 @@ Read quality-gate thresholds from the base branch rather than the PR branch, so 
 
 ## ADR-20260424-638a: `story-566` reap recovery is a self-inflicted dirty-tree bug
 
-*   **Status:** Accepted
-*   **Date:** 2026-04-24
-*   **Surface:** `.agents/scripts/lib/worktree/bootstrapper.js`
-*   **Epic:** #638 (Story #648)
-*   **Context:** Epic #553 close fired the `worktree.reap recovered via
+-   **Status:** Accepted
+-   **Date:** 2026-04-24
+-   **Surface:** `.agents/scripts/lib/worktree/bootstrapper.js`
+-   **Epic:** #638 (Story #648)
+-   **Context:** Epic #553 close fired the `worktree.reap recovered via
     fs-rm-retry … attempts=1 lockReason=contains modified or untracked
     files` warning on `story-566`. The log is shaped for Windows-lock
     recovery, but `attempts=1` and the stderr quoted `git worktree
     remove`'s *own* uncommitted-files guard — not a lock class error.
     Classification required tracing the full reap path on a framework
     checkout (where `.agents/` is a tracked directory, not a submodule).
-*   **Root cause:** `removeCopiedAgents()` in
+-   **Root cause:** `removeCopiedAgents()` in
     `.agents/scripts/lib/worktree/bootstrapper.js` unconditionally
     `fs.rmSync`'s `<wtPath>/.agents` before `git worktree remove` runs.
     The three follow-up index operations self-guard on
@@ -2161,13 +2161,13 @@ Read quality-gate thresholds from the base branch rather than the PR branch, so 
     `fs.rm` then removes the whole worktree, so the reap ultimately
     succeeds — but the warn log misattributes the cause to a Windows
     lock, and every framework-repo story close pays the retry cycle.
-*   **Why the existing coverage missed it:**
+-   **Why the existing coverage missed it:**
     `tests/lib/worktree-manager.test.js` line 1419 — *"skips index
     scrub in non-submodule (framework) repos"* — creates `wtPath` but
     never materialises `wtPath/.agents`, so `fs.lstatSync` throws and
     the `fs.rmSync` branch is never exercised. Real framework worktrees
     always have a checked-out `.agents/` directory.
-*   **Decision:** Classify as a **recoverable bug (outcome b)**. Guard
+-   **Decision:** Classify as a **recoverable bug (outcome b)**. Guard
     the `fs.rmSync`/`fs.unlinkSync` in `removeCopiedAgents` with
     `isAgentsSubmodule(repoRoot)`, matching the self-guard already
     present on the three index-scrub follow-ups. Keep the
@@ -2175,30 +2175,30 @@ Read quality-gate thresholds from the base branch rather than the PR branch, so 
     belt-and-braces for genuine Windows locks. Add a regression test
     asserting that a materialised `.agents/` survives
     `removeCopiedAgents` in a non-submodule repo.
-*   **Consequences:**
-    *   Framework-repo story closes stop paying the retry cycle and
+-   **Consequences:**
+    -   Framework-repo story closes stop paying the retry cycle and
         stop emitting misleading `fs-rm-retry` warnings on every close.
-    *   `git worktree remove` now succeeds on its first attempt in the
+    -   `git worktree remove` now succeeds on its first attempt in the
         common framework path; Stage 1 recovery resumes being a
         real-failure signal instead of a self-inflicted one.
-    *   Submodule-consumer repos are unaffected: `isAgentsSubmodule`
+    -   Submodule-consumer repos are unaffected: `isAgentsSubmodule`
         returns true, the physical delete still runs, and the index
         scrub + modules purge continue as before.
-    *   The retained fs-rm fallback still covers the true Windows-lock
+    -   The retained fs-rm fallback still covers the true Windows-lock
         case it was designed for.
 
 ## ADR-20260426-817a: Validation evidence is keyed by commit SHA, not by build ID
 
-*   **Status:** Accepted (Epic #817, v5.28.0).
-*   **Surface:** `.agents/scripts/evidence-gate.js`
-*   **Context:** Epic #817's hot-path audit found lint and tests running
+-   **Status:** Accepted (Epic #817, v5.28.0).
+-   **Surface:** `.agents/scripts/evidence-gate.js`
+-   **Context:** Epic #817's hot-path audit found lint and tests running
     five-plus times per Story against the same tree (sprint-execute Step 2,
     story-close, sprint-code-review, sprint-close Phase 4, pre-push, CI).
     The dominant local cost was repeat work, not new work, and the
     duplicate runs were the largest source of agents chasing the same
     failure across phases. We needed a skip mechanism that did not let a
     stale pass paper over a fresh regression.
-*   **Decision:** Each successful gate (lint, test, biome format, MI, CRAP)
+-   **Decision:** Each successful gate (lint, test, biome format, MI, CRAP)
     writes `{ gateName, commitSha, commandConfigHash, timestamp, exitCode }`
     under the per-Epic tree at
     `temp/epic-<epicId>/validation-evidence.json` (Epic-scoped) or
@@ -2210,12 +2210,12 @@ Read quality-gate thresholds from the base branch rather than the PR branch, so 
     Anything else — dirty tree, new commit, config change, missing
     evidence file — runs the gate. `--no-evidence` is the explicit override
     for iterating on a flaky test.
-*   **Consequences:**
-    *   Repeat phases against an unchanged tree skip in milliseconds.
-    *   False-green risk stays bounded: any working-tree change at the
+-   **Consequences:**
+    -   Repeat phases against an unchanged tree skip in milliseconds.
+    -   False-green risk stays bounded: any working-tree change at the
         commit-SHA granularity invalidates the evidence; config drift
         invalidates it via the command-config hash.
-    *   Evidence is `temp/`-local and gitignored, so the skip is per-clone
+    -   Evidence is `temp/`-local and gitignored, so the skip is per-clone
         — CI gets its own evidence record (or none), and pre-push hooks
         retain authoritative independence.
 
@@ -2231,32 +2231,32 @@ Named `sprint-story-close` the single canonical local Story validation gate, so 
 
 ## ADR-20260426-817c: Soft-failing gates surface degraded state explicitly, not silently
 
-*   **Status:** Accepted (Epic #817, v5.28.0).
-*   **Surface:** `.agents/scripts/lint-baseline.js`
-*   **Context:** `select-audits.js` (diff timeout fallback to keyword-only),
+-   **Status:** Accepted (Epic #817, v5.28.0).
+-   **Surface:** `.agents/scripts/lint-baseline.js`
+-   **Context:** `select-audits.js` (diff timeout fallback to keyword-only),
     `lint-baseline.js` (zero-error fallback on JSON parse failure), and
     `baseline-refresh-guardrail.js` (empty-changed-files on `git diff`
     failure) all returned permissive zero-error envelopes when their
     inputs failed. The audit found this fail-open behaviour produced
     silent green runs that read identically to genuine clean runs.
-*   **Decision:** Each soft-failing gate either fails closed under
+-   **Decision:** Each soft-failing gate either fails closed under
     `--gate-mode` (or `MANDREL_GATE_MODE=1`) — non-zero exit, no
     permissive output — or returns a structured `{ ok: false, degraded:
     true, reason, detail }` envelope on stdout with a non-zero exit code.
     The caller decides how to interpret. The mute fail-open path is gone.
-*   **Consequences:**
-    *   Operators can no longer mistake a degraded run for a clean one.
-    *   CI / pre-push integrations that previously absorbed the silent
+-   **Consequences:**
+    -   Operators can no longer mistake a degraded run for a clean one.
+    -   CI / pre-push integrations that previously absorbed the silent
         green now see explicit degraded output and may need a one-line
         adjustment to their handling.
-    *   The structured envelope shape is consistent across all three
+    -   The structured envelope shape is consistent across all three
         gates so a single helper detects degradation.
 
 ## ADR-20260426-817d: CLI entrypoints carry `node:coverage ignore file`; their `main()` is exercised via integration tests, not unit-line coverage
 
-*   **Status:** Accepted (Epic #817 follow-on, v5.28.1).
-*   **Surface:** `.agents/scripts/notify.js`
-*   **Context:** Story #816's long-tail CRAP cleanup attempted to score
+-   **Status:** Accepted (Epic #817 follow-on, v5.28.1).
+-   **Surface:** `.agents/scripts/notify.js`
+-   **Context:** Story #816's long-tail CRAP cleanup attempted to score
     `run-audit-suite.js::main`, only to find the file was silently dropped
     from the CRAP scan because its first comment line is
     `/* node:coverage ignore file */`. Twenty-one other CLI entrypoints
@@ -2271,7 +2271,7 @@ Named `sprint-story-close` the single canonical local Story validation gate, so 
     The convention pre-dates this Epic but had never been written down,
     making it ambiguous whether the directive on a given file was a
     deliberate convention or an accidental escape hatch.
-*   **Decision:** The `node:coverage ignore file` directive is the
+-   **Decision:** The `node:coverage ignore file` directive is the
     canonical convention for **CLI entrypoint scripts** under
     `.agents/scripts/`. An entrypoint's `main()` orchestrates pure helpers
     that are themselves unit-tested; the orchestrator is exercised
@@ -2284,35 +2284,35 @@ Named `sprint-story-close` the single canonical local Story validation gate, so 
     behaviour the integration tests already cover, and (b) running the
     CLI under coverage costs wall-clock time the helper-level tests buy
     cheaper.
-*   **Scope of the convention:**
-    *   The directive applies to **CLI entrypoints only** — files at the
+-   **Scope of the convention:**
+    -   The directive applies to **CLI entrypoints only** — files at the
         top of `.agents/scripts/` that ship a `runAsCli(import.meta.url,
         main, ...)` invocation or are the documented `node ...` target
         of a workflow phase.
-    *   It does **not** apply to library files under
+    -   It does **not** apply to library files under
         `.agents/scripts/lib/`. Library code remains fully covered.
-    *   It does **not** waive the obligation to ratchet helpers exercised
+    -   It does **not** waive the obligation to ratchet helpers exercised
         by the entrypoint. The "extract pure helpers + add tests" pattern
         from Story #792 / #816 still applies — pull complex branching
         out of `main()` into testable helpers in either the same file
         (`export function ...`) or a sibling module under `lib/`.
-*   **Consequences:**
-    *   The CRAP gate's silent drop of these 22 files is intentional and
+-   **Consequences:**
+    -   The CRAP gate's silent drop of these 22 files is intentional and
         documented; future audits can stop flagging it as a gap.
-    *   New CLI entrypoints follow the same convention. If a new
+    -   New CLI entrypoints follow the same convention. If a new
         entrypoint does **not** carry the directive, that is a deliberate
         choice — typically because the file is small enough to remain
         fully testable as a single unit — and should be called out in
         the PR description.
-    *   The convention is reviewed if a regression slips past the helper
+    -   The convention is reviewed if a regression slips past the helper
         tests but would have been caught by main-level coverage. None
         observed to date.
 
 ## ADR-20260502-960a: Production code is not shaped by test internals — tests import helpers directly with an explicit `ctx` bag
 
-*   **Status:** Accepted (Epic #946, Stories C1+C2 → #960).
-*   **Surface:** `.agents/scripts/lib/worktree/bootstrapper.js`
-*   **Context:** `WorktreeManager` historically grew a "Backwards-compat
+-   **Status:** Accepted (Epic #946, Stories C1+C2 → #960).
+-   **Surface:** `.agents/scripts/lib/worktree/bootstrapper.js`
+-   **Context:** `WorktreeManager` historically grew a "Backwards-compat
     delegates for tests that probe private helpers" block — five
     `_`-prefixed methods (`_copyBootstrapFiles`, `_provisionWorkspace`,
     `_copyAgentsFromRoot`, `_removeCopiedAgents`, `_isAgentsSubmodule`)
@@ -2325,7 +2325,7 @@ Named `sprint-story-close` the single canonical local Story validation gate, so 
     modules and passed an explicit `ctx` bag, so the delegates were
     dead weight on the production code path while the test file
     continued to pretend the manager owned the logic.
-*   **Decision:** Production modules do not carry test-shaped surfaces.
+-   **Decision:** Production modules do not carry test-shaped surfaces.
     When a class's internal helpers are extracted into pure functions
     that take a `ctx` bag, the corresponding tests **migrate to the
     helper module directly** rather than the class re-exposing the
@@ -2341,20 +2341,20 @@ Named `sprint-story-close` the single canonical local Story validation gate, so 
     `removeCopiedAgents(ctx, wtPath)` /
     `isAgentsSubmodule(repoRoot)` from `worktree/bootstrapper.js`
     instead of the deleted `wm._*` delegates.
-*   **Consequences:**
-    *   `WorktreeManager` shrinks: the ~70-line backwards-compat block
+-   **Consequences:**
+    -   `WorktreeManager` shrinks: the ~70-line backwards-compat block
         in `lib/worktree-manager.js` is gone, leaving only the public
         lifecycle facade (`ensure`, `reap`, `gc`, `prune`, `list`,
         `pathFor`, `isSafeToRemove`, `sweepStaleLocks`).
-    *   Tests for the bootstrap / submodule logic become independent of
+    -   Tests for the bootstrap / submodule logic become independent of
         the class's wiring — they exercise the helper contract
         verbatim, so a future split or rename of `WorktreeManager` does
         not invalidate the suite.
-    *   New code follows the same rule: a helper extracted "for
+    -   New code follows the same rule: a helper extracted "for
         testability" is tested at the helper boundary, not via a
         manager-level passthrough. Reviewers reject `_`-prefixed
         delegates whose only call site is a test file.
-    *   The ctx bag fields each helper expects are documented in the
+    -   The ctx bag fields each helper expects are documented in the
         helper's JSDoc; tests construct bags inline rather than
         reaching through a partially-constructed class instance to
         mutate them (the old `wm._isAgentsSubmodule = () => true`
@@ -2417,28 +2417,28 @@ honoured.
 
 ### Consequences
 
-*   **Decompose now fails fast** when a planner hallucinates a code
+-   **Decompose now fails fast** when a planner hallucinates a code
     asset that does not exist on the Epic base branch. The failure
     surfaces before any GitHub issue is created, so operators do not
     have to unwind partial decompositions or close hallucinated Tasks
     as `not_planned`.
-*   **The validator's signature is a no-op opt-in.** Callers that omit
+-   **The validator's signature is a no-op opt-in.** Callers that omit
     `opts.baseBranchRef` (legacy unit tests, ad-hoc replays without a
     git context) keep their pre-1114 semantics — the freshness clause
     is skipped entirely. Production decompose always passes the ref so
     the gate is on by default in the live path.
-*   **Regex bounds are intentional.** The three roots
+-   **Regex bounds are intentional.** The three roots
     (`.agents/scripts`, `lib`, `tests`) cover the executable surface
     that decomposer Tasks legitimately edit. Docs (`docs/`), baselines
     (`baselines/`), and fixture data are deliberately out of scope —
     they change frequently and a planner naming a docs path is not a
     structural failure mode worth blocking the decompose pass on.
-*   **Probe results are cached per path** within a single decompose
+-   **Probe results are cached per path** within a single decompose
     run. Sibling Tasks that cite the same helper module hit the cache
     instead of re-spawning git, keeping the gate's overhead linear in
     the number of unique referenced paths rather than in the number of
     Tasks.
-*   **Story #1089's body was edited as a side cleanup** (Task #1139)
+-   **Story #1089's body was edited as a side cleanup** (Task #1139)
     so a future re-decompose pass against that Story does not re-cut a
     structurally impossible Task. The bullet citing the deleted
     aggregator script is gone; a follow-on note in the Story body
@@ -2521,7 +2521,7 @@ The seven-row recategorization matrix from the Epic body (#1184) codifies the sp
 | Item | Decision | Rationale |
 | --- | --- | --- |
 | `agents-bootstrap-*` → `mandrel-bootstrap-*` | **Keep `agents-bootstrap-*`** | The name describes what it bootstraps — the `.agents/` directory, which the rebrand explicitly preserves as a stable filename. Brand-prefixing where the artifact name is already more self-describing is reverse-coupling. |
-| `agents-update` → `mandrel-update` | **Rename to `mandrel-update`** | The command now runs `npx mandrel update` — it upgrades the `mandrel` **npm package**, then re-materializes `.agents/`. `mandrel-update` names exactly that, and reads as unambiguously "update the framework" from a consumer's seat (the consumer never thinks of `.agents/` by that name). _(Supersedes the original rebrand-era call to keep `agents-update`, whose rationale — "updates the `.agents/` submodule pointer" — was made obsolete by the move from the Git-submodule distribution model to the npm package.)_ The sibling `agents-bootstrap-*` row still stands — those commands genuinely scaffold the `.agents/` directory. |
+| `agents-update` → `mandrel-update` | **Rename to `mandrel-update`** | The command now runs `npx mandrel update` — it upgrades the `mandrel` **npm package**, then re-materializes `.agents/`. `mandrel-update` names exactly that, and reads as unambiguously "update the framework" from a consumer's seat (the consumer never thinks of `.agents/` by that name). *(Supersedes the original rebrand-era call to keep `agents-update`, whose rationale — "updates the `.agents/` submodule pointer" — was made obsolete by the move from the Git-submodule distribution model to the npm package.)* The sibling `agents-bootstrap-*` row still stands — those commands genuinely scaffold the `.agents/` directory. |
 | `delete-epic-*` workflows → scripts-only | **Keep as workflows** | Destructive operations benefit from slash-command discoverability and the workflow-level confirmation step. The scripts are thin, but the operator's entry point and confirmation home is the workflow file. |
 | `epic-plan` / `epic-deliver` → `mandrel-plan` / `mandrel-deliver` | **Keep as `epic-*`** | "Epic" is the domain concept the framework operates on. `mandrel-plan` is strictly less informative ("plan what?"). The noun the workflow acts on is the right primary axis for the name. |
 | `story-deliver` → helper | **Keep as command** | Operator-facing for individual story re-runs and debugging. The documented argument is a Story ID; the workflow is intended to be human-invocable, not just a fan-out target. |
@@ -2540,4 +2540,3 @@ The seven-row recategorization matrix from the Epic body (#1184) codifies the sp
 - **Brand-prefix every command** (the maximalist position). Rejected — clutters the `/` menu, makes every consumer-facing example longer, reverses the same naming logic that keeps `.agents/` and `.agentrc.json` stable through the rebrand, and offers no information value because the consumer already knows which framework they installed.
 - **No brand prefix anywhere, including a discoverability entry.** Rejected — adopters need *some* affordance to tell Mandrel-owned commands apart from Claude Code built-ins. Without a single entry point, the only path is reading the docs site, which is a worse first-run experience than typing `/mandrel`.
 - **Per-command opt-in: prefix only the "Mandrel-distinctive" commands.** Rejected — every framework command is "Mandrel-distinctive" by virtue of being owned by the framework. Drawing the line by judgment regenerates the same ambiguity the rule is designed to eliminate.
-
