@@ -21,17 +21,18 @@
  *       caller MUST surface this — silently passing here would defeat the
  *       CRAP gate's `requireCoverage: true` policy.
  */
-import path from 'node:path';
 import { getChangedFiles } from './lib/changed-files.js';
 import { isDirectInvocation } from './lib/cli-utils.js';
 import { getQuality, resolveConfig } from './lib/config-resolver.js';
 import {
-  anyChangedUnderTargets,
   computeContentDigest,
+  filterFilesUnderTargets,
   isCoverageFresh,
   runCapture,
   writeCaptureStamp,
 } from './lib/coverage-capture.js';
+import { runFullScopeCapture } from './lib/coverage-capture-fullscope.js';
+import { tryIncrementalCapture } from './lib/coverage-capture-incremental.js';
 
 import { Logger } from './lib/Logger.js';
 import { hasNpmScript, readPackageScripts } from './lib/npm-scripts.js';
@@ -78,6 +79,7 @@ export function parseArgs(argv) {
  *   runCaptureImpl?: typeof runCapture,
  *   computeContentDigestImpl?: typeof computeContentDigest,
  *   writeCaptureStampImpl?: typeof writeCaptureStamp,
+ *   filterFilesUnderTargetsImpl?: typeof filterFilesUnderTargets,
  *   logger?: { info: Function, warn: Function, error: Function },
  * }} [deps]
  * @returns {number} process exit code
@@ -93,6 +95,7 @@ export function runCoverageCapture(argv = process.argv, deps = {}) {
     runCaptureImpl = runCapture,
     computeContentDigestImpl = computeContentDigest,
     writeCaptureStampImpl = writeCaptureStamp,
+    filterFilesUnderTargetsImpl = filterFilesUnderTargets,
     logger = Logger,
   } = deps;
   const args = parseArgs(argv);
@@ -120,69 +123,35 @@ export function runCoverageCapture(argv = process.argv, deps = {}) {
     return 1;
   }
 
-  if (args.skipWhenNoCrapFiles) {
-    let changed;
-    try {
-      changed = getChangedFilesImpl({ ref: args.ref, cwd: args.cwd });
-    } catch (err) {
-      // A bad ref must not silently relax the gate. Fall through to the
-      // freshness check so coverage still gets captured if needed.
-      logger.warn(
-        `[coverage-capture] ⚠ ${err?.message ?? err} — falling back to freshness check.`,
-      );
-      changed = null;
-    }
-    if (changed && !anyChangedUnderTargets(changed, crap.targetDirs)) {
-      logger.info(
-        `[coverage-capture] No changed files under [${crap.targetDirs.join(', ')}] — skipping capture.`,
-      );
-      return 0;
-    }
-  }
-
-  const freshness = isCoverageFreshImpl({
-    coveragePath: crap.coveragePath,
-    targetDirs: crap.targetDirs,
-    cwd: args.cwd,
+  // Story #4981 — incremental mode, opt-in via
+  // `delivery.quality.gates.crap.incrementalCoverage.enabled`. `null` means
+  // "not applicable" (disabled, or a ref-resolution error) — fall through to
+  // the full-scope path below rather than silently skipping capture.
+  const incrementalResult = tryIncrementalCapture({
+    crap,
+    coverage,
+    args,
+    getChangedFilesImpl,
+    filterFilesUnderTargetsImpl,
+    isCoverageFreshImpl,
+    runCaptureImpl,
+    computeContentDigestImpl,
+    writeCaptureStampImpl,
+    logger,
   });
-  if (freshness.fresh) {
-    logger.info(
-      `[coverage-capture] Coverage at ${path.resolve(args.cwd, crap.coveragePath)} is ${freshness.reason} — skipping capture.`,
-    );
-    return 0;
-  }
+  if (incrementalResult !== null) return incrementalResult;
 
-  logger.info(
-    `[coverage-capture] Coverage at ${crap.coveragePath} is ${freshness.reason}; running npm run test:coverage…`,
-  );
-  const code = runCaptureImpl({
-    cwd: args.cwd,
-    timeoutMs: coverage?.timeoutMs,
-    log: (m) => logger.info(m),
+  return runFullScopeCapture({
+    crap,
+    coverage,
+    args,
+    getChangedFilesImpl,
+    isCoverageFreshImpl,
+    runCaptureImpl,
+    computeContentDigestImpl,
+    writeCaptureStampImpl,
+    logger,
   });
-  if (code !== 0) {
-    logger.error(
-      `[coverage-capture] ✖ npm run test:coverage exited ${code}. Fix failing tests or coverage-threshold breaches before re-running the CRAP gate.`,
-    );
-    return code;
-  }
-
-  // Persist the content digest next to the fresh artifact so subsequent
-  // freshness checks are content-aware (mtime churn from branch switches no
-  // longer invalidates). Best-effort — a missing stamp just means the next
-  // check falls back to the mtime heuristic.
-  const digest = computeContentDigestImpl(args.cwd, crap.targetDirs);
-  if (
-    digest &&
-    writeCaptureStampImpl({
-      cwd: args.cwd,
-      coveragePath: crap.coveragePath,
-      digest,
-    })
-  ) {
-    logger.info('[coverage-capture] Wrote content-digest capture stamp.');
-  }
-  return code;
 }
 
 // cli-opt-out: synchronous main returns an exit code that is forwarded via process.exit(code); runAsCli's async-main signature does not preserve the result code.

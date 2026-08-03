@@ -229,6 +229,14 @@
       "symbol": "printViolation"
     },
     {
+      "file": ".agents/scripts/lib/baselines/kinds/crap.js",
+      "symbol": "indexBaselineRowsByFile"
+    },
+    {
+      "file": ".agents/scripts/lib/baselines/kinds/crap.js",
+      "symbol": "methodIdentityKey"
+    },
+    {
       "file": ".agents/scripts/lib/baselines/kinds/maintainability.js",
       "symbol": "MI_REPORT_KERNEL_VERSION"
     },
@@ -811,6 +819,10 @@
     {
       "file": ".agents/scripts/lib/crap-engine.js",
       "symbol": "crapFormula"
+    },
+    {
+      "file": ".agents/scripts/lib/crap-engine.js",
+      "symbol": "finalizeMethodRowsWithBaseline"
     },
     {
       "file": ".agents/scripts/lib/crap-utils.js",

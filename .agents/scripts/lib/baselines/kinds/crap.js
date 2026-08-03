@@ -245,6 +245,19 @@ function crapRowKey(row) {
   return `${row.path}::${row.method}@${row.startLine}`;
 }
 
+// `methodIdentityKey` / `indexBaselineRowsByFile` (Story #4981) live in
+// crap-baseline-index.js, not here — `crap-utils.js#scanAndScore` needs them
+// to build the incremental join's per-file baseline lookup, and crap-utils.js
+// already imports `getCrapBaseline` FROM this module. Defining them here and
+// importing them into crap-utils.js would close that edge into a cycle
+// (kinds/crap.js → crap-utils.js → kinds/crap.js). Re-exported here so
+// existing importers of this module keep a single door to the identity key
+// `crapRowKey` composes with the file path.
+export {
+  indexBaselineRowsByFile,
+  methodIdentityKey,
+} from '../../crap-baseline-index.js';
+
 /**
  * Pure stabilizer for s-stability-epsilon (Story #1964). CRAP rows match
  * by the composite `path::method@startLine` identity. Sub-epsilon CRAP

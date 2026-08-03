@@ -443,6 +443,12 @@ export const DELIVERY_SCHEMA = {
     deliverRunner: DELIVER_RUNNER_SCHEMA,
     worktreeIsolation: WORKTREE_ISOLATION_SCHEMA,
     signals: SIGNALS_SCHEMA,
+    // `quality.gates.crap.incrementalCoverage` (Story #4981) is declared in
+    // `config/gates/crap.schema.js` and reaches AJV validation through this
+    // property — QUALITY_SCHEMA → GATES_SCHEMA → CRAP_GATE. No separate
+    // declaration lives here; this is the composition point that makes the
+    // gate-level schema authoritative for the top-level `.agentrc.json`
+    // surface this module validates.
     quality: QUALITY_SCHEMA,
     mergeWatch: MERGE_WATCH_SCHEMA,
     codeReview: CODE_REVIEW_SCHEMA,

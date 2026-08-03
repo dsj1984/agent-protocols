@@ -215,4 +215,62 @@ describe('runCoverageCapture', () => {
       false,
     );
   });
+
+  // Story #4981 — incremental mode, opt-in via
+  // delivery.quality.gates.crap.incrementalCoverage.
+  describe('incremental mode (Story #4981)', () => {
+    const INCREMENTAL_CRAP = {
+      ...CRAP,
+      incrementalCoverage: { enabled: true, baseRef: 'origin/main' },
+    };
+
+    it('AC-1: captures scoped to the changed-file set and stamps scope: incremental', () => {
+      const h = harness({
+        crap: INCREMENTAL_CRAP,
+        changed: ['.agents/scripts/a.js', 'README.md'],
+        fresh: { fresh: false, reason: 'missing' },
+      });
+      assert.equal(runCoverageCapture(argv('--cwd', '/repo'), h.deps), 0);
+      assert.equal(h.calls.changed[0].ref, 'origin/main');
+      assert.deepEqual(h.calls.capture[0].files, ['.agents/scripts/a.js']);
+      assert.deepEqual(h.calls.stamp[0], {
+        cwd: '/repo',
+        coveragePath: CRAP.coveragePath,
+        digest: 'deadbeef',
+        scope: 'incremental',
+        files: ['.agents/scripts/a.js'],
+        ref: 'origin/main',
+      });
+    });
+
+    it('AC-4: passes requireScope: incremental to the freshness probe', () => {
+      const h = harness({ crap: INCREMENTAL_CRAP });
+      runCoverageCapture(argv(), h.deps);
+      assert.equal(h.calls.fresh[0].requireScope, 'incremental');
+    });
+
+    it('skips capture when nothing changed under targetDirs', () => {
+      const h = harness({ crap: INCREMENTAL_CRAP, changed: ['README.md'] });
+      assert.equal(runCoverageCapture(argv(), h.deps), 0);
+      assert.equal(h.calls.capture.length, 0);
+      assert.match(h.log.info[0], /Incremental mode: no changed files/);
+    });
+
+    it('falls back to full-scope capture on a bad ref (fail-closed, not skipped)', () => {
+      const h = harness({ crap: INCREMENTAL_CRAP, changed: 'throw' });
+      runCoverageCapture(argv(), h.deps);
+      assert.match(h.log.warn[0], /incremental mode:.*falling back/);
+      // Full-scope path still ran (freshness probe reached with default scope).
+      assert.equal(h.calls.fresh.length, 1);
+      assert.equal(h.calls.fresh[0].requireScope, undefined);
+    });
+
+    it('AC-5: default (no incrementalCoverage key) never calls the incremental path', () => {
+      const h = harness({ changed: 'throw' });
+      // If the incremental branch ran it would call getChangedFilesImpl and throw
+      // internally (caught); asserting no warn line proves it never engaged.
+      runCoverageCapture(argv(), h.deps);
+      assert.equal(h.log.warn.length, 0);
+    });
+  });
 });

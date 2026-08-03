@@ -183,6 +183,9 @@ top-level keys are validation errors.
 | `quality.gates.crap.refreshTag` | No | `string` | — | — |
 | `quality.gates.crap.refreshTimeoutMs` | No | `integer` | — | Bounded timeout (ms) for `npm run crap:update` spawned by the baseline-attribution refresh path. Mirrors `coverage.timeoutMs`: a SIGKILL fired at the budget boundary maps to exit 124 so the close orchestrator can flip the Story to `agent::blocked`. Default 60000 (Story #2165). |
 | `quality.gates.crap.ignoreGlobs` | No | `array<string>` | — | Minimatch glob patterns matched against the canonicalised repo-relative path of each discovered file. Files matching any pattern are excluded from CRAP discovery before scoring. Orthogonal to `components` (grouping) — a file excluded here never appears in any component bucket. Absent or empty preserves the existing IGNORED_DIRS-only behaviour (Story #3217). |
+| `quality.gates.crap.incrementalCoverage` | No | `object` | — | Story #4981 — opt-in incremental coverage-capture + CRAP-join scoping. Default (key absent) preserves today's full-repo behaviour byte-for-byte. When `enabled: true`, `coverage-capture.js` scopes `npm run test:coverage` to the files changed against `baseRef` (default: the gate's own `--ref` / `main`), and the CRAP join treats a method in a file the diff did not touch as resolved by its committed baseline row instead of requiring fresh coverage for it. |
+| `quality.gates.crap.incrementalCoverage.enabled` | No | `boolean` | — | — |
+| `quality.gates.crap.incrementalCoverage.baseRef` | No | `string` | — | — |
 | `quality.gates.maintainability` | No | `object` | — | Nested configuration block. |
 | `quality.gates.maintainability.enabled` | No | `boolean` | — | — |
 | `quality.gates.maintainability.baselinePath` | No | `string` | — | — |

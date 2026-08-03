@@ -21,20 +21,11 @@ import path from 'node:path';
 
 import { resolvePreviewScope } from '../changed-files.js';
 import { getBaselines, getQuality, resolveConfig } from '../config-resolver.js';
-import { loadCoverage } from '../coverage-utils.js';
-import {
-  KERNEL_VERSION,
-  resolveEscomplexVersion,
-  scanAndScore,
-} from '../crap-utils.js';
+import { KERNEL_VERSION, resolveEscomplexVersion } from '../crap-utils.js';
 import { calculateAll, scanDirectory } from '../maintainability-utils.js';
-import { resolveCrapEnvOverrides } from './env-overrides.js';
+import { computeCrapPreviewScan } from './crap-preview-scan.js';
 import {
   assertBaselineCompatible,
-  assessComparisonBasis,
-  buildCrapReport,
-  compareCrap,
-  filterRowsByFileScope,
   INCOMPATIBLE_BASELINE_DIAGNOSTIC,
   loadCrapBaseline,
   suppressVerdicts,
@@ -108,31 +99,6 @@ function compareScores(scores, baseline, tolerance) {
     }
   }
   return { regressions, newFiles, improvements, regressedFiles };
-}
-
-/**
- * Narrow a CRAP baseline to the rows whose file path is in `scopeSet`,
- * or return all rows when no diff-scope filter is active.
- *
- * @param {{ rows: object[] }} baseline
- * @param {Set<string>|null|undefined} scopeSet
- * @returns {object[]}
- */
-function resolveBaselineRows(baseline, scopeSet) {
-  return scopeSet
-    ? filterRowsByFileScope(baseline.rows, scopeSet)
-    : baseline.rows;
-}
-
-/**
- * Return true when the CRAP compare result contains regressions or new
- * violations — i.e. when the preview gate should exit non-zero.
- *
- * @param {{ regressions: number, newViolations: number }} result
- * @returns {boolean}
- */
-function hasCrapRegressions(result) {
-  return result.regressions > 0 || result.newViolations > 0;
 }
 
 /**
@@ -289,58 +255,12 @@ export async function runCrapPreview({
     };
   }
 
-  const targetDirs = Array.isArray(crap.targetDirs) ? crap.targetDirs : [];
-  const crapIgnoreGlobs = Array.isArray(crap.ignoreGlobs)
-    ? crap.ignoreGlobs
-    : [];
-  const requireCoverage = crap.requireCoverage !== false;
-  const coveragePath = crap.coveragePath ?? 'coverage/coverage-final.json';
-  const coverage = loadCoverage(path.resolve(cwd, coveragePath));
-  // Story #4731 (AC-3) — feed the CRAP regression compare the *configured*
-  // crap tolerance (env override → `gates.crap.tolerance` → framework default)
-  // so `compareCrap` demotes positive deltas at or under tolerance rather than
-  // failing on any positive delta; over-tolerance deltas still fail. This keeps
-  // the pre-commit/pre-push preview aligned with the authoritative gate.
-  const { newMethodCeiling, tolerance } = resolveCrapEnvOverrides(
+  return computeCrapPreviewScan({
     crap,
-    process.env,
-  );
-  const scan = await scanAndScore({
-    targetDirs,
-    coverage,
-    requireCoverage,
     cwd,
-    scopeFiles: scopeSet,
-    ignoreGlobs: crapIgnoreGlobs,
+    scopeSet,
+    scope,
+    diffRef,
+    baseline,
   });
-  const baselineRows = resolveBaselineRows(baseline, scopeSet);
-  const result = compareCrap({
-    currentRows: scan.rows,
-    baselineRows,
-    newMethodCeiling,
-    tolerance,
-  });
-  const envelope = buildCrapReport({
-    compareResult: result,
-    scanSummary: scan,
-    kernelVersion: KERNEL_VERSION,
-    escomplexVersion: resolveEscomplexVersion(),
-    newMethodCeiling,
-    scopeInfo: {
-      scope,
-      diffRef,
-    },
-  });
-  // Story #4866 (AC-5): above the drifted-row ratio the basis is self-
-  // evidently unsound and every per-method verdict below it is an artefact of
-  // a mis-keyed join. Say so once, by name, and fail open.
-  const basis = assessComparisonBasis(result);
-  if (!basis.sound) {
-    return {
-      exitCode: 0,
-      envelope: suppressVerdicts(envelope, basis.diagnostic),
-    };
-  }
-  const exitCode = hasCrapRegressions(result) ? 1 : 0;
-  return { exitCode, envelope };
 }

@@ -151,10 +151,20 @@ export function computeContentDigest(cwd, targetDirs, io = {}) {
  * write failure returns `false` rather than throwing — the worst case is a
  * fall back to the mtime heuristic on the next freshness check.
  *
+ * `scope` / `files` / `ref` are Story #4981 additions for incremental-mode
+ * capture. They are written to the stamp **only when the caller supplies
+ * `scope`** — the default (full-scope) call sites never pass it, so the
+ * emitted JSON stays the exact `{ digest, capturedAt }` shape byte-for-byte
+ * (AC-5). `isCoverageFresh` reads `scope` back to refuse letting a scoped
+ * stamp satisfy a full-scope freshness probe (AC-4).
+ *
  * @param {{
  *   cwd: string,
  *   coveragePath: string,
  *   digest: string,
+ *   scope?: 'full' | 'incremental',
+ *   files?: string[],
+ *   ref?: string,
  *   writeFileSync?: typeof fs.writeFileSync,
  * }} opts
  * @returns {boolean} True when the stamp was written.
@@ -163,18 +173,48 @@ export function writeCaptureStamp({
   cwd,
   coveragePath,
   digest,
+  scope,
+  files,
+  ref,
   writeFileSync = fs.writeFileSync,
 }) {
   if (typeof digest !== 'string' || digest.length === 0) return false;
+  const payload = { digest, capturedAt: new Date().toISOString() };
+  if (scope !== undefined) payload.scope = scope;
+  if (Array.isArray(files)) payload.files = [...files].sort();
+  if (typeof ref === 'string' && ref.length > 0) payload.ref = ref;
   try {
     writeFileSync(
       captureStampPath(cwd, coveragePath),
-      `${JSON.stringify({ digest, capturedAt: new Date().toISOString() }, null, 2)}\n`,
+      `${JSON.stringify(payload, null, 2)}\n`,
     );
     return true;
   } catch {
     return false;
   }
+}
+
+/**
+ * Read a persisted capture stamp's digest and scope tag back into the shape
+ * `isCoverageFresh` needs, applying the Story #4981 scope-asymmetry rule
+ * (AC-4) in one place. Extracted so the parent function's own branching
+ * stays under the cyclomatic ceiling.
+ *
+ * @param {{digest?: unknown, scope?: unknown} | null} stamp
+ * @param {'full' | 'incremental'} requireScope
+ * @returns {{ digest: string } | { scopeMismatch: true } | null} `null`
+ *   means the stamp is missing/unreadable/digest-less — fall through to the
+ *   mtime heuristic.
+ */
+function readStampForScope(stamp, requireScope) {
+  if (typeof stamp?.digest !== 'string' || stamp.digest.length === 0) {
+    return null;
+  }
+  const stampScope = stamp.scope === 'incremental' ? 'incremental' : 'full';
+  if (stampScope === 'incremental' && requireScope !== 'incremental') {
+    return { scopeMismatch: true };
+  }
+  return { digest: stamp.digest };
 }
 
 /**
@@ -191,22 +231,32 @@ export function writeCaptureStamp({
  * under `targetDirs`. Missing files, missing target dirs, or any IO error
  * resolve to `false` so the caller captures rather than trusting stale data.
  *
+ * **Scope asymmetry (Story #4981, AC-4).** A stamp written by an incremental
+ * capture (`scope: 'incremental'`) only covers the files the diff touched —
+ * it must never satisfy a caller that requires the full-scope guarantee
+ * (`requireScope` defaults to `'full'`, matching every pre-existing caller
+ * byte-for-byte). A full-scope stamp (or a legacy stamp with no `scope`
+ * field, which predates this Story and is therefore full-scope by
+ * construction) satisfies either probe.
+ *
  * @param {{
  *   coveragePath: string,
  *   targetDirs: string[],
  *   cwd: string,
+ *   requireScope?: 'full' | 'incremental',
  *   statSync?: typeof fs.statSync,
  *   readdirSync?: typeof fs.readdirSync,
  *   existsSync?: typeof fs.existsSync,
  *   readFileSync?: typeof fs.readFileSync,
  *   computeDigest?: typeof computeContentDigest,
  * }} opts
- * @returns {{ fresh: boolean, reason: 'missing' | 'stale' | 'fresh' | 'no-sources' }}
+ * @returns {{ fresh: boolean, reason: 'missing' | 'stale' | 'fresh' | 'no-sources' | 'scope-mismatch' }}
  */
 export function isCoverageFresh({
   coveragePath,
   targetDirs,
   cwd,
+  requireScope = 'full',
   statSync = fs.statSync,
   readdirSync = fs.readdirSync,
   existsSync = fs.existsSync,
@@ -224,10 +274,14 @@ export function isCoverageFresh({
     } catch {
       // Corrupt/unreadable stamp → fall through to the mtime heuristic.
     }
-    if (typeof stamp?.digest === 'string' && stamp.digest.length > 0) {
+    const resolved = readStampForScope(stamp, requireScope);
+    if (resolved?.scopeMismatch) {
+      return { fresh: false, reason: 'scope-mismatch' };
+    }
+    if (resolved) {
       const current = computeDigest(cwd, targetDirs);
       if (typeof current === 'string' && current.length > 0) {
-        return current === stamp.digest
+        return current === resolved.digest
           ? { fresh: true, reason: 'fresh' }
           : { fresh: false, reason: 'stale' };
       }
@@ -252,27 +306,41 @@ export function isCoverageFresh({
 }
 
 /**
+ * Narrow `changedFiles` to the subset that lives under one of `targetDirs`.
+ *
+ * Both inputs are forward-slash-normalised; `targetDirs` are matched as path
+ * prefixes followed by `/`. Shared by `anyChangedUnderTargets` (the pre-push
+ * fast-path boolean) and the incremental-coverage scope resolver (Story
+ * #4981), which needs the actual file list rather than a yes/no.
+ *
+ * @param {string[]} changedFiles
+ * @param {string[]} targetDirs
+ * @returns {string[]} Forward-slash-normalised matches, in `changedFiles` order.
+ */
+export function filterFilesUnderTargets(changedFiles, targetDirs) {
+  if (!Array.isArray(changedFiles) || changedFiles.length === 0) return [];
+  if (!Array.isArray(targetDirs) || targetDirs.length === 0) return [];
+  const norms = targetDirs
+    .filter((d) => typeof d === 'string' && d.length > 0)
+    .map((d) => d.replace(/\\/g, '/').replace(/\/+$/, ''));
+  return changedFiles
+    .map((file) => String(file).replace(/\\/g, '/'))
+    .filter((f) => norms.some((dir) => f === dir || f.startsWith(`${dir}/`)));
+}
+
+/**
  * Decide whether any of `changedFiles` lives under one of `targetDirs`.
  * Used by the pre-push fast-path so we can skip the (slow) coverage capture
  * when the push touches only files outside the CRAP scoring scope.
  *
- * Both inputs are forward-slash-normalised; `targetDirs` are matched as path
- * prefixes followed by `/`. An empty changed-file list returns `false`.
+ * An empty changed-file list returns `false`.
  *
  * @param {string[]} changedFiles
  * @param {string[]} targetDirs
  * @returns {boolean}
  */
 export function anyChangedUnderTargets(changedFiles, targetDirs) {
-  if (!Array.isArray(changedFiles) || changedFiles.length === 0) return false;
-  if (!Array.isArray(targetDirs) || targetDirs.length === 0) return false;
-  const norms = targetDirs
-    .filter((d) => typeof d === 'string' && d.length > 0)
-    .map((d) => d.replace(/\\/g, '/').replace(/\/+$/, ''));
-  return changedFiles.some((file) => {
-    const f = String(file).replace(/\\/g, '/');
-    return norms.some((dir) => f === dir || f.startsWith(`${dir}/`));
-  });
+  return filterFilesUnderTargets(changedFiles, targetDirs).length > 0;
 }
 
 /**
@@ -295,11 +363,20 @@ export const COVERAGE_TIMEOUT_EXIT_CODE = 124;
  * `timeout(1)` convention exit code 124 so callers can pattern-match a
  * runaway runner without inspecting signal names.
  *
+ * `files` (Story #4981) scopes the spawn to a file list — `npm run
+ * test:coverage -- <files...>`, the standard npm convention for forwarding
+ * argv to the underlying script (which most test runners, including Node's
+ * own, treat as positional file filters). Omitted or empty means the
+ * default full-scope invocation, byte-identical to the pre-#4981 argv
+ * (AC-5); a non-empty list makes the scope observable on the emitted
+ * command line (AC-1).
+ *
  * @param {{
  *   cwd: string,
  *   timeoutMs?: number,
  *   runner?: typeof spawnSync,
  *   log?: (m: string) => void,
+ *   files?: string[] | null,
  * }} opts
  * @returns {number}
  */
@@ -308,8 +385,15 @@ export function runCapture({
   timeoutMs,
   runner = spawnSync,
   log = () => {},
+  files = null,
 } = {}) {
-  log('[coverage-capture] ▶ npm run test:coverage');
+  const scopedFiles = Array.isArray(files) && files.length > 0 ? files : null;
+  const args = [
+    'run',
+    'test:coverage',
+    ...(scopedFiles ? ['--', ...scopedFiles] : []),
+  ];
+  log(`[coverage-capture] ▶ npm ${args.join(' ')}`);
   const spawnOpts = {
     cwd,
     stdio: 'inherit',
@@ -323,7 +407,7 @@ export function runCapture({
   ) {
     spawnOpts.timeout = timeoutMs;
   }
-  const res = runner('npm', ['run', 'test:coverage'], spawnOpts);
+  const res = runner('npm', args, spawnOpts);
   // A timeout-induced kill surfaces as `signal: 'SIGKILL'` (or, on some
   // platforms, as a non-numeric status). Either signal indicates the
   // watchdog tripped — surface the GNU `timeout` convention 124 so the

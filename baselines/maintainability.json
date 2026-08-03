@@ -1,11 +1,11 @@
 {
   "$schema": ".agents/schemas/baselines/maintainability.schema.json",
   "kernelVersion": "0.1.0",
-  "generatedAt": "2026-08-03T13:26:00.160Z",
+  "generatedAt": "2026-08-03T19:38:29.432Z",
   "rollup": {
     "*": {
       "min": 74.146,
-      "p50": 98.296,
+      "p50": 98.322,
       "p95": 126.196
     }
   },
@@ -323,6 +323,14 @@
       "mi": 92.597
     },
     {
+      "path": ".agents/scripts/lib/baselines/crap-preview-incremental.js",
+      "mi": 113.043
+    },
+    {
+      "path": ".agents/scripts/lib/baselines/crap-preview-scan.js",
+      "mi": 94.47
+    },
+    {
       "path": ".agents/scripts/lib/baselines/diff-scope-cli.js",
       "mi": 101.053
     },
@@ -408,7 +416,7 @@
     },
     {
       "path": ".agents/scripts/lib/baselines/preview-gates.js",
-      "mi": 85.162
+      "mi": 85.777
     },
     {
       "path": ".agents/scripts/lib/baselines/reader.js",
@@ -675,10 +683,6 @@
       "mi": 115.015
     },
     {
-      "path": ".agents/scripts/lib/config/gates/crap.schema.js",
-      "mi": 88.994
-    },
-    {
       "path": ".agents/scripts/lib/config/gates/duplication.schema.js",
       "mi": 107.683
     },
@@ -720,7 +724,7 @@
     },
     {
       "path": ".agents/scripts/lib/config/quality.js",
-      "mi": 84.867
+      "mi": 85.426
     },
     {
       "path": ".agents/scripts/lib/config/runners.js",
@@ -755,6 +759,14 @@
       "mi": 97.505
     },
     {
+      "path": ".agents/scripts/lib/coverage-capture-fullscope.js",
+      "mi": 93.781
+    },
+    {
+      "path": ".agents/scripts/lib/coverage-capture-incremental.js",
+      "mi": 90.084
+    },
+    {
       "path": ".agents/scripts/lib/coverage-capture.js",
       "mi": 95.177
     },
@@ -767,12 +779,28 @@
       "mi": 102.695
     },
     {
+      "path": ".agents/scripts/lib/crap-baseline-index.js",
+      "mi": 117.111
+    },
+    {
+      "path": ".agents/scripts/lib/crap-baseline-join.js",
+      "mi": 89.357
+    },
+    {
+      "path": ".agents/scripts/lib/crap-coordinates.js",
+      "mi": 120.273
+    },
+    {
       "path": ".agents/scripts/lib/crap-engine.js",
-      "mi": 90.698
+      "mi": 91.524
     },
     {
       "path": ".agents/scripts/lib/crap-method-identity.js",
       "mi": 95.294
+    },
+    {
+      "path": ".agents/scripts/lib/crap-utils-incremental.js",
+      "mi": 121.112
     },
     {
       "path": ".agents/scripts/lib/crap-utils.js",
