@@ -1,7 +1,7 @@
 {
   "$schema": ".agents/schemas/baselines/maintainability.schema.json",
   "kernelVersion": "0.1.0",
-  "generatedAt": "2026-08-02T18:56:49.574Z",
+  "generatedAt": "2026-08-03T01:58:40.657Z",
   "rollup": {
     "*": {
       "min": 74.146,
@@ -765,6 +765,10 @@
     {
       "path": ".agents/scripts/lib/crap-engine.js",
       "mi": 90.698
+    },
+    {
+      "path": ".agents/scripts/lib/crap-method-identity.js",
+      "mi": 95.294
     },
     {
       "path": ".agents/scripts/lib/crap-utils.js",

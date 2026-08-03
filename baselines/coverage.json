@@ -1,12 +1,12 @@
 {
   "$schema": ".agents/schemas/baselines/coverage.schema.json",
   "kernelVersion": "1.0.0",
-  "generatedAt": "2026-08-02T19:07:15.601Z",
+  "generatedAt": "2026-08-03T01:51:56.780Z",
   "rollup": {
     "*": {
-      "lines": 95.78,
-      "branches": 86.24,
-      "functions": 88.78
+      "lines": 95.79,
+      "branches": 86.25,
+      "functions": 88.8
     }
   },
   "rows": [
@@ -1130,6 +1130,12 @@
       "path": ".agents/scripts/lib/crap-engine.js",
       "lines": 100,
       "branches": 89.13,
+      "functions": 100
+    },
+    {
+      "path": ".agents/scripts/lib/crap-method-identity.js",
+      "lines": 100,
+      "branches": 96,
       "functions": 100
     },
     {

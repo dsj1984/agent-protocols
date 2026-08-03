@@ -214,9 +214,13 @@ describe('writeFile()', () => {
         // Story #4775 — the crap kind stamps its scoring semantics, and the
         // disk projection must carry it through by name or the stamp exists
         // only in memory. Story #4866 added the transpiler stamp on the same
-        // contract and for the same reason.
+        // contract and for the same reason. Story #4901 added
+        // `provenanceStamped` and this list did not follow, so the assertion
+        // below pinned the omission as correct for three Stories; #4969
+        // restored it.
         scoringSemantics: env.scoringSemantics,
         tsTranspilerVersion: env.tsTranspilerVersion,
+        provenanceStamped: env.provenanceStamped,
         rollup: env.rollup,
         rows: env.rows,
       },
@@ -226,6 +230,7 @@ describe('writeFile()', () => {
     assert.equal(onDisk, expected);
     assert.equal(typeof env.scoringSemantics, 'string');
     assert.equal(typeof env.tsTranspilerVersion, 'string');
+    assert.equal(env.provenanceStamped, true);
   });
 
   it('terminates the file with a trailing newline', () => {
@@ -391,5 +396,41 @@ describe('write() — structural-equality short-circuit (Story #2135 / Task #214
     const generatedAt = '2026-06-01T00:00:00Z';
     const result = write({ ...FIXTURES.maintainability, generatedAt });
     assert.equal(result.generatedAt, generatedAt);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Story #4969 — every envelope stamp must survive the disk boundary.
+//
+// `writeFile` projects the envelope through an explicit canonical key list, so
+// a stamp added to `envelopeExtras()` and NOT to that list is present in
+// memory, passes `assertEnvelope`, and is absent from the file. Story #4901
+// added `provenanceStamped` and hit exactly that: the `provenance-unstamped`
+// axis then read an absence its own writer had manufactured. Asserted against
+// the writer's own output so a future stamp cannot regress silently.
+// ---------------------------------------------------------------------------
+describe('writer.writeFile — envelope stamps survive serialization (#4969)', () => {
+  it('writes every stamp `write()` produced, none dropped by the projection', () => {
+    const dir = makeTempDir('mandrel-writer-stamps-');
+    try {
+      const absPath = path.join(dir, 'crap.json');
+      const envelope = write({
+        kind: 'crap',
+        rows: [{ path: 'src/a.js', method: 'run', startLine: 1, crap: 2 }],
+        generatedAt: '2026-01-01T00:00:00.000Z',
+      });
+      writeFile(absPath, envelope);
+      const onDisk = JSON.parse(readFileSync(absPath, 'utf8'));
+
+      assert.deepEqual(
+        Object.keys(onDisk).sort(),
+        Object.keys(envelope).sort(),
+        'a stamp reaching `write()` but not the file is a stamp that cannot ' +
+          'protect anything — add it to the canonical list in `writeFile`',
+      );
+      assert.equal(onDisk.provenanceStamped, true);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });

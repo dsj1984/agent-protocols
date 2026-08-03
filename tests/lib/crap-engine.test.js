@@ -1,5 +1,7 @@
 import assert from 'node:assert';
+import fs from 'node:fs';
 import { describe, it, test } from 'node:test';
+import escomplex from 'typhonjs-escomplex';
 import {
   COORDINATE_ORIGINAL,
   COORDINATE_TRANSPILED,
@@ -8,6 +10,10 @@ import {
   deriveFixGuidance,
   finalizeMethodRows,
 } from '../../.agents/scripts/lib/crap-engine.js';
+import {
+  deriveMethodIdentities,
+  isAnonymousMethodLabel,
+} from '../../.agents/scripts/lib/crap-method-identity.js';
 
 /**
  * Build a coverage-entry fixture that forces coverageForMethodInEntry to
@@ -457,4 +463,222 @@ test('deriveFixGuidance — deterministic across repeated calls', () => {
   const a = deriveFixGuidance({ cyclomatic: 10, target: 30 });
   const b = deriveFixGuidance({ cyclomatic: 10, target: 30 });
   assert.deepStrictEqual(a, b);
+});
+
+// ---------------------------------------------------------------------------
+// Story #4969 — order-independent identity for anonymous methods.
+//
+// escomplex names an unnamed function `<anon method-N>` from a per-module
+// counter, so inserting one anonymous function renumbers every later one and
+// re-keys 34.6% of the CRAP baseline. The comparator then pairs unrelated
+// functions by nearest `startLine` and reports the pairing as a regression.
+// ---------------------------------------------------------------------------
+
+/** Identities for a source, in escomplex's emission order. */
+function identitiesFor(source) {
+  return deriveMethodIdentities(escomplex.analyzeModule(source).methods);
+}
+
+/** Just the derived anonymous identities, as a Set for order-free compare. */
+function anonIdentities(source) {
+  return new Set(
+    identitiesFor(source)
+      .filter((i) => i.anonymous)
+      .map((i) => i.method),
+  );
+}
+
+/**
+ * A file with anonymous functions at module scope, inside a named function,
+ * and nested inside another anonymous one — the three shapes the scope path
+ * has to distinguish.
+ */
+const ANON_FIXTURE = `
+const first = (p) => p + 1;
+const second = (p) => p + 2;
+
+export function outer(cfg) {
+  const inner = (files, opts) => {
+    return files.map((r) => r + opts);
+  };
+  return inner(cfg, 1);
+}
+`;
+
+describe('deriveMethodIdentities — scope-path identity (Story #4969)', () => {
+  it('names an anonymous method by its scope path, not by a global counter', () => {
+    assert.deepEqual(
+      [...anonIdentities(ANON_FIXTURE)].sort(),
+      [
+        '<anon (p)#0>',
+        '<anon (p)#1>',
+        // `/` sorts before `>`, so the nested one lands first.
+        '<anon outer/(files,opts)#0/(r)#0>',
+        '<anon outer/(files,opts)#0>',
+      ],
+      'the path must carry the enclosing chain, and nesting must be visible',
+    );
+  });
+
+  it('leaves a named method exactly as escomplex reported it', () => {
+    const outer = identitiesFor(ANON_FIXTURE).find((i) => i.method === 'outer');
+    assert.ok(outer, 'the named function must keep its own name');
+    assert.equal(outer.anonymous, false);
+  });
+
+  it('AC-1: an unrelated anonymous function added earlier re-keys nothing', () => {
+    // The exact edit the old scheme could not survive: one extra arrow at the
+    // TOP of the file. Under `<anon method-N>` every later anon shifted by one.
+    const edited = ANON_FIXTURE.replace(
+      'const first =',
+      'const inserted = [1].map((z) => z * 2);\nconst first =',
+    );
+
+    const before = anonIdentities(ANON_FIXTURE);
+    const after = anonIdentities(edited);
+    for (const id of before) {
+      assert.ok(
+        after.has(id),
+        `identity ${id} did not survive an unrelated insertion`,
+      );
+    }
+    assert.equal(after.size, before.size + 1, 'only the new arrow is new');
+
+    // The control, without which this test would also pass against a scheme
+    // that never changed anything: under escomplex's own labels the SAME edit
+    // renames the very functions it did not touch. Track one of them — the
+    // `(p) => p + 2` arrow — by the label escomplex gives it before and after.
+    const labelOfSecondArrow = (src) => {
+      const m = escomplex
+        .analyzeModule(src)
+        .methods.find((x) =>
+          src.split('\n')[x.lineStart - 1].includes('p + 2'),
+        );
+      return m.name;
+    };
+    assert.equal(labelOfSecondArrow(ANON_FIXTURE), '<anon method-2>');
+    assert.equal(
+      labelOfSecondArrow(edited),
+      '<anon method-3>',
+      'control: the ordinal label follows position, so an unrelated insertion ' +
+        'renames an untouched function — the defect this Story removes',
+    );
+  });
+
+  it('AC-2: two anonymous functions in one scope get different identities', () => {
+    // Same enclosing scope, same arity, same body shape — nothing but their
+    // order tells them apart, so the discriminator has to hold.
+    const source = `
+export function host() {
+  const a = (x) => x + 1;
+  const b = (x) => x + 2;
+  return [a, b];
+}
+`;
+    const ids = [...anonIdentities(source)];
+    assert.equal(ids.length, 2, 'both must be present');
+    assert.equal(
+      new Set(ids).size,
+      2,
+      'the re-keying must not collapse two methods onto one row',
+    );
+    assert.deepEqual(ids.sort(), ['<anon host/(x)#0>', '<anon host/(x)#1>']);
+  });
+
+  it('AC-3: an anonymous method keeps its identity when it gains branches', () => {
+    // The identity must NOT be a function of the body. If it were, a genuine
+    // complexity increase would re-key the row, the comparator would file it
+    // as a brand-new method, and the regression would be scored against the
+    // new-method ceiling instead of the method's own baseline — silence
+    // bought by dropping coverage.
+    const before = `
+export function host(v) {
+  return [v].map((x) => x + 1);
+}
+`;
+    const after = `
+export function host(v) {
+  return [v].map((x) => {
+    if (x > 1) return x + 1;
+    if (x > 2) return x + 2;
+    if (x > 3) return x + 3;
+    return x;
+  });
+}
+`;
+    assert.deepEqual([...anonIdentities(before)], ['<anon host/(x)#0>']);
+    assert.deepEqual(
+      [...anonIdentities(after)],
+      ['<anon host/(x)#0>'],
+      'a branchier body is the same method and must keep the same key',
+    );
+
+    // And the complexity really did move, so the assertion above is not
+    // vacuous — the comparator has a genuine regression to find.
+    const cyclomaticOf = (src) =>
+      escomplex
+        .analyzeModule(src)
+        .methods.find((m) => /^<anon method-\d+>$/.test(m.name)).cyclomatic;
+    assert.ok(
+      cyclomaticOf(after) > cyclomaticOf(before),
+      'fixture must actually get more complex',
+    );
+  });
+
+  it('is injective over a real module — no two methods share a key', () => {
+    const source = fs.readFileSync(
+      '.agents/scripts/lib/baselines/kinds/crap.js',
+      'utf-8',
+    );
+    const ids = identitiesFor(source).map((i) => i.method);
+    assert.ok(ids.length > 30, 'fixture module should be substantial');
+    assert.equal(
+      new Set(ids).size,
+      ids.length,
+      'a collision would merge two methods into a single baseline row',
+    );
+  });
+
+  it('tolerates a report with no methods and a method with no span', () => {
+    assert.deepEqual(deriveMethodIdentities([]), []);
+    assert.deepEqual(deriveMethodIdentities(undefined), []);
+    const [only] = deriveMethodIdentities([{ name: '<anon method-1>' }]);
+    assert.equal(only.method, '<anon ()#0>');
+    assert.equal(only.anonymous, true);
+  });
+});
+
+describe('methodRowsFromReport — rows carry the identity marker (#4969)', () => {
+  it('flags a derived identity and leaves a named row unflagged', () => {
+    const rows = calculateCrapForSource(ANON_FIXTURE, null);
+    const named = rows.find((r) => r.method === 'outer');
+    const anon = rows.find((r) => r.method === '<anon (p)#0>');
+    assert.ok(named && anon);
+    assert.equal(named.anonymous, false);
+    assert.equal(anon.anonymous, true);
+  });
+
+  it('carries the marker through the requireCoverage policy step', () => {
+    const out = finalizeMethodRows([
+      {
+        method: '<anon host/(x)#0>',
+        anonymous: true,
+        startLine: 2,
+        cyclomatic: 2,
+        coverage: 1,
+        crap: 2,
+        coordinateSystem: COORDINATE_ORIGINAL,
+      },
+    ]);
+    assert.equal(out.rows[0].anonymous, true);
+  });
+});
+
+describe('isAnonymousMethodLabel', () => {
+  it('recognises both the derived identity and the superseded ordinal', () => {
+    assert.equal(isAnonymousMethodLabel('<anon host/(x)#0>'), true);
+    assert.equal(isAnonymousMethodLabel('<anon method-7>'), true);
+    assert.equal(isAnonymousMethodLabel('doWork'), false);
+    assert.equal(isAnonymousMethodLabel(undefined), false);
+  });
 });

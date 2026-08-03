@@ -139,6 +139,12 @@ function projectCrapEnvelopeToLegacy(parsed) {
       ...(row.coordinateSystem === undefined
         ? {}
         : { coordinateSystem: row.coordinateSystem }),
+      // Story #4969, same reason as the stamps above: `anonymous` is a
+      // BASELINE fact. Dropping it here left every re-keyed row looking like
+      // an unmarked anonymous one, which is precisely the shape the
+      // `anon-identity-unstamped` axis fails closed — the projection would
+      // have manufactured the very defect the axis exists to catch.
+      ...(row.anonymous === undefined ? {} : { anonymous: row.anonymous }),
     })),
   };
 }
@@ -215,6 +221,7 @@ export function buildBaselineEnvelope({
       file: r.file,
       method: r.method,
       startLine: r.startLine,
+      ...(r.anonymous === undefined ? {} : { anonymous: r.anonymous }),
     })),
     tsTranspilerVersion,
   };
@@ -501,6 +508,9 @@ export async function scanAndScore({
       rows.push({
         file: item.relPath,
         method: mr.method,
+        // Story #4969: `method` may be a derived anonymous identity; the flag
+        // is what lets the persisted row say so.
+        anonymous: mr.anonymous === true,
         startLine: mr.startLine,
         cyclomatic: mr.cyclomatic,
         coverage: mr.coverage,
@@ -844,6 +854,9 @@ export async function scanAndScoreCombined({
       crapRows.push({
         file: item.relPath,
         method: mr.method,
+        // Story #4969: `method` may be a derived anonymous identity; the flag
+        // is what lets the persisted row say so.
+        anonymous: mr.anonymous === true,
         startLine: mr.startLine,
         cyclomatic: mr.cyclomatic,
         coverage: mr.coverage,

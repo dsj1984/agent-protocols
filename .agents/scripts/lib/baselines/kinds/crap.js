@@ -19,6 +19,7 @@ import {
   COORDINATE_TRANSPILED,
   deriveFixGuidance,
 } from '../../crap-engine.js';
+import { isAnonymousMethodLabel } from '../../crap-method-identity.js';
 import { getCrapBaseline } from '../../crap-utils.js';
 import { loadBaseline } from '../../gates/baseline-store.js';
 import { Logger } from '../../Logger.js';
@@ -95,15 +96,23 @@ export function kernelVersion() {
  * worse, phantom passes.
  *
  * The stamp makes the boundary explicit and fails closed. Bump it whenever
- * the coverage join, the line coordinate system, or the unresolved-method
- * policy changes.
+ * the coverage join, the line coordinate system, the unresolved-method policy,
+ * or the **method identity rule** changes.
+ *
+ * Story #4969 bumped it to `method-identity-v3` for the last of those. An
+ * anonymous method used to be keyed by escomplex's `<anon method-N>` ordinal
+ * and is now keyed by its enclosing-scope path; 34.6% of rows changed identity
+ * in one step. Rows keyed the old way and rows keyed the new way describe the
+ * same functions under different names, so pairing them is exactly the
+ * mis-keyed join this stamp exists to refuse — hence the bump, which is what
+ * makes the migration report nothing rather than a wall of phantom verdicts.
  *
  * Deliberately module-local: `envelopeExtras()` is the single production door
  * to this value, so exporting the bare constant would add a second entry
  * point that nothing in production reaches. Callers and tests that need the
  * string read it off `envelopeExtras().scoringSemantics`.
  */
-const SCORING_SEMANTICS = 'coverage-join-v2';
+const SCORING_SEMANTICS = 'method-identity-v3';
 
 /**
  * Envelope-level stamps this kind contributes beyond the shared envelope
@@ -153,6 +162,12 @@ export function projectRow(row) {
   };
   if (row.coordinateSystem === COORDINATE_TRANSPILED) {
     projected.coordinateSystem = COORDINATE_TRANSPILED;
+  }
+  // Story #4969, same write-only-when-non-default idiom: `anonymous` marks a
+  // `method` that is a derived scope-path identity rather than a name the
+  // source carries. A named row stays the exact four-key row it always was.
+  if (row.anonymous === true) {
+    projected.anonymous = true;
   }
   return projected;
 }
@@ -735,6 +750,40 @@ export const CRAP_COMPAT_AXES = [
           `report regressions no edit can satisfy. ${RESEED_REMEDY}`
         : null,
   },
+  {
+    // Story #4969. The `scoring-semantics-drift` axis above rejects a baseline
+    // stamped with the OLD semantics wholesale, which covers a clean migration.
+    // It cannot see a HALF-migrated one: a diff-scoped refresh preserves
+    // out-of-scope rows verbatim, so a baseline can carry ordinal-keyed rows
+    // for the files that were never re-scored while the writer stamps the
+    // envelope with the current semantics — the stamp says v3, some rows are
+    // still v2, and the one axis that would catch it has already passed.
+    //
+    // Such a row cannot be paired with anything: its `<anon method-N>` label
+    // matches no scope-path identity, so the comparator files the live method
+    // as NEW (scored against the ceiling, not its own baseline) and the stale
+    // row as removed. Keyed on the positive `anonymous` marker for the same
+    // reason `provenance-unstamped` is: absence is the only trace the old
+    // writer leaves.
+    name: 'anon-identity-unstamped',
+    severity: 'fatal',
+    check: ({ baseline }) => {
+      if (!baseline) return null;
+      const stale = (baseline.rows ?? []).filter(
+        (row) => isAnonymousMethodLabel(row?.method) && row?.anonymous !== true,
+      );
+      if (stale.length === 0) return null;
+      return (
+        `[CRAP] baseline carries ${stale.length} anonymous row(s) keyed by the ` +
+        'superseded `<anon method-N>` ordinal (e.g. ' +
+        `${stale[0].path ?? stale[0].file}::${stale[0].method}) while the ` +
+        'envelope claims the current scoring semantics. Those ordinals ' +
+        'renumber whenever any anonymous function is added or removed, so the ' +
+        'comparator would score the live methods against the new-method ' +
+        `ceiling instead of their own baseline. ${RESEED_REMEDY}`
+      );
+    },
+  },
 ];
 
 /** Sources whose escomplex coordinates are transpiled, not original. */
@@ -782,10 +831,12 @@ export function evaluateBaselineCompatibility(ctx) {
 
 /**
  * The compat axes a *loaded* envelope can be judged against on its own,
- * without a second baseline to diff. All three are coordinate-invalidating:
- * one names the join that produced the rows, one names the transpiler whose
- * sourcemap decided what a TS row's `startLine` even means, and one (Story
- * #4901) catches a baseline predating both questions.
+ * without a second baseline to diff. Each invalidates one half of the row
+ * identity key. Three are about the `startLine` half: one names the join that
+ * produced the rows, one names the transpiler whose sourcemap decided what a
+ * TS row's `startLine` even means, and one (Story #4901) catches a baseline
+ * predating both questions. The fourth (Story #4969) is about the `method`
+ * half — a baseline still carrying ordinal-keyed anonymous rows.
  *
  * `escomplex-mismatch` and `kernel-drift` stay out — the v2 envelope carries
  * no `escomplexVersion`, so that axis would compare `undefined` to `undefined`
@@ -795,6 +846,7 @@ const LOADED_ENVELOPE_AXES = [
   'scoring-semantics-drift',
   'ts-transpiler-drift',
   'provenance-unstamped',
+  'anon-identity-unstamped',
 ];
 
 /**

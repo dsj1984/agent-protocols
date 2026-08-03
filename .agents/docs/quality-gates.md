@@ -496,7 +496,9 @@ are not comparable to rows scored by this one, and neither `kernelVersion` nor
 therefore carries a `scoringSemantics` stamp; `check-baselines` fails closed on
 a mismatch with the exact re-baseline command rather than comparing across the
 boundary. Bump the stamp whenever the coverage join, the line coordinate
-system, or the unresolved-method policy changes.
+system, the unresolved-method policy, or the method identity rule changes —
+Story #4969 bumped it for the last of these, replacing escomplex's positional
+`<anon method-N>` label with an enclosing-scope-path identity.
 
 ---
 

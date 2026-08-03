@@ -50,14 +50,19 @@ function makeScorer(rows) {
   return (_files, _opts) => rows;
 }
 
-function seedPriorBaseline(writePath, rows, generatedAt) {
+function seedPriorBaseline(
+  writePath,
+  rows,
+  generatedAt,
+  kind = 'maintainability',
+) {
   mkdirSync(path.dirname(writePath), { recursive: true });
   // Round-trip through the writer so the rollup math matches what the
   // service will compute on the next refresh. Hand-rolled rollups would
   // diverge from the writer's deterministic aggregation and defeat the
   // structural-equality short-circuit assertions below.
   const envelope = writeEnvelope({
-    kind: 'maintainability',
+    kind,
     rows,
     generatedAt,
   });
@@ -439,6 +444,99 @@ describe('refreshBaseline — scoped refresh includes new files (Story #3695)', 
     assert.ok(
       !parsed.rows.some((r) => r.path.startsWith('.worktrees/')),
       'no row may carry a .worktrees/ prefix',
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Story #4969, AC-6 — the other half of preservation.
+//
+// The suite above pins what must NOT be rewritten. This pins what MUST be: a
+// file the delivery actually edited. Preservation is scoped to files outside
+// the refresh, and nothing else was asserting that — so a regression that
+// widened preservation over in-scope files would leave every edited file's
+// coordinates frozen at their prior values, and the comparator would keep
+// pairing live methods against rows describing where they used to be.
+// ---------------------------------------------------------------------------
+
+describe('refreshBaseline — an in-scope file is re-scored, not preserved (#4969)', () => {
+  let workDir;
+
+  beforeEach(() => {
+    workDir = makeTempDir('mandrel-refresh-rescore-');
+  });
+
+  afterEach(() => {
+    rmSync(workDir, { recursive: true, force: true });
+  });
+
+  it('replaces an in-scope file rows wholesale — coordinates and identities', async () => {
+    const writePath = path.join(workDir, 'baselines', 'crap.json');
+    const priorEnvelope = seedPriorBaseline(
+      writePath,
+      [
+        // `edited.js` gained a function above these two, so both moved down
+        // AND the second one's derived identity changed with its scope.
+        {
+          path: 'src/edited.js',
+          method: '<anon host/(x)#0>',
+          anonymous: true,
+          startLine: 10,
+          crap: 4,
+        },
+        { path: 'src/edited.js', method: 'host', startLine: 8, crap: 3 },
+        { path: 'src/untouched.js', method: 'stable', startLine: 2, crap: 1 },
+      ],
+      FIXED_PRIOR,
+      'crap',
+    );
+    const priorByKey = new Map(
+      priorEnvelope.rows.map((r) => [`${r.path}::${r.method}`, r]),
+    );
+
+    await refreshBaseline({
+      kind: 'crap',
+      writePath,
+      scopeFiles: ['src/edited.js'],
+      generatedAt: FIXED_NOW,
+      scorer: makeScorer([
+        {
+          path: 'src/edited.js',
+          method: '<anon host/(x)#0>',
+          anonymous: true,
+          startLine: 24,
+          crap: 4,
+        },
+        { path: 'src/edited.js', method: 'host', startLine: 22, crap: 3 },
+        {
+          path: 'src/edited.js',
+          method: '<anon inserted/(y)#0>',
+          anonymous: true,
+          startLine: 12,
+          crap: 2,
+        },
+      ]),
+    });
+
+    const parsed = JSON.parse(readFileSync(writePath, 'utf8'));
+    const byKey = new Map(
+      parsed.rows.map((r) => [`${r.path}::${r.method}`, r]),
+    );
+
+    // The edited file's coordinates track the re-scan, NOT the prior bytes —
+    // even though the CRAP scores themselves did not move, which is exactly
+    // the case a value-only comparison would let slip through.
+    assert.equal(byKey.get('src/edited.js::<anon host/(x)#0>').startLine, 24);
+    assert.equal(byKey.get('src/edited.js::host').startLine, 22);
+    assert.ok(
+      byKey.has('src/edited.js::<anon inserted/(y)#0>'),
+      'a method the re-scan discovered must land in the baseline',
+    );
+
+    // And the scoped guarantee still holds in the other direction.
+    assert.deepEqual(
+      byKey.get('src/untouched.js::stable'),
+      priorByKey.get('src/untouched.js::stable'),
     );
   });
 });
