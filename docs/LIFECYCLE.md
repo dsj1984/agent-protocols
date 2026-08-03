@@ -208,6 +208,7 @@ events.
 > Story #4545 — the listener had no production caller, and the poll defaults
 > and `deriveChecksStatus` the close path did reuse from it now live in
 > [`lib/orchestration/merge-poll.js`](../.agents/scripts/lib/orchestration/merge-poll.js).
+
 ### Side-effect firewall
 
 Listeners MAY read tickets via the injected provider, write tickets via

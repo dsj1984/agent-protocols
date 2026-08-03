@@ -28,11 +28,20 @@ const tasks = [
     args: ['biome', 'ci', '.'],
   },
   {
+    // `docs/**/*.md` sat outside these globs until PR #4970's follow-up,
+    // so `npm run lint` reported "0 error(s)" while the close-time
+    // code-review lens — which lints the whole changed surface, not just
+    // what this driver globs — raised pre-existing `docs/` violations
+    // against whichever Story happened to touch the file. Keep `docs/`
+    // here so the two surfaces agree. `docs/CHANGELOG.md` is linted too;
+    // the generator-owned rules it can never satisfy are exempted by a
+    // `markdownlint-disable-file` directive in its own header.
     name: 'markdownlint',
     cmd: 'npx',
     args: [
       'markdownlint-cli2',
       '.agents/**/*.md',
+      'docs/**/*.md',
       '*.md',
       '!node_modules/**',
       '!.worktrees/**',
