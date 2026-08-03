@@ -126,6 +126,46 @@ function envelopeRows(idKey, metric) {
 }
 
 /**
+ * Fold `{ id, value }` rows into one whole-repo number.
+ *
+ * `TOTAL` is for **additive** metrics — dead-export symbols, context bytes,
+ * lint errors — where the sum is the quantity the instrument measures.
+ * `TALLY` is for **non-additive** ones — percentages, indices, scores — where
+ * summing per-file values would fabricate a statistic; the honest whole-repo
+ * number is how many rows are tracked, and the unit name says so.
+ */
+const TOTAL = (rows) => rows.reduce((sum, row) => sum + row.value, 0);
+const TALLY = (rows) => rows.length;
+
+/**
+ * `[unit, fold]` per kind: the unit each kind's whole-repo total is
+ * denominated in, and how its rows fold into it.
+ *
+ * This is the fix for the roll-up that counted **files** for every kind
+ * (Story #4962). `dead-exports-production` moving 590 → 589 *symbols* across
+ * 187 files on both sides read as a delta of 0, and a 421-byte context-budget
+ * growth read as 0 too, because the fallback counted rows — a grain finer than
+ * the file for dead exports and coarser than the byte for context budget.
+ * Naming the unit is half the fix: an axis called `symbols` or `bytes` cannot
+ * be re-read as a file count the way a bare `rowCount` was.
+ */
+const TREND_UNITS = Object.freeze({
+  'bundle-size': ['rawKb', TOTAL],
+  coverage: ['filesTracked', TALLY],
+  crap: ['filesTracked', TALLY],
+  duplication: ['filesTracked', TALLY],
+  lighthouse: ['routesTracked', TALLY],
+  lint: ['errorCount', TOTAL],
+  maintainability: ['filesTracked', TALLY],
+  mutation: ['filesTracked', TALLY],
+  'arch-cycles': ['cycleMemberships', TOTAL],
+  'context-budget': ['bytes', TOTAL],
+  cyclomatic: ['filesTracked', TALLY],
+  'dead-exports': ['symbols', TOTAL],
+  'dead-exports-production': ['symbols', TOTAL],
+});
+
+/**
  * Per-kind row spec.
  *
  * - `metric`  — the axis a hotspot is measured on.
@@ -233,11 +273,32 @@ export function rollupOf(baseline) {
 }
 
 /**
- * The rollup a trend sample compares on. Gate kinds carry their own; ratchet
- * baselines carry none, so their row count stands in — "dead exports went
- * 170 → 165" is exactly the direction-of-travel question trend answers, and
- * skipping the ratchet half here would leave it visible in `gateSurface[]`
- * but invisible in `trend[]`.
+ * The whole-repo quantity a kind measures, in the unit it measures it in —
+ * `{ unit, value }`, or `null` when the kind or the baseline is unreadable.
+ *
+ * This sits beside `rowCount` in `gateSurface[]` precisely because the two
+ * disagree: `dead-exports-production` carries 589 rows across 187 files, so a
+ * lone `rowCount: 187` reads as a symbol count and is not one.
+ *
+ * @param {string} kind
+ * @param {object | null} baseline
+ * @returns {{ unit: string, value: number } | null}
+ */
+export function measuredTotalOf(kind, baseline) {
+  const spec = KIND_SPECS[kind];
+  const denomination = TREND_UNITS[kind];
+  if (!baseline || !spec || !denomination) return null;
+  const [unit, fold] = denomination;
+  return { unit, value: fold(spec.rows(baseline)) };
+}
+
+/**
+ * The rollup a trend sample compares on. Gate kinds carry their own, already
+ * axis-named; ratchet baselines carry none, so the whole-repo total stands in
+ * under its own unit — "dead exports went 590 → 589 **symbols**" is exactly
+ * the direction-of-travel question trend answers, and skipping the ratchet
+ * half here would leave it visible in `gateSurface[]` but invisible in
+ * `trend[]`.
  *
  * @param {string} kind
  * @param {object | null} baseline
@@ -247,7 +308,6 @@ export function trendRollupOf(kind, baseline) {
   if (!baseline) return null;
   const declared = rollupOf(baseline);
   if (declared) return declared;
-  const spec = KIND_SPECS[kind];
-  if (!spec) return null;
-  return { rowCount: spec.rows(baseline).length };
+  const measured = measuredTotalOf(kind, baseline);
+  return measured ? { [measured.unit]: measured.value } : null;
 }
