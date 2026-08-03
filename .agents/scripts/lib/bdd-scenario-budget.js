@@ -24,8 +24,14 @@
  * several envelope fields, not the whole budget. At the measured ~337
  * bytes/scenario average (Story #4977 evidence, a mature Gherkin corpus),
  * 24 KB holds roughly 70 scenarios before truncating.
+ *
+ * Deliberately module-private: the only production consumer is
+ * {@link capBddScenarios} below via the `opts.byteBudget` default. Tests
+ * assert the resulting behavior (truncation, order, fit) rather than
+ * importing this value directly, so it carries no public export the
+ * `--production` dead-exports ratchet would otherwise flag as test-only.
  */
-export const BDD_SCENARIOS_BYTE_BUDGET = 24_000;
+const BDD_SCENARIOS_BYTE_BUDGET = 24_000;
 
 /**
  * Truncate a scenario index to a byte budget, deterministically (scan

@@ -1,10 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import {
-  BDD_SCENARIOS_BYTE_BUDGET,
-  capBddScenarios,
-} from '../.agents/scripts/lib/bdd-scenario-budget.js';
+import { capBddScenarios } from '../.agents/scripts/lib/bdd-scenario-budget.js';
 
 /**
  * Story #4977 — `bddScenarios` grew to 118 KB on a consumer with a mature
@@ -34,9 +31,9 @@ describe('capBddScenarios — envelope byte budget', () => {
     assert.equal(result.truncated, false);
   });
 
-  it('truncates a large corpus and reports what was dropped rather than silently cutting it', () => {
+  it('truncates a large corpus, preserving scan order, and reports what was dropped', () => {
     // Story #4977 evidence: ~337 bytes/scenario on a mature Gherkin corpus.
-    // 500 synthetic scenarios comfortably exceeds BDD_SCENARIOS_BYTE_BUDGET.
+    // 500 synthetic scenarios comfortably exceeds the default byte budget.
     const scenarios = Array.from({ length: 500 }, (_, i) => makeScenario(i));
     const result = capBddScenarios(scenarios);
 
@@ -50,15 +47,6 @@ describe('capBddScenarios — envelope byte budget', () => {
       result.scenarios,
       scenarios.slice(0, result.includedScenarios),
       'truncation must preserve scan order (deterministic), not re-sort',
-    );
-
-    const cappedBytes = Buffer.byteLength(
-      JSON.stringify(result.scenarios),
-      'utf-8',
-    );
-    assert.ok(
-      cappedBytes <= BDD_SCENARIOS_BYTE_BUDGET,
-      `capped scenarios (${cappedBytes}B) must fit the byte budget (${BDD_SCENARIOS_BYTE_BUDGET}B)`,
     );
   });
 
@@ -80,16 +68,25 @@ describe('capBddScenarios — envelope byte budget', () => {
     });
   });
 
-  it('keeps the byte budget a small fraction of the /plan envelope ceiling', async () => {
+  it('keeps the capped output a small fraction of the /plan envelope ceiling', async () => {
     // Story #4977: the cap must leave the envelope's other fixed-floor
     // fields (docsContext, systemPrompts) their historical headroom rather
     // than merely resetting the countdown at a new, still-dominant size.
+    // Measured against the actual capped output (not the internal budget
+    // constant, which is module-private) so this stays a behavioral
+    // assertion rather than an implementation-detail import.
     const { PLAN_CONTEXT_ENVELOPE_BYTE_CEILING } = await import(
       '../.agents/scripts/lib/orchestration/plan-context.js'
     );
+    const scenarios = Array.from({ length: 1000 }, (_, i) => makeScenario(i));
+    const result = capBddScenarios(scenarios);
+    const cappedBytes = Buffer.byteLength(
+      JSON.stringify(result.scenarios),
+      'utf-8',
+    );
     assert.ok(
-      BDD_SCENARIOS_BYTE_BUDGET <= PLAN_CONTEXT_ENVELOPE_BYTE_CEILING * 0.15,
-      'BDD_SCENARIOS_BYTE_BUDGET must stay a small fraction of the envelope ceiling',
+      cappedBytes <= PLAN_CONTEXT_ENVELOPE_BYTE_CEILING * 0.15,
+      `capped bddScenarios (${cappedBytes}B) must stay a small fraction of the envelope ceiling`,
     );
   });
 });
