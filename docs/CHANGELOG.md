@@ -15,6 +15,57 @@ All notable changes to this project will be documented in this file.
 -->
 <!-- markdownlint-disable-file MD004 MD012 MD037 -->
 
+## [2.26.0](https://github.com/dsj1984/mandrel/compare/mandrel-v2.25.0...mandrel-v2.26.0) (2026-08-03)
+
+
+### Added
+
+* /audit-baselines lens: ratchet-tightening audit workflow over the committed baseline surface ([#4903](https://github.com/dsj1984/mandrel/issues/4903)) ([#4913](https://github.com/dsj1984/mandrel/issues/4913)) ([420fb09](https://github.com/dsj1984/mandrel/commit/420fb09df605edfd8ace86e6b2295c7bd6909c3f))
+* **acceptance-eval:** merge parallel cluster verdicts into one gate call per round (refs [#4951](https://github.com/dsj1984/mandrel/issues/4951)) ([#4954](https://github.com/dsj1984/mandrel/issues/4954)) ([56b69dd](https://github.com/dsj1984/mandrel/commit/56b69dde0a5faee418d5f49f4b0c3eab5f682245))
+* **audit:** add the read-only baseline hotspot engine (refs [#4902](https://github.com/dsj1984/mandrel/issues/4902)) ([#4910](https://github.com/dsj1984/mandrel/issues/4910)) ([22a2245](https://github.com/dsj1984/mandrel/commit/22a22458645823705a2cfcf94ea6d1a7acb4546e))
+* **deliver:** accept dash ranges in delivery Story-id lists (refs [#4927](https://github.com/dsj1984/mandrel/issues/4927)) ([#4928](https://github.com/dsj1984/mandrel/issues/4928)) ([9000044](https://github.com/dsj1984/mandrel/commit/90000442d5f578a4895b5950784e2fb8493d316a))
+* **deliver:** add --merge-watch-mode and mandate one-turn fan-out dispatch (refs [#4949](https://github.com/dsj1984/mandrel/issues/4949)) ([#4957](https://github.com/dsj1984/mandrel/issues/4957)) ([fa1c426](https://github.com/dsj1984/mandrel/commit/fa1c426c181cb3696b4ea34166c99719cea877c2))
+* make the coverage instrument measure: widen CI's run to every test tier, configure the gate, and reseed the baseline ([#4922](https://github.com/dsj1984/mandrel/issues/4922)) ([#4931](https://github.com/dsj1984/mandrel/issues/4931)) ([bc94fbf](https://github.com/dsj1984/mandrel/commit/bc94fbf65b41d53098606aff7f7b58dc1679ea5d))
+* repair the inert quality instruments and tighten the ratchets behind the reclaimed slack ([#4923](https://github.com/dsj1984/mandrel/issues/4923)) ([#4933](https://github.com/dsj1984/mandrel/issues/4933)) ([3cc3a30](https://github.com/dsj1984/mandrel/commit/3cc3a30b5e54b3dac78649dd9536ad617086ee0c))
+* retire friction-event.schema.json or wire it, and stop four docs citing a schema nothing compiles ([#4938](https://github.com/dsj1984/mandrel/issues/4938)) ([#4941](https://github.com/dsj1984/mandrel/issues/4941)) ([259f6e6](https://github.com/dsj1984/mandrel/commit/259f6e6cc47db88434b0612aa9327638afb73911))
+* retire the memory-freshness scanner and ship the visible memory-hygiene loop ([#4919](https://github.com/dsj1984/mandrel/issues/4919)) ([#4921](https://github.com/dsj1984/mandrel/issues/4921)) ([54cf87c](https://github.com/dsj1984/mandrel/commit/54cf87c1a4e929681f194fc899decb24636bd5f2))
+
+
+### Fixed
+
+* **baselines:** settle the exit through runAsCli so a piped report is not truncated ([#4932](https://github.com/dsj1984/mandrel/issues/4932)) ([d3670de](https://github.com/dsj1984/mandrel/commit/d3670dec493c2ba60a60e365c1ab809bde58ce43)), closes [#4783](https://github.com/dsj1984/mandrel/issues/4783)
+* close three harness gaps: unbounded CI jobs, divergent runner flags, and inert pretest hooks ([#4936](https://github.com/dsj1984/mandrel/issues/4936)) ([#4942](https://github.com/dsj1984/mandrel/issues/4942)) ([d71040d](https://github.com/dsj1984/mandrel/commit/d71040dc0b558906a42327dcd9bd88ccfc26694c))
+* exclude transpiled-coordinate rows from the 0%-coverage fill, and refuse a baseline that predates provenance stamping ([#4901](https://github.com/dsj1984/mandrel/issues/4901)) ([#4905](https://github.com/dsj1984/mandrel/issues/4905)) ([adc135b](https://github.com/dsj1984/mandrel/commit/adc135b3338550e2911e7139d638be8670eb5bab))
+* **friction:** refuse a quoted --cmd as a usage error and split ENOBUFS from timeout (refs [#4915](https://github.com/dsj1984/mandrel/issues/4915)) ([#4918](https://github.com/dsj1984/mandrel/issues/4918)) ([64989aa](https://github.com/dsj1984/mandrel/commit/64989aa4a5cf746d959b649e760bf93f96f2ead0))
+* **git:** give the git runners an explicit 64 MB stdout ceiling, unblocking Story close ([#4953](https://github.com/dsj1984/mandrel/issues/4953)) ([75160a4](https://github.com/dsj1984/mandrel/commit/75160a491704acc2de127d9135bcfcbc846bdfee))
+* give the raised GitHub write fan-outs transient-retry backoff and single-source their concurrency bound ([#4961](https://github.com/dsj1984/mandrel/issues/4961)) ([#4964](https://github.com/dsj1984/mandrel/issues/4964)) ([459a3f1](https://github.com/dsj1984/mandrel/commit/459a3f12da0280881b757c0855d33d0a89221320))
+* let a dangling-citation anchor count inside a code span (refs [#4906](https://github.com/dsj1984/mandrel/issues/4906)) ([#4911](https://github.com/dsj1984/mandrel/issues/4911)) ([a96ae9f](https://github.com/dsj1984/mandrel/commit/a96ae9fbed4b701ff45d13e268d91e960ebbe595))
+* **lint:** lint docs/ so the gate matches the code-review lens ([#4971](https://github.com/dsj1984/mandrel/issues/4971)) ([b1f4e65](https://github.com/dsj1984/mandrel/commit/b1f4e6551670f145fa6f6e688a16130e8da644d7))
+* make git hooks fire in linked worktrees and stop bypassing pre-push at close ([#4943](https://github.com/dsj1984/mandrel/issues/4943)) ([#4946](https://github.com/dsj1984/mandrel/issues/4946)) ([2ac0597](https://github.com/dsj1984/mandrel/commit/2ac05979241ca2ad061e14fbeda2b71c1b299da7))
+* make the ratchet trend roll-up count what it measures and baseline staleness commit-aware ([#4962](https://github.com/dsj1984/mandrel/issues/4962)) ([#4967](https://github.com/dsj1984/mandrel/issues/4967)) ([fff36bf](https://github.com/dsj1984/mandrel/commit/fff36bf79ab4c75a2f4274c60228ab0942ded65a))
+* **observability:** attribute terminal friction to the emitting CLI ([#4966](https://github.com/dsj1984/mandrel/issues/4966)) ([5aa986a](https://github.com/dsj1984/mandrel/commit/5aa986aaee97e858329ab8f948a1a59db8aeb1c4))
+* **observability:** classify a bare framework-script basename as framework (refs [#4916](https://github.com/dsj1984/mandrel/issues/4916)) ([#4920](https://github.com/dsj1984/mandrel/issues/4920)) ([a8e0bbc](https://github.com/dsj1984/mandrel/commit/a8e0bbc22ad1cc8e0ab3ce117e597c537be96d7c))
+* **plan-persist:** re-carry audit provenance onto dependent Stories (refs [#4935](https://github.com/dsj1984/mandrel/issues/4935)) ([#4939](https://github.com/dsj1984/mandrel/issues/4939)) ([6866b0c](https://github.com/dsj1984/mandrel/commit/6866b0c368de0ff438b565d5049a38273b56ef8c))
+* **quality:** key anonymous CRAP methods by enclosing scope, not escomplex ordinal (refs [#4969](https://github.com/dsj1984/mandrel/issues/4969)) ([#4970](https://github.com/dsj1984/mandrel/issues/4970)) ([ca5da99](https://github.com/dsj1984/mandrel/commit/ca5da9940da57aaf20d34844afa835f6a8b127f0))
+* read prior baseline rows per kind so duplication's diff-scope preservation and epsilon damping actually work ([#4937](https://github.com/dsj1984/mandrel/issues/4937)) ([#4940](https://github.com/dsj1984/mandrel/issues/4940)) ([e7d13b5](https://github.com/dsj1984/mandrel/commit/e7d13b551fb958c38833a7946785929dd17907a3))
+* retune the advisory Spec word budget to 350 and repair its report channel (refs [#4907](https://github.com/dsj1984/mandrel/issues/4907)) ([#4909](https://github.com/dsj1984/mandrel/issues/4909)) ([3c914ba](https://github.com/dsj1984/mandrel/commit/3c914ba9430743f2e5399ded6ac74aee4c4148d1))
+* **scripts:** make --help short-circuit before check-test-temp-hygiene does work ([#4968](https://github.com/dsj1984/mandrel/issues/4968)) ([5e873ac](https://github.com/dsj1984/mandrel/commit/5e873acbc316a37e5a173a94bb2fe52090614493))
+* stop check-baselines silently disabling its compare arm when the base baseline cannot be read ([#4914](https://github.com/dsj1984/mandrel/issues/4914)) ([#4917](https://github.com/dsj1984/mandrel/issues/4917)) ([d62a334](https://github.com/dsj1984/mandrel/commit/d62a334555bccd605bd37bd9d8a544fdcc4e3710))
+* stop the git-cleanup branches phase announcing a DRY RUN before it deletes ([#4898](https://github.com/dsj1984/mandrel/issues/4898)) ([3edad1e](https://github.com/dsj1984/mandrel/commit/3edad1e8c9a8906c1abc5f02e79e7ee4792775b2))
+* **wave-runner:** exempt glob footprints from cross-beat reservation (refs [#4960](https://github.com/dsj1984/mandrel/issues/4960)) ([#4963](https://github.com/dsj1984/mandrel/issues/4963)) ([ca935e2](https://github.com/dsj1984/mandrel/commit/ca935e223f211340c671668a53738de634c12c04))
+* **wave-runner:** reserve in-flight Story footprints in the ready-set guard (refs [#4950](https://github.com/dsj1984/mandrel/issues/4950)) ([#4955](https://github.com/dsj1984/mandrel/issues/4955)) ([7f8ffb3](https://github.com/dsj1984/mandrel/commit/7f8ffb31c523dba01fb9cffe376a5149d92d7c08))
+
+
+### Performance
+
+* **plan:** run the /plan path's independent gathers and write loops concurrently (refs [#4952](https://github.com/dsj1984/mandrel/issues/4952)) ([#4956](https://github.com/dsj1984/mandrel/issues/4956)) ([8c8ec6c](https://github.com/dsj1984/mandrel/commit/8c8ec6c1134f23fbf8214d138438b3febc6014c8))
+
+
+### Changed
+
+* **baselines:** migrate the duplication CLI onto refreshBaseline (refs [#4944](https://github.com/dsj1984/mandrel/issues/4944)) ([#4945](https://github.com/dsj1984/mandrel/issues/4945)) ([38e43d2](https://github.com/dsj1984/mandrel/commit/38e43d2362031cfaebbfeeaa8bec75c3c5ecf56b))
+* burn down the cross-gate hotspot clusters and remove the shipped seams nothing calls ([#4926](https://github.com/dsj1984/mandrel/issues/4926)) ([#4934](https://github.com/dsj1984/mandrel/issues/4934)) ([970c7f8](https://github.com/dsj1984/mandrel/commit/970c7f88f5d198b685f90ede5358beea5b2896ce))
+
 ## [2.25.0](https://github.com/dsj1984/mandrel/compare/mandrel-v2.24.0...mandrel-v2.25.0) (2026-08-01)
 
 
