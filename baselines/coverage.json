@@ -1,12 +1,12 @@
 {
   "$schema": ".agents/schemas/baselines/coverage.schema.json",
   "kernelVersion": "1.0.0",
-  "generatedAt": "2026-08-03T01:51:56.780Z",
+  "generatedAt": "2026-08-03T13:26:56.600Z",
   "rollup": {
     "*": {
       "lines": 95.79,
-      "branches": 86.25,
-      "functions": 88.8
+      "branches": 86.29,
+      "functions": 88.82
     }
   },
   "rows": [
@@ -621,6 +621,12 @@
       "lines": 92.09,
       "branches": 81.93,
       "functions": 88.89
+    },
+    {
+      "path": ".agents/scripts/lib/bdd-scenario-budget.js",
+      "lines": 100,
+      "branches": 100,
+      "functions": 100
     },
     {
       "path": ".agents/scripts/lib/bdd-scenario-scanner.js",
@@ -1920,8 +1926,8 @@
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-context.js",
-      "lines": 97.85,
-      "branches": 78.53,
+      "lines": 97.99,
+      "branches": 79.01,
       "functions": 100
     },
     {
@@ -2010,8 +2016,8 @@
     },
     {
       "path": ".agents/scripts/lib/orchestration/planning/authoring-context.js",
-      "lines": 97.85,
-      "branches": 70,
+      "lines": 97.73,
+      "branches": 77.78,
       "functions": 100
     },
     {

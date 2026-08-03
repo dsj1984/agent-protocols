@@ -1,12 +1,12 @@
 {
   "$schema": ".agents/schemas/baselines/maintainability.schema.json",
   "kernelVersion": "0.1.0",
-  "generatedAt": "2026-08-03T01:58:40.657Z",
+  "generatedAt": "2026-08-03T13:26:00.160Z",
   "rollup": {
     "*": {
       "min": 74.146,
-      "p50": 98.282,
-      "p95": 126.637
+      "p50": 98.296,
+      "p95": 126.196
     }
   },
   "rows": [
@@ -429,6 +429,10 @@
     {
       "path": ".agents/scripts/lib/bdd-runner-detect.js",
       "mi": 95.055
+    },
+    {
+      "path": ".agents/scripts/lib/bdd-scenario-budget.js",
+      "mi": 103.516
     },
     {
       "path": ".agents/scripts/lib/bdd-scenario-scanner.js",
@@ -1292,7 +1296,7 @@
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-context.js",
-      "mi": 88.862
+      "mi": 91.192
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-critic-conditions.js",
@@ -1352,7 +1356,7 @@
     },
     {
       "path": ".agents/scripts/lib/orchestration/planning/authoring-context.js",
-      "mi": 85.427
+      "mi": 106.002
     },
     {
       "path": ".agents/scripts/lib/orchestration/planning/decomposer-context.js",
