@@ -656,5 +656,42 @@ runAsCli(
     const code = runHygiene(parseArgv(process.argv.slice(2)));
     return code;
   },
-  { source: 'check-test-temp-hygiene', propagateExitCode: true },
+  {
+    source: 'check-test-temp-hygiene',
+    propagateExitCode: true,
+    usage: {
+      invocation:
+        'node .agents/scripts/check-test-temp-hygiene.js [--snapshot | --assert | --clean] [--baseline <path>] [--lint-globs <globs>] [--ids <ids>] [--root <dir>]',
+      summary:
+        'Regression guard for test-fixture pollution of the temp trees: the repo temp/ telemetry streams every retro reads, and the OS temp root the suite scratch dirs nest under.',
+      flags: [
+        [
+          '--snapshot',
+          'Fingerprint every temp/ stream file and the pre-existing OS suite roots. Run BEFORE the suite.',
+        ],
+        [
+          '--assert',
+          'Re-scan and fail on any stream added or grown, or a surviving suite root. Run AFTER the suite. This is the default when no mode flag is passed.',
+        ],
+        [
+          '--clean',
+          'List stream directories whose Epic/Story id matches a known fixture id. Report-only — deletes nothing.',
+        ],
+        [
+          '--baseline <path>',
+          'Explicit snapshot path (CI sets a runner-temp path). Defaults to an OS scratch location keyed by the repo root; refused inside the protected temp/ tree.',
+        ],
+        [
+          '--lint-globs <globs>',
+          'Comma-separated repo-relative globs scanned for tests calling mkdtemp against os.tmpdir() instead of makeTempDir(). Off unless passed.',
+        ],
+        ['--ids <ids>', 'Comma-separated fixture ids for --clean.'],
+        ['--root <dir>', 'Repository root to scan (default: repo root).'],
+      ],
+      notes: [
+        '--assert requires a snapshot recorded by an earlier --snapshot run: a missing one is a hard failure, never a silent re-baseline.',
+        'Exit codes:\n  0  clean\n  1  a breach, or --assert with no snapshot to attest against',
+      ],
+    },
+  },
 );
