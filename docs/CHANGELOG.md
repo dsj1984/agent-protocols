@@ -15,6 +15,13 @@ All notable changes to this project will be documented in this file.
 -->
 <!-- markdownlint-disable-file MD004 MD012 MD037 -->
 
+## [2.27.0](https://github.com/dsj1984/mandrel/compare/mandrel-v2.26.0...mandrel-v2.27.0) (2026-08-03)
+
+
+### Fixed
+
+* **baselines:** carry provenanceStamped through the reader's narrowing (refs [#4973](https://github.com/dsj1984/mandrel/issues/4973)) ([#4974](https://github.com/dsj1984/mandrel/issues/4974)) ([4a3795a](https://github.com/dsj1984/mandrel/commit/4a3795a2e3d60748d5b40b0288521af5a7a885ab))
+
 ## [2.26.0](https://github.com/dsj1984/mandrel/compare/mandrel-v2.25.0...mandrel-v2.26.0) (2026-08-03)
 
 
