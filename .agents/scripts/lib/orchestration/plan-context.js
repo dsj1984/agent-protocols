@@ -46,21 +46,53 @@ import { buildDecomposerSystemPrompt } from './planning/decomposer-context.js';
  * body and ship the raw seed on `seed.content` instead — the budget bounded
  * a field that never left the function.
  *
- * A measured seed-mode envelope on this repo is ~120 KB, dominated by the
- * digest-first `docsContext` (~63 KB inline digest) and the rendered
- * `systemPrompts` (~54 KB); every other field is under 1 KB. Story #4811
- * retired the tier-capped codebase snapshot that used to sit alongside them
- * (~35 KB skinny here). The seed itself is operator-supplied, carried
- * verbatim, and is the only unbounded contributor. 256 KB (~64K tokens at the
- * ≈4-chars/token estimate) leaves roughly 2× headroom over that measurement
- * while staying well under the session budget. The test suite asserts
- * serialized envelopes stay under this value — raise it only with a measured
+ * A measured seed-mode envelope on this repo (a thin `.feature` corpus) is
+ * ~120 KB, dominated by the digest-first `docsContext` (~63 KB inline
+ * digest) and the rendered `systemPrompts` (~54 KB); every other field is
+ * under 1 KB. Story #4811 retired the tier-capped codebase snapshot that
+ * used to sit alongside them (~35 KB skinny here). This measurement is
+ * **not** representative of every consumer, though: Story #4977 found
+ * `bddScenarios` at 118 KB on a consumer with a mature Gherkin corpus —
+ * larger than `docsContext` and `systemPrompts` combined, consuming nearly
+ * all of the ceiling's headroom on its own, because the scanner applied no
+ * cap. `bddScenarios` is now truncated to `BDD_SCENARIOS_BYTE_BUDGET`
+ * (`lib/bdd-scenario-budget.js`, ≤24 KB) before it reaches this envelope,
+ * so the seed remains the only field this ceiling leaves genuinely
+ * unbounded. 256 KB (~64K tokens at the ≈4-chars/token estimate) leaves
+ * roughly 2× headroom over the fixed-floor measurement above while staying
+ * well under the session budget. The test suite asserts serialized
+ * envelopes stay under this value — raise it only with a measured
  * justification.
  */
 export const PLAN_CONTEXT_ENVELOPE_BYTE_CEILING = 256_000;
 
 /** Fields named in the over-ceiling error, to point at what to trim. */
 const OVERSIZE_REPORT_FIELDS = 3;
+
+/**
+ * Per-field remedy for the over-ceiling refusal, keyed by envelope field
+ * name. Story #4977 — the refusal used to hardcode "trim the seed, or plan
+ * fewer --tickets" regardless of which field actually blew the budget; on a
+ * consumer with a mature Gherkin corpus the dominant field was
+ * `bddScenarios` (repo-derived, not seed-derived), and "trim the seed" was a
+ * dead lever the operator had no way to act on. The remedy now follows the
+ * single largest field.
+ */
+const OVERSIZE_FIELD_REMEDIES = Object.freeze({
+  seed: 'Trim the seed text — it is carried verbatim by design and is the one field with no elision path.',
+  sourceTickets:
+    'Plan fewer --tickets source issues in one run — each source ticket body is carried verbatim.',
+  epic: 'Plan fewer --tickets source issues in one run, or re-plan with a shorter Epic body.',
+  bddScenarios:
+    "The project's .feature corpus is already capped near BDD_SCENARIOS_BYTE_BUDGET (lib/bdd-scenario-budget.js) — if this still dominates, another field is unusually small; check the full field breakdown.",
+  docsContext:
+    'Trim project.docsContextFiles — docsContext is a digest built from those files.',
+  systemPrompts:
+    'This field is a fixed framework prompt, not operator content — if it dominates, file a framework-gap issue rather than trying to trim it.',
+});
+
+const DEFAULT_OVERSIZE_REMEDY =
+  'Trim the seed, or plan fewer --tickets source issues in one run.';
 
 /**
  * Fail closed when an assembled envelope exceeds
@@ -97,22 +129,26 @@ function assertPlanContextWithinCeiling(envelope, opts = {}) {
   const bytes = Buffer.byteLength(JSON.stringify(envelope) ?? '', 'utf-8');
   if (bytes <= ceiling) return envelope;
 
-  const largest = Object.entries(envelope)
+  const sortedFields = Object.entries(envelope)
     .map(([field, value]) => [
       field,
       Buffer.byteLength(JSON.stringify(value) ?? '', 'utf-8'),
     ])
-    .sort((a, b) => b[1] - a[1])
+    .sort((a, b) => b[1] - a[1]);
+
+  const largest = sortedFields
     .slice(0, OVERSIZE_REPORT_FIELDS)
     .map(([field, size]) => `${field} (${Math.round(size / 1024)} KB)`)
     .join(', ');
+
+  const topField = sortedFields[0]?.[0];
+  const remedy = OVERSIZE_FIELD_REMEDIES[topField] ?? DEFAULT_OVERSIZE_REMEDY;
 
   throw new Error(
     `[plan-context] the assembled "${envelope?.mode}" envelope is ` +
       `${Math.round(bytes / 1024)} KB, over the ` +
       `${Math.round(ceiling / 1024)} KB planner-context ceiling. Largest ` +
-      `fields: ${largest}. Trim the seed, or plan fewer --tickets source ` +
-      'issues in one run. Raising the ceiling needs a measured ' +
+      `fields: ${largest}. ${remedy} Raising the ceiling needs a measured ` +
       'justification — see PLAN_CONTEXT_ENVELOPE_BYTE_CEILING.',
   );
 }

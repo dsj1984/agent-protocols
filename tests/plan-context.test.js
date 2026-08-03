@@ -510,9 +510,10 @@ describe('plan-context envelope byte ceiling — runtime enforcement', () => {
         // fields are named rather than just the total.
         assert.match(err.message, /Largest fields:/);
         assert.match(err.message, /seed \(\d+ KB\)/);
-        // The remaining remedies are the two that still exist.
+        // Story #4977: the remedy follows the single largest field rather
+        // than always naming both legacy remedies — here `seed` dominates,
+        // so only its remedy is named.
         assert.match(err.message, /Trim the seed/);
-        assert.match(err.message, /fewer --tickets source/);
         // Story #4811 retired the codebase snapshot: a remedy naming a knob
         // the operator can no longer set is worse than no remedy, because it
         // sends them editing a config the schema now rejects.
@@ -545,7 +546,13 @@ describe('plan-context envelope byte ceiling — runtime enforcement', () => {
           config: {},
           settings: {},
         }),
-      /planner-context ceiling/,
+      (err) => {
+        assert.match(err.message, /planner-context ceiling/);
+        // Story #4977: the remedy follows whichever field actually
+        // dominates — in tickets mode that's `sourceTickets`, not `seed`.
+        assert.match(err.message, /fewer --tickets source/);
+        return true;
+      },
     );
   });
 });
