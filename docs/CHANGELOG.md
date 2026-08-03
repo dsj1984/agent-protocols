@@ -15,6 +15,13 @@ All notable changes to this project will be documented in this file.
 -->
 <!-- markdownlint-disable-file MD004 MD012 MD037 -->
 
+## [2.28.0](https://github.com/dsj1984/mandrel/compare/mandrel-v2.27.0...mandrel-v2.28.0) (2026-08-03)
+
+
+### Fixed
+
+* uncapped bddScenarios consumes the /plan envelope ceiling; blocks /audit-to-stories' single-plan path entirely ([#4977](https://github.com/dsj1984/mandrel/issues/4977)) ([#4978](https://github.com/dsj1984/mandrel/issues/4978)) ([c8b2731](https://github.com/dsj1984/mandrel/commit/c8b27312e67b138567e4e41789871e3911c7a8cb))
+
 ## [2.27.0](https://github.com/dsj1984/mandrel/compare/mandrel-v2.26.0...mandrel-v2.27.0) (2026-08-03)
 
 
