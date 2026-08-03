@@ -9,6 +9,7 @@ import {
   crapFormula,
   deriveFixGuidance,
   finalizeMethodRows,
+  finalizeMethodRowsWithBaseline,
 } from '../../.agents/scripts/lib/crap-engine.js';
 import {
   deriveMethodIdentities,
@@ -396,6 +397,139 @@ describe('finalizeMethodRows — provenance gates the fill (#4866, #4901)', () =
       { requireCoverage: true },
     );
     assert.equal(out.rows[0].coordinateSystem, COORDINATE_ORIGINAL);
+  });
+});
+
+describe('finalizeMethodRowsWithBaseline — incremental join (Story #4981)', () => {
+  const rawTouched = [
+    {
+      method: 'fresh',
+      startLine: 4,
+      cyclomatic: 2,
+      coverage: 1,
+      crap: 2,
+      coordinateSystem: COORDINATE_ORIGINAL,
+    },
+  ];
+  const rawUntouched = [
+    {
+      method: 'stable',
+      startLine: 10,
+      cyclomatic: 5,
+      coverage: null,
+      crap: null,
+      coordinateSystem: COORDINATE_ORIGINAL,
+    },
+  ];
+
+  it('AC-5: touched=true (the default) delegates byte-identically to finalizeMethodRows', () => {
+    const baselineByKey = new Map([['stable@10', { crap: 3 }]]);
+    const viaWrapper = finalizeMethodRowsWithBaseline(rawUntouched, {
+      requireCoverage: true,
+      touched: true,
+      baselineByKey,
+    });
+    const viaPlain = finalizeMethodRows(rawUntouched, {
+      requireCoverage: true,
+    });
+    assert.deepEqual(viaWrapper, viaPlain);
+  });
+
+  it('AC-5: a null/absent baselineByKey delegates byte-identically', () => {
+    const viaWrapper = finalizeMethodRowsWithBaseline(rawTouched, {
+      requireCoverage: true,
+      touched: false,
+      baselineByKey: null,
+    });
+    const viaPlain = finalizeMethodRows(rawTouched, { requireCoverage: true });
+    assert.deepEqual(viaWrapper, viaPlain);
+  });
+
+  it('AC-2/AC-3: an untouched-file method with NO fresh coverage resolves from its baseline row', () => {
+    const baselineByKey = new Map([['stable@10', { crap: 7.5 }]]);
+    const out = finalizeMethodRowsWithBaseline(rawUntouched, {
+      requireCoverage: true,
+      touched: false,
+      baselineByKey,
+    });
+    assert.equal(out.skippedMethodsNoCoverage, 0, 'no unresolved-method skip');
+    assert.equal(out.resolvedMethods, 1);
+    assert.equal(out.rows.length, 1);
+    assert.equal(
+      out.rows[0].crap,
+      7.5,
+      'verdict equals the committed baseline row',
+    );
+    assert.equal(out.rows[0].resolvedFromBaseline, true);
+  });
+
+  it('AC-3: fail-closed — an untouched-file method with NO baseline row falls back to skip-and-count', () => {
+    const baselineByKey = new Map([['other-method@1', { crap: 1 }]]);
+    const out = finalizeMethodRowsWithBaseline(rawUntouched, {
+      requireCoverage: true,
+      touched: false,
+      baselineByKey,
+    });
+    // requireCoverage: true, unresolved (coverage: null) → skip-and-count,
+    // exactly finalizeMethodRows' existing policy. Never silently passes.
+    assert.equal(out.rows.length, 0);
+    assert.equal(out.skippedMethodsNoCoverage, 1);
+    assert.equal(out.resolvedMethods, 0);
+  });
+
+  it('AC-3: a diff-touched file with no fresh joinable coverage still fails the existing policy', () => {
+    // Touched files are UNCHANGED by this Story: an unresolved method under
+    // requireCoverage: true is still skipped-and-counted, never resolved
+    // from the baseline even if one happens to exist.
+    const touchedButUnresolved = [
+      {
+        method: 'stable',
+        startLine: 10,
+        cyclomatic: 5,
+        coverage: null,
+        crap: null,
+        coordinateSystem: COORDINATE_ORIGINAL,
+      },
+    ];
+    const baselineByKey = new Map([['stable@10', { crap: 7.5 }]]);
+    const out = finalizeMethodRowsWithBaseline(touchedButUnresolved, {
+      requireCoverage: true,
+      touched: true,
+      baselineByKey,
+    });
+    assert.equal(out.rows.length, 0);
+    assert.equal(out.skippedMethodsNoCoverage, 1);
+  });
+
+  it('never resolves a transpiled (unjoinable) row from the baseline', () => {
+    const raw = [
+      {
+        method: 'stable',
+        startLine: 10,
+        cyclomatic: 5,
+        coverage: null,
+        crap: null,
+        coordinateSystem: COORDINATE_TRANSPILED,
+      },
+    ];
+    const baselineByKey = new Map([['stable@10', { crap: 7.5 }]]);
+    const out = finalizeMethodRowsWithBaseline(raw, {
+      requireCoverage: true,
+      touched: false,
+      baselineByKey,
+    });
+    assert.equal(out.rows.length, 0);
+    assert.equal(out.skippedMethodsNoCoverage, 1);
+  });
+
+  it('an empty baselineByKey Map delegates to the standard policy (falls back, not a crash)', () => {
+    const out = finalizeMethodRowsWithBaseline(rawUntouched, {
+      requireCoverage: true,
+      touched: false,
+      baselineByKey: new Map(),
+    });
+    assert.equal(out.rows.length, 0);
+    assert.equal(out.skippedMethodsNoCoverage, 1);
   });
 });
 

@@ -1,5 +1,6 @@
 /* node:coverage ignore file -- AJV schema declaration (data-as-code) */
 
+import { INCREMENTAL_COVERAGE_SCHEMA } from './crap-incremental-coverage.schema.js';
 import {
   GATE_BASE,
   LIST_OR_EXTENDER_OF_STRINGS,
@@ -35,6 +36,7 @@ export const CRAP_GATE = {
     // paths to exclude files from CRAP discovery before scoring. Orthogonal
     // to `components` (grouping). Absent/empty preserves existing behaviour.
     ignoreGlobs: { type: 'array', items: { type: 'string', minLength: 1 } },
+    incrementalCoverage: INCREMENTAL_COVERAGE_SCHEMA,
   },
   additionalProperties: false,
 };

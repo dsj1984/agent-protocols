@@ -6,6 +6,7 @@ import {
   COVERAGE_TIMEOUT_EXIT_CODE,
   captureStampPath,
   computeContentDigest,
+  filterFilesUnderTargets,
   isCoverageFresh,
   newestSourceMtime,
   runCapture,
@@ -468,5 +469,171 @@ describe('runCapture', () => {
       logs.some((m) => /exceeded 100ms/.test(m)),
       'expected a timeout-trip log entry',
     );
+  });
+
+  // Story #4981 (AC-1, AC-5) — incremental mode scopes the spawn to the
+  // changed-file set, observable on the emitted command line; the default
+  // (no `files`) argv stays byte-identical to every test above.
+  describe('files scope (Story #4981)', () => {
+    it('AC-1: appends `-- <files...>` when a non-empty file scope is given', () => {
+      const calls = [];
+      const runner = (cmd, args, opts) => {
+        calls.push({ cmd, args, opts });
+        return { status: 0 };
+      };
+      const code = runCapture({
+        cwd: '/repo',
+        runner,
+        files: ['src/a.js', 'src/b.js'],
+      });
+      assert.equal(code, 0);
+      assert.equal(calls[0].cmd, 'npm');
+      assert.deepEqual(calls[0].args, [
+        'run',
+        'test:coverage',
+        '--',
+        'src/a.js',
+        'src/b.js',
+      ]);
+    });
+
+    it('AC-5: an empty/omitted file scope reproduces the exact default argv', () => {
+      const calls = [];
+      const runner = (_cmd, args) => {
+        calls.push(args);
+        return { status: 0 };
+      };
+      runCapture({ cwd: '/repo', runner, files: [] });
+      runCapture({ cwd: '/repo', runner, files: null });
+      runCapture({ cwd: '/repo', runner });
+      for (const args of calls) {
+        assert.deepEqual(args, ['run', 'test:coverage']);
+      }
+    });
+  });
+});
+
+describe('filterFilesUnderTargets', () => {
+  it('narrows to the files under the given target dirs, normalising separators', () => {
+    assert.deepEqual(
+      filterFilesUnderTargets(
+        ['src/a.js', 'src\\lib\\x.js', 'README.md', 'docs/x.md'],
+        ['src'],
+      ),
+      ['src/a.js', 'src/lib/x.js'],
+    );
+  });
+
+  it('returns [] on empty inputs', () => {
+    assert.deepEqual(filterFilesUnderTargets([], ['src']), []);
+    assert.deepEqual(filterFilesUnderTargets(['src/a.js'], []), []);
+  });
+});
+
+describe('writeCaptureStamp — incremental scope (Story #4981)', () => {
+  it('AC-4/AC-1: writes scope, files, and ref only when scope is supplied', () => {
+    const writes = [];
+    writeCaptureStamp({
+      cwd: FAKE_REPO,
+      coveragePath: 'coverage/coverage-final.json',
+      digest: 'abc123',
+      scope: 'incremental',
+      files: ['src/b.js', 'src/a.js'],
+      ref: 'main',
+      writeFileSync: (p, body) => writes.push({ p, body }),
+    });
+    const parsed = JSON.parse(writes[0].body);
+    assert.equal(parsed.scope, 'incremental');
+    // Sorted for a deterministic on-disk stamp.
+    assert.deepEqual(parsed.files, ['src/a.js', 'src/b.js']);
+    assert.equal(parsed.ref, 'main');
+  });
+
+  it('AC-5: omitting scope reproduces the exact pre-#4981 stamp shape', () => {
+    const writes = [];
+    writeCaptureStamp({
+      cwd: FAKE_REPO,
+      coveragePath: 'coverage/coverage-final.json',
+      digest: 'abc123',
+      writeFileSync: (p, body) => writes.push({ p, body }),
+    });
+    const parsed = JSON.parse(writes[0].body);
+    assert.deepEqual(Object.keys(parsed).sort(), ['capturedAt', 'digest']);
+  });
+});
+
+describe('isCoverageFresh — scope asymmetry (Story #4981, AC-4)', () => {
+  const targetDirs = ['src'];
+  const cwd = FAKE_REPO;
+  const coveragePath = 'coverage/coverage-final.json';
+  const stampAbs = captureStampPath(cwd, coveragePath);
+  const baseFs = () =>
+    makeFsStub({
+      files: {
+        [repoPath('coverage/coverage-final.json')]: 1000,
+        [stampAbs]: 1000,
+        [repoPath('src/a.js')]: 100,
+      },
+      dirs: { [repoPath('src')]: [{ name: 'a.js', kind: 'file' }] },
+    });
+
+  it('a scoped (incremental) stamp does NOT satisfy the default full-scope probe', () => {
+    const stampJson = JSON.stringify({
+      digest: 'abc123',
+      scope: 'incremental',
+    });
+    const r = isCoverageFresh({
+      coveragePath,
+      targetDirs,
+      cwd,
+      ...baseFs(),
+      readFileSync: () => stampJson,
+      computeDigest: () => 'abc123',
+    });
+    assert.deepEqual(r, { fresh: false, reason: 'scope-mismatch' });
+  });
+
+  it('a scoped (incremental) stamp DOES satisfy an incremental probe on digest match', () => {
+    const stampJson = JSON.stringify({
+      digest: 'abc123',
+      scope: 'incremental',
+    });
+    const r = isCoverageFresh({
+      coveragePath,
+      targetDirs,
+      cwd,
+      requireScope: 'incremental',
+      ...baseFs(),
+      readFileSync: () => stampJson,
+      computeDigest: () => 'abc123',
+    });
+    assert.deepEqual(r, { fresh: true, reason: 'fresh' });
+  });
+
+  it('a full-scope stamp satisfies an incremental probe on digest match (asymmetric)', () => {
+    const stampJson = JSON.stringify({ digest: 'abc123', scope: 'full' });
+    const r = isCoverageFresh({
+      coveragePath,
+      targetDirs,
+      cwd,
+      requireScope: 'incremental',
+      ...baseFs(),
+      readFileSync: () => stampJson,
+      computeDigest: () => 'abc123',
+    });
+    assert.deepEqual(r, { fresh: true, reason: 'fresh' });
+  });
+
+  it('a legacy stamp with no scope field behaves as full-scope (AC-5 back-compat)', () => {
+    const stampJson = JSON.stringify({ digest: 'abc123' });
+    const r = isCoverageFresh({
+      coveragePath,
+      targetDirs,
+      cwd,
+      ...baseFs(),
+      readFileSync: () => stampJson,
+      computeDigest: () => 'abc123',
+    });
+    assert.deepEqual(r, { fresh: true, reason: 'fresh' });
   });
 });

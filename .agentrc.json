@@ -50,6 +50,7 @@
           "tolerance": { "kind": "absolute", "value": 0.5 },
           "ignoreGlobs": [
             ".agents/scripts/lib/config-settings-schema*.js",
+            ".agents/scripts/lib/config/gates/*.schema.js",
             ".agents/scripts/**/__tests__/**",
             "lib/**/__tests__/**"
           ]

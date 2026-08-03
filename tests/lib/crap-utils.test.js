@@ -267,6 +267,83 @@ test('scanAndScore — skips files without coverage when requireCoverage=true', 
   }
 });
 
+test('scanAndScore — incremental join resolves an untouched file from its baseline (Story #4981)', async () => {
+  const cwd = mkTmpCwd();
+  try {
+    const srcDir = path.join(cwd, 'src');
+    fs.mkdirSync(srcDir);
+    fs.writeFileSync(
+      path.join(srcDir, 'touched.js'),
+      'export function touched(x) { return x + 1; }\n',
+    );
+    fs.writeFileSync(
+      path.join(srcDir, 'untouched.js'),
+      'export function untouched(x) { return x + 2; }\n',
+    );
+    // Only `touched.js` has a fresh coverage entry — as an incremental
+    // `npm run test:coverage -- src/touched.js` run would produce.
+    const coverage = {
+      [path.join(srcDir, 'touched.js')]: coverageEntryFor(1, 1.0),
+    };
+    const result = await scanAndScore({
+      targetDirs: ['src'],
+      coverage,
+      requireCoverage: true,
+      cwd,
+      incremental: {
+        touchedFiles: new Set(['src/touched.js']),
+        baselineRows: [
+          {
+            file: 'src/untouched.js',
+            method: 'untouched',
+            startLine: 1,
+            crap: 9.5,
+          },
+        ],
+      },
+    });
+    assert.strictEqual(result.scannedFiles, 2);
+    // AC-2: no unresolved-method skip attributed to the untouched file.
+    assert.strictEqual(result.skippedFilesNoCoverage, 0);
+    assert.strictEqual(result.skippedMethodsNoCoverage, 0);
+    const byFile = Object.fromEntries(result.rows.map((r) => [r.file, r]));
+    assert.strictEqual(byFile['src/touched.js'].coverage, 1);
+    // AC-2: the untouched-file verdict equals its committed baseline row.
+    assert.strictEqual(byFile['src/untouched.js'].crap, 9.5);
+    assert.strictEqual(byFile['src/untouched.js'].resolvedFromBaseline, true);
+  } finally {
+    rmTmp(cwd);
+  }
+});
+
+test('scanAndScore — incremental join fails closed when an untouched file has no baseline row (Story #4981, AC-3)', async () => {
+  const cwd = mkTmpCwd();
+  try {
+    const srcDir = path.join(cwd, 'src');
+    fs.mkdirSync(srcDir);
+    fs.writeFileSync(
+      path.join(srcDir, 'untouched.js'),
+      'export function untouched(x) { return x + 2; }\n',
+    );
+    const result = await scanAndScore({
+      targetDirs: ['src'],
+      coverage: {}, // no coverage entry anywhere
+      requireCoverage: true,
+      cwd,
+      incremental: {
+        touchedFiles: new Set(), // nothing touched
+        baselineRows: [], // and no baseline row for this method
+      },
+    });
+    // Fails closed to the existing requireCoverage skip-and-count policy —
+    // it must never silently pass an unresolved method.
+    assert.strictEqual(result.skippedFilesNoCoverage, 1);
+    assert.strictEqual(result.rows.length, 0);
+  } finally {
+    rmTmp(cwd);
+  }
+});
+
 test('scanAndScore — scores uncovered files when requireCoverage=false', async () => {
   const cwd = mkTmpCwd();
   try {

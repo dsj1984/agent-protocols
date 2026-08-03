@@ -1,24 +1,21 @@
 import escomplex from 'typhonjs-escomplex';
 import { coverageForMethodInEntry } from './coverage-utils.js';
+// `finalizeMethodRowsWithBaseline` (Story #4981) lives in
+// crap-baseline-join.js — `resolveRawRow`, the per-row policy it shares with
+// `finalizeMethodRows` below, is imported from there so the two stay a
+// single implementation.
+import { resolveRawRow } from './crap-baseline-join.js';
+// `COORDINATE_ORIGINAL` / `COORDINATE_TRANSPILED` / `crapFormula` (Story
+// #4866 / this module's original home) now live in crap-coordinates.js —
+// re-exported here so every existing importer of this module is unaffected.
+import {
+  COORDINATE_ORIGINAL,
+  COORDINATE_TRANSPILED,
+  crapFormula,
+} from './crap-coordinates.js';
 import { deriveMethodIdentities } from './crap-method-identity.js';
 
-/**
- * The two line coordinate systems a CRAP row's `startLine` can be expressed
- * in (Story #4866).
- *
- * `original` — the coordinates of the file a reader can open, and the ones
- * istanbul's `fnMap` is keyed against. A JavaScript source is already in this
- * system; a TS/TSX source reaches it only through a successful sourcemap
- * lookup.
- *
- * `transpiled` — escomplex's own coordinates over the emitted JavaScript,
- * kept only when the sourcemap has no entry originating on the method's
- * generated line. Such a row is NOT an original-source coordinate and must
- * never be presented as one: it cannot be joined to coverage, and it cannot
- * be compared against a baseline row carrying the other provenance.
- */
-export const COORDINATE_ORIGINAL = 'original';
-export const COORDINATE_TRANSPILED = 'transpiled';
+export { COORDINATE_ORIGINAL, COORDINATE_TRANSPILED, crapFormula };
 
 /**
  * Derive the raw per-method CRAP rows from an escomplex report.
@@ -170,32 +167,24 @@ export function finalizeMethodRows(
   let totalMethods = 0;
   for (const mr of rawRows ?? []) {
     totalMethods += 1;
-    const unresolved = mr.crap === null || mr.coverage === null;
-    if (!unresolved) resolvedMethods += 1;
-    // Unjoinable is not untested (Story #4901) — see the block comment above.
-    if (
-      mr.coordinateSystem === COORDINATE_TRANSPILED ||
-      (unresolved && (requireCoverage || !coverageAvailable))
-    ) {
+    const resolution = resolveRawRow(mr, {
+      requireCoverage,
+      coverageAvailable,
+    });
+    if (resolution.resolved) resolvedMethods += 1;
+    if (resolution.row === null) {
       skippedMethodsNoCoverage += 1;
       continue;
     }
-    const coverage = unresolved ? 0 : mr.coverage;
-    const crap = unresolved ? crapFormula(mr.cyclomatic, 0) : mr.crap;
-    // Everything the scan decided is carried forward; this step overrides only
-    // what its own policy resolves. Spreading rather than re-listing each field
-    // is why the row's identity marker (Story #4969) and its provenance
-    // (Story #4866) survive the step without a line each to remember them —
-    // a hand-rebuilt row is how a marker silently stops reaching the baseline.
-    rows.push({
-      ...mr,
-      coverage,
-      crap,
-      coordinateSystem: mr.coordinateSystem ?? COORDINATE_ORIGINAL,
-    });
+    rows.push(resolution.row);
   }
   return { rows, skippedMethodsNoCoverage, resolvedMethods, totalMethods };
 }
+
+// The incremental-mode join (Story #4981) lives in crap-baseline-join.js;
+// re-exported here so it stays reachable from the scoring kernel's existing
+// public surface.
+export { finalizeMethodRowsWithBaseline } from './crap-baseline-join.js';
 
 /**
  * Score each method in a JavaScript source for Change Risk Anti-Patterns
@@ -241,20 +230,6 @@ export function calculateCrapForSource(
     return [];
   }
   return methodRowsFromReport(report, coverageForFile, mapLine);
-}
-
-/**
- * CRAP formula, exported for callers that need to derive target scores or
- * `fixGuidance` values without re-scoring source.
- *
- * @param {number} cyclomatic
- * @param {number} coverage In [0, 1].
- * @returns {number}
- */
-export function crapFormula(cyclomatic, coverage) {
-  const c = Number(cyclomatic) || 0;
-  const cov = Math.max(0, Math.min(1, Number(coverage) || 0));
-  return c * c * (1 - cov) ** 3 + c;
 }
 
 /**

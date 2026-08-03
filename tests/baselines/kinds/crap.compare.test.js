@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { compare } from '../../../.agents/scripts/lib/baselines/kinds/crap.js';
+import {
+  compare,
+  indexBaselineRowsByFile,
+  methodIdentityKey,
+} from '../../../.agents/scripts/lib/baselines/kinds/crap.js';
 
 // ---------------------------------------------------------------------------
 // crap.compare.test.js — pure compare(head, base) for the CRAP kind
@@ -80,5 +84,42 @@ describe('kinds/crap.compare()', () => {
       unchanged: [],
       additions: [],
     });
+  });
+});
+
+// Story #4981 — the incremental-coverage join reuses this method-identity
+// half-key (`crapRowKey` minus the file component) rather than reinventing
+// file diffing or a second identity scheme.
+describe('methodIdentityKey / indexBaselineRowsByFile (Story #4981)', () => {
+  it('builds the per-file half of crapRowKey', () => {
+    assert.equal(methodIdentityKey({ method: 'foo', startLine: 10 }), 'foo@10');
+  });
+
+  it('indexes rows by file, then by method identity', () => {
+    const rows = [
+      row('src/a.js', 'foo', 10, 25),
+      row('src/a.js', 'bar', 20, 5),
+      row('src/b.js', 'baz', 1, 3),
+    ];
+    const idx = indexBaselineRowsByFile(rows);
+    assert.equal(idx.size, 2);
+    assert.equal(idx.get('src/a.js').get('foo@10').crap, 25);
+    assert.equal(idx.get('src/a.js').get('bar@20').crap, 5);
+    assert.equal(idx.get('src/b.js').get('baz@1').crap, 3);
+  });
+
+  it('accepts the legacy `file` key as well as `path`', () => {
+    const idx = indexBaselineRowsByFile([
+      { file: 'src/a.js', method: 'foo', startLine: 10, crap: 25 },
+    ]);
+    assert.equal(idx.get('src/a.js').get('foo@10').crap, 25);
+  });
+
+  it('ignores rows with no resolvable file/path and tolerates a missing list', () => {
+    assert.equal(
+      indexBaselineRowsByFile([{ method: 'foo', startLine: 1 }]).size,
+      0,
+    );
+    assert.equal(indexBaselineRowsByFile(undefined).size, 0);
   });
 });

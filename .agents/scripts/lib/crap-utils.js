@@ -4,11 +4,19 @@ import escomplex from 'typhonjs-escomplex';
 import { canonicalise as canonicalisePath } from './baselines/path-canon.js';
 import { findCoverageEntry } from './coverage-utils.js';
 import { POOL_SERIAL_THRESHOLD, runOnPool } from './cpu-pool.js';
+import { finalizeMethodRowsWithBaseline } from './crap-baseline-join.js';
 import {
   COORDINATE_ORIGINAL,
   finalizeMethodRows,
   methodRowsFromReport,
 } from './crap-engine.js';
+import {
+  resolvedFromBaselineFlag,
+  resolveIncrementalContext,
+  resolveQueueIncrementalFields,
+  shouldRunSerial,
+  shouldSkipFileForNoCoverage,
+} from './crap-utils-incremental.js';
 import { Logger } from './Logger.js';
 import { scanDirectory } from './maintainability-utils.js';
 import {
@@ -409,6 +417,10 @@ export function analyzeOnce(source, coverageForFile, mapLine = null) {
  * `regenerateMainFromTree`) SHOULD pass the MI scan's file list here so the
  * tree is walked only once per run.
  *
+ * `incremental` (Story #4981) resolves an untouched file's methods from
+ * `crap-baseline-join.js#finalizeMethodRowsWithBaseline` instead of
+ * requiring fresh coverage; omitted (the default), behaviour is unchanged.
+ *
  * @param {{
  *   targetDirs: string[],
  *   coverage: object|null,
@@ -416,6 +428,7 @@ export function analyzeOnce(source, coverageForFile, mapLine = null) {
  *   cwd?: string,
  *   scopeFiles?: Set<string>|string[]|null,
  *   preScannedFiles?: string[]|null,
+ *   incremental?: { touchedFiles: Set<string>|string[], baselineRows: Array<object> } | null,
  * }} params
  * @returns {{
  *   rows: Array<{
@@ -439,6 +452,7 @@ export async function scanAndScore({
   scopeFiles = null,
   ignoreGlobs = [],
   preScannedFiles = null,
+  incremental = null,
 }) {
   if (!Array.isArray(targetDirs)) {
     throw new TypeError('scanAndScore: targetDirs must be an array');
@@ -460,6 +474,8 @@ export async function scanAndScore({
   }
   files.sort();
 
+  const incrementalCtx = resolveIncrementalContext(incremental);
+
   // Build the work-queue first so scopeFile filtering happens before
   // any I/O / IPC. `scannedFiles` is the in-scope count.
   // Story #2079: route every relPath through path-canon so a scan from
@@ -472,14 +488,18 @@ export async function scanAndScore({
     const rawRel = path.relative(cwd, abs).replace(/\\/g, '/');
     const relPath = canonicalisePath(rawRel);
     if (scopeSet && !scopeSet.has(relPath)) continue;
-    queue.push({ abs, relPath, requireCoverage, coverageAvailable });
+    queue.push(
+      resolveQueueIncrementalFields(
+        { abs, relPath, requireCoverage, coverageAvailable },
+        incrementalCtx,
+      ),
+    );
   }
   const scannedFiles = queue.length;
 
-  const perFile =
-    queue.length < SERIAL_THRESHOLD
-      ? queue.map((item) => ({ item, result: scoreFileSerial(item, coverage) }))
-      : await scoreFilesViaPool(queue, coverage);
+  const perFile = shouldRunSerial(queue.length, incremental, SERIAL_THRESHOLD)
+    ? queue.map((item) => ({ item, result: scoreFileSerial(item, coverage) }))
+    : await scoreFilesViaPool(queue, coverage);
 
   const rows = [];
   let skippedFilesNoCoverage = 0;
@@ -516,6 +536,7 @@ export async function scanAndScore({
         coverage: mr.coverage,
         crap: mr.crap,
         coordinateSystem: mr.coordinateSystem ?? COORDINATE_ORIGINAL,
+        ...resolvedFromBaselineFlag(mr),
       });
     }
   }
@@ -545,11 +566,20 @@ export async function scanAndScore({
  * CRAP rows and the MI score are derived from the same escomplex report.
  */
 function scoreFileSerial(
-  { abs, relPath, requireCoverage, coverageAvailable = true },
+  {
+    abs,
+    relPath,
+    requireCoverage,
+    coverageAvailable = true,
+    touched = true,
+    baselineByKey = null,
+  },
   coverage,
 ) {
   const entry = findCoverageEntry(coverage, relPath);
-  if (requireCoverage && entry === null) {
+  if (
+    shouldSkipFileForNoCoverage(requireCoverage, entry, touched, baselineByKey)
+  ) {
     return {
       skippedFileNoCoverage: true,
       rows: [],
@@ -575,9 +605,11 @@ function scoreFileSerial(
     prepared.mapLine,
   );
   if (parseError) return dropped;
-  const finalized = finalizeMethodRows(crapRows, {
+  const finalized = finalizeMethodRowsWithBaseline(crapRows, {
     requireCoverage,
     coverageAvailable,
+    touched,
+    baselineByKey,
   });
   return {
     skippedFileNoCoverage: false,

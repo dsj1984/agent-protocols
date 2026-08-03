@@ -71,6 +71,19 @@ const DEFAULT_MI_FLOORS = Object.freeze({
   '*': Object.freeze({ min: 70 }),
 });
 
+/**
+ * Story #4981 — opt-in incremental coverage-capture + CRAP-join scoping.
+ * Disabled by default: `coverage-capture.js` and the CRAP join keep their
+ * pre-#4981 full-repo behaviour byte-for-byte until a consumer sets
+ * `enabled: true`. `baseRef: null` means "use the caller's own ref
+ * resolution" (the gate's `--ref` flag / `main`) rather than a second,
+ * possibly-conflicting default.
+ */
+const DEFAULT_INCREMENTAL_COVERAGE = Object.freeze({
+  enabled: false,
+  baseRef: null,
+});
+
 /** Framework defaults for the CRAP gate (post-1737 uniform shape). */
 export const CRAP_GATE_DEFAULTS = Object.freeze({
   enabled: true,
@@ -97,6 +110,7 @@ export const CRAP_GATE_DEFAULTS = Object.freeze({
   // run (a repo with fresh coverage resolves ~98%) and far below the 4–6%
   // signature of a coordinate-system mismatch.
   minMethodResolutionRate: 0.75,
+  incrementalCoverage: DEFAULT_INCREMENTAL_COVERAGE,
 });
 
 /** Framework defaults for the coverage gate. */
@@ -163,6 +177,7 @@ const CRAP_GATE_KEYS = new Set([
   'refreshTimeoutMs',
   'ignoreGlobs',
   'minMethodResolutionRate',
+  'incrementalCoverage',
 ]);
 
 const COVERAGE_GATE_KEYS = new Set([
@@ -240,6 +255,27 @@ function resolveResolutionRate(value, fallback) {
   return value;
 }
 
+/**
+ * Resolve `gates.crap.incrementalCoverage` (Story #4981). A malformed or
+ * absent user block resolves to the framework default (disabled), so a
+ * consumer that never sets the key gets the exact pre-#4981 shape back.
+ *
+ * @param {{ enabled?: boolean, baseRef?: string } | undefined} user
+ * @param {{ enabled: boolean, baseRef: string | null }} defaults
+ * @returns {{ enabled: boolean, baseRef: string | null }}
+ */
+function resolveIncrementalCoverage(user, defaults) {
+  if (user == null || typeof user !== 'object') return { ...defaults };
+  return {
+    enabled:
+      typeof user.enabled === 'boolean' ? user.enabled : defaults.enabled,
+    baseRef:
+      typeof user.baseRef === 'string' && user.baseRef.length > 0
+        ? user.baseRef
+        : defaults.baseRef,
+  };
+}
+
 export function resolveMaintainabilityCrap(
   userCrap,
   gateScoping,
@@ -267,6 +303,7 @@ export function resolveMaintainabilityCrap(
       refreshTag: defaults.refreshTag,
       refreshTimeoutMs: defaults.refreshTimeoutMs,
       ignoreGlobs: [...defaults.ignoreGlobs],
+      incrementalCoverage: { ...defaults.incrementalCoverage },
       defaultScope: scoping.defaultScope,
       diffRef: scoping.diffRef,
     };
@@ -297,6 +334,10 @@ export function resolveMaintainabilityCrap(
     ignoreGlobs: Array.isArray(userCrap.ignoreGlobs)
       ? userCrap.ignoreGlobs.slice()
       : [...defaults.ignoreGlobs],
+    incrementalCoverage: resolveIncrementalCoverage(
+      userCrap.incrementalCoverage,
+      defaults.incrementalCoverage,
+    ),
     defaultScope: scoping.defaultScope,
     diffRef: scoping.diffRef,
   };

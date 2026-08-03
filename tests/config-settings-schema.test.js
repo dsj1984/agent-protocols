@@ -791,6 +791,76 @@ describe('delivery.quality.* shape — uniform gates (Story #1737)', () => {
       true,
     );
   });
+
+  // Story #4981 (AC-6) — the new opt-in key validates through the FULL
+  // AGENTRC_SCHEMA chain (config-settings-schema-delivery.js's DELIVERY_SCHEMA
+  // → config-settings-schema-quality.js's QUALITY_SCHEMA → config/gates/
+  // index.js's GATES_SCHEMA → config/gates/crap.schema.js's CRAP_GATE), so a
+  // pass here proves the key is registered on both runtime AJV surfaces the
+  // Story names, not just the leaf schema file.
+  describe('gates.crap.incrementalCoverage (Story #4981)', () => {
+    it('accepts the opt-in shape', () => {
+      assert.equal(
+        validate({
+          ...REQ,
+          delivery: {
+            quality: {
+              gates: {
+                crap: {
+                  incrementalCoverage: { enabled: true, baseRef: 'main' },
+                },
+              },
+            },
+          },
+        }),
+        true,
+      );
+    });
+
+    it('accepts enabled alone (baseRef optional)', () => {
+      assert.equal(
+        validate({
+          ...REQ,
+          delivery: {
+            quality: {
+              gates: { crap: { incrementalCoverage: { enabled: false } } },
+            },
+          },
+        }),
+        true,
+      );
+    });
+
+    it("rejects a typo'd key under incrementalCoverage (closed shape)", () => {
+      expectErrors(
+        {
+          ...REQ,
+          delivery: {
+            quality: {
+              gates: {
+                crap: { incrementalCoverage: { enalbed: true } },
+              },
+            },
+          },
+        },
+        /additional properties/,
+      );
+    });
+
+    it('rejects a non-string baseRef', () => {
+      expectErrors(
+        {
+          ...REQ,
+          delivery: {
+            quality: {
+              gates: { crap: { incrementalCoverage: { baseRef: 42 } } },
+            },
+          },
+        },
+        /must be string/,
+      );
+    });
+  });
 });
 
 describe('AGENTRC_SCHEMA — delivery.codeReview.providers (Story #2871)', () => {
