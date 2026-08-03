@@ -196,3 +196,86 @@ describe('baselines/reader — load (config-driven)', () => {
     assert.throws(() => load('nonsense', { cwd: tmp }), /unknown kind/);
   });
 });
+
+// The projection in `shapeEnvelope` is an ALLOW-LIST, so a stamp that is not
+// named there is dropped silently — and the compat axes that read these stamps
+// off the LOADED envelope fail closed when one reads `undefined`. That pairing
+// turns a one-line omission into a gate that rejects every baseline in a repo
+// for a stamp which is present on disk, and it is not hypothetical: it is what
+// `provenanceStamped` did between Story #4901 (which added the marker and its
+// `provenance-unstamped` axis) and the fix these tests land with.
+//
+// Nothing caught it because no test asserted carry-through for ANY stamp —
+// `scoringSemantics` and `tsTranspilerVersion` were each added with a comment
+// warning of this exact failure and no assertion behind it. So this block pins
+// every stamp at BOTH exits rather than only the one that regressed: the bug
+// was never about which stamp, it was about the projection being writable in
+// two places with nothing checking they agree.
+const ENVELOPE_STAMPS = [
+  ['scoringSemantics', 'method-identity-v3'],
+  ['tsTranspilerVersion', '5.9.3'],
+  ['provenanceStamped', true],
+];
+
+describe('baselines/reader — envelope stamps survive the narrowing', () => {
+  let tmp;
+  beforeEach(() => {
+    tmp = makeTempDir('baseline-reader-stamps-');
+  });
+  afterEach(() => {
+    rmSync(tmp, { recursive: true, force: true });
+  });
+
+  for (const [field, value] of ENVELOPE_STAMPS) {
+    it(`loadFile carries ${field} through to the loaded envelope`, () => {
+      const file = path.join(tmp, 'crap.json');
+      writeJson(file, envelope('crap', { [field]: value }));
+      assert.deepEqual(loadFile(file)[field], value);
+    });
+
+    it(`load carries ${field} through to the loaded envelope`, () => {
+      const dir = path.join(tmp, 'baselines');
+      mkdirSync(dir, { recursive: true });
+      writeJson(
+        path.join(dir, 'crap.json'),
+        envelope('crap', { [field]: value }),
+      );
+      assert.deepEqual(load('crap', { cwd: tmp })[field], value);
+    });
+  }
+
+  it('carries every stamp on one envelope, through both entry points alike', () => {
+    // The parity assertion the duplicated projection needed and never had: the
+    // two exits must hand back the same shape, so a stamp added to one and not
+    // the other fails here rather than in a consumer's gate.
+    const stamped = Object.fromEntries(ENVELOPE_STAMPS);
+    const dir = path.join(tmp, 'baselines');
+    mkdirSync(dir, { recursive: true });
+    const file = path.join(dir, 'crap.json');
+    writeJson(file, envelope('crap', stamped));
+
+    const viaFile = loadFile(file);
+    const viaConfig = load('crap', { cwd: tmp });
+    for (const [field, value] of ENVELOPE_STAMPS) {
+      assert.deepEqual(viaFile[field], value, `loadFile dropped ${field}`);
+      assert.deepEqual(viaConfig[field], value, `load dropped ${field}`);
+    }
+    assert.deepEqual(
+      Object.keys(viaFile).sort(),
+      Object.keys(viaConfig).sort(),
+    );
+  });
+
+  it('leaves an unstamped envelope undefined rather than inventing a value', () => {
+    // The other half of the contract. `provenance-unstamped` keys on
+    // `!== true`, so a reader that defaulted a missing marker to `true` would
+    // silence the axis on exactly the pre-#4901 baselines it exists to catch —
+    // the opposite failure, and the quieter one.
+    const file = path.join(tmp, 'crap.json');
+    writeJson(file, envelope('crap'));
+    const out = loadFile(file);
+    for (const [field] of ENVELOPE_STAMPS) {
+      assert.equal(out[field], undefined, `${field} was invented`);
+    }
+  });
+});

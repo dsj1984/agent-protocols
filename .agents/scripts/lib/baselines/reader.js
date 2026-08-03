@@ -183,6 +183,56 @@ function validate(kind, parsed, sourceHint) {
 }
 
 /**
+ * Internal: the ONE narrowing projection every loaded envelope passes through.
+ *
+ * `load` and `loadFile` reach a validated `parsed` envelope by different routes
+ * — one resolves the path from config, the other infers the kind from
+ * `$schema` — but the shape they hand back is the same narrow contract, so it
+ * is built here rather than written out at each exit.
+ *
+ * **That single-sourcing is the point, not tidiness.** The projection is an
+ * ALLOW-LIST: a field absent from it is silently dropped, and the envelope
+ * stamps below are read off the LOADED object by compat axes that fail closed
+ * when a stamp reads `undefined`. While the list was duplicated at the two
+ * exits, adding a stamp to one and not the other produced a gate that rejected
+ * every baseline in the repo for a stamp that was present on disk — which is
+ * exactly what happened to `provenanceStamped` between Story #4901 and this
+ * fix. One list means a new stamp cannot be half-added.
+ *
+ * @param {string} kind
+ * @param {object} parsed A validated baseline envelope.
+ * @returns {{ rollup: object, rows: Array<object>, kernelVersion: string, generatedAt: string }}
+ */
+function shapeEnvelope(kind, parsed) {
+  const rows = Array.isArray(parsed.rows)
+    ? parsed.rows.map((row) => canonicaliseRow(kind, row))
+    : [];
+  return {
+    rollup: parsed.rollup ?? { '*': {} },
+    rows,
+    kernelVersion: parsed.kernelVersion,
+    generatedAt: parsed.generatedAt,
+    // Story #4775 — carry the per-kind scoring-semantics stamp through the
+    // narrowing. The gate's compat check reads it off the LOADED envelope, so
+    // dropping it here would make every baseline look unstamped and fail the
+    // whole repo closed on a stamp that is actually present on disk.
+    scoringSemantics: parsed.scoringSemantics,
+    // Story #4866 — same contract for the transpiler stamp. Dropping it here
+    // would leave the ts-transpiler compat axis reachable but blind: it would
+    // read `undefined` off every loaded envelope and pass vacuously, which is
+    // the exact deadness this Story exists to end.
+    tsTranspilerVersion: parsed.tsTranspilerVersion,
+    // Story #4901 — the coordinate-provenance marker, and the stamp that proved
+    // the warnings above were not hypothetical. Its `provenance-unstamped` axis
+    // keys on `!== true`, so while this line was missing the axis read
+    // `undefined` off every envelope and rejected each one with "baseline
+    // predates coordinate-provenance stamping" — un-satisfiable, because
+    // re-deriving the baseline writes the marker the reader then drops.
+    provenanceStamped: parsed.provenanceStamped,
+  };
+}
+
+/**
  * Internal: parse + validate + canonicalise. Used by both `load` and
  * `loadFile`.
  *
@@ -208,25 +258,7 @@ function readAndShape(kind, absolutePath) {
     );
   }
   validate(kind, parsed, absolutePath);
-  const rows = Array.isArray(parsed.rows)
-    ? parsed.rows.map((row) => canonicaliseRow(kind, row))
-    : [];
-  return {
-    rollup: parsed.rollup ?? { '*': {} },
-    rows,
-    kernelVersion: parsed.kernelVersion,
-    generatedAt: parsed.generatedAt,
-    // Story #4775 — carry the per-kind scoring-semantics stamp through the
-    // narrowing. The gate's compat check reads it off the LOADED envelope, so
-    // dropping it here would make every baseline look unstamped and fail the
-    // whole repo closed on a stamp that is actually present on disk.
-    scoringSemantics: parsed.scoringSemantics,
-    // Story #4866 — same contract for the transpiler stamp. Dropping it here
-    // would leave the ts-transpiler compat axis reachable but blind: it would
-    // read `undefined` off every loaded envelope and pass vacuously, which is
-    // the exact deadness this Story exists to end.
-    tsTranspilerVersion: parsed.tsTranspilerVersion,
-  };
+  return shapeEnvelope(kind, parsed);
 }
 
 /**
@@ -306,25 +338,7 @@ export function loadFile(absolutePath, opts = {}) {
     );
   }
   validate(kind, parsed, absolutePath);
-  const rows = Array.isArray(parsed.rows)
-    ? parsed.rows.map((row) => canonicaliseRow(kind, row))
-    : [];
-  return {
-    rollup: parsed.rollup ?? { '*': {} },
-    rows,
-    kernelVersion: parsed.kernelVersion,
-    generatedAt: parsed.generatedAt,
-    // Story #4775 — carry the per-kind scoring-semantics stamp through the
-    // narrowing. The gate's compat check reads it off the LOADED envelope, so
-    // dropping it here would make every baseline look unstamped and fail the
-    // whole repo closed on a stamp that is actually present on disk.
-    scoringSemantics: parsed.scoringSemantics,
-    // Story #4866 — same contract for the transpiler stamp. Dropping it here
-    // would leave the ts-transpiler compat axis reachable but blind: it would
-    // read `undefined` off every loaded envelope and pass vacuously, which is
-    // the exact deadness this Story exists to end.
-    tsTranspilerVersion: parsed.tsTranspilerVersion,
-  };
+  return shapeEnvelope(kind, parsed);
 }
 
 export const _internals = Object.freeze({
