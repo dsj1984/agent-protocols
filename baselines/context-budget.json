@@ -54,7 +54,7 @@
       ]
     },
     "workflow": {
-      "totalBytes": 254252,
+      "totalBytes": 255105,
       "files": [
         {
           "path": ".agents/workflows/audit-accessibility.md",
@@ -66,7 +66,7 @@
         },
         {
           "path": ".agents/workflows/audit-baselines.md",
-          "bytes": 14821
+          "bytes": 15674
         },
         {
           "path": ".agents/workflows/audit-clean-code.md",

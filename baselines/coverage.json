@@ -4,9 +4,9 @@
   "generatedAt": "2026-08-02T19:07:15.601Z",
   "rollup": {
     "*": {
-      "lines": 95.76,
-      "branches": 86.21,
-      "functions": 88.74
+      "lines": 95.78,
+      "branches": 86.24,
+      "functions": 88.78
     }
   },
   "rows": [
@@ -272,6 +272,18 @@
       "path": ".agents/scripts/lib/audit-baselines/read.js",
       "lines": 90.8,
       "branches": 76.47,
+      "functions": 100
+    },
+    {
+      "path": ".agents/scripts/lib/audit-baselines/staleness.js",
+      "lines": 100,
+      "branches": 90.32,
+      "functions": 100
+    },
+    {
+      "path": ".agents/scripts/lib/audit-baselines/surface-entry.js",
+      "lines": 100,
+      "branches": 95.65,
       "functions": 100
     },
     {

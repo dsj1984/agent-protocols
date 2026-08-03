@@ -75,13 +75,16 @@ lens's sole evidence base. Cite its fields by name:
 | Section | Fields you cite |
 | --- | --- |
 | root | `generatedAt`, `cwd`, `topN`, `configError`, `degradations` |
-| `gateSurface[]` | `kind`, `surface`, `baselinePath`, `configured`, `baselineExists`, `stub`, `rowCount`, `generatedAt`, `staleDays`, `deadIgnoreGlobs`, `parseError` |
+| `gateSurface[]` | `kind`, `surface`, `baselinePath`, `configured`, `baselineExists`, `stub`, `rowCount`, `measured` (`unit` plus `value`), `generatedAt`, `staleDays`, `staleCommits`, `surfaceStale`, `deadIgnoreGlobs`, `parseError` |
 | `hotspots[]` | `path`, `gates` (each `kind`, `metric`, `value`, `rowCount`, `severityWeight`), `gateKinds`, `gateCount`, `severityWeight`, `churnWeight`, `centralityWeight`, `frictionWeight`, `rank` |
 | `trend[]` | `kind`, `baselinePath`, `sampleCount`, `from`, `to` (each a `sha` plus `committedAt`), `deltas` |
 | `headroom[]` | `kind`, `axis`, `floor`, `measured`, `direction`, `headroom` |
 
 `surface` is `gate` (a closed `delivery.quality.gates` kind) or `ratchet` (an
 out-of-band baseline the CI baselines job owns). `direction` is `gte` or `lte`.
+`rowCount` counts rows **after** per-file aggregation; `measured` is the
+quantity the instrument reports, in its own unit. Cite `measured` when the two
+disagree — 589 dead-export symbols sit in 187 files.
 
 Two envelope-level reads come **before** any finding:
 
@@ -113,11 +116,15 @@ Two envelope-level reads come **before** any finding:
    Grade a stub or unenforced gate **Medium**, a `parseError` on an enforced
    gate **High** (delivery reads that file every run), a dead glob **Low**.
 
-2. **Staleness.** `staleDays` is whole days since the baseline's own
-   `generatedAt`. A `null` is never a fabricated zero — it means the stamp is
-   absent or unparseable, which is itself the finding. Grade an enforced gate
-   stale beyond roughly a month **Medium**, a `null` stamp **Medium**, an
-   unenforced kind **Low** or **Info**.
+2. **Staleness.** Two clocks. `staleDays` is whole days since the baseline's
+   own `generatedAt`; `staleCommits` is commits touching the measured surface
+   since the baseline was last committed, with `surfaceStale` its boolean. A
+   `null` on either is never a fabricated zero — the stamp is unreadable, git
+   cannot answer, or the rows are not file paths — and is itself the finding.
+   **`surfaceStale` with `staleDays: 0` is still stale:** refreshed recently in
+   wall time, already behind the surface it scores. Grade an enforced gate
+   stale beyond roughly a month or `surfaceStale` **Medium**, a `null` stamp
+   **Medium**, an unenforced kind **Low** or **Info**.
 
    **Regeneration is the remediation, never an in-run step.** The Agent Prompt
    names the matching script and its one-shot acknowledgment:
@@ -176,6 +183,8 @@ Two envelope-level reads come **before** any finding:
    a sign — lower is not universally better. An entry needs `sampleCount` of at
    least 2 to mean anything, and an empty `trend[]` means no readable history:
    record that as **Info** rather than inferring a flat trend from silence.
+   Each `deltas` key **names its unit** — `symbols`, `bytes`, `filesTracked` —
+   so quote the axis with the number, never a bare delta.
 
 5. **Tightening Headroom.** `headroom[]` is what this lens exists for. Positive
    headroom is slack the floor could be tightened into; negative headroom means
@@ -262,9 +271,9 @@ Tightening Ledger, and the Dropped Hotspots budget log:
 
 ## Gate Surface Health
 
-| Kind | Surface | Configured | Rows | Stale (days) | Verdict |
-| --- | --- | --- | --- | --- | --- |
-| [kind] | [gate / ratchet] | [yes / no] | [rowCount] | [staleDays or `null`] | [Live / Stub / Unenforced / Unreadable] |
+| Kind | Surface | Configured | Rows | Measured | Stale (days) | Stale (commits) | Verdict |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| [kind] | [gate / ratchet] | [yes / no] | [rowCount] | [measured.value measured.unit] | [staleDays or `null`] | [staleCommits or `null`] | [Live / Stub / Unenforced / Unreadable] |
 
 ## Tightening Ledger
 

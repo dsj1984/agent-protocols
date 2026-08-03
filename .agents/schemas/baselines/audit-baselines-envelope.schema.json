@@ -60,8 +60,11 @@
           "baselineExists",
           "stub",
           "rowCount",
+          "measured",
           "generatedAt",
           "staleDays",
+          "staleCommits",
+          "surfaceStale",
           "deadIgnoreGlobs",
           "parseError"
         ],
@@ -79,11 +82,34 @@
             "type": "boolean",
             "description": "Zero rows AND an all-zero rollup — an instrument that passes every run vacuously. Both halves are required, so a ratchet baseline with nothing to report (e.g. zero import cycles) is never mistaken for a dead instrument."
           },
-          "rowCount": { "type": "integer", "minimum": 0 },
+          "rowCount": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Rows AFTER the kind's per-file aggregation, so it is a file count for kinds whose on-disk grain is finer (dead exports are one row per {file, symbol}). Read `measured` for the quantity the instrument reports."
+          },
+          "measured": {
+            "type": ["object", "null"],
+            "description": "The whole-repo quantity in the unit the instrument measures — symbols for dead exports, bytes for context budget. Null when the baseline is absent or unreadable. Sits beside rowCount because the two legitimately disagree.",
+            "required": ["unit", "value"],
+            "additionalProperties": false,
+            "properties": {
+              "unit": { "type": "string", "minLength": 1 },
+              "value": { "type": "number" }
+            }
+          },
           "generatedAt": { "type": ["string", "null"] },
           "staleDays": {
             "type": ["integer", "null"],
-            "description": "Whole days since generatedAt. Null when the stamp is absent or unparseable — never a fabricated 0."
+            "description": "Whole days since generatedAt. Null when the stamp is absent or unparseable — never a fabricated 0. Wall time only: a baseline can read 0 here and still predate the surface it scores, which is what staleCommits catches."
+          },
+          "staleCommits": {
+            "type": ["integer", "null"],
+            "description": "Commits touching the measured surface (the gate's targetDirs, else the baseline's own row paths) since the baseline was last committed. Null when git cannot answer or the surface is not path-keyed — an unknown count, never a reassuring 0.",
+            "minimum": 0
+          },
+          "surfaceStale": {
+            "type": ["boolean", "null"],
+            "description": "staleCommits > 0 — the baseline is older than the surface it scores, independent of wall-clock age. Null when staleCommits is unknown."
           },
           "deadIgnoreGlobs": {
             "type": "array",
@@ -171,6 +197,7 @@
           "to": { "$ref": "#/definitions/commitRef" },
           "deltas": {
             "type": "object",
+            "description": "Axis-by-axis `to - from`. Each key NAMES THE UNIT the delta is denominated in — `symbols` for dead exports, `bytes` for context budget, `filesTracked` where the metric is a non-additive score with no honest whole-repo sum. A kind carrying its own rollup keeps that rollup's axes.",
             "additionalProperties": { "type": "number" }
           }
         }

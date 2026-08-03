@@ -186,12 +186,28 @@ describe('the committed floors are tightened to the measured levels', () => {
     );
   });
 
-  test('the duplication floor is deliberately NOT tightened', () => {
-    // AC-7. The duplication baseline was stale and its last readable interval
-    // moved AWAY from the floor, so its apparent slack was unproven at the
-    // time this Story ran. The regeneration above is the first honest reading;
-    // tightening waits for a second one taken against a live baseline.
-    assert.equal(quality.gates.duplication.floors['*'].percentage, 12);
+  test('the duplication floor sits above the measurement by more than tolerance', () => {
+    // Story #4923 left this floor at 12 against an unproven 8.85, because the
+    // baseline was stale and its last readable interval moved AWAY from the
+    // floor. Story #4962 tightened it: five samples now read in the improving
+    // direction against a live baseline, so the slack is proven and claimable.
+    //
+    // The floor stays strictly further from the measurement than the gate's
+    // own tolerance. A floor inside tolerance is not a tighter ratchet, it is
+    // an unsatisfiable one — the trap that keeps `maintainability` at 74.
+    const { floors, tolerance } = quality.gates.duplication;
+    const floor = floors['*'].percentage;
+    const measured = readRollup('duplication').percentage;
+    assert.ok(
+      floor > measured + tolerance.value,
+      `duplication floor ${floor} must stay above the measured ${measured} ` +
+        `by more than the ${tolerance.value}pt tolerance`,
+    );
+    assert.ok(
+      floor - measured < 3,
+      `duplication floor ${floor} leaves ${(floor - measured).toFixed(2)}pt of ` +
+        'unclaimed slack above the measured value — tighten it',
+    );
   });
 });
 

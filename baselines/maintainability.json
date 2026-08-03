@@ -199,6 +199,14 @@
       "mi": 99.069
     },
     {
+      "path": ".agents/scripts/lib/audit-baselines/staleness.js",
+      "mi": 106.074
+    },
+    {
+      "path": ".agents/scripts/lib/audit-baselines/surface-entry.js",
+      "mi": 107.021
+    },
+    {
       "path": ".agents/scripts/lib/audit-baselines/trend.js",
       "mi": 99.384
     },
