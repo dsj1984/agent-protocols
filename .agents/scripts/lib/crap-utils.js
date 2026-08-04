@@ -122,6 +122,17 @@ function resolveBaselinePath({ cwd = process.cwd(), baselinePath } = {}) {
  * They are carried verbatim now, `null` when the envelope never stamped them,
  * so an axis can tell "written by a different transpiler" apart from "written
  * before the stamp existed" instead of guessing.
+ *
+ * **This projection is one of TWO (Story #4986).** `check-baselines` reads a
+ * baseline through `baselines/reader.js`; `quality-preview` reads the same file
+ * through here. Both feed `assertBaselineCompatible`, so a stamp added to one
+ * allow-list and not the other produces two opposite verdicts on one envelope —
+ * which is what happened to `provenanceStamped`: #4973 added it to the reader
+ * and left this projection dropping it, so the pre-commit CRAP arm rejected
+ * every stamped baseline with an un-satisfiable "re-seed" remedy while the
+ * authoritative gate passed. `COMPAT_STAMP_FIELDS` in
+ * `baselines/kinds/crap.js` names the set both paths owe, and a parity test
+ * holds them to it.
  */
 function projectCrapEnvelopeToLegacy(parsed) {
   if (
@@ -139,6 +150,14 @@ function projectCrapEnvelopeToLegacy(parsed) {
         ? parsed.tsTranspilerVersion
         : null,
     scoringSemantics: parsed.scoringSemantics ?? null,
+    // Story #4901's marker, dropped here until Story #4986. The
+    // `provenance-unstamped` axis keys on `!== true`, so while this line was
+    // missing it read `undefined` off every projected envelope and refused the
+    // baseline — telling the operator to re-seed, which writes the very marker
+    // this projection then discarded. Carried verbatim (not defaulted to
+    // `false`) so a genuinely pre-#4901 envelope still reads `undefined` and
+    // the axis keeps firing on the shape it exists to catch.
+    provenanceStamped: parsed.provenanceStamped,
     rows: parsed.rows.map((row) => ({
       crap: row.crap,
       file: row.path,

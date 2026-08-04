@@ -843,6 +843,34 @@ export function evaluateBaselineCompatibility(ctx) {
 }
 
 /**
+ * The envelope-level fields `LOADED_ENVELOPE_AXES` read off a *loaded*
+ * baseline — the set every read path owes `assertBaselineCompatible`.
+ *
+ * It exists because there are TWO read paths and they have diverged three
+ * times. `check-baselines` loads through `baselines/reader.js`; the
+ * `quality-preview` pre-commit arm loads through `crap-utils.js`'s legacy
+ * projection. Both are ALLOW-LISTS, both feed the axes below, and a stamp
+ * added to one and not the other yields two opposite verdicts on one file:
+ * Story #4866 (`scoringSemantics`, `tsTranspilerVersion`), Story #4969
+ * (`rows[].anonymous`) and Story #4986 (`provenanceStamped`, half-fixed by
+ * #4973) were each that same half-landing.
+ *
+ * Every axis here keys on a POSITIVE marker, so a dropped field reads
+ * `undefined` and fails the baseline closed with a remedy that cannot work —
+ * re-deriving it writes the stamp the read path then discards. A parity test
+ * asserts both paths carry this whole set; add a field here whenever a new
+ * axis reads one, and the test will name the path that forgot it.
+ *
+ * Row-level markers are deliberately out: they are asserted per-row against
+ * the projection, not as envelope stamps.
+ */
+export const COMPAT_STAMP_FIELDS = Object.freeze([
+  'scoringSemantics',
+  'tsTranspilerVersion',
+  'provenanceStamped',
+]);
+
+/**
  * The compat axes a *loaded* envelope can be judged against on its own,
  * without a second baseline to diff. Each invalidates one half of the row
  * identity key. Three are about the `startLine` half: one names the join that

@@ -624,6 +624,11 @@ function makeCrapFixture({
   methodCount,
   baselineRows,
   scoringSemantics,
+  // Story #4986: written to the envelope only when set, so the #4901 cases
+  // below keep testing an unstamped baseline. Defaulting it on would make the
+  // stamped path the only one anything exercises — which is how the legacy
+  // projection dropped it undetected in the first place.
+  provenanceStamped,
   withCoverage = true,
   cyclomaticPerMethod = 1,
 }) {
@@ -700,6 +705,7 @@ function makeCrapFixture({
         scoringSemantics === undefined
           ? envelopeExtras().scoringSemantics
           : scoringSemantics,
+      ...(provenanceStamped === undefined ? {} : { provenanceStamped }),
       rollup: { '*': { p50: 1, p95: 1, max: 1, methodsAbove20: 0 } },
       rows: baselineRows,
     }),
@@ -941,6 +947,40 @@ describe('runCrapPreview — a pre-provenance baseline is refused (#4901)', () =
       );
       // Refused before the scan's rows ever meet it.
       assert.equal(envelope.summary.total, 0);
+    } finally {
+      rmFixture(dir);
+    }
+  });
+
+  // Story #4986 — the case #4901 never wrote, and the reason its regression
+  // shipped. Every test above drives an UNSTAMPED baseline, so the preview's
+  // read path could drop `provenanceStamped` entirely and the suite stayed
+  // green. This is the door a real consumer walks through on every commit:
+  // a current writer's stamp, a TS row, and an expectation that the gate
+  // compares instead of refusing.
+  it('accepts a stamped TS baseline and actually compares it (#4986)', async () => {
+    const methodCount = 25;
+    const baselineRows = [
+      ...baselineRowsFor(methodCount, 0, 0),
+      { path: 'src/legacy.tsx', method: 'render', startLine: 458, crap: 2 },
+    ];
+    const dir = makeCrapFixture({
+      methodCount,
+      baselineRows,
+      provenanceStamped: true,
+    });
+    try {
+      const { exitCode, envelope } = await runCrapPreview({ cwd: dir });
+      assert.equal(exitCode, 0);
+      assert.deepEqual(
+        envelope.diagnostics ?? [],
+        [],
+        'the pre-commit arm refused a baseline the authoritative gate accepts',
+      );
+      // The assertion that separates "accepted" from "silently suppressed":
+      // a refused envelope reports zero rows compared, so only a non-zero
+      // total proves the scan's rows actually met the baseline.
+      assert.equal(envelope.summary.total, methodCount);
     } finally {
       rmFixture(dir);
     }
