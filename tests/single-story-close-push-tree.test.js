@@ -17,10 +17,10 @@
 
 import assert from 'node:assert/strict';
 import nodeFs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { describe, it } from 'node:test';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { makeTempDir } from '../.agents/scripts/lib/test-temp.js';
 
 const REPO_ROOT = path
   .resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
@@ -196,11 +196,17 @@ function findPush(calls) {
 /**
  * A throwaway checkout root, so the DEFAULT `.worktrees/story-<id>` layout can
  * be exercised without creating directories inside the repository.
+ *
+ * `makeTempDir` nests the directory in this process's suite root and registers
+ * its reaping structurally, so no per-test teardown is needed.
  */
-function tempCheckout(t) {
-  const root = nodeFs.mkdtempSync(path.join(os.tmpdir(), 'mandrel-checkout-'));
-  t.after(() => nodeFs.rmSync(root, { recursive: true, force: true }));
-  return root;
+function tempCheckout() {
+  return makeTempDir('push-tree-checkout-');
+}
+
+/** A bare worktree root for the configured-`root` cases. */
+function tempWorktreeRoot() {
+  return makeTempDir('push-tree-root-');
 }
 
 describe('single-story-close — which tree the close-time push runs in', () => {
@@ -208,7 +214,7 @@ describe('single-story-close — which tree the close-time push runs in', () => 
   // `worktreeIsolation.root` resolves `<cwd>/.worktrees/story-<id>`, which is
   // what a real delivery has on disk.
   it('pushes from <cwd>/.worktrees/story-<id> under the default worktree root', async (t) => {
-    const checkout = tempCheckout(t);
+    const checkout = tempCheckout();
     const worktreePath = path.join(checkout, '.worktrees', `story-${STORY_ID}`);
     nodeFs.mkdirSync(worktreePath, { recursive: true });
 
@@ -233,14 +239,9 @@ describe('single-story-close — which tree the close-time push runs in', () => 
   });
 
   it('pushes from the Story worktree so pre-push validates the tree being sent', async (t) => {
-    const worktreeRoot = nodeFs.mkdtempSync(
-      path.join(os.tmpdir(), 'mandrel-push-tree-'),
-    );
+    const worktreeRoot = tempWorktreeRoot();
     const worktreePath = path.join(worktreeRoot, `story-${STORY_ID}`);
     nodeFs.mkdirSync(worktreePath, { recursive: true });
-    t.after(() =>
-      nodeFs.rmSync(worktreeRoot, { recursive: true, force: true }),
-    );
 
     const calls = [];
     mockCollaborators(t, calls);
@@ -261,12 +262,7 @@ describe('single-story-close — which tree the close-time push runs in', () => 
   });
 
   it('falls back to the main checkout when no Story worktree exists on disk', async (t) => {
-    const worktreeRoot = nodeFs.mkdtempSync(
-      path.join(os.tmpdir(), 'mandrel-push-tree-'),
-    );
-    t.after(() =>
-      nodeFs.rmSync(worktreeRoot, { recursive: true, force: true }),
-    );
+    const worktreeRoot = tempWorktreeRoot();
 
     const calls = [];
     mockCollaborators(t, calls);
@@ -288,15 +284,10 @@ describe('single-story-close — which tree the close-time push runs in', () => 
   });
 
   it('pushes without a hook-bypass flag from the worktree', async (t) => {
-    const worktreeRoot = nodeFs.mkdtempSync(
-      path.join(os.tmpdir(), 'mandrel-push-tree-'),
-    );
+    const worktreeRoot = tempWorktreeRoot();
     nodeFs.mkdirSync(path.join(worktreeRoot, `story-${STORY_ID}`), {
       recursive: true,
     });
-    t.after(() =>
-      nodeFs.rmSync(worktreeRoot, { recursive: true, force: true }),
-    );
 
     const calls = [];
     mockCollaborators(t, calls);
