@@ -4,7 +4,6 @@ import path from 'node:path';
 import { describe, it } from 'node:test';
 import {
   assertBaselineCompatible,
-  COMPAT_STAMP_FIELDS,
   CRAP_COMPAT_AXES,
   envelopeExtras,
   evaluateBaselineCompatibility,
@@ -526,8 +525,8 @@ describe('read-path parity — reader and legacy projection agree (#4986)', () =
    *
    * `escomplexVersion` is stripped: the v2 envelope schema forbids it (the
    * legacy projection back-fills it from the running scorer, which is why it
-   * is not a compat stamp and not in `COMPAT_STAMP_FIELDS`). The fixtures
-   * above keep it because they are hand-built loaded envelopes, not files.
+   * is not a compat stamp). The fixtures above keep it because they are
+   * hand-built loaded envelopes, not files.
    */
   function writeEnvelope({ escomplexVersion: _dropped, ...envelope }) {
     const dir = makeTempDir('crap-parity-');
@@ -553,11 +552,23 @@ describe('read-path parity — reader and legacy projection agree (#4986)', () =
     };
   }
 
-  it('carries every COMPAT_STAMP_FIELD through both projections', () => {
+  it('carries every stamp the writer emits through both projections', () => {
+    // The field set comes from `envelopeExtras()` — the writer's own
+    // production door, per this file's convention — rather than a constant
+    // exported for the test's benefit. So a stamp the writer starts emitting
+    // enters this assertion automatically, and whichever read path forgot to
+    // carry it is named here rather than discovered by a consumer whose
+    // pre-commit gate has gone quiet.
+    for (const field of Object.keys(envelopeExtras())) {
+      assert.ok(
+        field in VALID_BASELINE,
+        `fixture must stamp ${field} for this parity check to mean anything`,
+      );
+    }
     const { dir, baselinePath } = writeEnvelope(VALID_BASELINE);
     try {
       const { reader, legacy } = loadBothWays(baselinePath);
-      for (const field of COMPAT_STAMP_FIELDS) {
+      for (const field of Object.keys(envelopeExtras())) {
         // Against the file, not against each other — two paths agreeing on a
         // wrong value would satisfy a cross-check but not this.
         assert.equal(
