@@ -201,6 +201,7 @@ async function runPrePushPhases({
 
 async function openAndReviewPr({
   cwd,
+  worktreePath,
   story,
   storyId,
   storyBranch,
@@ -211,7 +212,11 @@ async function openAndReviewPr({
   setPhase = () => {},
 }) {
   setPhase('push');
-  pushStoryBranch({ cwd, storyBranch, gitSync, progress });
+  // Issue #4990 — push from the Story worktree so `pre-push` measures the
+  // tree being sent. `gh` and the review's ref-based diffs below keep the
+  // caller's `cwd`: they read the shared `.git`, so they resolve identically
+  // from either tree.
+  pushStoryBranch({ cwd, worktreePath, storyBranch, gitSync, progress });
   setPhase('pull-request');
   const { url: prUrl, alreadyMerged } = await ensurePullRequestWith({
     cwd,
@@ -729,6 +734,7 @@ async function runClosePipeline({
     () =>
       openAndReviewPr({
         cwd: options.cwd,
+        worktreePath,
         story,
         storyId: options.storyId,
         storyBranch,

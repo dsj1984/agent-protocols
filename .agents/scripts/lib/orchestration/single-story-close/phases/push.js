@@ -15,6 +15,18 @@
  * added because it would re-ask a question the push exit code already
  * answered authoritatively.
  *
+ * Issue #4990 — the push runs in the Story worktree, not the main
+ * checkout. `core.hooksPath` is the relative `.husky/_`, so the
+ * invocation directory is what selects which tree `pre-push` resolves
+ * and measures. Pushing from the main checkout therefore validated a
+ * tree other than the one being sent — false red when that checkout sat
+ * on unrelated work, and worse, false green whenever it happened to be
+ * clean. `worktreePath` falls back to `cwd` because single-tree mode and
+ * a disabled `delivery.worktreeIsolation` both legitimately have no
+ * worktree, and there the main checkout IS the tree being pushed. The
+ * two sibling phases resolve their tree the same way
+ * (`base-sync.js`, `close-validation.js`).
+ *
  * `gitSync` is accepted as an injected dependency rather than statically
  * imported so the caller's (cache-busted) binding wins. The
  * `single-story-close.js` orchestrator owns the static import; test
@@ -29,6 +41,7 @@ import { gitSync as defaultGitSync } from '../../../git-utils.js';
  *
  * @param {{
  *   cwd: string,
+ *   worktreePath?: string|null,
  *   storyBranch: string,
  *   gitSync?: typeof defaultGitSync,
  *   progress: (tag: string, msg: string) => void,
@@ -36,6 +49,7 @@ import { gitSync as defaultGitSync } from '../../../git-utils.js';
  */
 export function pushStoryBranch({
   cwd,
+  worktreePath = null,
   storyBranch,
   gitSync = defaultGitSync,
   progress,
@@ -46,8 +60,9 @@ export function pushStoryBranch({
     // before this point, but `--skip-validation` skips that chain, and the
     // bypass then left nothing running at all. `pre-push` is the backstop,
     // and it only became reachable once hooks were materialized into
-    // worktrees — which is where every Story branch is built.
-    gitSync(cwd, 'push', '-u', 'origin', storyBranch);
+    // worktrees — which is where every Story branch is built, and where the
+    // cwd below now resolves so the hook reads that tree.
+    gitSync(worktreePath ?? cwd, 'push', '-u', 'origin', storyBranch);
     progress('GIT', `✅ Pushed ${storyBranch}.`);
   } catch (err) {
     throw new Error(

@@ -5,6 +5,10 @@
 // a linked worktree, so removing `--no-verify` would have changed nothing
 // observable. Now that they do fire, the flag is the one thing that would put
 // the delivery push back outside the gate — so it is asserted, not assumed.
+//
+// Issue #4990 adds the other half: running the gate is worthless if it reads
+// the wrong tree. `core.hooksPath` is relative, so the invocation directory
+// decides which tree `pre-push` measures — these tests pin that directory.
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
@@ -50,6 +54,40 @@ test('pushStoryBranch carries no hook-bypass flag', () => {
     [],
     `the delivery push must stay subject to pre-push, got: ${calls[0].args.join(' ')}`,
   );
+});
+
+test('pushStoryBranch pushes from the Story worktree when one is supplied', () => {
+  const { calls, gitSync } = capture();
+  pushStoryBranch({
+    cwd: '/repo',
+    worktreePath: '/repo/.worktrees/story-4990',
+    storyBranch: 'story-4990',
+    gitSync,
+    progress: () => {},
+  });
+  assert.equal(
+    calls[0].cwd,
+    '/repo/.worktrees/story-4990',
+    'pre-push must resolve inside the tree being pushed, not the main checkout',
+  );
+});
+
+test('pushStoryBranch falls back to the main checkout when there is no worktree', () => {
+  for (const worktreePath of [null, undefined]) {
+    const { calls, gitSync } = capture();
+    pushStoryBranch({
+      cwd: '/repo',
+      worktreePath,
+      storyBranch: 'story-4990',
+      gitSync,
+      progress: () => {},
+    });
+    assert.equal(
+      calls[0].cwd,
+      '/repo',
+      `single-tree mode pushes from the main checkout (worktreePath=${worktreePath})`,
+    );
+  }
 });
 
 test('pushStoryBranch surfaces a push failure as a throw', () => {
