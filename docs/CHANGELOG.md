@@ -15,6 +15,13 @@ All notable changes to this project will be documented in this file.
 -->
 <!-- markdownlint-disable-file MD004 MD012 MD037 -->
 
+## [2.30.0](https://github.com/dsj1984/mandrel/compare/mandrel-v2.29.0...mandrel-v2.30.0) (2026-08-04)
+
+
+### Fixed
+
+* **baselines:** carry provenanceStamped through the legacy CRAP projection ([#4986](https://github.com/dsj1984/mandrel/issues/4986)) ([#4987](https://github.com/dsj1984/mandrel/issues/4987)) ([921b521](https://github.com/dsj1984/mandrel/commit/921b521f2094c961fec84acca1f90e068cb77798))
+
 ## [2.29.0](https://github.com/dsj1984/mandrel/compare/mandrel-v2.28.0...mandrel-v2.29.0) (2026-08-03)
 
 
