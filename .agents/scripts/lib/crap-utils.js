@@ -107,6 +107,73 @@ function resolveBaselinePath({ cwd = process.cwd(), baselinePath } = {}) {
  * }|null}
  */
 /**
+ * The envelope-level fields the CRAP compat axes read off a *loaded* baseline
+ * — the set every read path owes `assertBaselineCompatible`.
+ *
+ * It exists because there are TWO read paths and they have now diverged three
+ * times. `check-baselines` loads through `baselines/reader.js`; the
+ * `quality-preview` pre-commit arm loads through `projectCrapEnvelopeToLegacy`
+ * below. Both are ALLOW-LISTS, both feed the same axes, and a stamp added to
+ * one and not the other yields two opposite verdicts on one file: Story #4866
+ * (`scoringSemantics`, `tsTranspilerVersion`), Story #4969 (`rows[].anonymous`)
+ * and Story #4986 (`provenanceStamped`, half-fixed by #4973) were each that
+ * same half-landing.
+ *
+ * Every one of those axes keys on a POSITIVE marker, so a dropped field reads
+ * `undefined` and fails the baseline closed with a remedy that cannot work —
+ * re-deriving it writes the stamp the read path then discards. The projection
+ * below is DERIVED from this list rather than repeating it, so a new stamp is
+ * carried here the moment it is named; a parity test holds the reader to the
+ * same set and names whichever path forgot one.
+ *
+ * Row-level markers are deliberately out: they are projected per-row, not as
+ * envelope stamps.
+ *
+ * Deliberately module-local, mirroring `SCORING_SEMANTICS` in
+ * `baselines/kinds/crap.js`: the writer's `envelopeExtras()` is the single
+ * production door to the stamp set, and exporting this list would add a second
+ * one that only a test reaches. The parity test holds this projection to
+ * `Object.keys(envelopeExtras())` instead, so a stamp the writer starts
+ * emitting fails the test here until it is named — which is the enforcement
+ * this list needs, not an export.
+ */
+const COMPAT_STAMP_FIELDS = Object.freeze([
+  'scoringSemantics',
+  'tsTranspilerVersion',
+  'provenanceStamped',
+]);
+
+/**
+ * Per-stamp coercion applied on the way through the legacy projection. A field
+ * with no entry is carried VERBATIM, which is the correct default: the axes
+ * distinguish "stamped" from "absent", so inventing a value for a stamp the
+ * envelope never wrote is the one thing a read path must not do.
+ */
+const COMPAT_STAMP_NORMALIZERS = {
+  // `null` (not the running value) when unstamped, so `ts-transpiler-drift`
+  // can tell "written by a different transpiler" from "written before the
+  // stamp existed" instead of comparing a value against itself.
+  tsTranspilerVersion: (value) => (typeof value === 'string' ? value : null),
+  scoringSemantics: (value) => value ?? null,
+};
+
+/**
+ * Project the compat stamps off a v2 envelope, driven by
+ * `COMPAT_STAMP_FIELDS`.
+ *
+ * @param {Record<string, unknown>} parsed
+ * @returns {Record<string, unknown>}
+ */
+function projectCompatStamps(parsed) {
+  const stamps = {};
+  for (const field of COMPAT_STAMP_FIELDS) {
+    const normalize = COMPAT_STAMP_NORMALIZERS[field];
+    stamps[field] = normalize ? normalize(parsed[field]) : parsed[field];
+  }
+  return stamps;
+}
+
+/**
  * Story #1895: shipped baseline switched to the canonical envelope shape
  * (`$schema`, `kernelVersion`, `generatedAt`, `rollup`, `rows` keyed on
  * `path`). Backfill the legacy `escomplexVersion` field from the running
@@ -122,6 +189,16 @@ function resolveBaselinePath({ cwd = process.cwd(), baselinePath } = {}) {
  * They are carried verbatim now, `null` when the envelope never stamped them,
  * so an axis can tell "written by a different transpiler" apart from "written
  * before the stamp existed" instead of guessing.
+ *
+ * **This projection is one of TWO (Story #4986).** `check-baselines` reads a
+ * baseline through `baselines/reader.js`; `quality-preview` reads the same file
+ * through here. Both feed `assertBaselineCompatible`, so a stamp added to one
+ * allow-list and not the other produces two opposite verdicts on one envelope —
+ * which is what happened to `provenanceStamped`: #4973 added it to the reader
+ * and left this projection dropping it, so the pre-commit CRAP arm rejected
+ * every stamped baseline with an un-satisfiable "re-seed" remedy while the
+ * authoritative gate passed. The stamp block is derived from
+ * `COMPAT_STAMP_FIELDS` above so this projection cannot fall behind again.
  */
 function projectCrapEnvelopeToLegacy(parsed) {
   if (
@@ -134,11 +211,7 @@ function projectCrapEnvelopeToLegacy(parsed) {
   return {
     kernelVersion: parsed.kernelVersion,
     escomplexVersion: resolveEscomplexVersion(),
-    tsTranspilerVersion:
-      typeof parsed.tsTranspilerVersion === 'string'
-        ? parsed.tsTranspilerVersion
-        : null,
-    scoringSemantics: parsed.scoringSemantics ?? null,
+    ...projectCompatStamps(parsed),
     rows: parsed.rows.map((row) => ({
       crap: row.crap,
       file: row.path,

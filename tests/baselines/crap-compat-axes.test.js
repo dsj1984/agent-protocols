@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
 import { describe, it } from 'node:test';
 import {
   assertBaselineCompatible,
@@ -6,6 +8,9 @@ import {
   envelopeExtras,
   evaluateBaselineCompatibility,
 } from '../../.agents/scripts/lib/baselines/kinds/crap.js';
+import { loadFile as readerLoadFile } from '../../.agents/scripts/lib/baselines/reader.js';
+import { getCrapBaseline } from '../../.agents/scripts/lib/crap-utils.js';
+import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
 
 // The stamp is read through the production door the writer uses, not a
 // second exported constant — so a drift between what the writer stamps and
@@ -495,5 +500,134 @@ describe('provenance-unstamped — the fail-CLOSED door (#4901)', () => {
       }),
       null,
     );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Story #4986 — read-path parity.
+//
+// `assertBaselineCompatible` is fed by TWO allow-list projections of the same
+// on-disk envelope: `baselines/reader.js` (the `check-baselines` gate) and
+// `crap-utils.js`'s legacy projection (the `quality-preview` pre-commit arm).
+// Three stamps have now half-landed across that seam — #4866, #4969 and this
+// Story's `provenanceStamped` (#4973 fixed the reader and left the projection
+// dropping it), each producing a gate that rejected a valid baseline with a
+// re-seed remedy that could not work, because re-deriving writes the stamp the
+// read path then discards.
+//
+// So this asserts the property directly rather than the three instances of it:
+// one file on disk, both doors, identical verdict.
+// ---------------------------------------------------------------------------
+
+describe('read-path parity — reader and legacy projection agree (#4986)', () => {
+  /**
+   * Write `envelope` to a throwaway checkout and return its baseline path.
+   *
+   * `escomplexVersion` is stripped: the v2 envelope schema forbids it (the
+   * legacy projection back-fills it from the running scorer, which is why it
+   * is not a compat stamp). The fixtures above keep it because they are
+   * hand-built loaded envelopes, not files.
+   */
+  function writeEnvelope({ escomplexVersion: _dropped, ...envelope }) {
+    const dir = makeTempDir('crap-parity-');
+    fs.mkdirSync(path.join(dir, 'baselines'), { recursive: true });
+    const baselinePath = path.join(dir, 'baselines', 'crap.json');
+    fs.writeFileSync(
+      baselinePath,
+      JSON.stringify({
+        $schema: '.agents/schemas/baselines/crap.schema.json',
+        generatedAt: new Date().toISOString(),
+        rollup: { '*': { p50: 1, p95: 1, max: 2, methodsAbove20: 0 } },
+        ...envelope,
+      }),
+    );
+    return { dir, baselinePath };
+  }
+
+  /** Load `baselinePath` through both production read paths. */
+  function loadBothWays(baselinePath) {
+    return {
+      reader: readerLoadFile(baselinePath, 'crap'),
+      legacy: getCrapBaseline({ baselinePath }),
+    };
+  }
+
+  it('carries every stamp the writer emits through both projections', () => {
+    // The field set comes from `envelopeExtras()` — the writer's own
+    // production door, per this file's convention — rather than a constant
+    // exported for the test's benefit. So a stamp the writer starts emitting
+    // enters this assertion automatically, and whichever read path forgot to
+    // carry it is named here rather than discovered by a consumer whose
+    // pre-commit gate has gone quiet.
+    for (const field of Object.keys(envelopeExtras())) {
+      assert.ok(
+        field in VALID_BASELINE,
+        `fixture must stamp ${field} for this parity check to mean anything`,
+      );
+    }
+    const { dir, baselinePath } = writeEnvelope(VALID_BASELINE);
+    try {
+      const { reader, legacy } = loadBothWays(baselinePath);
+      for (const field of Object.keys(envelopeExtras())) {
+        // Against the file, not against each other — two paths agreeing on a
+        // wrong value would satisfy a cross-check but not this.
+        assert.equal(
+          reader[field],
+          VALID_BASELINE[field],
+          `reader dropped ${field}`,
+        );
+        assert.equal(
+          legacy[field],
+          VALID_BASELINE[field],
+          `legacy projection dropped ${field}`,
+        );
+      }
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('reaches the same verdict on a valid baseline', () => {
+    const { dir, baselinePath } = writeEnvelope(VALID_BASELINE);
+    try {
+      const { reader, legacy } = loadBothWays(baselinePath);
+      const ctx = {
+        runningTsTranspilerVersion: VALID_BASELINE.tsTranspilerVersion,
+      };
+      assert.equal(assertBaselineCompatible(reader, ctx), null);
+      assert.equal(
+        assertBaselineCompatible(legacy, ctx),
+        null,
+        'the pre-commit arm refused a baseline the gate accepts',
+      );
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('still refuses a genuinely pre-provenance baseline on both paths', () => {
+    // The guard above must not have been bought by defaulting the stamp to a
+    // truthy value: an envelope that never carried it has to keep failing.
+    const preProvenance = { ...VALID_BASELINE };
+    delete preProvenance.provenanceStamped;
+    const { dir, baselinePath } = writeEnvelope(preProvenance);
+    try {
+      const { reader, legacy } = loadBothWays(baselinePath);
+      const ctx = {
+        runningTsTranspilerVersion: VALID_BASELINE.tsTranspilerVersion,
+      };
+      for (const [name, loaded] of [
+        ['reader', reader],
+        ['legacy projection', legacy],
+      ]) {
+        assert.match(
+          assertBaselineCompatible(loaded, ctx) ?? '',
+          /predates coordinate-provenance stamping/,
+          `${name} let a pre-provenance baseline through`,
+        );
+      }
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
   });
 });
