@@ -193,7 +193,45 @@ function findPush(calls) {
   return push;
 }
 
+/**
+ * A throwaway checkout root, so the DEFAULT `.worktrees/story-<id>` layout can
+ * be exercised without creating directories inside the repository.
+ */
+function tempCheckout(t) {
+  const root = nodeFs.mkdtempSync(path.join(os.tmpdir(), 'mandrel-checkout-'));
+  t.after(() => nodeFs.rmSync(root, { recursive: true, force: true }));
+  return root;
+}
+
 describe('single-story-close — which tree the close-time push runs in', () => {
+  // The default layout, spelled out end to end: an unconfigured
+  // `worktreeIsolation.root` resolves `<cwd>/.worktrees/story-<id>`, which is
+  // what a real delivery has on disk.
+  it('pushes from <cwd>/.worktrees/story-<id> under the default worktree root', async (t) => {
+    const checkout = tempCheckout(t);
+    const worktreePath = path.join(checkout, '.worktrees', `story-${STORY_ID}`);
+    nodeFs.mkdirSync(worktreePath, { recursive: true });
+
+    const calls = [];
+    mockCollaborators(t, calls);
+
+    const { runSingleStoryClose } = await import(
+      `${SUT_URL}?t=push-default-root`
+    );
+    await runSingleStoryClose(
+      closeArgs({
+        cwd: checkout,
+        config: { agentSettings: { baseBranch: 'main', commands: {} } },
+      }),
+    );
+
+    assert.equal(
+      path.resolve(findPush(calls).cwd),
+      path.resolve(worktreePath),
+      'the default .worktrees/story-<id> layout must be the push cwd',
+    );
+  });
+
   it('pushes from the Story worktree so pre-push validates the tree being sent', async (t) => {
     const worktreeRoot = nodeFs.mkdtempSync(
       path.join(os.tmpdir(), 'mandrel-push-tree-'),
