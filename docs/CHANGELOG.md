@@ -15,6 +15,13 @@ All notable changes to this project will be documented in this file.
 -->
 <!-- markdownlint-disable-file MD004 MD012 MD037 -->
 
+## [2.31.0](https://github.com/dsj1984/mandrel/compare/mandrel-v2.30.0...mandrel-v2.31.0) (2026-08-05)
+
+
+### Added
+
+* **qa:** add an attach-don't-boot seam and an unreproducible-tier verdict (refs [#4994](https://github.com/dsj1984/mandrel/issues/4994)) ([#4995](https://github.com/dsj1984/mandrel/issues/4995)) ([dac7986](https://github.com/dsj1984/mandrel/commit/dac79868a305e34db01005f06f638fc384c21c17)), closes [#4993](https://github.com/dsj1984/mandrel/issues/4993)
+
 ## [2.30.0](https://github.com/dsj1984/mandrel/compare/mandrel-v2.29.0...mandrel-v2.30.0) (2026-08-04)
 
 
