@@ -51,6 +51,7 @@ the two options above. Name the verdict you reached in the `friction` comment.
 | **defect-in-diff** | The failure reproduces on the branch and not on an unmodified `main` | Option 1 — fix at source |
 | **pre-existing** | The same check fails on an unmodified `main` too | Option 2 — file `meta::framework-gap`; remediate here only if it blocks this delivery |
 | **capacity** | Proven exhaustion of a runner resource, not a property of the diff (see below) | Option 2 — file `meta::framework-gap` **and** escalate to the operator |
+| **unreproducible-tier** | The tier cannot be exercised in this sandbox at all, proven by an attempted attach (see below) | Option 2 — file `meta::framework-gap` **and** escalate on first encounter |
 
 ### The `capacity` verdict
 
@@ -82,9 +83,45 @@ the operator, who owns the runner pool. Do not sit in a retry loop waiting for
 capacity to return.
 
 **Rerunning a failed job to reach green stays forbidden under every verdict,
-`capacity` included.** The verdict changes who owns the fix and where it is
+`capacity` and `unreproducible-tier` included.** The verdict changes who owns the fix and where it is
 filed; it never licenses a re-run, and it is not a route to a green bar. A
 capacity-blocked delivery ends `agent::blocked` — not merged.
+
+### The `unreproducible-tier` verdict
+
+A check can fail on a tier the sandbox cannot run at all — most often a
+browser suite whose Playwright `webServer` block supervises a dev server the
+local process manager daemonizes, which aborts the run with
+`Process from config.webServer exited early` before any test executes. The
+failure is a property of the sandbox's ability to *host* the suite, not of the
+diff.
+
+This is the same structural hole the `capacity` verdict was added to fill, one
+step earlier in the loop. Without it the honest reading is `flaky`, which routes
+to Option 1 — and fix-at-source requires reproducing the failure, which is the
+one thing that cannot be done. The agent then spends the full timebox
+rediscovering that before escalating anyway, and any fix it does author is
+written blind against a tier it never ran.
+
+**Unreproducible must be proven, not inferred.** "The suite did not run for me"
+is not the verdict — it is the symptom every misconfiguration produces. Cite
+both:
+
+- **The attempted attach.** Work the attach-don't-boot seam in the
+  [`playwright`](../skills/stack/qa/playwright/SKILL.md) skill — boot the server
+  out-of-band, point the suite at the running origin, set `reuseExistingServer`
+  — and name which step failed and how. A tier that runs once attached was never
+  unreproducible.
+- **The observed signature.** The verbatim line the runner aborted on, so a
+  later reader can tell a lifetime-ownership mismatch from a genuine boot
+  failure in the app under test.
+
+Absent both readings the verdict is unavailable and the failure routes as it did
+before. On the verdict: file the `meta::framework-gap` issue with the run link,
+the failure signature, and the attach attempt; flip the Story to
+`agent::blocked` with a `friction` comment naming the verdict; and hand back to
+the operator, who owns the sandbox. Do not author a fix for a tier you could not
+run — a blind fix to a suite nobody exercised is how the gap compounds.
 
 ## Verifier
 
@@ -131,3 +168,9 @@ operator under **any** of:
   signature) and escalate on the first encounter rather than burning iterations
   trying to code around it. A proven-capacity failure is this case: reach the
   `capacity` verdict above and escalate on the first encounter.
+- **Unrunnable tier → escalate immediately.** A tier the sandbox cannot host at
+  all is this case too: work the attach seam once, reach the
+  `unreproducible-tier` verdict above with its two readings, and escalate on the
+  **first encounter**. The 30-minute timebox is a ceiling here, never a budget
+  to spend — every minute past the failed attach buys nothing, because no
+  iteration can make an unhostable suite run.
