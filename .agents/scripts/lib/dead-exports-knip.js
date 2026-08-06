@@ -76,10 +76,79 @@ export function readKnipOutput(filePath) {
 }
 
 /**
+ * Sentinel `symbol` recorded for a **whole-file death** row.
+ *
+ * Knip's `files` category names a module nothing in the graph imports. There
+ * is no per-export identity to record — the whole file is the finding — so the
+ * ratchet encodes exactly one row per dead file carrying this symbol. `*` is
+ * not a legal JavaScript identifier, so a whole-file row can never collide
+ * with a real export row for the same path.
+ */
+const WHOLE_FILE_SYMBOL = '*';
+
+/**
+ * Pull the dead-file paths out of one knip issue's `files` category.
+ *
+ * Knip emits `files: [{ name: '<path>' }]`, but tolerate a bare string and
+ * fall back to the issue's own `file` so a reporter-shape change degrades to
+ * "one row for this path" rather than to silence.
+ *
+ * @param {{ files?: unknown }} issue
+ * @param {string} fallbackFile The issue's own `file` path.
+ * @returns {string[]}
+ */
+function extractDeadFileNames(issue, fallbackFile) {
+  const entries = Array.isArray(issue.files) ? issue.files : [];
+  const names = [];
+  for (const entry of entries) {
+    const name =
+      (typeof entry === 'string' && entry) ||
+      (entry && typeof entry.name === 'string' && entry.name) ||
+      fallbackFile;
+    if (typeof name === 'string' && name.length > 0) names.push(name);
+  }
+  return names;
+}
+
+/**
+ * Pull the dead-export symbol names out of one knip issue's `exports`
+ * category. Knip emits `exports: [{ name, ... }]`; older shapes used `symbol`.
+ *
+ * @param {{ exports?: unknown }} issue
+ * @returns {string[]}
+ */
+function extractDeadExportSymbols(issue) {
+  const entries = Array.isArray(issue.exports) ? issue.exports : [];
+  const symbols = [];
+  for (const e of entries) {
+    const symbol =
+      (e && typeof e.name === 'string' && e.name) ||
+      (e && typeof e.symbol === 'string' && e.symbol) ||
+      null;
+    if (symbol) symbols.push(symbol);
+  }
+  return symbols;
+}
+
+/**
  * Flatten knip's `--reporter json` output into `{ file, symbol }` rows. Knip
- * emits `{ issues: [{ file, exports: [{ name, ... }], ... }, ...] }`. Only
- * `exports` rows are mapped — the ratchet ignores file-, dependency- and
- * duplicate-level issues, which knip surfaces under separate `rules` keys.
+ * emits `{ issues: [{ file, files: [...], exports: [{ name, ... }], ... }] }`.
+ *
+ * Two categories are mapped, and the ratchet treats their rows identically:
+ *
+ * - **`exports`** → one row per unused export, `{ file, symbol: '<name>' }`.
+ * - **`files`** → one row per module nothing imports,
+ *   `{ file, symbol: '*' }`. Story #5001 added this leg: mapping only
+ *   `exports` made the ratchet structurally blind to *whole-file* death, so a
+ *   module could lose its last caller and every one of its exports go unused
+ *   without a single row changing. Knip reports such a module once, under
+ *   `files`, and suppresses its per-export rows — which is exactly why the
+ *   export-only reading saw nothing.
+ *
+ * Whole-file rows are de-duplicated by path so the row set is stable across
+ * runs regardless of how many issue records mention the same file. Dependency-
+ * and duplicate-level issues stay ignored; knip surfaces those under their own
+ * `rules` keys and they are not a code-death signal.
  *
  * @param {unknown} knipEnvelope The parsed knip JSON report.
  * @returns {Array<{ file: string, symbol: string }>}
@@ -88,16 +157,16 @@ export function extractRowsFromKnip(knipEnvelope) {
   const rows = [];
   if (!knipEnvelope || typeof knipEnvelope !== 'object') return rows;
   const issues = Array.isArray(knipEnvelope.issues) ? knipEnvelope.issues : [];
+  const seenDeadFiles = new Set();
   for (const issue of issues) {
     const file = issue?.file;
     if (typeof file !== 'string' || file.length === 0) continue;
-    const exports_ = Array.isArray(issue.exports) ? issue.exports : [];
-    for (const e of exports_) {
-      const symbol =
-        (e && typeof e.name === 'string' && e.name) ||
-        (e && typeof e.symbol === 'string' && e.symbol) ||
-        null;
-      if (!symbol) continue;
+    for (const name of extractDeadFileNames(issue, file)) {
+      if (seenDeadFiles.has(name)) continue;
+      seenDeadFiles.add(name);
+      rows.push({ file: name, symbol: WHOLE_FILE_SYMBOL });
+    }
+    for (const symbol of extractDeadExportSymbols(issue)) {
       rows.push({ file, symbol });
     }
   }

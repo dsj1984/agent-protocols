@@ -90,9 +90,20 @@ the `.agentrc.json` command before a push is a false green.
 baselines. The default pass treats `tests/**` as knip entry points, so an
 export whose only importer is a test still reads as *used*; the
 `--production` pass discounts test importers and therefore sees a much
-larger surface — `baselines/dead-exports.json` carries 165 rows against
-`baselines/dead-exports-production.json`'s 667. A new export that is only
+larger surface — `baselines/dead-exports.json` carries 130 rows against
+`baselines/dead-exports-production.json`'s 695. A new export that is only
 imported by its test passes the default pass and fails the production one.
+
+Rows come in two shapes. `{ file, symbol: '<name>' }` is one unused export;
+`{ file, symbol: '*' }` is **whole-file death** — a module nothing imports.
+Knip reports such a module once, under its `files` category, and suppresses
+that module's per-export rows, so a file losing its last importer *shrinks*
+the export row set. Reading only `exports` therefore scored losing a whole
+module as an improvement; the `*` rows exist so it reads as the regression
+it is. `knip.json` lists the `.agents/scripts` CLIs as explicit entry paths
+for the same reason: a blanket `.agents/scripts/*.js!` glob declared every
+top-level CLI reachable by construction, so no uninvoked one could ever
+surface. Adding a CLI means adding its entry line.
 
 The production pass depends entirely on the `!` suffix on the `entry` and
 `project` patterns in `knip.json`: `!` marks a pattern as
