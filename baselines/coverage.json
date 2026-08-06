@@ -1,12 +1,12 @@
 {
   "$schema": ".agents/schemas/baselines/coverage.schema.json",
   "kernelVersion": "1.0.0",
-  "generatedAt": "2026-08-06T04:55:30.691Z",
+  "generatedAt": "2026-08-06T09:25:56.820Z",
   "rollup": {
     "*": {
-      "lines": 95.8,
-      "branches": 86.37,
-      "functions": 88.7
+      "lines": 95.75,
+      "branches": 86.34,
+      "functions": 88.44
     }
   },
   "rows": [
@@ -308,12 +308,6 @@
       "path": ".agents/scripts/lib/audit-suite/checklist-threading.js",
       "lines": 96.9,
       "branches": 94.29,
-      "functions": 100
-    },
-    {
-      "path": ".agents/scripts/lib/audit-suite/cli.js",
-      "lines": 100,
-      "branches": 100,
       "functions": 100
     },
     {
@@ -900,9 +894,9 @@
     },
     {
       "path": ".agents/scripts/lib/close-validation/runner.js",
-      "lines": 79.43,
+      "lines": 80.78,
       "branches": 50,
-      "functions": 77.78
+      "functions": 72.73
     },
     {
       "path": ".agents/scripts/lib/close-validation/telemetry.js",
@@ -1241,12 +1235,6 @@
       "functions": 100
     },
     {
-      "path": ".agents/scripts/lib/dynamic-workflow/capability.js",
-      "lines": 100,
-      "branches": 92.31,
-      "functions": 100
-    },
-    {
       "path": ".agents/scripts/lib/dynamic-workflow/clean-code-report-contract.js",
       "lines": 100,
       "branches": 100,
@@ -1452,9 +1440,9 @@
     },
     {
       "path": ".agents/scripts/lib/ITicketingProvider.js",
-      "lines": 95.18,
+      "lines": 96.35,
       "branches": 100,
-      "functions": 61.9
+      "functions": 70.59
     },
     {
       "path": ".agents/scripts/lib/json-utils.js",
@@ -1502,30 +1490,6 @@
       "path": ".agents/scripts/lib/mandrel-catalog.js",
       "lines": 91.75,
       "branches": 88.1,
-      "functions": 100
-    },
-    {
-      "path": ".agents/scripts/lib/mutation/baseline-snapshot.js",
-      "lines": 93.28,
-      "branches": 85.96,
-      "functions": 100
-    },
-    {
-      "path": ".agents/scripts/lib/mutation/config-detector.js",
-      "lines": 100,
-      "branches": 85,
-      "functions": 100
-    },
-    {
-      "path": ".agents/scripts/lib/mutation/stryker-runner.js",
-      "lines": 97.71,
-      "branches": 81.25,
-      "functions": 100
-    },
-    {
-      "path": ".agents/scripts/lib/mutation/survivor-report.js",
-      "lines": 100,
-      "branches": 92.11,
       "functions": 100
     },
     {
@@ -2027,12 +1991,6 @@
       "functions": 100
     },
     {
-      "path": ".agents/scripts/lib/orchestration/pr-base-guard.js",
-      "lines": 100,
-      "branches": 100,
-      "functions": 100
-    },
-    {
       "path": ".agents/scripts/lib/orchestration/project-meta-cache.js",
       "lines": 96.64,
       "branches": 80.49,
@@ -2453,27 +2411,9 @@
       "functions": 100
     },
     {
-      "path": ".agents/scripts/lib/qa/coverage-report.js",
-      "lines": 100,
-      "branches": 68.57,
-      "functions": 100
-    },
-    {
       "path": ".agents/scripts/lib/qa/coverage-verdict.js",
-      "lines": 99.32,
-      "branches": 92.38,
-      "functions": 100
-    },
-    {
-      "path": ".agents/scripts/lib/qa/propose-missing-test.js",
       "lines": 100,
-      "branches": 92.86,
-      "functions": 100
-    },
-    {
-      "path": ".agents/scripts/lib/qa/qa-context-hydrator.js",
-      "lines": 100,
-      "branches": 86.49,
+      "branches": 94.87,
       "functions": 100
     },
     {
@@ -2735,18 +2675,6 @@
       "functions": 100
     },
     {
-      "path": ".agents/scripts/lib/util/phase-timer-state.js",
-      "lines": 100,
-      "branches": 90,
-      "functions": 100
-    },
-    {
-      "path": ".agents/scripts/lib/util/phase-timer.js",
-      "lines": 100,
-      "branches": 93.94,
-      "functions": 100
-    },
-    {
       "path": ".agents/scripts/lib/util/poll-loop.js",
       "lines": 100,
       "branches": 96.88,
@@ -2814,7 +2742,7 @@
     },
     {
       "path": ".agents/scripts/lib/worktree-manager.js",
-      "lines": 91.44,
+      "lines": 91.41,
       "branches": 81.25,
       "functions": 70
     },
@@ -2958,7 +2886,7 @@
     },
     {
       "path": ".agents/scripts/providers/github.js",
-      "lines": 98.88,
+      "lines": 98.79,
       "branches": 91.3,
       "functions": 100
     },
@@ -2995,18 +2923,18 @@
     {
       "path": ".agents/scripts/providers/github/comments.js",
       "lines": 100,
-      "branches": 86.67,
+      "branches": 91.67,
       "functions": 100
     },
     {
       "path": ".agents/scripts/providers/github/compose.js",
-      "lines": 98.18,
+      "lines": 97.89,
       "branches": 100,
-      "functions": 45
+      "functions": 46.67
     },
     {
       "path": ".agents/scripts/providers/github/errors.js",
-      "lines": 99.64,
+      "lines": 99.61,
       "branches": 92.98,
       "functions": 100
     },
@@ -3047,12 +2975,6 @@
       "functions": 76.47
     },
     {
-      "path": ".agents/scripts/providers/github/prs.js",
-      "lines": 96.12,
-      "branches": 81.25,
-      "functions": 100
-    },
-    {
       "path": ".agents/scripts/providers/github/request-helpers.js",
       "lines": 100,
       "branches": 88.46,
@@ -3072,8 +2994,8 @@
     },
     {
       "path": ".agents/scripts/providers/github/sub-issues.js",
-      "lines": 83.23,
-      "branches": 71.74,
+      "lines": 90.35,
+      "branches": 73.33,
       "functions": 100
     },
     {

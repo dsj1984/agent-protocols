@@ -44,7 +44,7 @@
           ]
         },
         "maintainability": {
-          "floors": { "*": { "min": 75 } },
+          "floors": { "*": { "min": 76 } },
           "targetDirs": [".agents/scripts", "bin", "lib"],
           "tolerance": { "kind": "absolute", "value": 0.5 },
           "ignoreGlobs": [

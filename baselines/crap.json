@@ -1,14 +1,14 @@
 {
   "$schema": ".agents/schemas/baselines/crap.schema.json",
   "kernelVersion": "0.1.0",
-  "generatedAt": "2026-08-06T05:46:06.639Z",
+  "generatedAt": "2026-08-06T09:25:57.167Z",
   "scoringSemantics": "method-identity-v3",
   "tsTranspilerVersion": "6.0.3",
   "provenanceStamped": true,
   "rollup": {
     "*": {
       "p50": 2,
-      "p95": 10.007705421727364,
+      "p95": 10.000279399068484,
       "max": 29.000120920774684,
       "methodsAbove20": 6
     }
@@ -1903,25 +1903,6 @@
       "method": "buildChecklistPayload",
       "startLine": 260,
       "crap": 5.048828125
-    },
-    {
-      "path": ".agents/scripts/lib/audit-suite/cli.js",
-      "method": "parseAuditList",
-      "startLine": 35,
-      "crap": 1
-    },
-    {
-      "path": ".agents/scripts/lib/audit-suite/cli.js",
-      "method": "<anon parseAuditList/(a)#0>",
-      "startLine": 38,
-      "crap": 1,
-      "anonymous": true
-    },
-    {
-      "path": ".agents/scripts/lib/audit-suite/cli.js",
-      "method": "parseArgv",
-      "startLine": 50,
-      "crap": 1
     },
     {
       "path": ".agents/scripts/lib/audit-suite/dispatch-checklist.js",
@@ -6402,7 +6383,7 @@
       "path": ".agents/scripts/lib/close-validation/runner.js",
       "method": "runCloseValidation",
       "startLine": 124,
-      "crap": 17.206031861629494
+      "crap": 7.430085683237227
     },
     {
       "path": ".agents/scripts/lib/close-validation/runner.js",
@@ -6429,13 +6410,26 @@
       "path": ".agents/scripts/lib/close-validation/runner.js",
       "method": "<anon runCloseValidation/(gate)#0>",
       "startLine": 246,
-      "crap": 9.046867546654529,
+      "crap": 8.561744565860868,
+      "anonymous": true
+    },
+    {
+      "path": ".agents/scripts/lib/close-validation/runner.js",
+      "method": "runSerialGates",
+      "startLine": 361,
+      "crap": 7.393026155098718
+    },
+    {
+      "path": ".agents/scripts/lib/close-validation/runner.js",
+      "method": "<anon runSerialGates/(gate,status,message)#0>",
+      "startLine": 375,
+      "crap": 2.864,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/close-validation/runner.js",
       "method": "runAdvisoryProjections",
-      "startLine": 402,
+      "startLine": 447,
       "crap": 3
     },
     {
@@ -8171,62 +8165,6 @@
       "startLine": 261,
       "crap": 1,
       "anonymous": true
-    },
-    {
-      "path": ".agents/scripts/lib/dynamic-workflow/capability.js",
-      "method": "isFlagSet",
-      "startLine": 121,
-      "crap": 3
-    },
-    {
-      "path": ".agents/scripts/lib/dynamic-workflow/capability.js",
-      "method": "compareVersions",
-      "startLine": 135,
-      "crap": 3
-    },
-    {
-      "path": ".agents/scripts/lib/dynamic-workflow/capability.js",
-      "method": "<anon compareVersions/(v)#0>",
-      "startLine": 136,
-      "crap": 1,
-      "anonymous": true
-    },
-    {
-      "path": ".agents/scripts/lib/dynamic-workflow/capability.js",
-      "method": "<anon compareVersions/(v)#0/(seg)#0>",
-      "startLine": 142,
-      "crap": 2,
-      "anonymous": true
-    },
-    {
-      "path": ".agents/scripts/lib/dynamic-workflow/capability.js",
-      "method": "meetsVersionFloor",
-      "startLine": 163,
-      "crap": 2
-    },
-    {
-      "path": ".agents/scripts/lib/dynamic-workflow/capability.js",
-      "method": "detectDynamicWorkflowCapability",
-      "startLine": 213,
-      "crap": 10
-    },
-    {
-      "path": ".agents/scripts/lib/dynamic-workflow/capability.js",
-      "method": "selectAuditStrategy",
-      "startLine": 318,
-      "crap": 5
-    },
-    {
-      "path": ".agents/scripts/lib/dynamic-workflow/capability.js",
-      "method": "snapshotFromEnv",
-      "startLine": 370,
-      "crap": 1
-    },
-    {
-      "path": ".agents/scripts/lib/dynamic-workflow/capability.js",
-      "method": "forceStrategyFromEnv",
-      "startLine": 388,
-      "crap": 4
     },
     {
       "path": ".agents/scripts/lib/dynamic-workflow/clean-code-report-contract.js",
@@ -10214,112 +10152,6 @@
       "startLine": 192,
       "crap": 2,
       "anonymous": true
-    },
-    {
-      "path": ".agents/scripts/lib/mutation/baseline-snapshot.js",
-      "method": "readBaseline",
-      "startLine": 66,
-      "crap": 4
-    },
-    {
-      "path": ".agents/scripts/lib/mutation/baseline-snapshot.js",
-      "method": "writeBaseline",
-      "startLine": 102,
-      "crap": 8.664715251690458
-    },
-    {
-      "path": ".agents/scripts/lib/mutation/baseline-snapshot.js",
-      "method": "<anon writeBaseline/()#0>",
-      "startLine": 105,
-      "crap": 1.0103861758076633,
-      "anonymous": true
-    },
-    {
-      "path": ".agents/scripts/lib/mutation/baseline-snapshot.js",
-      "method": "validateBaseline",
-      "startLine": 168,
-      "crap": 17.147968
-    },
-    {
-      "path": ".agents/scripts/lib/mutation/baseline-snapshot.js",
-      "method": "canonicaliseWorkspaces",
-      "startLine": 227,
-      "crap": 1
-    },
-    {
-      "path": ".agents/scripts/lib/mutation/baseline-snapshot.js",
-      "method": "<anon canonicaliseWorkspaces/(a,b)#0>",
-      "startLine": 229,
-      "crap": 3,
-      "anonymous": true
-    },
-    {
-      "path": ".agents/scripts/lib/mutation/config-detector.js",
-      "method": "detectStrykerConfig",
-      "startLine": 58,
-      "crap": 11
-    },
-    {
-      "path": ".agents/scripts/lib/mutation/config-detector.js",
-      "method": "getCanonicalConfigFilenames",
-      "startLine": 117,
-      "crap": 1
-    },
-    {
-      "path": ".agents/scripts/lib/mutation/stryker-runner.js",
-      "method": "runStryker",
-      "startLine": 70,
-      "crap": 15.033554814675682
-    },
-    {
-      "path": ".agents/scripts/lib/mutation/stryker-runner.js",
-      "method": "<anon runStryker/()#0>",
-      "startLine": 79,
-      "crap": 1.0001491325096696,
-      "anonymous": true
-    },
-    {
-      "path": ".agents/scripts/lib/mutation/stryker-runner.js",
-      "method": "summariseReport",
-      "startLine": 226,
-      "crap": 17
-    },
-    {
-      "path": ".agents/scripts/lib/mutation/stryker-runner.js",
-      "method": "countsTowardDenominator",
-      "startLine": 293,
-      "crap": 6
-    },
-    {
-      "path": ".agents/scripts/lib/mutation/stryker-runner.js",
-      "method": "round2",
-      "startLine": 304,
-      "crap": 1
-    },
-    {
-      "path": ".agents/scripts/lib/mutation/survivor-report.js",
-      "method": "enumerateSurvivors",
-      "startLine": 70,
-      "crap": 16
-    },
-    {
-      "path": ".agents/scripts/lib/mutation/survivor-report.js",
-      "method": "<anon enumerateSurvivors/(a,b)#0>",
-      "startLine": 115,
-      "crap": 2,
-      "anonymous": true
-    },
-    {
-      "path": ".agents/scripts/lib/mutation/survivor-report.js",
-      "method": "pickMutant",
-      "startLine": 137,
-      "crap": 3
-    },
-    {
-      "path": ".agents/scripts/lib/mutation/survivor-report.js",
-      "method": "extractLine",
-      "startLine": 154,
-      "crap": 7
     },
     {
       "path": ".agents/scripts/lib/notifications/notifier.js",
@@ -14191,12 +14023,6 @@
       "path": ".agents/scripts/lib/orchestration/planning/decomposer-context.js",
       "method": "buildDecomposerSystemPrompt",
       "startLine": 14,
-      "crap": 3
-    },
-    {
-      "path": ".agents/scripts/lib/orchestration/pr-base-guard.js",
-      "method": "assertStoryPrBaseAllowed",
-      "startLine": 25,
       "crap": 3
     },
     {
@@ -18140,250 +17966,69 @@
       "crap": 4
     },
     {
-      "path": ".agents/scripts/lib/qa/coverage-report.js",
-      "method": "tierHeader",
-      "startLine": 34,
-      "crap": 1
-    },
-    {
-      "path": ".agents/scripts/lib/qa/coverage-report.js",
-      "method": "cell",
-      "startLine": 42,
-      "crap": 1
-    },
-    {
-      "path": ".agents/scripts/lib/qa/coverage-report.js",
-      "method": "resolveMatrix",
-      "startLine": 57,
-      "crap": 5
-    },
-    {
-      "path": ".agents/scripts/lib/qa/coverage-report.js",
-      "method": "renderCoverageReport",
-      "startLine": 81,
-      "crap": 8
-    },
-    {
-      "path": ".agents/scripts/lib/qa/coverage-report.js",
-      "method": "<anon renderCoverageReport/(row)#0>",
-      "startLine": 88,
-      "crap": 1,
-      "anonymous": true
-    },
-    {
-      "path": ".agents/scripts/lib/qa/coverage-report.js",
-      "method": "<anon renderCoverageReport/(row)#0/(tier)#0>",
-      "startLine": 89,
-      "crap": 1,
-      "anonymous": true
-    },
-    {
-      "path": ".agents/scripts/lib/qa/coverage-report.js",
-      "method": "<anon renderCoverageReport/()#0>",
-      "startLine": 108,
-      "crap": 1,
-      "anonymous": true
-    },
-    {
-      "path": ".agents/scripts/lib/qa/coverage-report.js",
-      "method": "<anon renderCoverageReport/(tier)#0>",
-      "startLine": 111,
-      "crap": 1,
-      "anonymous": true
-    },
-    {
-      "path": ".agents/scripts/lib/qa/coverage-report.js",
-      "method": "reportPathFor",
-      "startLine": 146,
-      "crap": 4
-    },
-    {
-      "path": ".agents/scripts/lib/qa/coverage-report.js",
-      "method": "writeCoverageReport",
-      "startLine": 171,
-      "crap": 1
-    },
-    {
       "path": ".agents/scripts/lib/qa/coverage-verdict.js",
       "method": "hasSkipTag",
-      "startLine": 53,
+      "startLine": 48,
       "crap": 2
     },
     {
       "path": ".agents/scripts/lib/qa/coverage-verdict.js",
       "method": "hasRunnerSkipMarker",
-      "startLine": 59,
+      "startLine": 54,
       "crap": 3
     },
     {
       "path": ".agents/scripts/lib/qa/coverage-verdict.js",
       "method": "isSkipped",
-      "startLine": 79,
+      "startLine": 74,
       "crap": 12
     },
     {
       "path": ".agents/scripts/lib/qa/coverage-verdict.js",
       "method": "<anon isSkipped/(t)#0>",
-      "startLine": 89,
+      "startLine": 84,
       "crap": 1,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/qa/coverage-verdict.js",
       "method": "<anon isSkipped/(s)#0>",
-      "startLine": 101,
+      "startLine": 96,
       "crap": 1,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/qa/coverage-verdict.js",
       "method": "classifyTest",
-      "startLine": 122,
+      "startLine": 117,
       "crap": 16
     },
     {
       "path": ".agents/scripts/lib/qa/coverage-verdict.js",
       "method": "<anon (n)#0>",
-      "startLine": 165,
+      "startLine": 160,
       "crap": 2,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/qa/coverage-verdict.js",
       "method": "<anon (n)#1>",
-      "startLine": 166,
+      "startLine": 161,
       "crap": 2,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/qa/coverage-verdict.js",
       "method": "<anon (n)#2>",
-      "startLine": 167,
+      "startLine": 162,
       "crap": 2,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/qa/coverage-verdict.js",
       "method": "coverageVerdict",
-      "startLine": 184,
+      "startLine": 179,
       "crap": 9
-    },
-    {
-      "path": ".agents/scripts/lib/qa/coverage-verdict.js",
-      "method": "normalizeOne",
-      "startLine": 226,
-      "crap": 11.121
-    },
-    {
-      "path": ".agents/scripts/lib/qa/coverage-verdict.js",
-      "method": "normalizeCriteria",
-      "startLine": 256,
-      "crap": 4
-    },
-    {
-      "path": ".agents/scripts/lib/qa/coverage-verdict.js",
-      "method": "<anon normalizeCriteria/(entry,index)#0>",
-      "startLine": 258,
-      "crap": 1,
-      "anonymous": true
-    },
-    {
-      "path": ".agents/scripts/lib/qa/coverage-verdict.js",
-      "method": "<anon normalizeCriteria/(id,value,index)#0>",
-      "startLine": 261,
-      "crap": 4,
-      "anonymous": true
-    },
-    {
-      "path": ".agents/scripts/lib/qa/coverage-verdict.js",
-      "method": "acceptanceMatrix",
-      "startLine": 288,
-      "crap": 1
-    },
-    {
-      "path": ".agents/scripts/lib/qa/coverage-verdict.js",
-      "method": "<anon acceptanceMatrix/(id,label,surface)#0>",
-      "startLine": 290,
-      "crap": 1,
-      "anonymous": true
-    },
-    {
-      "path": ".agents/scripts/lib/qa/propose-missing-test.js",
-      "method": "<anon (note)#0>",
-      "startLine": 35,
-      "crap": 1,
-      "anonymous": true
-    },
-    {
-      "path": ".agents/scripts/lib/qa/propose-missing-test.js",
-      "method": "<anon (note)#1>",
-      "startLine": 37,
-      "crap": 1,
-      "anonymous": true
-    },
-    {
-      "path": ".agents/scripts/lib/qa/propose-missing-test.js",
-      "method": "<anon (note)#2>",
-      "startLine": 39,
-      "crap": 1,
-      "anonymous": true
-    },
-    {
-      "path": ".agents/scripts/lib/qa/propose-missing-test.js",
-      "method": "noteFor",
-      "startLine": 50,
-      "crap": 3
-    },
-    {
-      "path": ".agents/scripts/lib/qa/propose-missing-test.js",
-      "method": "isAbsent",
-      "startLine": 62,
-      "crap": 3
-    },
-    {
-      "path": ".agents/scripts/lib/qa/propose-missing-test.js",
-      "method": "proposeMissingTest",
-      "startLine": 77,
-      "crap": 4
-    },
-    {
-      "path": ".agents/scripts/lib/qa/qa-context-hydrator.js",
-      "method": "collectFeatureFiles",
-      "startLine": 75,
-      "crap": 3
-    },
-    {
-      "path": ".agents/scripts/lib/qa/qa-context-hydrator.js",
-      "method": "<anon collectFeatureFiles/(dir)#0>",
-      "startLine": 80,
-      "crap": 4,
-      "anonymous": true
-    },
-    {
-      "path": ".agents/scripts/lib/qa/qa-context-hydrator.js",
-      "method": "verifySurfaceMap",
-      "startLine": 111,
-      "crap": 6
-    },
-    {
-      "path": ".agents/scripts/lib/qa/qa-context-hydrator.js",
-      "method": "hydrateQaContext",
-      "startLine": 163,
-      "crap": 9
-    },
-    {
-      "path": ".agents/scripts/lib/qa/qa-context-hydrator.js",
-      "method": "<anon hydrateQaContext/(entry)#0>",
-      "startLine": 206,
-      "crap": 1,
-      "anonymous": true
-    },
-    {
-      "path": ".agents/scripts/lib/qa/qa-context-hydrator.js",
-      "method": "<anon hydrateQaContext/(entry)#1>",
-      "startLine": 207,
-      "crap": 1,
-      "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/qa/qa-session.js",
@@ -20383,102 +20028,6 @@
       "crap": 4
     },
     {
-      "path": ".agents/scripts/lib/util/phase-timer-state.js",
-      "method": "filePath",
-      "startLine": 20,
-      "crap": 1
-    },
-    {
-      "path": ".agents/scripts/lib/util/phase-timer-state.js",
-      "method": "savePhaseTimerState",
-      "startLine": 32,
-      "crap": 1
-    },
-    {
-      "path": ".agents/scripts/lib/util/phase-timer-state.js",
-      "method": "loadPhaseTimerState",
-      "startLine": 48,
-      "crap": 2
-    },
-    {
-      "path": ".agents/scripts/lib/util/phase-timer-state.js",
-      "method": "clearPhaseTimerState",
-      "startLine": 65,
-      "crap": 2
-    },
-    {
-      "path": ".agents/scripts/lib/util/phase-timer.js",
-      "method": "createPhaseTimer",
-      "startLine": 79,
-      "crap": 5
-    },
-    {
-      "path": ".agents/scripts/lib/util/phase-timer.js",
-      "method": "<anon createPhaseTimer/(line)#0>",
-      "startLine": 81,
-      "crap": 1,
-      "anonymous": true
-    },
-    {
-      "path": ".agents/scripts/lib/util/phase-timer.js",
-      "method": "<anon createPhaseTimer/(p)#0>",
-      "startLine": 94,
-      "crap": 1,
-      "anonymous": true
-    },
-    {
-      "path": ".agents/scripts/lib/util/phase-timer.js",
-      "method": "<anon createPhaseTimer/(p)#1>",
-      "startLine": 100,
-      "crap": 1,
-      "anonymous": true
-    },
-    {
-      "path": ".agents/scripts/lib/util/phase-timer.js",
-      "method": "closeCurrent",
-      "startLine": 111,
-      "crap": 2
-    },
-    {
-      "path": ".agents/scripts/lib/util/phase-timer.js",
-      "method": "mark",
-      "startLine": 122,
-      "crap": 3
-    },
-    {
-      "path": ".agents/scripts/lib/util/phase-timer.js",
-      "method": "finish",
-      "startLine": 138,
-      "crap": 2
-    },
-    {
-      "path": ".agents/scripts/lib/util/phase-timer.js",
-      "method": "<anon createPhaseTimer/finish/(p)#0>",
-      "startLine": 145,
-      "crap": 1,
-      "anonymous": true
-    },
-    {
-      "path": ".agents/scripts/lib/util/phase-timer.js",
-      "method": "snapshot",
-      "startLine": 150,
-      "crap": 3
-    },
-    {
-      "path": ".agents/scripts/lib/util/phase-timer.js",
-      "method": "<anon createPhaseTimer/snapshot/(p)#0>",
-      "startLine": 154,
-      "crap": 1,
-      "anonymous": true
-    },
-    {
-      "path": ".agents/scripts/lib/util/phase-timer.js",
-      "method": "<anon createPhaseTimer/snapshot/(p)#1>",
-      "startLine": 157,
-      "crap": 1,
-      "anonymous": true
-    },
-    {
       "path": ".agents/scripts/lib/util/poll-loop.js",
       "method": "pollUntil",
       "startLine": 29,
@@ -22236,42 +21785,42 @@
     {
       "path": ".agents/scripts/providers/github.js",
       "method": "<anon (args)#0>",
-      "startLine": 148,
+      "startLine": 145,
       "crap": 1,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/providers/github.js",
       "method": "<anon (t)#0>",
-      "startLine": 154,
+      "startLine": 151,
       "crap": 1,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/providers/github.js",
       "method": "<anon (id)#0>",
-      "startLine": 157,
+      "startLine": 154,
       "crap": 1,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/providers/github.js",
       "method": "<anon (r)#0>",
-      "startLine": 160,
+      "startLine": 157,
       "crap": 1,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/providers/github.js",
       "method": "<anon (body)#0>",
-      "startLine": 163,
+      "startLine": 160,
       "crap": 1,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/providers/github.js",
       "method": "<anon (id,mutations,hasOther)#0>",
-      "startLine": 166,
+      "startLine": 163,
       "crap": 1,
       "anonymous": true
     },
@@ -22385,34 +21934,27 @@
     {
       "path": ".agents/scripts/providers/github/compose.js",
       "method": "composeGateways",
-      "startLine": 35,
-      "crap": 1.0000175233772806
+      "startLine": 34,
+      "crap": 1.0000335671847203
     },
     {
       "path": ".agents/scripts/providers/github/compose.js",
       "method": "<anon composeGateways/(id)#0>",
-      "startLine": 38,
+      "startLine": 37,
       "crap": 1,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/providers/github/compose.js",
       "method": "<anon composeGateways/()#0>",
-      "startLine": 39,
+      "startLine": 38,
       "crap": 1,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/providers/github/compose.js",
       "method": "<anon composeGateways/(q,v,o)#0>",
-      "startLine": 50,
-      "crap": 1,
-      "anonymous": true
-    },
-    {
-      "path": ".agents/scripts/providers/github/compose.js",
-      "method": "<anon composeGateways/(id,o)#0>",
-      "startLine": 54,
+      "startLine": 49,
       "crap": 1,
       "anonymous": true
     },
@@ -22425,71 +21967,43 @@
     },
     {
       "path": ".agents/scripts/providers/github/compose.js",
-      "method": "<anon composeGateways/(t)#0>",
-      "startLine": 56,
+      "method": "<anon composeGateways/(id,o)#0>",
+      "startLine": 63,
       "crap": 1,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/providers/github/compose.js",
       "method": "<anon composeGateways/(id)#2>",
-      "startLine": 57,
-      "crap": 1,
-      "anonymous": true
-    },
-    {
-      "path": ".agents/scripts/providers/github/compose.js",
-      "method": "<anon composeGateways/(id)#3>",
-      "startLine": 62,
-      "crap": 1,
-      "anonymous": true
-    },
-    {
-      "path": ".agents/scripts/providers/github/compose.js",
-      "method": "<anon composeGateways/(id)#4>",
-      "startLine": 70,
-      "crap": 1,
-      "anonymous": true
-    },
-    {
-      "path": ".agents/scripts/providers/github/compose.js",
-      "method": "<anon composeGateways/(id,o)#1>",
-      "startLine": 78,
-      "crap": 1,
-      "anonymous": true
-    },
-    {
-      "path": ".agents/scripts/providers/github/compose.js",
-      "method": "<anon composeGateways/(id)#5>",
-      "startLine": 79,
+      "startLine": 64,
       "crap": 1,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/providers/github/compose.js",
       "method": "<anon composeGateways/(n,id)#0>",
-      "startLine": 80,
+      "startLine": 65,
       "crap": 1,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/providers/github/compose.js",
-      "method": "<anon composeGateways/(t)#1>",
-      "startLine": 81,
+      "method": "<anon composeGateways/(t)#0>",
+      "startLine": 66,
       "crap": 1,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/providers/github/compose.js",
-      "method": "<anon composeGateways/(id,o)#2>",
-      "startLine": 105,
+      "method": "<anon composeGateways/(id,o)#1>",
+      "startLine": 90,
       "crap": 1,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/providers/github/compose.js",
-      "method": "<anon composeGateways/(id)#6>",
-      "startLine": 106,
+      "method": "<anon composeGateways/(id)#3>",
+      "startLine": 91,
       "crap": 1,
       "anonymous": true
     },
@@ -22538,20 +22052,20 @@
     {
       "path": ".agents/scripts/providers/github/errors.js",
       "method": "withTransientRetry",
-      "startLine": 204,
+      "startLine": 203,
       "crap": 5.000762939453125
     },
     {
       "path": ".agents/scripts/providers/github/errors.js",
       "method": "<anon withTransientRetry/(ms)#0/(r)#0>",
-      "startLine": 213,
+      "startLine": 212,
       "crap": 1,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/providers/github/errors.js",
       "method": "<anon withTransientRetry/(ms)#0>",
-      "startLine": 213,
+      "startLine": 212,
       "crap": 1,
       "anonymous": true
     },
@@ -22805,25 +22319,25 @@
     {
       "path": ".agents/scripts/providers/github/request-helpers.js",
       "method": "parseApiJson",
-      "startLine": 34,
+      "startLine": 33,
       "crap": 2
     },
     {
       "path": ".agents/scripts/providers/github/request-helpers.js",
       "method": "defaultRetryWarn",
-      "startLine": 44,
+      "startLine": 43,
       "crap": 4
     },
     {
       "path": ".agents/scripts/providers/github/request-helpers.js",
       "method": "paginateRest",
-      "startLine": 71,
+      "startLine": 70,
       "crap": 10
     },
     {
       "path": ".agents/scripts/providers/github/request-helpers.js",
       "method": "<anon paginateRest/()#0>",
-      "startLine": 88,
+      "startLine": 87,
       "crap": 1,
       "anonymous": true
     },

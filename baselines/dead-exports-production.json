@@ -1,7 +1,7 @@
 {
   "$schema": "https://mandrel.dev/baselines/dead-exports.schema.json",
   "kernelVersion": "6.17.1",
-  "generatedAt": "2026-08-06T05:45:45.923Z",
+  "generatedAt": "2026-08-06T09:27:44.123956Z",
   "mode": "production",
   "rows": [
     {
@@ -25,11 +25,23 @@
       "symbol": "*"
     },
     {
+      "file": ".agents/scripts/lib/story-lifecycle.js",
+      "symbol": "*"
+    },
+    {
+      "file": ".agents/scripts/lib/audit-suite/frontmatter-lint.js",
+      "symbol": "*"
+    },
+    {
       "file": ".agents/scripts/lib/baselines/drift-detector.js",
       "symbol": "*"
     },
     {
       "file": ".agents/scripts/lib/baselines/maintainability-baseline-save.js",
+      "symbol": "*"
+    },
+    {
+      "file": ".agents/scripts/lib/cli/parse-numeric.js",
       "symbol": "*"
     },
     {
@@ -46,18 +58,6 @@
     },
     {
       "file": ".agents/scripts/lib/checks/subagent-agent-tool-required.js",
-      "symbol": "*"
-    },
-    {
-      "file": ".agents/scripts/lib/audit-suite/cli.js",
-      "symbol": "*"
-    },
-    {
-      "file": ".agents/scripts/lib/audit-suite/frontmatter-lint.js",
-      "symbol": "*"
-    },
-    {
-      "file": ".agents/scripts/lib/cli/parse-numeric.js",
       "symbol": "*"
     },
     {
@@ -86,10 +86,6 @@
     },
     {
       "file": ".agents/scripts/lib/dynamic-workflow/audit-orchestrator.js",
-      "symbol": "*"
-    },
-    {
-      "file": ".agents/scripts/lib/dynamic-workflow/capability.js",
       "symbol": "*"
     },
     {
@@ -129,22 +125,6 @@
       "symbol": "*"
     },
     {
-      "file": ".agents/scripts/lib/mutation/baseline-snapshot.js",
-      "symbol": "*"
-    },
-    {
-      "file": ".agents/scripts/lib/mutation/config-detector.js",
-      "symbol": "*"
-    },
-    {
-      "file": ".agents/scripts/lib/mutation/stryker-runner.js",
-      "symbol": "*"
-    },
-    {
-      "file": ".agents/scripts/lib/mutation/survivor-report.js",
-      "symbol": "*"
-    },
-    {
       "file": ".agents/scripts/lib/onboard/init-tail.js",
       "symbol": "*"
     },
@@ -157,19 +137,7 @@
       "symbol": "*"
     },
     {
-      "file": ".agents/scripts/lib/qa/coverage-report.js",
-      "symbol": "*"
-    },
-    {
       "file": ".agents/scripts/lib/qa/coverage-verdict.js",
-      "symbol": "*"
-    },
-    {
-      "file": ".agents/scripts/lib/qa/propose-missing-test.js",
-      "symbol": "*"
-    },
-    {
-      "file": ".agents/scripts/lib/qa/qa-context-hydrator.js",
       "symbol": "*"
     },
     {
@@ -226,14 +194,6 @@
     },
     {
       "file": ".agents/scripts/lib/test-isolate/env-snapshot-loader.js",
-      "symbol": "*"
-    },
-    {
-      "file": ".agents/scripts/lib/util/phase-timer-state.js",
-      "symbol": "*"
-    },
-    {
-      "file": ".agents/scripts/lib/util/phase-timer.js",
       "symbol": "*"
     },
     {
@@ -2531,14 +2491,6 @@
     {
       "file": ".agents/scripts/lib/orchestration/review-providers/ultrareview.js",
       "symbol": "createUltrareviewProvider"
-    },
-    {
-      "file": ".agents/scripts/lib/story-lifecycle.js",
-      "symbol": "fetchChildTickets"
-    },
-    {
-      "file": ".agents/scripts/lib/story-lifecycle.js",
-      "symbol": "batchTransitionTickets"
     },
     {
       "file": ".agents/scripts/lib/signals/detectors/common.js",

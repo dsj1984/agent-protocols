@@ -1,11 +1,11 @@
 {
   "$schema": ".agents/schemas/baselines/maintainability.schema.json",
   "kernelVersion": "0.1.0",
-  "generatedAt": "2026-08-06T05:45:54.826Z",
+  "generatedAt": "2026-08-06T09:25:46.413Z",
   "rollup": {
     "*": {
-      "min": 75.55,
-      "p50": 98.322,
+      "min": 76.058,
+      "p50": 98.344,
       "p95": 122.913
     }
   },
@@ -221,10 +221,6 @@
     {
       "path": ".agents/scripts/lib/audit-suite/checklist-threading.js",
       "mi": 102.173
-    },
-    {
-      "path": ".agents/scripts/lib/audit-suite/cli.js",
-      "mi": 114.249
     },
     {
       "path": ".agents/scripts/lib/audit-suite/dispatch-checklist.js",
@@ -580,7 +576,7 @@
     },
     {
       "path": ".agents/scripts/lib/cli/standard-args.js",
-      "mi": 90.224
+      "mi": 90.522
     },
     {
       "path": ".agents/scripts/lib/close-validation/commands.js",
@@ -616,7 +612,7 @@
     },
     {
       "path": ".agents/scripts/lib/close-validation/runner.js",
-      "mi": 75.55
+      "mi": 79.475
     },
     {
       "path": ".agents/scripts/lib/close-validation/telemetry.js",
@@ -803,10 +799,6 @@
       "mi": 106.127
     },
     {
-      "path": ".agents/scripts/lib/dynamic-workflow/capability.js",
-      "mi": 90.306
-    },
-    {
       "path": ".agents/scripts/lib/dynamic-workflow/clean-code-report-contract.js",
       "mi": 116.629
     },
@@ -908,7 +900,7 @@
     },
     {
       "path": ".agents/scripts/lib/git-branch-lifecycle.js",
-      "mi": 102.089
+      "mi": 101.73
     },
     {
       "path": ".agents/scripts/lib/git-utils.js",
@@ -944,7 +936,7 @@
     },
     {
       "path": ".agents/scripts/lib/ITicketingProvider.js",
-      "mi": 142.232
+      "mi": 142.994
     },
     {
       "path": ".agents/scripts/lib/json-utils.js",
@@ -977,22 +969,6 @@
     {
       "path": ".agents/scripts/lib/mandrel-catalog.js",
       "mi": 91.905
-    },
-    {
-      "path": ".agents/scripts/lib/mutation/baseline-snapshot.js",
-      "mi": 88.664
-    },
-    {
-      "path": ".agents/scripts/lib/mutation/config-detector.js",
-      "mi": 91.016
-    },
-    {
-      "path": ".agents/scripts/lib/mutation/stryker-runner.js",
-      "mi": 80.087
-    },
-    {
-      "path": ".agents/scripts/lib/mutation/survivor-report.js",
-      "mi": 90.893
     },
     {
       "path": ".agents/scripts/lib/notifications/notifier.js",
@@ -1327,10 +1303,6 @@
       "mi": 94.165
     },
     {
-      "path": ".agents/scripts/lib/orchestration/pr-base-guard.js",
-      "mi": 122.312
-    },
-    {
       "path": ".agents/scripts/lib/orchestration/project-meta-cache.js",
       "mi": 92.275
     },
@@ -1611,20 +1583,8 @@
       "mi": 101.876
     },
     {
-      "path": ".agents/scripts/lib/qa/coverage-report.js",
-      "mi": 99.596
-    },
-    {
       "path": ".agents/scripts/lib/qa/coverage-verdict.js",
-      "mi": 97.713
-    },
-    {
-      "path": ".agents/scripts/lib/qa/propose-missing-test.js",
-      "mi": 119.437
-    },
-    {
-      "path": ".agents/scripts/lib/qa/qa-context-hydrator.js",
-      "mi": 95.363
+      "mi": 97.99
     },
     {
       "path": ".agents/scripts/lib/qa/qa-session.js",
@@ -1799,14 +1759,6 @@
       "mi": 92.232
     },
     {
-      "path": ".agents/scripts/lib/util/phase-timer-state.js",
-      "mi": 114.847
-    },
-    {
-      "path": ".agents/scripts/lib/util/phase-timer.js",
-      "mi": 106.829
-    },
-    {
       "path": ".agents/scripts/lib/util/poll-loop.js",
       "mi": 101.918
     },
@@ -1852,7 +1804,7 @@
     },
     {
       "path": ".agents/scripts/lib/worktree-manager.js",
-      "mi": 108.175
+      "mi": 108.026
     },
     {
       "path": ".agents/scripts/lib/worktree/bootstrapper.js",
@@ -1960,7 +1912,7 @@
     },
     {
       "path": ".agents/scripts/providers/github.js",
-      "mi": 113.952
+      "mi": 113.613
     },
     {
       "path": ".agents/scripts/providers/github/auth.js",
@@ -1984,15 +1936,15 @@
     },
     {
       "path": ".agents/scripts/providers/github/comments.js",
-      "mi": 110.946
+      "mi": 110.088
     },
     {
       "path": ".agents/scripts/providers/github/compose.js",
-      "mi": 114.688
+      "mi": 113.43
     },
     {
       "path": ".agents/scripts/providers/github/errors.js",
-      "mi": 97.964
+      "mi": 98.526
     },
     {
       "path": ".agents/scripts/providers/github/issues.js",
@@ -2019,10 +1971,6 @@
       "mi": 98.344
     },
     {
-      "path": ".agents/scripts/providers/github/prs.js",
-      "mi": 98.618
-    },
-    {
       "path": ".agents/scripts/providers/github/request-helpers.js",
       "mi": 102.72
     },
@@ -2036,7 +1984,7 @@
     },
     {
       "path": ".agents/scripts/providers/github/sub-issues.js",
-      "mi": 85.587
+      "mi": 100.364
     },
     {
       "path": ".agents/scripts/providers/github/tickets.js",
