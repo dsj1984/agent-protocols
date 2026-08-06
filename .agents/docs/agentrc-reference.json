@@ -375,6 +375,16 @@
         "signInSkill": "stack/qa/sign-in-member"
       }
     },
+    "gherkinLint": {
+      "scopes": {
+        "web": {
+          "featureRoots": ["apps/web/tests/features"],
+          "stepRoots": ["apps/web/tests/steps"]
+        }
+      },
+      "exemptionTags": ["@skip"],
+      "stepWaivers": []
+    },
     "consoleAllowlist": ["Download the React DevTools", "[HMR]"],
     "designTokens": "src/styles/tokens.css"
   }

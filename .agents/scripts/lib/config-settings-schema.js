@@ -717,6 +717,77 @@ const QA_ENVIRONMENTS_SCHEMA = {
   },
 };
 
+// `gherkinLint` is the static corpus gate's contract (Story #5013). It is
+// deliberately its own sub-block rather than more top-level `qa` keys: the
+// gate is opt-in as a whole, so presence of the block IS the opt-in signal,
+// and `check-gherkin-corpus.js` needs exactly one thing to test for. `scopes`
+// is a map rather than an array because a scope's name appears verbatim in
+// every finding, and a map makes naming it mandatory. Defaults for the two
+// escape hatches live in `lib/config/qa.js` (GHERKIN_LINT_DEFAULTS).
+const QA_GHERKIN_LINT_SCHEMA = {
+  type: 'object',
+  description:
+    'Static Gherkin corpus gate (Story #5013). Optional; the gate runs only when this block is present, so an upgrade never reddens the lint of a consumer that never asked the framework to police its `.feature` files. Inside the opt-in it fails closed: an unresolvable `@cucumber/gherkin` parser, or a scope resolving zero step definitions, exits 1 rather than reporting a clean run.',
+  // Inventory value: an illustrative single-scope map, not a resolvable
+  // default. Every path here is project-specific; the entry exists so
+  // `mandrel explain` can show the expected shape.
+  default: {
+    scopes: {
+      web: {
+        featureRoots: ['apps/web/tests/features'],
+        stepRoots: ['apps/web/tests/steps'],
+      },
+    },
+    exemptionTags: ['@skip'],
+    stepWaivers: [],
+  },
+  properties: {
+    scopes: {
+      type: 'object',
+      description:
+        'Binding scopes, keyed by name. Each scope resolves its own features against its own step definitions only — pooling every step root into one matcher list is what makes a cross-app false bind possible, where a step defined solely in app B silently vouches for app A. The scope name appears verbatim in every unbound finding.',
+      minProperties: 1,
+      additionalProperties: {
+        type: 'object',
+        properties: {
+          featureRoots: {
+            type: 'array',
+            minItems: 1,
+            items: { ...SAFE_STRING, minLength: 1 },
+            description:
+              'Directories holding the `.feature` files of this scope, walked recursively.',
+          },
+          stepRoots: {
+            type: 'array',
+            minItems: 1,
+            items: { ...SAFE_STRING, minLength: 1 },
+            description:
+              'Directories holding the step definitions of this scope, walked recursively. Resolving zero definitions here is a fail-closed error, not a clean run.',
+          },
+        },
+        required: ['featureRoots', 'stepRoots'],
+        additionalProperties: false,
+      },
+    },
+    exemptionTags: {
+      type: 'array',
+      items: { ...SAFE_STRING, minLength: 1 },
+      description:
+        'Tags marking a scenario as intentionally non-binding, so must-bind skips it. Never an escape from must-compile: a parse error in the file still fails the run. Default: ["@skip"].',
+      default: ['@skip'],
+    },
+    stepWaivers: {
+      type: 'array',
+      items: { type: 'string', minLength: 1 },
+      description:
+        'Exact step texts must-bind never reports as unbound. The step index is a source scan and therefore heuristic while the parser is exact, so a false unbound must always have an escape that does not require switching the gate off. Default: [].',
+      default: [],
+    },
+  },
+  required: ['scopes'],
+  additionalProperties: false,
+};
+
 export const QA_SCHEMA = {
   type: 'object',
   description:
@@ -738,6 +809,7 @@ export const QA_SCHEMA = {
     },
     environments: QA_ENVIRONMENTS_SCHEMA,
     personas: QA_PERSONAS_SCHEMA,
+    gherkinLint: QA_GHERKIN_LINT_SCHEMA,
     consoleAllowlist: {
       type: 'array',
       items: { ...SAFE_STRING, minLength: 1 },

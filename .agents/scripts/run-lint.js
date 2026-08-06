@@ -21,6 +21,28 @@ import process from 'node:process';
 // can spawn directly.
 const useShell = process.platform === 'win32';
 
+/**
+ * A Node gate spelled `node .agents/scripts/<script>` — the shape six of the
+ * eight tasks share. Spelling it once keeps this list readable as what it
+ * actually is (a fan-out roster) instead of a wall of spawn tuples, and keeps
+ * adding a gate from costing the module a maintainability regression for the
+ * boilerplate rather than the behaviour. Mirrors `run-verify.js`'s `gate()`.
+ *
+ * Use bare `node` (PATH-resolved) rather than `process.execPath`:
+ * `process.execPath` on Windows often expands to `C:\Program
+ * Files\nodejs\node.exe`, and spawn(..., { shell: true }) does not quote the
+ * executable, so the space breaks invocation.
+ *
+ * @param {string} name reported in this driver's own error prefix
+ * @param {string} script basename under `.agents/scripts/`
+ * @returns {{ name: string, cmd: string, args: string[] }}
+ */
+const nodeGate = (name, script) => ({
+  name,
+  cmd: 'node',
+  args: [`.agents/scripts/${script}`],
+});
+
 const tasks = [
   {
     name: 'biome',
@@ -47,67 +69,37 @@ const tasks = [
       '!.worktrees/**',
     ],
   },
-  {
-    // Custom Node-based lint for the lifecycle bus surface (Story #2227).
-    // Enforces:
-    //   1. No `Promise.all` over listener arrays under
-    //      `.agents/scripts/lib/orchestration/lifecycle/**`.
-    //   2. Wildcard-observer firewall: no state-mutating imports in
-    //      listener modules that register on `'*'`.
-    // Both rules are mandated by Tech Spec #2189 and have no biome
-    // equivalent.
-    //
-    // Use bare `node` (PATH-resolved) rather than `process.execPath`:
-    // `process.execPath` on Windows often expands to `C:\Program
-    // Files\nodejs\node.exe`, and spawn(..., { shell: true }) does not
-    // quote the executable, so the space breaks invocation.
-    name: 'lifecycle-lint',
-    cmd: 'node',
-    args: ['.agents/scripts/check-lifecycle-lint.js'],
-  },
-  {
-    // Custom Node-based lint for the workflow prose surface (Epic #4474
-    // PR5). Enforces: no workflow may instruct calling an exported
-    // library function that has no CLI entrypoint — the measured
-    // shim-writing failure mode the /plan collapse killed. See
-    // check-workflow-cli-lint.js for the paragraph-level heuristic.
-    name: 'workflow-cli-lint',
-    cmd: 'node',
-    args: ['.agents/scripts/check-workflow-cli-lint.js'],
-  },
-  {
-    // Custom Node-based lint for label-vocabulary citations in
-    // `.agents/docs/SDLC.md` and `.agents/workflows/**/*.md` (Story #2892,
-    // Tech Spec F9 under Epic #2880). Greps inline backtick code
-    // spans for axis-shaped tokens (`type/epic`, etc.) and asserts
-    // only the canonical `<axis>::<value>` separator from
-    // `lib/label-constants.js` appears. Closes the drift gap that
-    // let the original `type/epic` typo land in a since-retired
-    // planning workflow helper.
-    name: 'label-vocabulary',
-    cmd: 'node',
-    args: ['.agents/scripts/lint-label-vocabulary.js'],
-  },
-  {
-    // GitHub Actions job-timeout gate (Story #4936). Enumerates every
-    // `jobs.<id>` key across `.github/workflows/*.yml` and fails when one
-    // sets no `timeout-minutes` (inheriting GitHub's 360-minute default) or
-    // sets one above the ceiling. A deadlocked Windows job burned 44 minutes
-    // of a runner and withheld the failing required check's logs for the
-    // whole time; nothing but this check would have caught the gap.
-    name: 'workflow-timeouts',
-    cmd: 'node',
-    args: ['.agents/scripts/check-workflow-timeouts.js'],
-  },
-  {
-    // Architecture cycle ratchet (Story #3991). Detects directed import
-    // cycles under `.agents/scripts/` and fails on any cycle not in the
-    // committed allowlist (`baselines/arch-cycles.json`). Mirrors the
-    // ratchet-down semantics of `check-dead-exports.js`.
-    name: 'arch-cycles',
-    cmd: 'node',
-    args: ['.agents/scripts/check-arch-cycles.js'],
-  },
+  // Lifecycle bus surface (Story #2227). Enforces (1) no `Promise.all` over
+  // listener arrays under `.agents/scripts/lib/orchestration/lifecycle/**`,
+  // and (2) the wildcard-observer firewall: no state-mutating imports in
+  // listener modules that register on `'*'`. Both are mandated by Tech Spec
+  // #2189 and have no biome equivalent.
+  nodeGate('lifecycle-lint', 'check-lifecycle-lint.js'),
+  // Workflow prose surface (Epic #4474 PR5). No workflow may instruct calling
+  // an exported library function that has no CLI entrypoint — the measured
+  // shim-writing failure mode the /plan collapse killed.
+  nodeGate('workflow-cli-lint', 'check-workflow-cli-lint.js'),
+  // Label-vocabulary citations in `.agents/docs/SDLC.md` and
+  // `.agents/workflows/**/*.md` (Story #2892). Greps inline backtick code
+  // spans for axis-shaped tokens (`type/epic`, etc.) and asserts only the
+  // canonical `<axis>::<value>` separator from `lib/label-constants.js`
+  // appears. Closes the drift gap that let the original `type/epic` typo land.
+  nodeGate('label-vocabulary', 'lint-label-vocabulary.js'),
+  // GitHub Actions job-timeout gate (Story #4936). Fails a `jobs.<id>` that
+  // sets no `timeout-minutes` (inheriting GitHub's 360-minute default) or sets
+  // one above the ceiling. A deadlocked Windows job burned 44 minutes of a
+  // runner and withheld the failing required check's logs for the whole time.
+  nodeGate('workflow-timeouts', 'check-workflow-timeouts.js'),
+  // Architecture cycle ratchet (Story #3991). Detects directed import cycles
+  // under `.agents/scripts/` and fails on any cycle not in the committed
+  // allowlist (`baselines/arch-cycles.json`).
+  nodeGate('arch-cycles', 'check-arch-cycles.js'),
+  // Static Gherkin corpus gate (Story #5013): must-compile with the real
+  // parser, then must-bind scoped per step root. Opt-in behind
+  // `qa.gherkinLint`, so it exits 0 as "not configured" in this repo. Here
+  // rather than in run-verify.js so it reaches CI through the same `lint`
+  // required check as arch-cycles; listing it in both would double-pay it.
+  nodeGate('gherkin-corpus', 'check-gherkin-corpus.js'),
 ];
 
 function runTask({ name, cmd, args }) {

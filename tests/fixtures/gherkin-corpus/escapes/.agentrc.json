@@ -1,0 +1,13 @@
+{
+  "project": {
+    "paths": { "agentRoot": ".agents", "docsRoot": "docs", "tempRoot": "temp" }
+  },
+  "qa": {
+    "gherkinLint": {
+      "scopes": {
+        "app": { "featureRoots": ["features"], "stepRoots": ["steps"] }
+      },
+      "stepWaivers": ["a step the index provably cannot see"]
+    }
+  }
+}
