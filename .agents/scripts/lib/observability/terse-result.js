@@ -8,9 +8,9 @@ import { Logger } from '../Logger.js';
  * Terse hot-path result emission (Story #4685).
  *
  * The orchestration CLIs an agent invokes on every delivery turn
- * (`single-story-init`, `single-story-close`, `single-story-confirm-merge`,
- * `sync-branch-from-base`, the close `emit-blocked` path) historically dumped
- * their whole result object to stdout as pretty-printed JSON:
+ * (`single-story-init`, `single-story-close`, `single-story-confirm-merge`)
+ * historically dumped their whole result object to stdout as pretty-printed
+ * JSON:
  *
  *   --- STORY CLOSE RESULT ---
  *   { ... every field, 2-space indented ... }

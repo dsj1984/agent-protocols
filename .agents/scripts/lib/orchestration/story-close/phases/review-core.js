@@ -1,12 +1,13 @@
 /**
  * phases/review-core.js — the shared Story-scope review spine.
  *
- * Extracted from `phases/code-review.js` (Story #4603). `runStoryReviewCore` is
- * the one implementation both close paths call `runCodeReview` through — the
- * epic-attached phase (`code-review.js#runStoryCodeReview`) and the standalone
- * v2 path (`single-story-close/phases/code-review.js#runStoryScopeReview`) —
- * so it belongs to neither and lives here rather than inside one path's phase
- * file (Story #3653 established the shared-spine contract).
+ * Extracted from the Epic-era `phases/code-review.js` (Story #4603) so the
+ * spine belonged to neither close path. `runStoryReviewCore` is the one
+ * implementation `runCodeReview` is called through; since Story #5006 retired
+ * the Epic-attached phase, its sole caller is the v2 standalone path
+ * (`single-story-close/phases/code-review.js#runStoryScopeReview`). It stays
+ * here — the shared-spine contract (Story #3653) is what keeps the maker-blind
+ * review invocation out of a phase file.
  */
 
 import { countChangedLines } from '../../../audit-suite/index.js';
