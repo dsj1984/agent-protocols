@@ -19,11 +19,13 @@
 
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
+import { normalizeStoryTicket } from '../../../.agents/scripts/lib/orchestration/plan-persist/story-ops.js';
 import {
   collectTaskBodyErrors,
   VERIFY_TIER_VALUES,
   validateTaskBodyShape,
 } from '../../../.agents/scripts/lib/orchestration/task-body-validator.js';
+import { normalizeVerifyTiers } from '../../../.agents/scripts/lib/orchestration/verify-tier-repair.js';
 import { serialize } from '../../../.agents/scripts/lib/story-body/story-body.js';
 
 // ---------------------------------------------------------------------------
@@ -251,6 +253,96 @@ describe('collectTaskBodyErrors — verify[] tier-suffix (Story bodies)', () => 
     for (const e of errs) {
       assert.match(e, /must end with a tier in parentheses/);
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// verify[] tier auto-append (Story #5005)
+// ---------------------------------------------------------------------------
+
+describe('normalizeVerifyTiers — repair before judging', () => {
+  it('auto-appends an inferable tier to a top-level stories.json entry', () => {
+    const ticket = {
+      ...story('s1', { ...VALID_STORY_BODY, verify: [] }),
+      verify: ['npm test -- src/x.test.js'],
+    };
+    normalizeVerifyTiers([ticket]);
+    assert.deepEqual(ticket.verify, ['npm test -- src/x.test.js (unit)']);
+    // …and the plan now validates clean rather than costing a redraft round.
+    assert.deepEqual(collectTaskBodyErrors([ticket]), []);
+  });
+
+  it('infers each tier the suggester recognises', () => {
+    const cases = [
+      ['npm run validate', 'npm run validate (validate)'],
+      ['npx playwright test', 'npx playwright test (e2e)'],
+      ['node --test tests/a.js', 'node --test tests/a.js (unit)'],
+      ['npm run contract-check', 'npm run contract-check (contract)'],
+    ];
+    for (const [raw, expected] of cases) {
+      const ticket = { ...story('s1', VALID_STORY_BODY), verify: [raw] };
+      normalizeVerifyTiers([ticket]);
+      assert.deepEqual(ticket.verify, [expected], `input: ${raw}`);
+    }
+  });
+
+  it('still hard-errors on an entry whose tier cannot be inferred', () => {
+    const ticket = {
+      ...story('s1', { ...VALID_STORY_BODY, verify: [] }),
+      verify: ['./scripts/do-the-thing'],
+    };
+    normalizeVerifyTiers([ticket]);
+    // Untouched — the author owns a call the suggester cannot make.
+    assert.deepEqual(ticket.verify, ['./scripts/do-the-thing']);
+    const errs = collectTaskBodyErrors([ticket]);
+    assert.equal(errs.length, 1);
+    assert.match(errs[0], /must end with a tier in parentheses/);
+  });
+
+  it('leaves compliant tickets byte-identical (no re-serialize)', () => {
+    const body = serialize({
+      ...VALID_STORY_BODY,
+      verify: ['npm run test -- src/x.test.ts (unit)'],
+    });
+    const ticket = {
+      ...story('s1', body),
+      verify: [...VALID_STORY_BODY.verify],
+    };
+    normalizeVerifyTiers([ticket]);
+    assert.equal(ticket.body, body);
+    assert.deepEqual(ticket.verify, VALID_STORY_BODY.verify);
+  });
+
+  it('never rewrites a manual: escape', () => {
+    const ticket = {
+      ...story('s1', VALID_STORY_BODY),
+      verify: ['manual: an auditor eyeballs the copy'],
+    };
+    normalizeVerifyTiers([ticket]);
+    assert.deepEqual(ticket.verify, ['manual: an auditor eyeballs the copy']);
+  });
+
+  it('repairs a serialized body section in lockstep with the top level', () => {
+    // Repairing only the top level would make the two disagree, and
+    // `syncContractFieldFromTopLevel` fails closed on a mismatch — a strictly
+    // worse outcome than the original reject.
+    const raw = 'npm test -- src/x.test.js';
+    const ticket = {
+      ...story('s1', serialize({ ...VALID_STORY_BODY, verify: [raw] })),
+      verify: [raw],
+    };
+    normalizeVerifyTiers([ticket]);
+    assert.ok(ticket.body.includes(`${raw} (unit)`));
+    assert.deepEqual(collectTaskBodyErrors([ticket]), []);
+    const { bodyObject } = normalizeStoryTicket(ticket);
+    assert.deepEqual(bodyObject.verify, [`${raw} (unit)`]);
+  });
+
+  it('is total: non-array input and non-Story tickets are no-ops', () => {
+    assert.doesNotThrow(() => normalizeVerifyTiers(undefined));
+    const feature = { slug: 'f1', type: 'feature', verify: ['npm test'] };
+    normalizeVerifyTiers([feature, null]);
+    assert.deepEqual(feature.verify, ['npm test']);
   });
 });
 

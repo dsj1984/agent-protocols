@@ -171,7 +171,7 @@ The Story is executed by a frontier-model deliverer that reads the codebase itse
 
 #### DETERMINISTIC BODY-FORMAT LINTS — author lint-clean by construction:
 
-Persist enforces the deterministic body-format rules below and **rejects** an authored body that violates any of them. Author every Story to satisfy all of them on the FIRST draft — each rule is stated example-first so there is nothing to discover by trial-and-error. The two auto-fixable rules (\`changes-path-entry-shape\`, \`verify-tier-suffix\`) also emit the corrected form in the dry-run failure output, but authoring them right up front avoids the round-trip entirely.
+Persist enforces the deterministic body-format rules below and **rejects** an authored body that violates any of them. Author every Story to satisfy all of them on the FIRST draft — each rule is stated example-first so there is nothing to discover by trial-and-error. \`verify-tier-suffix\` is the one rule persist repairs for you: when the tier is unambiguously inferable from the command, persist appends it and proceeds; when it is not, the entry is still rejected and you must choose the tier. \`changes-path-entry-shape\` emits the corrected form in the dry-run failure output but is never applied for you.
 
 ${bodyFormatLintChecklist}
 
