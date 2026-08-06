@@ -291,7 +291,7 @@ Two mechanisms ground spec authoring instead, both reading the real tree:
 | Module                                              | Role                                                                                                                                                  |
 | --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `lib/orchestration/single-story-close/phases/confirm-merge.js` | The merge-confirmation wait — the default terminal step of every close. A Story is only reported landed when its PR is observably merged; a checks-aware, resumable poll classifies unlanded outcomes instead of assuming success. |
-| `lib/observability/signals-writer.js`               | Append-only NDJSON writer for `friction` / trace records under `temp/run-<eid>/stories/story-<sid>/signals.ndjson` (standalone Stories: `temp/standalone/stories/story-<sid>/`). The single producer for the telemetry pipeline; the reader is the `read()` async generator in `lib/signals/read.js`. |
+| `lib/observability/signals-writer.js`               | Append-only NDJSON writer for `friction` records under `temp/run-<eid>/stories/story-<sid>/signals.ndjson` (standalone Stories: `temp/standalone/stories/story-<sid>/`). The single producer for the telemetry pipeline; the reader is `forEachSignalStreamLine` in the same module. |
 | `lib/orchestration/column-sync.js`                  | Drives the Projects v2 Status column from `agent::` labels (best-effort). Invoked from inside `transitionTicketState` (Story #2548) so every label flip mirrors onto the board.                  |
 
 The guard against a Story being reported "done" without verifiable completion
@@ -1090,39 +1090,35 @@ The framework emits a closed taxonomy of **thirteen** NDJSON record kinds —
 `EVENT_KINDS` (`lib/signals/schema.js`), mirrored by the `kind` enum in
 [`signal-event.schema.json`](../.agents/schemas/signal-event.schema.json).
 
-Enumerated ≠ produced: only **two** detector modules ship
-(`lib/signals/detectors/`: `rework.js`, `retry.js`), beside the
-`diagnose-friction.js` writer and the raw `trace` hook. `hotspot`, `churn`,
-`idle` are **reserved names with no detector**. The names stay so a
-re-introduction needs no schema bump, but the config keys are gone:
-`SIGNALS_DEFAULTS`
-(`lib/config/limits.js`) carries `rework` and `retry` only under an
-`additionalProperties: false` block, so `delivery.signals.hotspot` fails AJV
-validation. Records are written **append-only to local disk** under
-`temp/run-<eid>/stories/story-<sid>/signals.ndjson` (and a sibling
-`traces.ndjson` for `kind: trace`; standalone Stories use
-`temp/standalone/stories/story-<sid>/`). GitHub tickets receive **summaries
-only**, never raw events.
+Enumerated ≠ produced: **no** detector module ships. `diagnose-friction.js`
+and `lib/gates/friction.js` are the live writers; `hotspot`, `rework`,
+`churn`, `idle`, `retry` and `trace` are **reserved names with no producer**.
+Story #5003 deleted the rework / retry detector pair, their post-merge
+sequencer, and the tool-trace hook that fed them: all three read a
+`traces.ndjson` sibling stream whose only writer was the hook itself, and
+nothing consumed their output. The kind names stay so a re-introduction needs
+no schema bump. Records are written **append-only to
+local disk** under `temp/run-<eid>/stories/story-<sid>/signals.ndjson`
+(standalone Stories: `temp/standalone/stories/story-<sid>/`). GitHub tickets
+receive **summaries only**, never raw events.
 
 The model has three layers:
 
-1. **Producers — `signals-writer.js`.** Detectors and the runtime
-   `tool-trace-hook.js` funnel through `appendSignal` /  `appendTrace`.
-   The writer is **best-effort and unbuffered**: every call opens, writes
-   one newline-terminated JSON line, and closes. fs / JSON failures are
-   swallowed via `Logger.warn` so observability never halts a wave, and
-   detectors that fire from inside a sub-agent that may exit abruptly do
-   not lose their tail. The per-Story directory is created lazily on the
+1. **Producers — `signals-writer.js`.** Every emitter funnels through
+   `appendSignal`. The writer is **best-effort and unbuffered**: every call
+   opens, writes one newline-terminated JSON line, and closes. fs / JSON
+   failures are swallowed via `Logger.warn` so observability never halts a
+   wave, and an emitter firing from inside a sub-agent that may exit abruptly
+   does not lose its tail. The per-Story directory is created lazily on the
    first write; `epicId` / `storyId` must be positive integers.
-2. **Detectors — `diagnose-friction.js` and the per-detector pure
-   modules under `lib/signals/detectors/` (`rework.js`, `retry.js`).**
-   Signals are read back by `read()` in `lib/signals/read.js` and composed
-   into routed proposals by `lib/orchestration/retro-proposals.js`, called
-   from `run-epilogue.js` and `story-follow-ups.js`. Thresholds resolve via
-   `getSignals(config)` — the whole surviving surface is two keys,
-   `rework.editsPerFile` (default 5) and `retry.repeatCount` (default 3),
-   overridable under `delivery.signals.*`. The resolver shallow-merges per
-   detector, so re-tuning one does not require re-listing the other.
+2. **Emitters — `diagnose-friction.js` and `lib/gates/friction.js`.**
+   Signals are read back by `forEachSignalStreamLine` in `signals-writer.js`
+   and composed into routed proposals by
+   `lib/orchestration/retro-proposals.js`, called from `run-epilogue.js` and
+   `story-follow-ups.js`. `SIGNALS_DEFAULTS` (`lib/config/limits.js`) still
+   carries the `rework` / `retry` threshold keys under an
+   `additionalProperties: false` block, so `delivery.signals.hotspot` fails
+   AJV validation.
 3. **Analyzers — the retro.** The only analyzer is the retro proposal composer
    (`lib/orchestration/retro-proposals.js`), which routes recurring friction
    into framework / consumer / discarded proposals. Nothing writes a
@@ -1131,7 +1127,7 @@ The model has three layers:
 
 The split — events local, summaries on tickets — keeps the comment surface
 bounded and the raw stream cheap enough that detectors can fire on every
-tool-call without rate-limiting. The temp tree is reaped with the worktree on
+emission without rate-limiting. The temp tree is reaped with the worktree on
 `WorktreeManager.reap`. Rationale: the ADR in
 [`docs/decisions.md`](decisions.md).
 

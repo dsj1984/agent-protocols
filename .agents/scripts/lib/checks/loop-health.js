@@ -5,7 +5,7 @@
  * The original feedback-loop drift shipped silently because an empty
  * feedback report is indistinguishable from a healthy one. This standing
  * self-check closes that gap: at retro time it samples the on-disk signal
- * substrate the sibling Stories established and surfaces the three ways the
+ * substrate the sibling Stories established and surfaces the two ways the
  * repaired loop can regress without anyone noticing:
  *
  *   1. **Schema-invalid signal lines.** It tails the most recent
@@ -13,11 +13,7 @@
  *      the run temp tree and validates each against the canonical
  *      `signal-event.schema.json` (via `validateSignal`, the same validator
  *      the writer uses — no hand-rolled drift).
- *   2. **Persisted write-time rejects.** It reads the per-run reject tally
- *      (`temp/run-<id>/signal-rejects.json`, written by Story #4413's
- *      signals-writer) so records that were dropped at write time — and thus
- *      never appear in the stream — are still counted.
- *   3. **Un-actioned retro proposals.** It reads the retro mirror
+ *   2. **Un-actioned retro proposals.** It reads the retro mirror
  *      (`temp/run-<id>/retro.md`, Story #4418) and flags any actionable
  *      "Proposed issues" item that carries neither a filed-issue reference
  *      (`Filed: [#N](url)`) nor lives under the explicit "One-off /
@@ -26,7 +22,7 @@
  * Contract:
  *   - Scope `retro`, `autoCorrect: 'refuse-and-print'` — read-only by
  *     construction; the runner refuses `autoFix` under the retro scope.
- *   - A clean substrate (valid lines, zero rejects, every proposal filed or
+ *   - A clean substrate (valid lines, every proposal filed or
  *     discarded) yields **zero findings**, preserving the compact retro
  *     shape. Only when a concern is non-zero does `detect` return a single
  *     combined finding naming every non-clean dimension.
@@ -169,25 +165,6 @@ export function sampleStreamInvalidCount(
 }
 
 /**
- * Read the per-run persisted reject count from `signal-rejects.json`.
- * Returns 0 when the tally is absent or unreadable.
- *
- * @param {string} epicDir
- * @param {{ readImpl?: typeof readFileSync }} [opts]
- * @returns {number}
- */
-export function readRejectTally(epicDir, { readImpl = readFileSync } = {}) {
-  try {
-    const parsed = JSON.parse(
-      readImpl(path.join(epicDir, 'signal-rejects.json'), 'utf8'),
-    );
-    return parsed && Number.isFinite(parsed.count) ? parsed.count : 0;
-  } catch {
-    return 0;
-  }
-}
-
-/**
  * Scan a retro mirror body for actionable proposals that were neither filed
  * nor discarded. An actionable proposal is a `- **Title**` item under a
  * `### Proposed issues` heading whose body carries a paste-ready
@@ -207,7 +184,7 @@ export function scanRetroMirror(retroText) {
   let inSection = false;
   let current = null;
   const flush = () => {
-    if (current && current.actionable && !current.filed) {
+    if (current?.actionable && !current.filed) {
       unfiled.push(current.title);
     }
     current = null;
@@ -235,8 +212,8 @@ export function scanRetroMirror(retroText) {
 
 /**
  * Core detection: locate the Epic temp tree under `baseDir`, sample its
- * signal streams, read its reject tally, and scan its retro mirror. Returns
- * a single combined finding when any dimension is non-clean, else `null`.
+ * signal streams, and scan its retro mirror. Returns a single combined
+ * finding when either dimension is non-clean, else `null`.
  *
  * @param {string} baseDir
  * @param {{
@@ -277,8 +254,6 @@ export function detectLoopHealth(
     sampled += r.sampled;
   }
 
-  const rejectCount = readRejectTally(epicDir, { readImpl });
-
   let retroText = '';
   try {
     retroText = readImpl(path.join(epicDir, 'retro.md'), 'utf8');
@@ -287,20 +262,17 @@ export function detectLoopHealth(
   }
   const unfiledProposals = scanRetroMirror(retroText);
 
-  const signalConcern = invalidCount > 0 || rejectCount > 0;
+  const signalConcern = invalidCount > 0;
   const proposalConcern = unfiledProposals.length > 0;
   if (!signalConcern && !proposalConcern) return null;
 
   const summaryParts = [];
   const detailLines = [];
   if (signalConcern) {
-    summaryParts.push(
-      `${invalidCount} schema-invalid signal sample(s), ${rejectCount} persisted reject(s)`,
-    );
+    summaryParts.push(`${invalidCount} schema-invalid signal sample(s)`);
     detailLines.push(
       `Sampled ${sampled} line(s) across ${streams.length} signals.ndjson stream(s) (last ${maxLines} per stream):`,
       `  schema-invalid samples: ${invalidCount}`,
-      `  persisted reject tally (signal-rejects.json): ${rejectCount}`,
     );
   }
   if (proposalConcern) {
@@ -320,7 +292,7 @@ export function detectLoopHealth(
     summary: `Loop-health (run-${epicId}): ${summaryParts.join('; ')}.`,
     detail: detailLines.join('\n'),
     fixCommand:
-      'Inspect temp/run-<id>/{signals.ndjson,signal-rejects.json,retro.md}; fix the signal producer or file/discard the surfaced proposals.',
+      'Inspect temp/run-<id>/{signals.ndjson,retro.md}; fix the signal producer or file/discard the surfaced proposals.',
     autoCorrectable: false,
   };
 }

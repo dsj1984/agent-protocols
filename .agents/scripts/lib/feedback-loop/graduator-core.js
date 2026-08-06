@@ -1,15 +1,19 @@
 /**
  * graduator-core.js — shared mechanism for the feedback-loop graduators.
  *
- * Story #3845 / Epic #3823. The audit-results graduator
- * (`audit-results-graduator.js`) and the code-review graduator
- * (the since-retired `code-review-graduator.js`) duplicated ~90% of their mechanism: a
+ * Story #3845 / Epic #3823. The since-retired audit-results and code-review
+ * graduators duplicated ~90% of their mechanism: a
  * `spawn`-based child runner, the `git cat-file` path probe, the
  * `gh search issues` idempotency probe, the `gh issue create` filer, the
  * `isAutoFileEnabled` toggle reader, and the route → probe → file
- * envelope walk. This module folds all of that into one place so the two
- * graduators become thin shells that inject the bits that genuinely
- * differ (the finding parser and the body/title/label builders).
+ * envelope walk. This module folds all of that into one place so a
+ * graduator becomes a thin shell that injects the bits that genuinely
+ * differ (the body/title/label builders).
+ *
+ * Story #5003 removed the structured-comment read limb. Both comment-reading
+ * graduators were Epic-era — they walked an Epic's `verification-results`
+ * comment, and v2 has no Epics — leaving `retro-proposals-graduator.js` and
+ * its pre-parsed `findings[]` as the one live caller.
  *
  * The third `runGh` spawn copy in `prior-feedback-fetcher.js` is also
  * collapsed onto the single `runChild` helper here.
@@ -34,11 +38,10 @@
  *   - **Per-run filing cap.** `graduate()` stops filing once
  *     `maxFilingsPerRun` issues are created and records the excess as
  *     skipped `cap-reached`.
- *   - **Pre-parsed / path-less seam.** `graduate()` accepts a pre-parsed
- *     `findings` array (bypassing structured-comment parsing), and a
- *     path-less finding skips the path-exists gate instead of being
- *     misclassified `file-removed` — the seam the retro auto-filer
- *     consumes.
+ *   - **Pre-parsed / path-less seam.** `graduate()` takes its findings as a
+ *     pre-parsed array, and a path-less finding skips the path-exists gate
+ *     instead of being misclassified `file-removed` — the seam the retro
+ *     auto-filer consumes.
  *   - **Durable cross-repo deferral.** Cross-repo-deferred findings are
  *     upserted into a structured comment on the Epic instead of only a
  *     log line.
@@ -50,34 +53,7 @@ import { createHash } from 'node:crypto';
 import { inNodeTestContext } from '../config/temp-paths.js';
 import { LABEL_COLORS } from '../label-constants.js';
 import { classifyPathSource as defaultClassifier } from '../observability/source-classifier.js';
-import {
-  structuredCommentMarker,
-  upsertStructuredComment,
-} from '../orchestration/ticketing.js';
-
-/**
- * The single structured-comment marker for the unified `verification-results`
- * findings contract (Story #4411, Epic #4405). It replaces the two retired
- * per-graduator markers (the former code-review and audit-results
- * structured-comment markers). Both feedback-loop graduators
- * search the Epic's comments for this one marker so they file follow-ups
- * from the same unified source comment that `runCodeReview` upserts (comment
- * type `verification-results`). Derived from the canonical
- * `structuredCommentMarker` builder so the read-side marker stays byte-stable
- * with the write side rather than being hand-copied.
- */
-export const VERIFICATION_RESULTS_MARKER = structuredCommentMarker(
-  'verification-results',
-);
-
-/**
- * The single "no source comment" skip reason for the unified contract. Both
- * graduators surface this reason when the Epic carries no
- * `verification-results` comment, replacing the two retired
- * `no-code-review-comment` / `no-audit-results-comment` reasons.
- */
-export const NO_VERIFICATION_RESULTS_COMMENT_REASON =
-  'no-verification-results-comment';
+import { upsertStructuredComment } from '../orchestration/ticketing.js';
 
 /**
  * Default child-process timeout. A hung `gh`/`git` spawn previously blocked
@@ -814,27 +790,23 @@ export async function createFollowUpIssue({
 }
 
 /**
- * Validate the `graduate` preconditions (toggle, epicId, provider shape,
- * currentRepo shape). Returns `null` when all preconditions pass, or a
- * `{ skipped?, errors? }` partial-envelope the caller short-circuits on.
- * Story #4075 — extracted from `graduate` so the orchestrating body holds
- * no guard-chain branching.
+ * Validate the `graduate` preconditions (toggle, epicId, currentRepo shape).
+ * Returns `null` when all preconditions pass, or a `{ skipped?, errors? }`
+ * partial-envelope the caller short-circuits on. Story #4075 — extracted from
+ * `graduate` so the orchestrating body holds no guard-chain branching.
+ *
+ * Story #5003 dropped the `provider.getTicketComments` gate with the
+ * structured-comment read limb. The provider is now consulted only by the
+ * best-effort cross-repo-deferred upsert, which reports its own faults into
+ * `errors[]` — gating the whole walk on a shape only that path needs would
+ * refuse work the walk can complete.
  */
-function checkGraduatePreconditions({
-  epicId,
-  provider,
-  currentRepo,
-  config,
-  spec,
-}) {
+function checkGraduatePreconditions({ epicId, currentRepo, config, spec }) {
   if (!spec.isAutoFileEnabled(config)) {
     return { skipped: [{ reason: 'toggle-disabled' }] };
   }
   if (!Number.isInteger(epicId) || epicId < 1) {
     return { errors: [`${spec.fnName}: missing or invalid epicId`] };
-  }
-  if (!provider || typeof provider.getTicketComments !== 'function') {
-    return { errors: [`${spec.fnName}: provider lacks getTicketComments`] };
   }
   if (
     !currentRepo ||
@@ -844,36 +816,6 @@ function checkGraduatePreconditions({
     return { errors: [`${spec.fnName}: missing currentRepo {owner,repo}`] };
   }
   return null;
-}
-
-/**
- * Read the source structured comment off the Epic and parse its findings.
- * Returns `{ findings }` on success, or `{ skipped?, errors? }` for the
- * no-comment / parse-empty / fetch-error short-circuits. Story #4075 —
- * extracted from `graduate`.
- */
-async function loadGraduateFindings({ epicId, provider, spec }) {
-  let comments;
-  try {
-    comments = await provider.getTicketComments(epicId);
-  } catch (err) {
-    return {
-      errors: [
-        `getTicketComments failed for epic #${epicId}: ${err?.message ?? err}`,
-      ],
-    };
-  }
-  const matched = (Array.isArray(comments) ? comments : []).filter(
-    (c) => typeof c?.body === 'string' && c.body.includes(spec.commentMarker),
-  );
-  if (matched.length === 0) {
-    return { skipped: [{ reason: spec.noCommentReason }] };
-  }
-  const findings = spec.parseFindings(matched[matched.length - 1].body);
-  if (findings.length === 0) {
-    return { skipped: [{ reason: 'no-non-blocking-findings' }] };
-  }
-  return { findings };
 }
 
 /**
@@ -1267,17 +1209,16 @@ async function persistCrossRepoDeferred({
 }
 
 /**
- * Parametrized graduator walk. Parses non-blocking findings (from the
- * Epic's structured comment, or a pre-parsed `findings` array), then for
- * each finding runs the shared route → path probe → idempotency probe →
+ * Parametrized graduator walk. Takes a pre-parsed `findings` array and, for
+ * each finding, runs the shared route → path probe → idempotency probe →
  * cap → file sequence. Never throws — every failure path is captured in
  * `errors[]`.
  *
+ * Each finding MUST carry `{ severity, path, summary, index }` and MAY carry
+ * additional fields (e.g. `category`) that the builders use.
+ *
  * The per-graduator variation lives entirely in the injected callbacks:
  *
- *   - `parseFindings(body)` — turns the rendered comment into findings.
- *     Each finding MUST carry `{ severity, path, summary, index }` and
- *     MAY carry additional fields (e.g. `lens`) that the builder uses.
  *   - `buildContentMarker(epicId, finding)` — the content-hash HTML-comment
  *     marker embedded in (and searched for in) follow-up bodies.
  *   - `buildLegacyMarker(epicId, index)` — the pre-cutover ordinal marker,
@@ -1299,7 +1240,8 @@ async function persistCrossRepoDeferred({
  *
  * @param {object} opts
  * @param {number} opts.epicId
- * @param {object} opts.provider — exposes `getTicketComments(ticketId)`
+ * @param {object} opts.provider — exposes `postComment(ticketId, body)` for
+ *   the durable cross-repo-deferred persistence
  * @param {object} [opts.config]
  * @param {{owner: string, repo: string}} opts.currentRepo
  * @param {{owner: string, repo: string}} [opts.frameworkRepo]
@@ -1310,9 +1252,9 @@ async function persistCrossRepoDeferred({
  * @param {string} [opts.cwd]
  * @param {number} [opts.timeoutMs] — per-spawn watchdog bound
  * @param {number} [opts.maxFilingsPerRun] — per-run filing cap
- * @param {Array<object>} [opts.findings] — pre-parsed findings; when
- *   provided, the structured-comment read/parse is bypassed (the retro
- *   auto-filer seam).
+ * @param {Array<object>} opts.findings — the pre-parsed findings to file.
+ *   Required: a non-array is an `errors[]` short-circuit, never a silent
+ *   no-op.
  * @param {Set<string>} [opts.filedMarkers] — in-process memo of content
  *   markers filed so far. Pass a shared Set across multiple `graduate()`
  *   calls in one logical invocation (e.g. the retro graduator's two source
@@ -1360,23 +1302,23 @@ export async function graduate({
 
   const precondition = checkGraduatePreconditions({
     epicId,
-    provider,
     currentRepo,
     config,
     spec,
   });
   if (precondition) return { ...envelope, ...precondition };
 
-  let findings;
-  if (Array.isArray(preParsedFindings)) {
-    // Pre-parsed seam (retro auto-filer): bypass the structured-comment
-    // read + parse entirely and file the supplied findings directly.
-    findings = preParsedFindings;
-  } else {
-    const loaded = await loadGraduateFindings({ epicId, provider, spec });
-    if (!loaded.findings) return { ...envelope, ...loaded };
-    findings = loaded.findings;
+  // Pre-parsed findings are the only source (Story #5003). The
+  // structured-comment read/parse limb went with the audit-results
+  // graduator: it walked an Epic's `verification-results` comment, and v2
+  // has no Epics, so it could only ever resolve zero findings.
+  if (!Array.isArray(preParsedFindings)) {
+    return {
+      ...envelope,
+      errors: [`${spec.fnName}: findings[] is required and must be an array`],
+    };
   }
+  const findings = preParsedFindings;
 
   // Blast-radius guard (Story #4837): decided ONCE per walk, before the
   // first spawn, so a refused context costs no child process at all.

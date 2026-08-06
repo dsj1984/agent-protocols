@@ -16,26 +16,18 @@
 
 import assert from 'node:assert/strict';
 import { readFileSync, rmSync } from 'node:fs';
-import fs from 'node:fs/promises';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 import Ajv from 'ajv';
 import addFormats from 'ajv-formats';
-import { storyTempDir } from '../../.agents/scripts/lib/config/temp-paths.js';
-import { readSignalRejectCount } from '../../.agents/scripts/lib/observability/signal-validator.js';
 import {
   appendSignal,
   forEachLine,
 } from '../../.agents/scripts/lib/observability/signals-writer.js';
-import {
-  extractExitCode,
-  handlePost,
-} from '../../.agents/scripts/lib/observability/tool-trace-hook.js';
 import { buildAcceptanceEvalSignal } from '../../.agents/scripts/lib/orchestration/acceptance-eval-decision.js';
 import { composeRoutedProposals } from '../../.agents/scripts/lib/orchestration/retro-proposals.js';
-import { detectRetry } from '../../.agents/scripts/lib/signals/detectors/retry.js';
 import { hasCommonEnvelope } from '../../.agents/scripts/lib/signals/schema.js';
 import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
 
@@ -267,7 +259,7 @@ describe('signal contract — appendSignal classifier + provenance (item 3)', ()
   });
 });
 
-describe('signal contract — write-time validation + reject tally (item 6)', () => {
+describe('signal contract — write-time validation drops invalid records (item 6)', () => {
   let workRoot;
   let cfg;
   beforeEach(() => {
@@ -276,9 +268,7 @@ describe('signal contract — write-time validation + reject tally (item 6)', ()
   });
   afterEach(() => rmSync(workRoot, { recursive: true, force: true }));
 
-  it('drops a schema-invalid record, never throws, and persists a reject tally readable cross-process', async () => {
-    // Missing `ts` and `details` is a bare string → invalid.
-    const before = await readSignalRejectCount({ epicId: 4406, config: cfg });
+  it('drops a schema-invalid record and never throws', async () => {
     let ok;
     await assert.doesNotReject(async () => {
       ok = await appendSignal({
@@ -303,18 +293,18 @@ describe('signal contract — write-time validation + reject tally (item 6)', ()
     const records = [];
     await forEachLine(4406, 4413, (r) => records.push(r), cfg);
     assert.equal(records.length, 0, 'the invalid record must not be appended');
-    // The reject tally incremented and is readable from a fresh read.
-    const after = await readSignalRejectCount({ epicId: 4406, config: cfg });
-    assert.equal(
-      after,
-      before + 1,
-      'reject tally increments under the Epic temp tree',
+  });
+
+  // Story #5003 — the persisted per-Epic reject tally was keyed on a positive
+  // `epicId`, and v2 Stories are standalone, so no row was ever written and
+  // its only reader could never see one. Both halves are gone; pin their
+  // absence so the write-only limb cannot be reintroduced.
+  it('exposes no persisted reject-tally surface', async () => {
+    const validator = await import(
+      '../../.agents/scripts/lib/observability/signal-validator.js'
     );
-    // Cross-process readable: the tally lives as a JSON file on disk.
-    const tallyPath = path.join(workRoot, 'run-4406', 'signal-rejects.json');
-    const raw = JSON.parse(await fs.readFile(tallyPath, 'utf8'));
-    assert.equal(raw.count, after);
-    assert.equal(typeof raw.lastField, 'string');
+    assert.equal(validator.recordSignalReject, undefined);
+    assert.equal(validator.readSignalRejectCount, undefined);
   });
 });
 
@@ -335,108 +325,5 @@ describe('signal contract — wave-level canonical envelope (item 5)', () => {
       'the legacy `epic` alias no longer satisfies the envelope guard',
     );
     assert.equal(hasCommonEnvelope(waveStart), true);
-  });
-});
-
-describe('signal contract — trace hook records exitCode (item 4)', () => {
-  it('extractExitCode reads the Bash tool_response exit code', () => {
-    assert.equal(extractExitCode({ tool_response: { exitCode: 1 } }), 1);
-    assert.equal(extractExitCode({ tool_response: { exit_code: 2 } }), 2);
-    assert.equal(extractExitCode({ tool_response: { code: 0 } }), 0);
-    assert.equal(extractExitCode({ tool_response: {} }), null);
-  });
-
-  it('handlePost records details.exitCode for a Bash PostToolUse event and omits it for a non-Bash tool', async () => {
-    const workRoot = makeTempDir('sig-trace-');
-    // handlePost writes through the default writer, whose temp root is
-    // anchored at the main checkout root (git rev-parse). A freshly-minted
-    // temp dir is not a git repo, so chdir'ing into it makes the writer
-    // resolve `temp/` relative to workRoot — hermetic and collision-free.
-    const origCwd = process.cwd();
-    const readLastTrace = async (storyId) => {
-      const dir = storyTempDir(4406, storyId);
-      const raw = await fs.readFile(path.join(dir, 'traces.ndjson'), 'utf8');
-      const lines = raw.trim().split('\n').filter(Boolean);
-      return JSON.parse(lines[lines.length - 1]);
-    };
-    try {
-      process.chdir(workRoot);
-
-      // Bash PostToolUse: details.exitCode is recorded verbatim — the write
-      // that makes detectRetry's `exitCode !== 0` failure predicate fireable.
-      await handlePost(
-        {
-          hook_event_name: 'PostToolUse',
-          tool_name: 'Bash',
-          tool_use_id: 't1',
-          tool_input: { command: 'false' },
-          tool_response: { exitCode: 1 },
-        },
-        { epicId: 4406, storyId: 4413 },
-      );
-      const bashTrace = await readLastTrace(4413);
-      assert.equal(bashTrace.kind, 'trace');
-      assert.equal(bashTrace.emitter.tool, 'Bash');
-      assert.equal(bashTrace.details.exitCode, 1);
-
-      // Non-Bash PostToolUse (Read): the field is omitted entirely so a
-      // non-Bash exit summary can never leak into retry detection.
-      await handlePost(
-        {
-          hook_event_name: 'PostToolUse',
-          tool_name: 'Read',
-          tool_use_id: 't2',
-          tool_input: { file_path: '/etc/hosts' },
-          tool_response: { exitCode: 0 },
-        },
-        { epicId: 4406, storyId: 4414 },
-      );
-      const readTrace = await readLastTrace(4414);
-      assert.equal(readTrace.emitter.tool, 'Read');
-      assert.equal(
-        Object.hasOwn(readTrace.details, 'exitCode'),
-        false,
-        'non-Bash trace must omit details.exitCode',
-      );
-    } finally {
-      process.chdir(origCwd);
-      rmSync(workRoot, { recursive: true, force: true });
-    }
-  });
-
-  it('detectRetry fires when the failed-repeat count strictly exceeds the threshold', async () => {
-    const workRoot = makeTempDir('sig-retry-');
-    const tracesPath = path.join(workRoot, 'traces.ndjson');
-    try {
-      // Three failed (exitCode 1) Bash invocations of the same command
-      // identity; threshold 2 → 3 > 2 → one retry signal.
-      const line = (extra) =>
-        `${JSON.stringify({
-          ts: NOW,
-          kind: 'trace',
-          emitter: { tool: 'Bash' },
-          epicId: 4406,
-          storyId: 4413,
-          details: { targetHash: 'sha256:cmd', exitCode: 1, ...extra },
-        })}\n`;
-      await fs.writeFile(tracesPath, line() + line() + line(), 'utf8');
-      const signals = await detectRetry({
-        tracesPath,
-        epicId: 4406,
-        storyId: 4413,
-        threshold: 2,
-        nowFn: () => NOW,
-      });
-      assert.equal(
-        signals.length,
-        1,
-        'one retry signal for the offending identity',
-      );
-      assert.equal(signals[0].kind, 'retry');
-      assert.equal(signals[0].details.failureCount, 3);
-      assertValid(signals[0], 'retry signal');
-    } finally {
-      rmSync(workRoot, { recursive: true, force: true });
-    }
   });
 });

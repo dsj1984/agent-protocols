@@ -142,7 +142,6 @@ const FRAMEWORK_SCRIPT_BASENAMES = Object.freeze([
   'run-test-profile.js',
   'run-tests.js',
   'run-verify.js',
-  'signals-view.js',
   'single-story-close.js',
   'single-story-confirm-merge.js',
   'single-story-init.js',

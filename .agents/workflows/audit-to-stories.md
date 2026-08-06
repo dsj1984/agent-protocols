@@ -227,8 +227,8 @@ runs FIRST and widens the net across open + closed issues; the exact
 was reworded but whose *location* is unchanged still confirms against the Issue
 that already tracks that location, because the audit filers stamp a
 location-based `audit-semantic-keys` footer alongside the `audit-fingerprints`
-footer. Close-time filings from the
-[`audit-results-graduator`](../scripts/lib/feedback-loop/audit-results-graduator.js)
+footer. Filings from the
+[`retro-proposals-graduator`](../scripts/lib/feedback-loop/retro-proposals-graduator.js)
 carry the same canonical `audit-fingerprints` footer, so a sweep recognizes a
 graduator-filed issue and never re-files it.
 

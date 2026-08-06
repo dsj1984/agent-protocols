@@ -64,7 +64,6 @@
     ".agents/scripts/run-test-profile.js!",
     ".agents/scripts/run-tests.js!",
     ".agents/scripts/run-verify.js!",
-    ".agents/scripts/signals-view.js!",
     ".agents/scripts/single-story-close.js!",
     ".agents/scripts/single-story-confirm-merge.js!",
     ".agents/scripts/single-story-init.js!",

@@ -360,7 +360,6 @@ refused by `/deliver`. The execution-model contract is owned by
 | Every `.agentrc.json` key, default, and override | [`docs/configuration.md`](docs/configuration.md) (under `.agents/`) |
 | Quality-gate runbooks (CRAP, MI, lint, friction) plus the baseline envelope, component model, and writer/reader contract | [`.agents/docs/quality-gates.md`](docs/quality-gates.md) |
 | Slash-command workflow definitions | [`workflows/`](workflows/) |
-| Render the signals span-tree (debug helper) | [`workflows/helpers/signals.md`](workflows/helpers/signals.md) |
 | Role-scoped spawn boot contexts | [`agents/`](agents/) |
 | Domain-agnostic baseline rules | [`rules/`](rules/) |
 | Skill library (core process + stack guardrails) | [`skills/core/`](skills/core/) · [`skills/stack/`](skills/stack/) |

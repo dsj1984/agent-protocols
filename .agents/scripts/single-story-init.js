@@ -54,7 +54,6 @@ import {
 import { getStoryBranch, gitSpawn, gitSync } from './lib/git-utils.js';
 import { Logger } from './lib/Logger.js';
 import { TYPE_LABELS } from './lib/label-constants.js';
-import { setActiveStoryEnv } from './lib/observability/active-story-env.js';
 import { emitTerseResult } from './lib/observability/terse-result.js';
 import {
   executeFastForward,
@@ -492,10 +491,9 @@ export function seedStoryBranch({ cwd, storyBranch, baseBranch, progress }) {
 }
 
 /**
- * Provision a worktree (or check out the branch in single-tree mode), then
- * record the active-story environment markers. Returns the resolved
- * `workCwd`, `worktreeCreated`, and `installStatus`. Exported for testing
- * (owns the worktree/single-tree routing + setActiveStoryEnv call).
+ * Provision a worktree (or check out the branch in single-tree mode).
+ * Returns the resolved `workCwd`, `worktreeCreated`, and `installStatus`.
+ * Exported for testing (owns the worktree/single-tree routing).
  *
  * @param {object} opts
  * @param {object} opts.runtime
@@ -539,23 +537,6 @@ export async function provisionWorktree({
   } else {
     // Single-tree mode: check out the branch on the main checkout.
     gitSync(cwd, 'checkout', storyBranch);
-  }
-
-  try {
-    // v2 Stories are standalone — no parent Epic. The helper omits
-    // CC_EPIC_ID from env + file; the trace hook keys its standalone-trace
-    // branch on CC_EPIC_ID being absent.
-    setActiveStoryEnv({
-      storyId,
-      workCwd,
-      logger: {
-        warn: (m) => progress('ENV', `⚠️ ${m}`),
-      },
-    });
-  } catch (err) {
-    Logger.error(
-      `[single-story-init] ⚠️ Failed to set active-Story env: ${err?.message ?? err}`,
-    );
   }
 
   return { workCwd, worktreeCreated, installStatus };

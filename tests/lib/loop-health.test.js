@@ -9,7 +9,6 @@ import {
 import check, {
   detectLoopHealth,
   findSignalStreams,
-  readRejectTally,
   resolveEpicTempTree,
   sampleStreamInvalidCount,
   scanRetroMirror,
@@ -18,8 +17,8 @@ import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
 
 /**
  * Unit tests for the loop-health retro check. Drives `detectLoopHealth`
- * against real on-disk fixture temp trees (mkdtemp) so the sampler,
- * reject-tally reader, and retro-mirror scanner exercise their real fs seams.
+ * against real on-disk fixture temp trees (mkdtemp) so the sampler and the
+ * retro-mirror scanner exercise their real fs seams.
  */
 
 const VALID = (ts) => JSON.stringify({ kind: 'friction', ts });
@@ -142,25 +141,6 @@ describe('findSignalStreams', () => {
   });
 });
 
-describe('readRejectTally', () => {
-  it('reads the persisted count', () => {
-    const epicDir = path.join(root, 'temp', 'run-3');
-    mkdirSync(epicDir, { recursive: true });
-    writeFileSync(
-      path.join(epicDir, 'signal-rejects.json'),
-      JSON.stringify({ count: 7, lastField: 'kind' }),
-      'utf8',
-    );
-    assert.equal(readRejectTally(epicDir), 7);
-  });
-
-  it('returns 0 when the tally is absent', () => {
-    const epicDir = path.join(root, 'temp', 'run-4');
-    mkdirSync(epicDir, { recursive: true });
-    assert.equal(readRejectTally(epicDir), 0);
-  });
-});
-
 describe('scanRetroMirror', () => {
   const FILED = [
     '### Proposed issues — framework repo',
@@ -212,7 +192,7 @@ describe('scanRetroMirror', () => {
 });
 
 describe('detectLoopHealth', () => {
-  it('returns null for a clean substrate (valid lines, zero rejects, all filed)', () => {
+  it('returns null for a clean substrate (valid lines, all filed)', () => {
     const epicDir = path.join(root, 'temp', 'run-500');
     writeStream(
       epicDir,
@@ -223,11 +203,6 @@ describe('detectLoopHealth', () => {
       epicDir,
       ['stories', 'story-1', 'signals.ndjson'],
       [VALID('2026-07-10T00:00:02Z')],
-    );
-    writeFileSync(
-      path.join(epicDir, 'signal-rejects.json'),
-      JSON.stringify({ count: 0 }),
-      'utf8',
     );
     writeFileSync(
       path.join(epicDir, 'retro.md'),
@@ -244,17 +219,12 @@ describe('detectLoopHealth', () => {
     assert.equal(detectLoopHealth(root), null);
   });
 
-  it('reports schema-invalid samples and the persisted reject tally', () => {
+  it('reports schema-invalid samples', () => {
     const epicDir = path.join(root, 'temp', 'run-501');
     writeStream(
       epicDir,
       ['stories', 'story-1', 'signals.ndjson'],
       [VALID('2026-07-10T00:00:00Z'), INVALID_ENUM('2026-07-10T00:00:01Z')],
-    );
-    writeFileSync(
-      path.join(epicDir, 'signal-rejects.json'),
-      JSON.stringify({ count: 4 }),
-      'utf8',
     );
     const finding = detectLoopHealth(root);
     assert.ok(finding);
@@ -263,8 +233,21 @@ describe('detectLoopHealth', () => {
     assert.equal(finding.autoCorrectable, false);
     assert.match(finding.summary, /run-501/);
     assert.match(finding.summary, /1 schema-invalid/);
-    assert.match(finding.summary, /4 persisted reject/);
-    assert.match(finding.detail, /persisted reject tally/);
+    assert.match(finding.detail, /schema-invalid samples/);
+  });
+
+  // Story #5003 — the persisted reject tally is gone (v2 never wrote one).
+  // A stale `signal-rejects.json` left behind by a pre-cutover run must not
+  // resurrect the dimension.
+  it('ignores a stale signal-rejects.json entirely', () => {
+    const epicDir = path.join(root, 'temp', 'run-503');
+    writeStream(epicDir, ['signals.ndjson'], [VALID('2026-07-10T00:00:00Z')]);
+    writeFileSync(
+      path.join(epicDir, 'signal-rejects.json'),
+      JSON.stringify({ count: 9 }),
+      'utf8',
+    );
+    assert.equal(detectLoopHealth(root), null);
   });
 
   it('reports unfiled retro proposals even when signals are clean', () => {

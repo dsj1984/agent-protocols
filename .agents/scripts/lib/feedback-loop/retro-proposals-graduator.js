@@ -138,6 +138,14 @@ function metaSourceLabel(source) {
  * a single source so the constant classifier routes every finding in the
  * bucket to the correct repo (and the label reflects that source).
  *
+ * The bundle carries **only** builders. It used to declare a
+ * `commentMarker` / `noCommentReason` / `parseFindings` trio purely to satisfy
+ * the shared walk's shape — this graduator supplies its findings pre-parsed,
+ * so the walk never consulted any of the three. Story #5003 deleted that limb
+ * from `graduate()` along with the Epic-era graduator that was its only real
+ * consumer, and the placeholder fields went with it: a declared-but-unread
+ * field is a standing invitation to write a parser nothing will call.
+ *
  * @param {'framework'|'consumer'} source
  * @returns {object}
  */
@@ -145,12 +153,6 @@ function makeSpec(source) {
   return {
     fnName: 'graduateRetroProposals',
     isAutoFileEnabled,
-    // Pre-parsed seam: the comment marker / parser are never consulted
-    // (findings are supplied directly), but the fields are declared for the
-    // shared walk's shape.
-    commentMarker: '<!-- structured-comment: retro -->',
-    noCommentReason: 'no-retro-comment',
-    parseFindings: () => [],
     buildContentMarker,
     buildMatchTokens,
     crossRepoCommentAttrs: { graduator: 'retro-proposals' },
@@ -210,8 +212,8 @@ function toFinding(item, source, index) {
  *
  * @param {object} opts
  * @param {number} opts.epicId
- * @param {object} opts.provider — ticketing provider (getTicketComments;
- *   postComment for the cross-repo-deferred persistence).
+ * @param {object} opts.provider — ticketing provider (`postComment`, for the
+ *   cross-repo-deferred persistence).
  * @param {object} [opts.config] — resolved agentrc.
  * @param {{owner: string, repo: string}} opts.currentRepo — the repo the
  *   retro is running inside (the consumer's own repo); the cross-repo guard's

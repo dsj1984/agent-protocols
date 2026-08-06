@@ -21,7 +21,6 @@ import {
 } from '../../../.agents/scripts/lib/config/temp-paths.js';
 import {
   appendSignal,
-  appendTrace,
   forEachLine,
 } from '../../../.agents/scripts/lib/observability/signals-writer.js';
 import { makeTempDir } from '../../../.agents/scripts/lib/test-temp.js';
@@ -46,9 +45,6 @@ const signalsPath = (eid, sid) =>
     `story-${sid}`,
     'signals.ndjson',
   );
-const tracesPath = (eid, sid) =>
-  path.join(workRoot, `run-${eid}`, 'stories', `story-${sid}`, 'traces.ndjson');
-
 // Canonical friction record helper (Epic #4406). The writer now validates
 // every record against `signal-event.schema.json` before appending, so
 // test fixtures must carry the canonical envelope (`kind`, `ts`, `epicId`).
@@ -326,39 +322,15 @@ describe('signals-writer — source tagging (framework/consumer classifier)', ()
   });
 });
 
-describe('signals-writer — appendTrace correctness', () => {
-  it('writes traces to the traces.ndjson sibling, not signals.ndjson', async () => {
-    const trace = {
-      kind: 'trace',
-      ts: '2026-07-11T00:00:00.000Z',
-      epicId: 1030,
-      storyId: 1041,
-      emitter: { tool: 'Bash' },
-      details: { durationMs: 42 },
-    };
-    await appendTrace({
-      epicId: 1030,
-      storyId: 1041,
-      trace,
-      config: cfg,
-    });
-
-    const traceRaw = await fs.readFile(tracesPath(1030, 1041), 'utf8');
-    assert.equal(traceRaw, `${JSON.stringify(trace)}\n`);
-    // signals.ndjson must not be touched
-    await assert.rejects(() => fs.stat(signalsPath(1030, 1041)));
-  });
-
-  it('returns false on invalid ids without throwing', async () => {
-    assert.equal(
-      await appendTrace({
-        epicId: -1,
-        storyId: 1,
-        trace: {},
-        config: cfg,
-      }),
-      false,
+// Story #5003 — `appendTrace` and the `traces.ndjson` sibling stream were
+// deleted with the tool-trace hook, their only producer. The writer surface
+// is signals-only; this asserts the entry point cannot silently come back.
+describe('signals-writer — no trace surface (Story #5003)', () => {
+  it('does not export appendTrace', async () => {
+    const writer = await import(
+      '../../../.agents/scripts/lib/observability/signals-writer.js'
     );
+    assert.equal(writer.appendTrace, undefined);
   });
 });
 

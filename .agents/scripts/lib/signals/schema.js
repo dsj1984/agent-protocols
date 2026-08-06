@@ -2,10 +2,10 @@
  * Signals schema — single source of truth for event-kind constants and
  * shape guards (Epic #1181 / Story #1438 / Task #1458).
  *
- * Both writers (`lib/observability/signals-writer.js` callers) and
- * readers (`lib/signals/read.js`, the retro's gather-signals phase)
- * import their field names from this module so the on-disk NDJSON shape
- * stays under one schema.
+ * Both writers (`lib/observability/signals-writer.js` callers) and readers
+ * (its `forEachLine` / `forEachSignalStreamLine` walkers, and the retro's
+ * gather-signals phase) import their field names from this module so the
+ * on-disk NDJSON shape stays under one schema.
  *
  * Pure module: importing has **no I/O side effects**. The exported
  * `EVENT_KINDS` object is `Object.freeze`'d so consumers can use it as a
@@ -14,30 +14,25 @@
  * ## Event-kind enumeration
  *
  * The set below is the audited union of `kind:` literals emitted via
- * `signals-writer.appendSignal` and `signals-writer.appendTrace` across
- * the codebase as of Epic #1181 (audit-snapshot 2026-05-11):
+ * `signals-writer.appendSignal` across the codebase as of Epic #1181
+ * (audit-snapshot 2026-05-11):
  *
  * Signals-writer `appendSignal` call sites:
  *   - `friction`       — quality-gate / runtime friction (diagnose-friction.js,
  *                        lib/gates/friction.js)
  *   - `acceptance-eval` — acceptance-eval.js per-criterion terminus signal.
- *   - `wave-start` / `wave-complete` — wave-window anchors; `wave-start` also
- *                        anchors span-tree Story spans
- *   - `wave-end`       — span-tree pairing anchor (retained for span-tree)
+ *   - `wave-start` / `wave-complete` — wave-window anchors.
+ *   - `wave-end`       — wave-window pairing anchor.
  *   - `state-transition` — notification-derived window anchor.
  *
  * The `dispatched` kind was deleted in the Epic #4406 signal-contract
  * cutover — it had no live emitter and no consumer.
  *
- * Signals-writer `appendTrace` call sites (traces.ndjson sibling, but
- * sharing the same envelope shape — `tool-trace-hook.js`):
- *   - `trace`          — per-tool-call timing record
- *
- * Detector-emitted / aggregator-consumed kinds (`rework`, `retry` are
- * emitted by `lib/signals/detectors/*`; `hotspot`, `churn`, `idle` remain
- * pinned in the enum for the aggregator's kind-count rollup even though no
- * live detector emits them):
- *   - `hotspot`, `rework`, `churn`, `idle`, `retry`
+ * Producerless kinds, pinned in the enum so a re-introduction needs no schema
+ * bump. Story #5003 deleted the last emitters of `trace` (the tool-trace hook
+ * and its `appendTrace` writer limb) and of `rework` / `retry` (the detector
+ * pair the hook fed); `hotspot`, `churn`, `idle` never had one:
+ *   - `trace`, `hotspot`, `rework`, `churn`, `idle`, `retry`
  *
  * ## Common envelope (canonical — Epic #4406 / Story #4413)
  *
@@ -68,18 +63,18 @@ import { isPositiveInt } from './detectors/common.js';
 
 /**
  * Frozen enumeration of every event kind currently emitted by
- * `signals-writer.appendSignal` / `appendTrace`, plus the
- * aggregator-consumed kinds whose detectors are future Stories.
+ * `signals-writer.appendSignal`, plus the producerless kinds a future Story
+ * may re-introduce an emitter for.
  *
  * Field names are kebab-cased to match the on-disk literals.
  */
 export const EVENT_KINDS = Object.freeze({
   FRICTION: 'friction',
   TRACE: 'trace',
-  // Wave-window forensics signals: `wave-start` / `wave-end` anchor the
-  // span-tree's Story spans. Story #4545 deleted the `waveParallelism`
-  // consumer (perf-aggregator) with the execution-analysis surface; these
-  // kinds stay as the span-tree's anchors.
+  // Wave-window forensics signals. Story #4545 deleted the `waveParallelism`
+  // consumer (perf-aggregator) with the execution-analysis surface, and
+  // Story #5003 deleted the span-tree that paired them; the kinds stay
+  // pinned so a re-introduced window reader needs no schema bump.
   WAVE_START: 'wave-start',
   WAVE_END: 'wave-end',
   WAVE_COMPLETE: 'wave-complete',
@@ -156,7 +151,7 @@ function isTimestamp(v) {
  * recognised `kind`. Canonical keys only — the legacy `timestamp` / `epic`
  * aliases were deleted in the Epic #4406 cutover.
  *
- * Returns true when the envelope is well-formed. Used by `lib/signals/read`
+ * Returns true when the envelope is well-formed. Used by the stream readers
  * to discard malformed lines before yielding them to the consumer.
  *
  * @param {unknown} evt

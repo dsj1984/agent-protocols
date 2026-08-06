@@ -337,8 +337,7 @@ production value is **load-bearing safety**, not boilerplate:
   have to re-derive this ordering guarantee by hand at every call site.
 - **Secret-strip and one-place observability** — `LedgerWriter` strips the
   secret denylist from every payload; the ledger is the single forensics
-  system-of-record that `signals-view.js`, the idle watchdog, and resume all
-  read.
+  system-of-record that the idle watchdog and resume both read.
 
 Crucially, the **hot path that did not need those guarantees already bypasses
 the bus**: Story #3900 routes `story.dispatch.start` / `story.dispatch.end` /

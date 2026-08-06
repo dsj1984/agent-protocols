@@ -1,11 +1,11 @@
 {
   "$schema": ".agents/schemas/baselines/maintainability.schema.json",
   "kernelVersion": "0.1.0",
-  "generatedAt": "2026-08-06T02:31:32.681Z",
+  "generatedAt": "2026-08-06T03:06:28.774Z",
   "rollup": {
     "*": {
       "min": 74.146,
-      "p50": 98.173,
+      "p50": 98.322,
       "p95": 125.857
     }
   },
@@ -564,7 +564,7 @@
     },
     {
       "path": ".agents/scripts/lib/checks/loop-health.js",
-      "mi": 85.395
+      "mi": 84.905
     },
     {
       "path": ".agents/scripts/lib/checks/push-hook-parity.js",
@@ -883,12 +883,8 @@
       "mi": 99.892
     },
     {
-      "path": ".agents/scripts/lib/feedback-loop/audit-results-graduator.js",
-      "mi": 97.074
-    },
-    {
       "path": ".agents/scripts/lib/feedback-loop/graduator-core.js",
-      "mi": 86.266
+      "mi": 86.684
     },
     {
       "path": ".agents/scripts/lib/feedback-loop/prior-feedback-fetcher.js",
@@ -896,7 +892,7 @@
     },
     {
       "path": ".agents/scripts/lib/feedback-loop/retro-proposals-graduator.js",
-      "mi": 98.004
+      "mi": 97.358
     },
     {
       "path": ".agents/scripts/lib/findings/classify-finding.js",
@@ -1039,10 +1035,6 @@
       "mi": 114.854
     },
     {
-      "path": ".agents/scripts/lib/observability/active-story-env.js",
-      "mi": 95.106
-    },
-    {
       "path": ".agents/scripts/lib/observability/metrics-ledger.js",
       "mi": 97.86
     },
@@ -1052,23 +1044,19 @@
     },
     {
       "path": ".agents/scripts/lib/observability/signal-validator.js",
-      "mi": 85.499
+      "mi": 92.168
     },
     {
       "path": ".agents/scripts/lib/observability/signals-writer.js",
-      "mi": 89.187
+      "mi": 89.868
     },
     {
       "path": ".agents/scripts/lib/observability/source-classifier.js",
-      "mi": 102.148
+      "mi": 102.113
     },
     {
       "path": ".agents/scripts/lib/observability/terse-result.js",
       "mi": 102.61
-    },
-    {
-      "path": ".agents/scripts/lib/observability/tool-trace-hook.js",
-      "mi": 94.002
     },
     {
       "path": ".agents/scripts/lib/onboard/init-tail.js",
@@ -1157,10 +1145,6 @@
     {
       "path": ".agents/scripts/lib/orchestration/dependency-analyzer.js",
       "mi": 93.343
-    },
-    {
-      "path": ".agents/scripts/lib/orchestration/detectors-phase.js",
-      "mi": 94.803
     },
     {
       "path": ".agents/scripts/lib/orchestration/diff-magnitude.js",
@@ -1532,7 +1516,7 @@
     },
     {
       "path": ".agents/scripts/lib/orchestration/single-story-close/phases/worktree-reap.js",
-      "mi": 112.596
+      "mi": 113.344
     },
     {
       "path": ".agents/scripts/lib/orchestration/single-story-close/phases/wrong-tree-guard.js",
@@ -1644,7 +1628,7 @@
     },
     {
       "path": ".agents/scripts/lib/orchestration/ticketing/reads.js",
-      "mi": 103.082
+      "mi": 102.933
     },
     {
       "path": ".agents/scripts/lib/orchestration/ticketing/state.js",
@@ -1739,32 +1723,12 @@
       "mi": 97.534
     },
     {
-      "path": ".agents/scripts/lib/signals/detectors/index.js",
-      "mi": 171
-    },
-    {
-      "path": ".agents/scripts/lib/signals/detectors/retry.js",
-      "mi": 95.32
-    },
-    {
-      "path": ".agents/scripts/lib/signals/detectors/rework.js",
-      "mi": 92.507
-    },
-    {
       "path": ".agents/scripts/lib/signals/index.js",
       "mi": 171
     },
     {
-      "path": ".agents/scripts/lib/signals/read.js",
-      "mi": 90.735
-    },
-    {
       "path": ".agents/scripts/lib/signals/schema.js",
       "mi": 98.143
-    },
-    {
-      "path": ".agents/scripts/lib/signals/span-tree.js",
-      "mi": 102.941
     },
     {
       "path": ".agents/scripts/lib/signals/write.js",
@@ -2191,10 +2155,6 @@
       "mi": 96.338
     },
     {
-      "path": ".agents/scripts/signals-view.js",
-      "mi": 93.522
-    },
-    {
       "path": ".agents/scripts/single-story-close.js",
       "mi": 100.742
     },
@@ -2204,7 +2164,7 @@
     },
     {
       "path": ".agents/scripts/single-story-init.js",
-      "mi": 93.523
+      "mi": 93.134
     },
     {
       "path": ".agents/scripts/stories-wave-tick.js",

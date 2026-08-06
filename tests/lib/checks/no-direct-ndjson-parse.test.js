@@ -2,16 +2,21 @@
  * Grep gate: forbid direct `signals.ndjson` parsing outside the canonical
  * locations (Epic #1181 / Story #1438 / Task #1462).
  *
- * The Story #1438 rewrite routes every signals consumer through
- * `lib/signals/read.js`. To keep that property durable, this test scans
+ * The Story #1438 rewrite routed every signals consumer through one reader.
+ * Story #5003 deleted `lib/signals/read.js` (its last consumer, the debug
+ * viewer, went with it), leaving `signals-writer.js`'s own `forEachLine` /
+ * `forEachSignalStreamLine` walkers as the canonical read path. The
+ * allow-list is unchanged — both live under the same two roots. To keep the
+ * property durable, this test scans
  * the project's source trees for the disallowed parse patterns and
  * fails CI if any new file resurrects a direct `readFileSync`,
  * `createReadStream`, `readline.createInterface`, or `split('\n')`
  * targeting `signals.ndjson` outside:
  *
- *   - `.agents/scripts/lib/signals/`               (the canonical reader)
+ *   - `.agents/scripts/lib/signals/`               (the schema + write barrel)
  *   - `.agents/scripts/lib/observability/signals-writer.js`
- *                                                  (the canonical writer)
+ *                                                  (the canonical
+ *                                                  writer AND reader)
  *   - `tests/`                                     (test fixtures + this
  *                                                  test itself)
  *
@@ -25,10 +30,8 @@
  *     nearby).
  *   - Path-builder helpers like `signalsFile(eid, sid)` in
  *     `lib/config/temp-paths.js` (no I/O — that's the path resolver).
- *   - `analyze-execution.js`'s use of `forEachLine` from
- *     `signals-writer.js` (that's an exported reader, not a direct
- *     parse, and migration of analyze-execution to `lib/signals/read`
- *     is a separate Story in the same Epic).
+ *   - Any use of `forEachLine` / `forEachSignalStreamLine` from
+ *     `signals-writer.js` — those are exported readers, not a direct parse.
  */
 
 import assert from 'node:assert/strict';
@@ -144,7 +147,7 @@ describe('grep gate — direct signals.ndjson parsing is forbidden outside lib/s
       [],
       `Found direct signals.ndjson parsing outside the allow-list:\n${offenders
         .map((o) => `  - ${o.file}: ${o.pattern}`)
-        .join('\n')}\nUse 'lib/signals/read.js' instead.`,
+        .join('\n')}\nUse the signals-writer.js stream readers instead.`,
     );
   });
 
@@ -169,7 +172,7 @@ describe('grep gate — direct signals.ndjson parsing is forbidden outside lib/s
   it('does not flag doc comments that merely mention signals.ndjson', () => {
     const synthetic = `
       /**
-       * Reads signals.ndjson — see lib/signals/read.js for the canonical entry point.
+       * Reads signals.ndjson — see signals-writer.js for the canonical reader.
        */
       export function noop() {}
     `;
