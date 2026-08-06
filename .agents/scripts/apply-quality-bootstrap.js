@@ -11,63 +11,56 @@
  * had no test so it silently drifted when the two helper signatures moved, and
  * it could not be invoked or dry-run independently.
  *
- * This script runs the two Epic #1386 quality-gate installs in order against
- * the consumer repo root:
+ * The script runs one install against the consumer repo root:
+ * `applyQualityBootstrap` — copies the code-quality-guardrails helper,
+ * installs the `.husky/pre-commit` quality:preview line, backfills the
+ * `quality:preview` / `quality:watch` npm scripts, seeds the
+ * `delivery.quality.{codingGuardrails,autoRefresh}` defaults, and prunes a
+ * committed pre-v2 `baselines/epic/` tree.
  *
- *   1. `applyQualityBootstrap` — copies the code-quality-guardrails helper,
- *      installs the `.husky/pre-commit` quality:preview line, backfills the
- *      `quality:preview` / `quality:watch` npm scripts, and seeds the
- *      `delivery.quality.{codingGuardrails,autoRefresh}` defaults.
- *   2. `migrateBaselinesLayout` — relocates per-Epic baseline snapshots into
- *      the `temp/epic/<id>/baselines/` namespace.
+ * Story #5007 retired the second step. `migrateBaselinesLayout` relocated
+ * per-Epic ratchet snapshots into `temp/epic/<id>/baselines/` on the contract
+ * that `/deliver` reaps that namespace on merge — a mechanism the Story-only
+ * v2 model deleted, so the migration moved dead data into a namespace no code
+ * path writes, reads, or reaps. Its one residual hygiene value (getting the
+ * committed `baselines/epic/` tree out of version control) survives as
+ * `pruneLegacyEpicBaselines`, the quality install's fifth step.
  *
- * Both helpers are idempotent by contract — a second run reports `no-change`
- * on every install path — so this wrapper is safe to re-run. It prints the
- * **same JSON result shape** the heredoc did: `{ quality, baselines }` to
- * stdout, so any tooling that parsed the old output keeps working.
+ * The helper is idempotent by contract — a second run reports `no-change` /
+ * `already-present` / `absent` on every install path — so this wrapper is safe
+ * to re-run. It prints `{ quality }` JSON to stdout.
  *
  * The effectful work is a thin pure function (`applyBootstrapAndMigration`)
- * that takes the two helpers and the project root, so the test suite can
- * drive it against a tmp directory without spawning a child process. The CLI
- * wrapper wires the real helpers and `process.cwd()`.
+ * that takes the helper and the project root, so the test suite can drive it
+ * against a tmp directory without spawning a child process. The CLI wrapper
+ * wires the real helper and `process.cwd()`.
  */
 
-import path from 'node:path';
-import { migrateBaselinesLayout } from './lib/bootstrap/baselines-layout-migration.js';
 import { applyQualityBootstrap } from './lib/bootstrap/quality-bootstrap.js';
 import { runAsCli } from './lib/cli-utils.js';
 
 /**
- * Run the quality-bootstrap install and the baselines-layout migration
- * against `projectRoot`, returning the combined `{ quality, baselines }`
- * envelope. Pure relative to its injected helpers: the default helpers touch
- * the filesystem under `projectRoot`, but tests can pass stubs to exercise
- * the composition in isolation.
+ * Run the quality-bootstrap install against `projectRoot`, returning the
+ * `{ quality }` envelope. Pure relative to its injected helper: the default
+ * helper touches the filesystem under `projectRoot`, but tests can pass a stub
+ * to exercise the composition in isolation.
  *
  * @param {object} options
  * @param {string} options.projectRoot Absolute consumer repo root.
  * @param {typeof applyQualityBootstrap} [options.applyQualityBootstrap]
- * @param {typeof migrateBaselinesLayout} [options.migrateBaselinesLayout]
- * @returns {{ quality: object, baselines: object }}
+ * @returns {{ quality: object }}
  */
 export function applyBootstrapAndMigration({
   projectRoot,
   applyQualityBootstrap: applyQuality = applyQualityBootstrap,
-  migrateBaselinesLayout: migrateBaselines = migrateBaselinesLayout,
 }) {
-  const quality = applyQuality({ projectRoot });
-  const baselines = migrateBaselines({
-    baselinesDir: path.join(projectRoot, 'baselines'),
-    repoRoot: projectRoot,
-  });
-  return { quality, baselines };
+  return { quality: applyQuality({ projectRoot }) };
 }
 
 async function main() {
   const projectRoot = process.cwd();
   const result = applyBootstrapAndMigration({ projectRoot });
-  // Mirror the retired heredoc's output: pretty-printed `{ quality, baselines }`
-  // to stdout. Use process.stdout.write (not console.log) per the no-console
+  // Use process.stdout.write (not console.log) per the no-console
   // enforcement boundary.
   process.stdout.write(`${JSON.stringify(result)}\n`);
   return 0;
@@ -79,7 +72,7 @@ runAsCli(import.meta.url, main, {
   usage: {
     invocation: 'node .agents/scripts/apply-quality-bootstrap.js',
     summary:
-      'Install the quality-gate surface into the consumer repo (guardrails helper, pre-commit line, npm scripts, config defaults) and migrate the baselines layout. Idempotent; prints { quality, baselines } JSON to stdout.',
+      'Install the quality-gate surface into the consumer repo (guardrails helper, pre-commit line, npm scripts, config defaults, legacy baselines/epic prune). Idempotent; prints { quality } JSON to stdout.',
     flags: [],
   },
 });

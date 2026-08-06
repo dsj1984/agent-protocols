@@ -48,10 +48,21 @@ export const LIST_OR_EXTENDER_OF_STRINGS = {
 /** Object-shaped tolerance: `{ kind: 'absolute' | 'percent', value: number }`. */
 export const TOLERANCE_SCHEMA = {
   type: 'object',
+  description:
+    'How much a rollup may drift from the committed baseline before the gate reports a regression.',
   required: ['kind', 'value'],
   properties: {
-    kind: { type: 'string', enum: ['absolute', 'percent'] },
-    value: { type: 'number', minimum: 0 },
+    kind: {
+      type: 'string',
+      enum: ['absolute', 'percent'],
+      description:
+        'Whether `value` is read as raw metric units (`absolute`) or as a percentage of the baseline (`percent`).',
+    },
+    value: {
+      type: 'number',
+      minimum: 0,
+      description: 'The tolerance magnitude. 0 means no drift is allowed.',
+    },
   },
   additionalProperties: false,
 };
@@ -84,6 +95,8 @@ export const TOLERANCE_SCHEMA = {
  */
 export const FLOORS_SCHEMA = {
   type: 'object',
+  description:
+    'Workspace-keyed absolute floors: `{ "<workspace>": { "<metric>": number } }`. `"*"` is the project-wide catch-all; the metric keyset is open so per-rollup keys flow through without each gate enumerating them. Floors are absolute — unlike `tolerance`, they are enforced regardless of the baseline.',
   additionalProperties: {
     type: 'object',
     additionalProperties: { type: 'number' },
@@ -102,16 +115,52 @@ export const FLOORS_SCHEMA = {
  */
 export const COMPONENTS_SCHEMA = {
   type: 'object',
+  description:
+    'Per-gate component map — component name to the glob list whose files roll up under it. Defaults to `{ "*": ["**"] }` at the resolver layer.',
   additionalProperties: {
     type: 'array',
     items: { type: 'string', minLength: 1 },
   },
 };
 
-export const GATE_BASE = {
-  enabled: { type: 'boolean' },
-  baselinePath: { ...SAFE_STRING, minLength: 1 },
-  tolerance: TOLERANCE_SCHEMA,
-  floors: FLOORS_SCHEMA,
-  components: COMPONENTS_SCHEMA,
-};
+/**
+ * Build the shared four-field gate base with per-gate `default` annotations
+ * layered on (Story #5007). The base fields are identical in shape across
+ * every gate but their defaults are not — each gate ships its own
+ * `baselinePath`, tolerance, and floors — so the defaults are supplied by the
+ * calling gate module rather than baked in here.
+ *
+ * @param {{ enabled?: boolean, baselinePath?: string,
+ *   tolerance?: object, floors?: object }} [defaults]
+ * @returns {object} A fresh `properties` fragment; never a shared reference.
+ */
+export function gateBase(defaults = {}) {
+  return {
+    enabled: {
+      type: 'boolean',
+      description:
+        'When false, the checker exits 0 with a skip line and the gate is reported as `skipped`, never omitted.',
+      ...(defaults.enabled === undefined ? {} : { default: defaults.enabled }),
+    },
+    baselinePath: {
+      ...SAFE_STRING,
+      minLength: 1,
+      description:
+        "Repo-root-relative path to the gate's committed baseline artifact.",
+      ...(defaults.baselinePath === undefined
+        ? {}
+        : { default: defaults.baselinePath }),
+    },
+    tolerance: {
+      ...TOLERANCE_SCHEMA,
+      ...(defaults.tolerance === undefined
+        ? {}
+        : { default: defaults.tolerance }),
+    },
+    floors: {
+      ...FLOORS_SCHEMA,
+      ...(defaults.floors === undefined ? {} : { default: defaults.floors }),
+    },
+    components: COMPONENTS_SCHEMA,
+  };
+}

@@ -2,7 +2,7 @@
  * bootstrap/quality-bootstrap — Story #1401 (Epic #1386)
  *
  * Idempotent installer for the stabilized-quality-gates surface area on a
- * project clone. Performs four additive actions, each safe to re-run:
+ * project clone. Performs five additive actions, each safe to re-run:
  *
  *   1. Copies the `code-quality-guardrails.md` helper into the project's
  *      `.agents/workflows/helpers/` (no-op when the helper is already present).
@@ -15,6 +15,11 @@
  *   4. Seeds `delivery.quality.codingGuardrails` and
  *      `delivery.quality.autoRefresh` defaults in `.agentrc.json` when
  *      the keys are absent. Existing values are preserved.
+ *   5. Prunes a committed pre-v2 `baselines/epic/` tree (Story #5007). The
+ *      v2 model is Story-only — nothing writes, reads, or reaps per-Epic
+ *      ratchet snapshots — so an upgrading consumer is left carrying a
+ *      committed directory no gate consults. Absent on every repo that never
+ *      ran a pre-v2 install, which is the overwhelmingly common case.
  *
  * Returns a structured summary so the bootstrap and update workflows can
  * surface exactly which actions ran and which were no-ops.
@@ -25,6 +30,7 @@
  * @module bootstrap/quality-bootstrap
  */
 
+import { spawnSync as defaultSpawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { getAgentrcDefaults, lookupPath } from '../config/defaults.js';
@@ -349,7 +355,59 @@ export function ensureQualityConfigDefaults(ctx) {
 }
 
 /**
- * Run all four steps in order. Composable wrapper used by the bootstrap
+ * Repo-root-relative path of the retired committed per-Epic snapshot tree.
+ * Module-private: exporting it would add a production-dead row to the
+ * dead-exports ratchet for a two-word constant.
+ */
+const LEGACY_EPIC_BASELINES_RELPATH = 'baselines/epic';
+
+/**
+ * Step 5 — Prune a committed pre-v2 `baselines/epic/` tree (Story #5007).
+ *
+ * Story #1396 committed per-Epic ratchet snapshots under
+ * `baselines/epic/<id>/`. The v2 Story-only model retired epics along with
+ * every reader of those snapshots, and `check-baselines.js` resolves
+ * baselines by fixed filename rather than by directory glob — so the tree is
+ * inert, and the only remaining value in the retired layout migration was
+ * getting it out of version control.
+ *
+ * `git rm -r --ignore-unmatch` stages the removal when the path is tracked
+ * and is a safe no-op when it is not (fresh clone / untracked leftovers);
+ * the on-disk residue is then removed so a re-run reports `absent`. The
+ * caller commits the resulting working-tree delta.
+ *
+ * @param {object} ctx
+ * @param {string} ctx.projectRoot
+ * @param {typeof defaultSpawnSync} [ctx.spawnImpl] — injectable spawn seam.
+ * @returns {{ action: 'absent'|'pruned', path: string, gitStatus?: number|null }}
+ */
+export function pruneLegacyEpicBaselines(ctx) {
+  const target = path.join(ctx.projectRoot, 'baselines', 'epic');
+  if (!fs.existsSync(target)) return { action: 'absent', path: target };
+  const spawn = ctx.spawnImpl ?? defaultSpawnSync;
+  const rm = spawn(
+    'git',
+    [
+      'rm',
+      '-r',
+      '--quiet',
+      '--ignore-unmatch',
+      '--',
+      LEGACY_EPIC_BASELINES_RELPATH,
+    ],
+    {
+      cwd: ctx.projectRoot,
+      encoding: 'utf-8',
+      stdio: 'pipe',
+      shell: false,
+    },
+  );
+  fs.rmSync(target, { recursive: true, force: true });
+  return { action: 'pruned', path: target, gitStatus: rm.status ?? null };
+}
+
+/**
+ * Run all five steps in order. Composable wrapper used by the bootstrap
  * and update workflows. Each step's outcome is returned under its own key
  * so callers can render a per-action summary.
  *
@@ -357,6 +415,7 @@ export function ensureQualityConfigDefaults(ctx) {
  * @param {string} ctx.projectRoot
  * @param {string} [ctx.frameworkRoot]
  * @param {'framework'|'downstream'} [ctx.variant]
+ * @param {typeof defaultSpawnSync} [ctx.spawnImpl]
  */
 export function applyQualityBootstrap(ctx) {
   return {
@@ -364,5 +423,6 @@ export function applyQualityBootstrap(ctx) {
     hook: ensurePreCommitHook(ctx),
     scripts: ensureQualityNpmScripts(ctx),
     config: ensureQualityConfigDefaults(ctx),
+    legacyBaselines: pruneLegacyEpicBaselines(ctx),
   };
 }

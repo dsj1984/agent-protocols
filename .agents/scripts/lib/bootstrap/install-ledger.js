@@ -105,9 +105,11 @@ export function ledgerPath(projectRoot) {
  *
  * @param {object} args
  * @param {import('./manifest.js').MutationManifestEntry[]} args.entries
- *   — the APPROVED subset of the mutation manifest that was applied.
- * @param {string[]} args.approvedGroups — the phase groups the operator
- *   approved (sorted for stable output).
+ *   — the subset of the mutation manifest that was applied.
+ * @param {string[]} args.approvedGroups — the phase groups whose mutations
+ *   landed (sorted for stable output). Field name predates Story #5007's
+ *   removal of the phased-approval gate; the ledger record shape is a
+ *   consumer contract read back by `mandrel uninstall`, so it is unchanged.
  * @param {{ owner?: string, repo?: string }} [args.answers]
  * @param {string} [args.appliedAt] — ISO-8601 timestamp (default: now).
  * @param {Record<string, { action?: string }>} [args.report] — the live

@@ -11,9 +11,9 @@
 //   - `spliceRegion` inserts the block after `## Top-level shape` when the
 //     markers are absent.
 //   - `spliceRegion` throws when only one marker is present.
-//   - Spawning the binary in `--check` mode against an up-to-date doc
-//     exits 0; against a doctored doc it exits non-zero with the diff
-//     hint.
+//   - Spawning the binary in `--check` mode against up-to-date artifacts
+//     exits 0; against a doctored doc it exits non-zero naming the stale
+//     artifact and the regenerate command.
 
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
@@ -48,7 +48,6 @@ function stubSection(description) {
 }
 
 const SYNTHETIC_SCHEMA = {
-  $defs: {},
   type: 'object',
   properties: {
     project: {
@@ -65,6 +64,7 @@ const SYNTHETIC_SCHEMA = {
     github: stubSection('GitHub provider config.'),
     planning: stubSection('Planning workflow config.'),
     delivery: stubSection('Delivery workflow config.'),
+    qa: stubSection('QA harness config.'),
   },
 };
 
@@ -177,7 +177,7 @@ describe('generate-config-docs CLI --check', () => {
         assert.notEqual(res.status, 0, 'expected non-zero exit on stale doc');
         assert.match(
           res.stderr,
-          /generate-config-docs\.js.*regenerate/i,
+          /drifted from the runtime schema[\s\S]*regenerate/i,
           `expected regenerate hint in stderr; got: ${res.stderr}`,
         );
       } finally {

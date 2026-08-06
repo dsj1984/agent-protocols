@@ -2,18 +2,18 @@
 //
 // Contract-tier coverage for the opt-in `delivery.refactorStage` config key
 // (Story #3430, Epic #3418). Asserts the key is recognized by the runtime
-// AJV schema and its static JSON-Schema mirror, that the two agree on shape
-// (mirror-drift contract), and that an unset key resolves to `false` via the
-// framework defaults in `.agents/docs/agentrc-reference.json`.
+// AJV schema and the generated JSON-Schema mirror, that the two agree on
+// shape, and that an unset key resolves to `false` via the framework defaults
+// in `.agents/docs/agentrc-reference.json`.
 
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import Ajv from 'ajv';
 import Ajv2020 from 'ajv/dist/2020.js';
 import addFormats from 'ajv-formats';
-import { readSchema } from '../../.agents/scripts/generate-config-docs.js';
 import {
   getAgentrcDefaults,
   lookupPath,
@@ -36,12 +36,12 @@ const REQ = Object.freeze({
   },
 });
 
-// Runtime AJV schema (authoritative) + static JSON-Schema mirror (advisory).
+// Runtime AJV schema (authoritative) + the mirror generated from it.
 const runtimeAjv = new Ajv({ allErrors: true });
 addFormats(runtimeAjv);
 const runtimeValidator = runtimeAjv.compile(AGENTRC_SCHEMA);
 
-const mirror = readSchema(MIRROR_PATH);
+const mirror = JSON.parse(readFileSync(MIRROR_PATH, 'utf8'));
 const ajv2020 = new Ajv2020({ allErrors: true });
 addFormats(ajv2020);
 const mirrorValidator = ajv2020.compile(mirror);

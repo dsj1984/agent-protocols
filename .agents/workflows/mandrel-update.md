@@ -150,22 +150,22 @@ in Step 5). Full procedure:
 node .agents/scripts/apply-quality-bootstrap.js
 ```
 
-Runs the same idempotent installs the quality-gates phase of
-[`bootstrap.js`](../scripts/bootstrap.js) uses — `applyQualityBootstrap`
-then `migrateBaselinesLayout` — and prints a `{ quality, baselines }` JSON
-envelope. The four quality-bootstrap outcomes: **helper** (materialize
+Runs the same idempotent install the quality-gates phase of
+[`bootstrap.js`](../scripts/bootstrap.js) uses — `applyQualityBootstrap` —
+and prints a `{ quality }` JSON envelope. The five quality-bootstrap
+outcomes: **helper** (materialize
 [`code-quality-guardrails.md`](helpers/code-quality-guardrails.md)),
 **hook** (install the `.husky/pre-commit` diff-scoped `quality:preview`
 invocation — a pre-existing **custom hook is never overwritten silently**;
 the action is `custom-hook-skip` and the helper returns the snippet to
 append by hand), **scripts** (backfill `quality:preview` /
 `quality:watch` only when absent), **config** (seed missing
-`delivery.quality.*` defaults — operator overrides survive). The baselines
-step migrates legacy per-Epic snapshot layouts into the ephemeral
-`temp/epic/<id>/baselines/` namespace when upgrading from pre-v2 shapes; the
-main-tracked root baselines are never touched. A second run reports
-`no-change` on every path — the idempotence contract this workflow
-requires.
+`delivery.quality.*` defaults — operator overrides survive), and
+**legacyBaselines** (`git rm` a committed pre-v2 `baselines/epic/` tree —
+the Story-only v2 model retired every reader of those per-Epic snapshots;
+the main-tracked root baselines are never touched). A second run reports
+`no-change` / `already-present` / `absent` on every path — the idempotence
+contract this workflow requires.
 
 ## Step 3.6 — Refresh the harness permission allowlist
 

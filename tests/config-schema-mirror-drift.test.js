@@ -7,6 +7,11 @@ import Ajv from 'ajv';
 import Ajv2020 from 'ajv/dist/2020.js';
 import addFormats from 'ajv-formats';
 import {
+  buildArtifacts,
+  buildMirrorSchema,
+  canonicalJson,
+} from '../.agents/scripts/generate-config-docs.js';
+import {
   BASELINE_SCHEMA_FILES,
   BASELINE_SCHEMAS_DIR,
   buildBaselineSchemaAjv,
@@ -14,16 +19,26 @@ import {
 import { AGENTRC_SCHEMA } from '../.agents/scripts/lib/config-settings-schema.js';
 
 // ---------------------------------------------------------------------------
-// Behavioural drift test — directionality contract.
+// Generator-fidelity test (Story #5007), replacing the hand-parity drift test.
 //
-// Authoritative direction: AJV → mirror. The runtime AJV schema in
-// config-settings-schema.js is the SOURCE OF TRUTH; the static
-// .agents/schemas/agentrc.schema.json file is an ADVISORY human-readable
-// mirror. When the two diverge, the AJV side wins and the mirror MUST be
-// updated to match — never the other way around.
+// Until #5007 `.agents/schemas/agentrc.schema.json` was a hand-maintained
+// 60KB copy of the runtime AJV schema, and ~900 lines here sampled config
+// documents through both validators to prove the copy had not drifted. The
+// mirror is now a serialization of `AGENTRC_SCHEMA` emitted by
+// `generate-config-docs.js`, so the drift class is structurally gone and what
+// is left to prove is narrower and stronger:
 //
-// Post-reshape (Epic #1720 Story #1739) the doc-level schema validates
-// the four top-level blocks {project, github, planning, delivery}.
+//   1. The on-disk artifacts match what the generator emits right now.
+//   2. Generation is deterministic (two runs, identical bytes).
+//   3. The emitted mirror still compiles as JSON Schema 2020-12 — the dialect
+//      every consumer editor resolves it under — and still agrees with the
+//      runtime draft-07 validator on real documents. Serializing one object
+//      into two dialects is where a genuine divergence could still hide.
+//   4. The generator FAILS on injected drift, so a green run means "checked",
+//      not "the comparator is inert".
+//
+// The `--check` mode asserted here is wired into `npm run docs:check`, hence
+// `npm run lint`, hence the `lint` required check on every PR.
 // ---------------------------------------------------------------------------
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -33,6 +48,13 @@ const MIRROR_PATH = path.resolve(
   '.agents',
   'schemas',
   'agentrc.schema.json',
+);
+const REFERENCE_PATH = path.resolve(
+  __dirname,
+  '..',
+  '.agents',
+  'docs',
+  'agentrc-reference.json',
 );
 
 const mirror = JSON.parse(readFileSync(MIRROR_PATH, 'utf8'));
@@ -45,941 +67,232 @@ const runtimeAjv = new Ajv({ allErrors: true });
 addFormats(runtimeAjv);
 const runtimeValidator = runtimeAjv.compile(AGENTRC_SCHEMA);
 
+/** Minimal document that satisfies the one required top-level block. */
 const REQ = Object.freeze({
-  project: Object.freeze({
-    paths: Object.freeze({
-      agentRoot: '.agents',
-      docsRoot: 'docs',
-      tempRoot: 'temp',
-    }),
-  }),
+  project: {
+    paths: { agentRoot: '.agents', docsRoot: 'docs', tempRoot: 'temp' },
+  },
 });
 
 const assertAgree = (value, label) => {
   const runtimeOk = runtimeValidator(value);
   const mirrorOk = mirrorValidator(value);
-  let directionalHint = '';
-  if (runtimeOk && !mirrorOk) {
-    directionalHint =
-      ' Static JSON Schema mirror rejects an input the runtime AJV schema accepts.' +
-      ' The AJV schema is authoritative; update .agents/schemas/agentrc.schema.json to match.';
-  } else if (!runtimeOk && mirrorOk) {
-    directionalHint =
-      ' Static JSON Schema mirror accepts an input the runtime AJV schema rejects.' +
-      ' The AJV schema is authoritative; tighten .agents/schemas/agentrc.schema.json to match.';
-  }
   assert.equal(
     mirrorOk,
     runtimeOk,
-    `${label}: runtime=${runtimeOk} mirror=${mirrorOk}.${directionalHint}`,
+    `${label}: runtime AJV says ${runtimeOk}, generated 2020-12 mirror says ${mirrorOk}. ` +
+      'The mirror is a serialization of the runtime schema, so a disagreement means the two ' +
+      'dialects read the same keywords differently — not that the mirror is stale.',
   );
 };
 
-describe('agentrc.schema.json mirror — drift vs runtime AJV schema', () => {
-  it('mirror exposes the four top-level blocks under $defs', () => {
-    for (const def of ['project', 'github', 'planning', 'delivery']) {
-      assert.ok(mirror.$defs[def], `mirror is missing $defs.${def}`);
-    }
+describe('generated config artifacts — freshness', () => {
+  it('every artifact on disk matches what the generator emits', () => {
+    const stale = buildArtifacts()
+      .filter((a) => a.stale)
+      .map((a) => a.name);
+    assert.deepEqual(
+      stale,
+      [],
+      'Generated config artifact(s) are stale. Run `npm run docs:gen`.',
+    );
   });
 
-  it('mirror references a draft 2020-12 $schema', () => {
+  it('generation is deterministic — two runs emit identical bytes', () => {
+    const first = buildArtifacts().map((a) => a.generated);
+    const second = buildArtifacts().map((a) => a.generated);
+    assert.deepEqual(second, first);
+  });
+
+  it('--check reports drift when the runtime schema gains a key', () => {
+    // Reproduce the Epic #4131 failure class in reverse: a runtime key the
+    // published mirror does not carry. The generator must call it stale
+    // rather than reporting clean.
+    const drifted = structuredClone(AGENTRC_SCHEMA);
+    drifted.properties.delivery.properties.execution.properties.retryLimit = {
+      type: 'integer',
+    };
+    const stale = buildArtifacts({ schema: drifted })
+      .filter((a) => a.stale)
+      .map((a) => a.name);
+    assert.ok(
+      stale.includes('mirror schema'),
+      `expected the mirror to be reported stale, got ${JSON.stringify(stale)}`,
+    );
+    assert.ok(
+      stale.includes('configuration.md key table'),
+      `expected the key table to be reported stale, got ${JSON.stringify(stale)}`,
+    );
+  });
+
+  it('--check reports drift when a default annotation moves', () => {
+    const drifted = structuredClone(AGENTRC_SCHEMA);
+    drifted.properties.delivery.properties.acceptanceEval.properties.maxRounds.default = 9;
+    const stale = buildArtifacts({ schema: drifted })
+      .filter((a) => a.stale)
+      .map((a) => a.name);
+    assert.ok(
+      stale.includes('defaults inventory'),
+      `expected the defaults inventory to be reported stale, got ${JSON.stringify(stale)}`,
+    );
+  });
+
+  it('the on-disk mirror is byte-equal to the serialized runtime schema', () => {
+    // Whitespace-insensitive, key-order-sensitive: the on-disk file is
+    // Biome-formatted after the generator writes it.
+    assert.equal(
+      canonicalJson(JSON.parse(readFileSync(MIRROR_PATH, 'utf8'))),
+      canonicalJson(buildMirrorSchema(AGENTRC_SCHEMA)),
+    );
+  });
+
+  it('the mirror carries no $defs — it inlines the runtime schema', () => {
+    assert.equal(mirror.$defs, undefined);
     assert.equal(
       mirror.$schema,
       'https://json-schema.org/draft/2020-12/schema',
     );
-  });
-
-  it('accepts a minimal valid doc on both sides', () => {
-    assertAgree({ ...REQ }, 'minimal valid doc');
-  });
-
-  it('accepts a populated doc on both sides', () => {
-    assertAgree(
-      {
-        project: {
-          baseBranch: 'main',
-          paths: REQ.project.paths,
-          docsContextFiles: ['architecture.md'],
-          commands: {
-            test: 'npm test',
-            typecheck: null,
-            formatCheck: 'npx biome format .',
-            formatWrite: 'npx biome format --write .',
-          },
-        },
-        github: {
-          owner: 'dsj1984',
-          repo: 'mandrel',
-          operatorHandle: '@dsj1984',
-          branchProtection: {
-            enforce: true,
-            requiredChecks: [{ name: 'lint', cmd: ['npm', 'run', 'lint'] }],
-          },
-          mergeMethods: { allow_squash_merge: true },
-          notifications: {
-            mentionOperator: false,
-            commentEvents: ['state-transition'],
-            webhookEvents: ['story-merged', 'loop.tick'],
-          },
-        },
-        planning: {
-          riskHeuristics: ['no destructive ops'],
-        },
-        delivery: {
-          execution: { timeoutMs: 600000 },
-          docsFreshness: { paths: ['README.md'] },
-          deliverRunner: { concurrencyCap: 3 },
-          worktreeIsolation: {
-            enabled: true,
-            root: '.worktrees',
-            nodeModulesStrategy: 'per-worktree',
-          },
-          signals: {
-            rework: { editsPerFile: 5 },
-            retry: { repeatCount: 3 },
-          },
-          quality: {
-            gateScoping: { scope: 'diff', diffRef: 'main' },
-            gates: {
-              coverage: {
-                enabled: true,
-                baselinePath: 'baselines/coverage.json',
-                tolerance: { kind: 'absolute', value: 0 },
-                floors: { '*': { lines: 90, branches: 85, functions: 90 } },
-                coveragePath: 'coverage/coverage-final.json',
-              },
-              crap: {
-                enabled: true,
-                baselinePath: 'baselines/crap.json',
-                tolerance: { kind: 'absolute', value: 0.05 },
-                floors: { '*': { max: 30, p95: 20, methodsAbove20: 50 } },
-                targetDirs: ['src'],
-                newMethodCeiling: 30,
-                requireCoverage: true,
-              },
-              maintainability: {
-                enabled: true,
-                baselinePath: 'baselines/maintainability.json',
-                tolerance: { kind: 'absolute', value: 0.5 },
-                floors: { '*': { maintainability: 70 } },
-                targetDirs: ['src'],
-              },
-            },
-            codingGuardrails: {
-              cyclomaticFlag: 8,
-              cyclomaticMustFix: 12,
-              requireSiblingTest: false,
-            },
-          },
-        },
-      },
-      'fully populated doc',
-    );
-  });
-
-  it('rejects the retired planning.context block on both sides (Story #4541)', () => {
-    assertAgree(
-      { ...REQ, planning: { context: { maxBytes: 50000 } } },
-      'retired planning.context.maxBytes',
-    );
-    assertAgree(
-      { ...REQ, planning: { context: { summaryMode: 'auto' } } },
-      'retired planning.context.summaryMode',
-    );
-  });
-
-  it('rejects the retired miDropMustRefactor / miDropCap keys on both sides (Story #4531)', () => {
-    assertAgree(
-      {
-        ...REQ,
-        delivery: {
-          quality: { codingGuardrails: { miDropMustRefactor: 1.5 } },
-        },
-      },
-      'retired codingGuardrails.miDropMustRefactor',
-    );
-    assertAgree(
-      {
-        ...REQ,
-        delivery: { quality: { autoRefresh: { miDropCap: 1.5 } } },
-      },
-      'retired autoRefresh.miDropCap',
-    );
-  });
-
-  it('rejects the retired planning.complexityGate.maxSeedWords knob on both sides (Story #4722)', () => {
-    // Word-count complexity routing was hard-cutover-removed; both schemas
-    // carry `additionalProperties: false` on the complexityGate block, so
-    // the retired knob is rejected identically on both sides while the
-    // surviving keys stay accepted.
-    assertAgree(
-      { ...REQ, planning: { complexityGate: { maxSeedWords: 200 } } },
-      'retired planning.complexityGate.maxSeedWords knob',
-    );
-    assertAgree(
-      {
-        ...REQ,
-        planning: { complexityGate: { enabled: true, maxArtifacts: 2 } },
-      },
-      'surviving complexityGate keys',
-    );
-  });
-
-  it('rejects the removed planning.maxTickets knob on both sides (Story #4163)', () => {
-    // `maxTickets` collapsed to a framework constant; both the runtime AJV
-    // schema and the static mirror dropped it, so `additionalProperties:
-    // false` on the planning block rejects it identically on both sides.
-    assertAgree(
-      { ...REQ, planning: { maxTickets: 60 } },
-      'removed planning.maxTickets knob',
-    );
-  });
-
-  it('accepts per-component globs under gates.<kind>.components (Story #1892)', () => {
-    assertAgree(
-      {
-        ...REQ,
-        delivery: {
-          quality: {
-            gates: {
-              coverage: {
-                baselinePath: 'baselines/coverage.json',
-                floors: { '*': { lines: 80 } },
-                components: {
-                  app: ['src/app/**'],
-                  worker: ['src/worker/**'],
-                },
-              },
-            },
-          },
-        },
-      },
-      'per-component globs',
-    );
-  });
-
-  it('accepts new rollup-keyed floors (Story #1892)', () => {
-    assertAgree(
-      {
-        ...REQ,
-        delivery: {
-          quality: {
-            gates: {
-              crap: {
-                baselinePath: 'baselines/crap.json',
-                floors: { '*': { p95: 5, perMethod: 30 } },
-              },
-              maintainability: {
-                baselinePath: 'baselines/maintainability.json',
-                floors: { '*': { min: 50, p50: 80 } },
-              },
-              mutation: {
-                baselinePath: 'baselines/mutation.json',
-                floors: { '*': { score: 70 } },
-              },
-              lint: {
-                baselinePath: 'baselines/lint.json',
-                floors: { '*': { errorCount: 0, warningCount: 0 } },
-              },
-            },
-          },
-        },
-      },
-      'rollup-keyed floors',
-    );
-  });
-
-  it('accepts delivery.acceptanceEval.maxRounds on both sides (Story #3819)', () => {
-    assertAgree(
-      {
-        ...REQ,
-        delivery: { acceptanceEval: { maxRounds: 3 } },
-      },
-      'acceptanceEval.maxRounds',
-    );
-  });
-
-  it('rejects delivery.acceptanceEval.maxRounds below 1 on both sides (Story #3819)', () => {
-    assertAgree(
-      {
-        ...REQ,
-        delivery: { acceptanceEval: { maxRounds: 0 } },
-      },
-      'acceptanceEval.maxRounds minimum 1',
-    );
-  });
-
-  it('rejects an unknown key under delivery.acceptanceEval on both sides (Story #3819)', () => {
-    assertAgree(
-      {
-        ...REQ,
-        delivery: { acceptanceEval: { enabled: true } },
-      },
-      'acceptanceEval has no enabled flag (always-on hard cutover)',
-    );
-  });
-
-  it('accepts delivery.codeReview.autoFixSeverity on both sides (Story #4399)', () => {
-    assertAgree(
-      {
-        ...REQ,
-        delivery: {
-          codeReview: { autoFixSeverity: 'medium' },
-        },
-      },
-      'autoFixSeverity high|medium',
-    );
-  });
-
-  it('rejects delivery.epicAudit on both sides (removed on v2)', () => {
-    assertAgree(
-      {
-        ...REQ,
-        delivery: {
-          epicAudit: { autoFixSeverity: 'high' },
-        },
-      },
-      'removed delivery.epicAudit block',
-    );
-  });
-
-  it('rejects an unknown autoFixSeverity value on both sides (Story #4399)', () => {
-    assertAgree(
-      {
-        ...REQ,
-        delivery: { codeReview: { autoFixSeverity: 'low' } },
-      },
-      'autoFixSeverity enum high|medium only',
-    );
-  });
-
-  it('rejects delivery.maxTokenBudget on both sides (framework constant)', () => {
-    assertAgree(
-      {
-        ...REQ,
-        delivery: { maxTokenBudget: 200000 },
-      },
-      'removed delivery.maxTokenBudget knob',
-    );
-  });
-
-  it('rejects delivery.preflight on both sides (module removed)', () => {
-    assertAgree(
-      {
-        ...REQ,
-        delivery: { preflight: { maxStories: 100 } },
-      },
-      'removed delivery.preflight block',
-    );
-  });
-
-  it('rejects delivery.ci.earlyPr on both sides (Story #4356)', () => {
-    assertAgree(
-      {
-        ...REQ,
-        delivery: { ci: { earlyPr: false } },
-      },
-      'removed delivery.ci.earlyPr knob',
-    );
-  });
-
-  it('rejects delivery.ci.requireChecks on both sides (Story #4356)', () => {
-    assertAgree(
-      {
-        ...REQ,
-        delivery: { ci: { requireChecks: true } },
-      },
-      'removed delivery.ci.requireChecks knob',
-    );
-  });
-
-  it('rejects legacy agentSettings on both sides', () => {
-    assertAgree(
-      { agentSettings: { paths: REQ.project.paths } },
-      'legacy agentSettings',
-    );
-  });
-
-  it('rejects legacy orchestration on both sides', () => {
-    assertAgree(
-      { ...REQ, orchestration: { provider: 'github' } },
-      'legacy orchestration',
-    );
-  });
-
-  it('rejects unknown top-level keys on both sides', () => {
-    assertAgree({ ...REQ, mystery: true }, 'unknown top-level key');
-  });
-
-  it('rejects shell-injection in project.baseBranch on both sides', () => {
-    assertAgree(
-      { project: { ...REQ.project, baseBranch: 'main; rm -rf /' } },
-      'shell injection in baseBranch',
-    );
-  });
-
-  it('rejects unknown property under project.commands on both sides', () => {
-    assertAgree(
-      {
-        project: { ...REQ.project, commands: { build: 'npm run build' } },
-      },
-      'commands typo (build dropped)',
-    );
-  });
-
-  it('rejects renamed-away miDropRefactor on both sides', () => {
-    assertAgree(
-      {
-        ...REQ,
-        delivery: {
-          quality: { codingGuardrails: { miDropRefactor: 1.5 } },
-        },
-      },
-      'renamed codingGuardrails field',
-    );
-  });
-
-  it('rejects dropped halsteadTolerance on both sides', () => {
-    assertAgree(
-      {
-        ...REQ,
-        delivery: {
-          quality: { gates: { maintainability: { halsteadTolerance: 0.1 } } },
-        },
-      },
-      'dropped halsteadTolerance',
-    );
-  });
-
-  it('rejects scalar tolerance on both sides (object shape only)', () => {
-    assertAgree(
-      {
-        ...REQ,
-        delivery: { quality: { gates: { crap: { tolerance: 0.05 } } } },
-      },
-      'scalar tolerance migrated to { kind, value }',
-    );
-  });
-
-  it('rejects floors without the catch-all key on both sides', () => {
-    assertAgree(
-      {
-        ...REQ,
-        delivery: {
-          quality: {
-            gates: { coverage: { floors: { 'packages/web': { lines: 90 } } } },
-          },
-        },
-      },
-      "floors require '*' catch-all",
-    );
-  });
-
-  it('rejects coveragePath on the CRAP gate (moved to coverage)', () => {
-    assertAgree(
-      {
-        ...REQ,
-        delivery: {
-          quality: {
-            gates: { crap: { coveragePath: 'coverage/coverage-final.json' } },
-          },
-        },
-      },
-      'coveragePath ownership moved to coverage gate',
-    );
-  });
-
-  it('rejects dropped signals.hotspot on both sides', () => {
-    assertAgree(
-      {
-        ...REQ,
-        delivery: { signals: { hotspot: { p95Multiplier: 1.25 } } },
-      },
-      'dropped signals.hotspot',
-    );
-  });
-
-  it('rejects dropped signals.churn on both sides', () => {
-    assertAgree(
-      {
-        ...REQ,
-        delivery: { signals: { churn: { repeatCount: 4 } } },
-      },
-      'dropped signals.churn',
-    );
-  });
-
-  it('rejects legacy deliverRunner.enabled on both sides', () => {
-    assertAgree(
-      {
-        ...REQ,
-        delivery: { deliverRunner: { enabled: true } },
-      },
-      'dropped deliverRunner.enabled',
-    );
-  });
-
-  it('rejects planning.modelCapacity on both sides (framework constant)', () => {
-    assertAgree(
-      {
-        ...REQ,
-        planning: {
-          modelCapacity: {
-            softSessionTokens: 20000,
-            hardSessionTokens: 60000,
-          },
-        },
-      },
-      'collapsed planning.modelCapacity key',
-    );
-  });
-
-  it('rejects the retired planning.taskSizing key on both sides (v2 Stage 2)', () => {
-    assertAgree(
-      {
-        ...REQ,
-        planning: {
-          taskSizing: {
-            softFiles: 15,
-            hardFiles: 30,
-          },
-        },
-      },
-      'retired planning.taskSizing key',
-    );
-  });
-
-  it('rejects worktreeIsolation without root when enabled is true on both sides', () => {
-    assertAgree(
-      {
-        ...REQ,
-        delivery: { worktreeIsolation: { enabled: true } },
-      },
-      'conditional root required when enabled=true',
-    );
-  });
-
-  // -------------------------------------------------------------------------
-  // qa block — agent-driven QA harness contract (Epic #3214, Story #3293).
-  // -------------------------------------------------------------------------
-
-  it('accepts a well-formed qa block with url-template signInSeam on both sides (Story #3293)', () => {
-    assertAgree(
-      {
-        ...REQ,
-        qa: {
-          featureRoot: 'tests/features',
-          fixturesManifest: 'tests/fixtures/manifest.json',
-          signInSeam: { urlTemplate: 'https://app.test/login?as=admin' },
-          personas: {
-            admin: { credentialRef: 'env:ADMIN_CREDS' },
-            member: { signInSkill: 'stack/qa/sign-in' },
-          },
-          consoleAllowlist: ['ResizeObserver loop limit exceeded'],
-          designTokens: 'design/tokens.json',
-        },
-      },
-      'qa block with url-template signInSeam',
-    );
-  });
-
-  it('accepts a qa block with skill signInSeam on both sides (Story #3293)', () => {
-    assertAgree(
-      {
-        ...REQ,
-        qa: {
-          featureRoot: 'tests/features',
-          signInSeam: { skill: 'stack/qa/sign-in' },
-        },
-      },
-      'qa block with skill signInSeam',
-    );
-  });
-
-  it('rejects a qa signInSeam that is neither url-template nor skill on both sides (Story #3293)', () => {
-    assertAgree(
-      {
-        ...REQ,
-        qa: { signInSeam: { token: 'inline-secret' } },
-      },
-      'qa signInSeam neither variant',
-    );
-  });
-
-  it('rejects a qa signInSeam that satisfies both variants on both sides (Story #3293)', () => {
-    assertAgree(
-      {
-        ...REQ,
-        qa: {
-          signInSeam: {
-            urlTemplate: 'https://app.test/login',
-            skill: 'stack/qa/sign-in',
-          },
-        },
-      },
-      'qa signInSeam both variants (oneOf rejects)',
-    );
-  });
-
-  it('rejects shell-injection in qa.featureRoot on both sides (Story #3293)', () => {
-    assertAgree(
-      {
-        ...REQ,
-        qa: { featureRoot: 'tests/features; rm -rf /' },
-      },
-      'shell injection in qa.featureRoot',
-    );
-  });
-
-  it('rejects shell-injection in qa.fixturesManifest on both sides (Story #3293)', () => {
-    assertAgree(
-      {
-        ...REQ,
-        qa: { fixturesManifest: 'fixtures/$(whoami).json' },
-      },
-      'shell injection in qa.fixturesManifest',
-    );
-  });
-
-  it('rejects shell-injection in qa.designTokens on both sides (Story #3293)', () => {
-    assertAgree(
-      {
-        ...REQ,
-        qa: { designTokens: 'tokens.json && cat /etc/passwd' },
-      },
-      'shell injection in qa.designTokens',
-    );
-  });
-
-  it('rejects an unknown key inside the qa block on both sides (Story #3293)', () => {
-    assertAgree(
-      {
-        ...REQ,
-        qa: { mystery: true },
-      },
-      'unknown key in qa block',
-    );
-  });
-
-  it('accepts a name-only personas array on both sides (Story #3306)', () => {
-    assertAgree(
-      {
-        ...REQ,
-        qa: {
-          featureRoot: 'tests/features',
-          fixturesManifest: 'tests/fixtures/manifest.json',
-          signInSeam: { urlTemplate: '/dev/sign-in-as/{persona}' },
-          personas: ['athlete', 'coach', 'org-admin'],
-        },
-      },
-      'qa block with name-only personas array',
-    );
-  });
-
-  it('accepts the object-map personas form on both sides (Story #3306)', () => {
-    assertAgree(
-      {
-        ...REQ,
-        qa: {
-          signInSeam: { skill: 'stack/qa/sign-in' },
-          personas: {
-            admin: { credentialRef: 'env:ADMIN_CREDS' },
-            member: { signInSkill: 'stack/qa/sign-in-member' },
-          },
-        },
-      },
-      'qa block with object-map personas',
-    );
-  });
-
-  it('rejects an empty personas array on both sides (Story #3306)', () => {
-    assertAgree(
-      {
-        ...REQ,
-        qa: { personas: [] },
-      },
-      'empty personas array (minItems)',
-    );
-  });
-
-  it('rejects an empty personas object-map on both sides (Story #3306)', () => {
-    assertAgree(
-      {
-        ...REQ,
-        qa: { personas: { admin: {} } },
-      },
-      'object-map persona without auth material',
-    );
-  });
-
-  it('rejects a blank persona name in the array on both sides (Story #3306)', () => {
-    assertAgree(
-      {
-        ...REQ,
-        qa: { personas: [''] },
-      },
-      'blank persona name (minLength)',
-    );
-  });
-
-  it('rejects shell-injection in a name-only persona on both sides (Story #3306)', () => {
-    assertAgree(
-      {
-        ...REQ,
-        qa: { personas: ['admin; rm -rf /'] },
-      },
-      'shell injection in name-only persona',
-    );
+    assert.match(mirror.description, /^GENERATED — do not edit/);
   });
 });
 
-// ---------------------------------------------------------------------------
-// Structural property-coverage parity test (Story #4146).
-//
-// The `assertAgree` cases above only catch drift on the *specific* inputs they
-// happen to feed both validators. They are blind to the failure shape that
-// matters most: a property documented in the published mirror
-// (`agentrc.schema.json`) that the runtime AJV validator rejects on load —
-// the Epic #4131 bug, where `planning.navigation` / `delivery.quality
-// .navigability` shipped into the mirror + docs but not the runtime schema, so
-// a consumer who set the documented key had their entire `.agentrc.json`
-// rejected (dead-on-arrival; fixed in PR #4142). No `assertAgree` case
-// exercised those keys, so the guard never tripped.
-//
-// This block closes that gap structurally. It walks BOTH schemas, deref'ing
-// local `$ref` pointers, and collects — for every `additionalProperties:false`
-// object block — the set of declared property keys, keyed by a structural path
-// that is identical across the inline (runtime) and `$ref` (mirror)
-// representations. It then asserts BIDIRECTIONAL parity: every closed block one
-// schema declares, the other must declare with the SAME key set. A property
-// present in the mirror but absent from the runtime validator (the #4131 shape)
-// — or the reverse — fails loudly here, independent of any sampled input.
-//
-// The two reproduce-the-bug cases mutate a deep copy of each real schema and
-// assert the comparator catches the injected divergence in each direction, so
-// the guard is proven load-bearing, not merely green on consistent input.
-// ---------------------------------------------------------------------------
+describe('generated mirror — cross-dialect agreement with the runtime AJV schema', () => {
+  it("accepts the shipped defaults inventory and this repo's own config", () => {
+    const reference = JSON.parse(readFileSync(REFERENCE_PATH, 'utf8'));
+    assertAgree(reference, 'agentrc-reference.json');
+    const own = JSON.parse(
+      readFileSync(path.resolve(__dirname, '..', '.agentrc.json'), 'utf8'),
+    );
+    assertAgree(own, '.agentrc.json');
+    assert.equal(runtimeValidator(own), true, 'this repo config must validate');
+  });
 
-/**
- * Resolve a local (`#/...`) `$ref` against the document root, following chained
- * refs and guarding against cycles. Non-local refs and non-ref nodes pass
- * through unchanged. Pure: returns a node from `root`, never mutates.
- */
-function derefLocal(node, root, seenRefs) {
-  if (node && typeof node === 'object' && typeof node.$ref === 'string') {
-    const ref = node.$ref;
-    if (!ref.startsWith('#/')) return node;
-    if (seenRefs.has(ref)) return node;
-    const segments = ref.slice(2).split('/');
-    let target = root;
-    for (const seg of segments) {
-      const key = seg.replace(/~1/g, '/').replace(/~0/g, '~');
-      target = target?.[key];
-    }
-    if (!target) return node;
-    return derefLocal(target, root, new Set([...seenRefs, ref]));
-  }
-  return node;
-}
+  it('agrees on the minimal valid document and on a missing required block', () => {
+    assertAgree(REQ, 'minimal valid');
+    assertAgree({}, 'missing project');
+    assertAgree({ project: {} }, 'project without paths');
+  });
 
-/**
- * Walk a JSON-Schema document and return a `Map<structuralPath, string[]>`
- * holding the sorted property-key set of every `additionalProperties:false`
- * object subschema. The path keys are built from `properties` names and
- * positional combinator/`items`/`additionalProperties` suffixes, so the inline
- * runtime schema and the `$ref`-based mirror produce identical keys for the
- * same logical block.
- */
-function collectClosedBlocks(schema, root) {
-  const out = new Map();
-  const visit = (rawNode, pathKey, seenRefs) => {
-    const node = derefLocal(rawNode, root, seenRefs);
-    if (!node || typeof node !== 'object') return;
-    const isObjectSchema =
-      node.type === 'object' ||
-      (node.properties && typeof node.properties === 'object');
-    if (isObjectSchema && node.additionalProperties === false) {
-      out.set(
-        pathKey,
-        node.properties ? Object.keys(node.properties).sort() : [],
+  it('agrees that unknown keys are rejected at every closed block', () => {
+    assertAgree({ ...REQ, nope: 1 }, 'unknown root key');
+    assertAgree(
+      { project: { ...REQ.project, nope: 1 } },
+      'unknown project key',
+    );
+    assertAgree({ ...REQ, delivery: { nope: 1 } }, 'unknown delivery key');
+    assertAgree(
+      { ...REQ, delivery: { quality: { gates: { nope: {} } } } },
+      'unknown gate tier',
+    );
+  });
+
+  it('agrees on the retired keys the v2 cutover rejects', () => {
+    for (const doc of [
+      { ...REQ, agentSettings: {} },
+      { ...REQ, orchestration: {} },
+      { ...REQ, planning: { context: { maxBytes: 1 } } },
+      { ...REQ, planning: { maxSeedWords: 10 } },
+      { ...REQ, planning: { codebaseSnapshot: {} } },
+      { ...REQ, planning: { modelCapacity: {} } },
+      { ...REQ, delivery: { lease: { ttlMs: 1 } } },
+      { ...REQ, delivery: { epicAudit: {} } },
+      { ...REQ, delivery: { ci: { earlyPr: true } } },
+      { ...REQ, delivery: { ci: { requireChecks: true } } },
+      { ...REQ, delivery: { deliverRunner: { clusterCeiling: 2 } } },
+      { ...REQ, project: { ...REQ.project, commands: { lintBaseline: 'x' } } },
+    ]) {
+      assertAgree(doc, `retired key ${JSON.stringify(doc).slice(0, 80)}`);
+      assert.equal(
+        runtimeValidator(doc),
+        false,
+        `a retired key must fail closed: ${JSON.stringify(doc).slice(0, 80)}`,
       );
     }
-    if (node.properties && typeof node.properties === 'object') {
-      for (const [key, sub] of Object.entries(node.properties)) {
-        visit(sub, `${pathKey}.${key}`, seenRefs);
-      }
-    }
-    if (
-      node.additionalProperties &&
-      typeof node.additionalProperties === 'object'
-    ) {
-      visit(
-        node.additionalProperties,
-        `${pathKey}.<additionalProperties>`,
-        seenRefs,
-      );
-    }
-    if (node.items && typeof node.items === 'object') {
-      visit(node.items, `${pathKey}[items]`, seenRefs);
-    }
-    for (const combinator of ['oneOf', 'anyOf', 'allOf']) {
-      if (Array.isArray(node[combinator])) {
-        node[combinator].forEach((sub, i) => {
-          visit(sub, `${pathKey}.${combinator}[${i}]`, seenRefs);
-        });
-      }
-    }
-    if (node.not && typeof node.not === 'object') {
-      visit(node.not, `${pathKey}.not`, seenRefs);
-    }
-  };
-  visit(schema, '$', new Set());
-  return out;
-}
-
-/**
- * Diff two closed-block maps and return the structural divergences as three
- * flat string arrays. An empty result on every axis means the two schemas
- * agree on every property path. The runtime schema is the authoritative
- * SOURCE (see the directionality note at the top of this file); the mirror
- * must match it.
- */
-function diffClosedBlocks(runtimeBlocks, mirrorBlocks) {
-  const runtimeKeys = new Set(runtimeBlocks.keys());
-  const mirrorKeys = new Set(mirrorBlocks.keys());
-  const onlyRuntime = [...runtimeKeys].filter((k) => !mirrorKeys.has(k)).sort();
-  const onlyMirror = [...mirrorKeys].filter((k) => !runtimeKeys.has(k)).sort();
-  const propMismatches = [];
-  for (const key of [...runtimeKeys].filter((k) => mirrorKeys.has(k)).sort()) {
-    const runtimeProps = runtimeBlocks.get(key).join(', ');
-    const mirrorProps = mirrorBlocks.get(key).join(', ');
-    if (runtimeProps !== mirrorProps) {
-      propMismatches.push(
-        `${key}: runtime={${runtimeProps}} mirror={${mirrorProps}}`,
-      );
-    }
-  }
-  return { onlyRuntime, onlyMirror, propMismatches };
-}
-
-describe('agentrc.schema.json mirror — structural property-coverage parity (Story #4146)', () => {
-  const runtimeBlocks = collectClosedBlocks(AGENTRC_SCHEMA, AGENTRC_SCHEMA);
-  const mirrorBlocks = collectClosedBlocks(mirror, mirror);
-
-  it('the walker discovers a non-trivial set of closed blocks on both sides', () => {
-    // Guards against a silently-empty walk (e.g. a deref regression) making
-    // every parity assertion below vacuously pass.
-    assert.ok(
-      runtimeBlocks.size >= 50,
-      `expected the runtime schema to expose many additionalProperties:false blocks, got ${runtimeBlocks.size}`,
-    );
-    assert.ok(
-      mirrorBlocks.size >= 50,
-      `expected the mirror to expose many additionalProperties:false blocks, got ${mirrorBlocks.size}`,
-    );
   });
 
-  it('no property path is accepted by the mirror but rejected by the runtime AJV schema (the Epic #4131 shape)', () => {
-    const { onlyMirror } = diffClosedBlocks(runtimeBlocks, mirrorBlocks);
-    assert.deepEqual(
-      onlyMirror,
-      [],
-      'Static JSON Schema mirror declares closed blocks the runtime AJV schema does not — ' +
-        'a consumer who sets these documented keys would have their .agentrc.json rejected on load ' +
-        '(Epic #4131 dead-on-arrival shape). Add the missing properties to the runtime schema in ' +
-        'config-settings-schema*.js. Divergent paths:\n  ' +
-        onlyMirror.join('\n  '),
+  it('agrees on the guards that are easy to get wrong across dialects', () => {
+    // Shell-injection guard (`not: { pattern }`).
+    assertAgree(
+      {
+        project: {
+          paths: { ...REQ.project.paths, tempRoot: 'temp; rm -rf /' },
+        },
+      },
+      'shell metacharacter in a safeString',
     );
-  });
-
-  it('no property path is accepted by the runtime AJV schema but omitted from the mirror', () => {
-    const { onlyRuntime } = diffClosedBlocks(runtimeBlocks, mirrorBlocks);
-    assert.deepEqual(
-      onlyRuntime,
-      [],
-      'Runtime AJV schema declares closed blocks the static mirror omits — the published ' +
-        'agentrc.schema.json no longer documents a key the runtime accepts. Add the missing ' +
-        'properties to .agents/schemas/agentrc.schema.json. Divergent paths:\n  ' +
-        onlyRuntime.join('\n  '),
+    // Nullable-but-non-empty command.
+    assertAgree(
+      { ...REQ, project: { ...REQ.project, commands: { typecheck: null } } },
+      'typecheck null',
     );
-  });
-
-  it('every shared closed block enumerates the same property keys on both sides', () => {
-    const { propMismatches } = diffClosedBlocks(runtimeBlocks, mirrorBlocks);
-    assert.deepEqual(
-      propMismatches,
-      [],
-      'A closed object block declares a different property-key set in the runtime schema vs the ' +
-        'mirror. Reconcile the two so they enumerate identical keys. Mismatches:\n  ' +
-        propMismatches.join('\n  '),
+    assertAgree(
+      { ...REQ, project: { ...REQ.project, commands: { typecheck: '' } } },
+      'typecheck empty string',
     );
-  });
-
-  // -------------------------------------------------------------------------
-  // Reproduce-the-bug fixtures (Story #4146 acceptance criteria 1 & 2).
-  //
-  // The current schemas agree, so the parity assertions above pass. These two
-  // cases prove the comparator actually FAILS on injected divergence — without
-  // them, the guard could pass purely because the schemas happen to be aligned
-  // today, never because it can detect drift. We deep-clone the real schemas,
-  // inject one divergence in each direction, and assert the diff reports it.
-  // -------------------------------------------------------------------------
-
-  const clone = (value) => JSON.parse(JSON.stringify(value));
-
-  it('FAILS when a property is present in the mirror but absent from the runtime (Epic #4131 reproduction)', () => {
-    // Arrange: a mirror that documents planning.navigation.depthLimit, a key
-    // the runtime validator does not accept (the #4131 dead-on-arrival shape).
-    const driftedMirror = clone(mirror);
-    driftedMirror.$defs.planning.properties.navigation.properties.depthLimit = {
-      type: 'integer',
-    };
-
-    // Act
-    const driftedMirrorBlocks = collectClosedBlocks(
-      driftedMirror,
-      driftedMirror,
+    // The list-or-extender union.
+    assertAgree(
+      { ...REQ, planning: { riskHeuristics: ['a'] } },
+      'riskHeuristics array form',
     );
-    const { onlyMirror, propMismatches } = diffClosedBlocks(
-      runtimeBlocks,
-      driftedMirrorBlocks,
+    assertAgree(
+      { ...REQ, planning: { riskHeuristics: { append: ['a'] } } },
+      'riskHeuristics extender form',
     );
-
-    // Assert: the comparator surfaces the planning.navigation block as a
-    // property-key mismatch (mirror has depthLimit, runtime does not).
-    assert.ok(
-      propMismatches.some((m) => m.includes('navigation')) ||
-        onlyMirror.length > 0,
-      `expected the comparator to flag the injected mirror-only key, but it reported clean. ` +
-        `onlyMirror=${JSON.stringify(onlyMirror)} propMismatches=${JSON.stringify(propMismatches)}`,
+    assertAgree(
+      { ...REQ, planning: { riskHeuristics: { nope: ['a'] } } },
+      'riskHeuristics bad extender',
     );
-  });
-
-  it('FAILS for the reverse divergence — the runtime accepts a key the mirror omits', () => {
-    // Arrange: a runtime schema that accepts delivery.execution.retryLimit, a
-    // key the published mirror does not document.
-    const driftedRuntime = clone(AGENTRC_SCHEMA);
-    driftedRuntime.properties.delivery.properties.execution.properties.retryLimit =
-      { type: 'integer' };
-
-    // Act
-    const driftedRuntimeBlocks = collectClosedBlocks(
-      driftedRuntime,
-      driftedRuntime,
+    // The conditional `root`-required-when-enabled rule (allOf/if/then).
+    assertAgree(
+      { ...REQ, delivery: { worktreeIsolation: { enabled: true } } },
+      'worktreeIsolation enabled without root',
     );
-    const { onlyRuntime, propMismatches } = diffClosedBlocks(
-      driftedRuntimeBlocks,
-      mirrorBlocks,
+    assertAgree(
+      {
+        ...REQ,
+        delivery: { worktreeIsolation: { enabled: true, root: '.wt' } },
+      },
+      'worktreeIsolation enabled with root',
     );
-
-    // Assert: the comparator surfaces the delivery.execution block as a
-    // property-key mismatch (runtime has retryLimit, mirror does not).
-    assert.ok(
-      propMismatches.some((m) => m.includes('execution')) ||
-        onlyRuntime.length > 0,
-      `expected the comparator to flag the injected runtime-only key, but it reported clean. ` +
-        `onlyRuntime=${JSON.stringify(onlyRuntime)} propMismatches=${JSON.stringify(propMismatches)}`,
+    // uniqueItems + enum on the notification vocabularies.
+    assertAgree(
+      {
+        ...REQ,
+        github: {
+          owner: 'o',
+          repo: 'r',
+          operatorHandle: '@me',
+          notifications: { commentEvents: ['story-merged', 'story-merged'] },
+        },
+      },
+      'duplicate commentEvents',
     );
+    assertAgree(
+      {
+        ...REQ,
+        github: {
+          owner: 'o',
+          repo: 'r',
+          operatorHandle: '@me',
+          notifications: { commentEvents: ['loop.tick'] },
+        },
+      },
+      'webhook-only event on the comment channel',
+    );
+    // The qa map forms.
+    assertAgree(
+      { ...REQ, qa: { personas: ['admin'] } },
+      'qa personas array form',
+    );
+    assertAgree(
+      { ...REQ, qa: { personas: { admin: { credentialRef: 'X' } } } },
+      'qa personas map form',
+    );
+    assertAgree(
+      { ...REQ, qa: { personas: { admin: { nope: 'X' } } } },
+      'qa personas bad map entry',
+    );
+    assertAgree({ ...REQ, qa: { environments: {} } }, 'qa empty environments');
   });
 });
 

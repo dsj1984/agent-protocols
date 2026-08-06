@@ -1,14 +1,13 @@
 /**
- * bootstrap/manifest — single mutation-manifest source for the
- * consent-first phased install (Story #3521, Feature #3515, Epic #3438).
+ * bootstrap/manifest — single mutation-manifest source for the install
+ * ledger (Story #3521, Feature #3515, Epic #3438).
  *
  * `buildMutationManifest(ctx)` enumerates every mutation the bootstrap
- * pipeline can perform as a flat, declarative array. Each entry carries the
- * five fields the consent-first install screen needs to preview a change
- * before any write lands:
+ * pipeline can perform as a flat, declarative array. Each entry carries five
+ * fields:
  *
- *   - `phaseGroup` — one of the four independently-approvable groups
- *     (`ide-wiring`, `repo-config`, `github-admin`, `quality-gates`).
+ *   - `phaseGroup` — one of the four groups (`ide-wiring`, `repo-config`,
+ *     `github-admin`, `quality-gates`).
  *   - `target`     — the file path or remote resource the mutation touches.
  *   - `action`     — the verb describing the mutation (`create`, `merge`,
  *     `update`, `run`, `configure`).
@@ -17,16 +16,18 @@
  *     (e.g. delete a created file) vs. a remote-admin mutation that is not
  *     a simple local revert.
  *
- * The manifest is the SINGLE source of truth: `applyProjectBootstrap`'s
- * no-write preview is derived from `buildMutationManifest` so the preview
- * the operator approves and the execution that follows enumerate the exact
- * same set of mutations. There is no second, drift-prone list.
+ * Story #3690 replaced the consent-first phased-approval install screen with
+ * a plain summary+confirm loop, and Story #5007 removed the vestigial
+ * machinery it left behind (the no-write `previewMutationManifest` renderer
+ * and the `approvedGroups` set-threading). What survives is load-bearing:
+ * `recordLedger` filters these entries into the install ledger, and
+ * `mandrel uninstall` walks them — the `phaseGroup` string is the ledger's
+ * grouping key, not an approval gate.
  *
  * The manifest describes *intended* mutations deterministically from the
  * project root; it does not read or mutate any file. Whether a given
  * mutation is a no-op on a particular clone (the file already carries the
- * wiring) is decided at execution time by the idempotent `ensure*` steps —
- * the manifest always lists the full surface so the preview is complete.
+ * wiring) is decided at execution time by the idempotent `ensure*` steps.
  *
  * @module bootstrap/manifest
  */
@@ -34,9 +35,9 @@
 import path from 'node:path';
 
 /**
- * The four independently-approvable phase groups. The consent-first install
- * flow gates each group behind its own opt-in, so every manifest entry MUST
- * carry exactly one of these values.
+ * The four phase groups. Ledger/uninstall metadata only (Story #5007): every
+ * manifest entry MUST carry exactly one of these values so the install ledger
+ * can group and the uninstaller can select what a run actually landed.
  *
  * @type {Readonly<{ IDE_WIRING: 'ide-wiring', REPO_CONFIG: 'repo-config',
  *   GITHUB_ADMIN: 'github-admin', QUALITY_GATES: 'quality-gates' }>}
@@ -270,28 +271,4 @@ export function buildMutationManifest(ctx = {}) {
   }
 
   return entries;
-}
-
-/**
- * Render the manifest as a no-write preview report grouped by phase group.
- * Pure helper — derives entirely from {@link buildMutationManifest}, so the
- * preview and the executing pipeline enumerate one identical source.
- *
- * The returned shape is `{ preview: true, groups: { <phaseGroup>: entry[] },
- * entries: entry[] }`: callers that want the flat list read `entries`, and
- * the consent-first screen reads `groups` to render one approvable section
- * per phase group (only groups with at least one entry appear).
- *
- * @param {object} [ctx] — same context as {@link buildMutationManifest}.
- * @returns {{ preview: true, groups: Record<string, MutationManifestEntry[]>,
- *   entries: MutationManifestEntry[] }}
- */
-export function previewMutationManifest(ctx = {}) {
-  const entries = buildMutationManifest(ctx);
-  const groups = {};
-  for (const entry of entries) {
-    if (!groups[entry.phaseGroup]) groups[entry.phaseGroup] = [];
-    groups[entry.phaseGroup].push(entry);
-  }
-  return { preview: true, groups, entries };
 }

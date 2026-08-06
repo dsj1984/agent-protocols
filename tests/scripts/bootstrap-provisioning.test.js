@@ -201,7 +201,6 @@ describe('recordLedger — applied phase groups', () => {
       projectRoot: dir,
       flags,
       answers: { ...ANSWERS },
-      approvedGroups: new Set(Object.values(PHASE_GROUPS)),
       report,
     };
   }

@@ -726,19 +726,25 @@ function githubSubMutationsSucceeded(gh) {
   return true;
 }
 
-/** Phase groups whose mutations actually landed, for the install ledger. */
-function resolveAppliedGroups(approvedGroups, report) {
-  const applied = new Set();
-  for (const group of approvedGroups ?? []) {
-    if (group === PHASE_GROUPS.GITHUB_ADMIN) {
-      const gh = report?.github;
-      if (gh && !gh.error && !gh.skipped && githubSubMutationsSucceeded(gh)) {
-        applied.add(group);
-      }
-      continue;
-    }
-    applied.add(group);
-  }
+/**
+ * Phase groups whose mutations actually landed, for the install ledger.
+ *
+ * Every project-side group runs on every install (Story #3690 replaced the
+ * consent-first phased-approval install with a plain summary+confirm loop),
+ * so the only variable is whether the irreversible GitHub-admin mutations
+ * landed. Story #5007 collapsed the set-threading this used to carry down to
+ * that one boolean.
+ *
+ * @param {object|undefined} report — the live execution report.
+ * @returns {Set<string>}
+ */
+function resolveAppliedGroups(report) {
+  const applied = new Set(Object.values(PHASE_GROUPS));
+  const gh = report?.github;
+  const githubApplied = Boolean(
+    gh && !gh.error && !gh.skipped && githubSubMutationsSucceeded(gh),
+  );
+  if (!githubApplied) applied.delete(PHASE_GROUPS.GITHUB_ADMIN);
   return applied;
 }
 
@@ -1210,23 +1216,22 @@ export async function provisionResources(state, deps = {}) {
 }
 
 /**
- * Step 6a — Project-side bootstrap. With phased approval removed, all
- * project-side phase groups are treated as approved.
+ * Step 6a — Project-side bootstrap. Every project-side phase runs; the
+ * install ledger decides afterwards which phase groups actually landed
+ * ({@link resolveAppliedGroups}).
  */
 export async function executeBootstrap(state) {
   Logger.info(
     `[Bootstrap] Starting project bootstrap at ${state.projectRoot} (owner=${state.answers.owner} repo=${state.answers.repo} base=${state.answers.baseBranch})`,
   );
-  const approvedGroups = new Set(Object.values(PHASE_GROUPS));
   const report = await applyProjectBootstrap({
     projectRoot: state.projectRoot,
     agentRoot: state.agentRoot,
     answers: state.answers,
-    approvedGroups,
     withQuality: state.withQuality === true,
     withIssueForms: state.withIssueForms === true,
   });
-  return { ok: true, payload: { report, approvedGroups } };
+  return { ok: true, payload: { report } };
 }
 
 /**
@@ -1293,22 +1298,19 @@ export async function executeGithubBootstrap(state) {
 
 /** Step 6c — Record the install ledger for a future uninstall. */
 export function recordLedger(state) {
-  const appliedGroups = resolveAppliedGroups(
-    state.approvedGroups,
-    state.report,
-  );
+  const appliedGroups = resolveAppliedGroups(state.report);
   const manifestCtx = {
     answers: state.answers,
     skipGithub: Boolean(state.flags['skip-github']),
     withQuality: state.withQuality === true,
   };
+  // The manifest always carries the unconditional ide-wiring / repo-config
+  // entries and `appliedGroups` always contains those groups, so the filter
+  // never empties. (Story #5007 removed the phased-approval gate that was the
+  // only way to reach an empty set.)
   const entries = buildMutationManifest(manifestCtx).filter((e) =>
     appliedGroups.has(e.phaseGroup),
   );
-  if (entries.length === 0) {
-    state.report.ledger = { written: false, reason: 'no-mutations-applied' };
-    return { ok: true, payload: {} };
-  }
   const record = buildLedgerRecord({
     entries,
     approvedGroups: appliedGroups,
