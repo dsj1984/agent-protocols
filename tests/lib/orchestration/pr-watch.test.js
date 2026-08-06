@@ -1,7 +1,7 @@
-// tests/lib/orchestration/lifecycle/listener-watcher.test.js
+// tests/lib/orchestration/pr-watch.test.js
 /**
  * Unit tests for the PR CI-watch loop and its pure helpers
- * (Story #2256 / Task #2261; re-pointed by Story #5006).
+ * (Story #2256; re-pointed by Story #5006, re-homed by Story #5024).
  *
  * Acceptance contract:
  *   - Required-check names come from `gh pr checks --required` at
@@ -9,8 +9,9 @@
  *   - The loop polls until every check is terminal and returns the verdict.
  *     (Story #5006 deleted the `Watcher` bus listener that wrapped it — the
  *     `epic.watch.start` / `.end` emits and their schemas were already gone,
- *     so nothing drove it. The watch path has no bus-observable side
- *     effects and the returned verdict is the whole surface.)
+ *     so nothing drove it. Story #5024 retired the bus itself and re-homed
+ *     the primitive at `lib/orchestration/pr-watch.js`; the returned verdict
+ *     is the whole surface.)
  */
 
 import assert from 'node:assert/strict';
@@ -24,7 +25,7 @@ import {
   pollUntilTerminal,
   reduceOutcomes,
   watchPrToTerminal,
-} from '../../../../.agents/scripts/lib/orchestration/lifecycle/listeners/watcher.js';
+} from '../../../.agents/scripts/lib/orchestration/pr-watch.js';
 
 function quietLogger() {
   return { info: () => {}, warn: () => {}, debug: () => {} };

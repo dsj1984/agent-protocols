@@ -3,12 +3,11 @@
  *
  * Programmatic helper that appends a single `merge.unlanded` NDJSON
  * record to the lifecycle ledger whenever a headless delivery run
- * finishes its work without a confirmed merge. Pattern mirrors
- * `emit-story-heartbeat.js`: direct schema validation via Ajv followed by
- * a synchronous `appendFileSync` — this event is NOT routed through the
- * bus (unlike `emit-loop-tick.js`) because it fires from the standalone
- * `single-story-close` flow, which has no bus at all. A bare append keeps
- * the call site simple and dependency-free.
+ * finishes its work without a confirmed merge. Direct schema validation via
+ * Ajv followed by a synchronous `appendFileSync`: it fires from the standalone
+ * `single-story-close` flow, and a bare append keeps the call site simple and
+ * dependency-free. This was the shape that outlived the lifecycle bus — Story
+ * #5024 retired the bus, leaving this path the only lifecycle-ledger writer.
  *
  * Ledger destination (Story #4426 AC4): `storyLedgerPath(null, ticketId)`
  * — the standalone story-scope destination

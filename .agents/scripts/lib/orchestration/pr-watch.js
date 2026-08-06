@@ -1,18 +1,18 @@
-// .agents/scripts/lib/orchestration/lifecycle/listeners/watcher.js
+// .agents/scripts/lib/orchestration/pr-watch.js
 /**
- * watcher.js — the required-check poll loop for an open PR.
- * Story #2256 / Task #2261 (Epic #2172).
+ * pr-watch.js — the required-check poll loop for an open PR.
+ * Story #2256 (Epic #2172).
  *
- * **Not a listener.** This module shipped as the `Watcher` lifecycle
- * listener, subscribing to `pr.created` and recording each watch in an
- * in-memory `classifications` log. Story #5006 deleted the class: the
- * `epic.watch.*` bus events went with the Epic-orchestration stratum, so
- * nothing emitted `pr.created` at it and no chain registered it — the only
- * production consumer, `pr-watch-with-update.js`, has always driven
- * {@link watchPrToTerminal} directly, with no bus. What is left is that
- * plain primitive plus its pure parse/reduce helpers. The file keeps its
- * path so the CLI's import is stable; the directory's README records that
- * it is the one non-listener living there.
+ * **Not a listener, and no longer shelved among them.** This shipped as the
+ * `Watcher` lifecycle listener subscribing to `pr.created`. Story #5006
+ * deleted the class but left the plain primitive at
+ * `lifecycle/listeners/watcher.js` so its CLI consumer's import stayed
+ * stable. Story #5024 then retired the bus itself, which took the listener
+ * concept — and the `listeners/` directory — with it, so the primitive moved
+ * here beside [`merge-poll.js`](./merge-poll.js), the home Story #4545 chose
+ * for `MergeWatcher`'s surviving parts. The only production consumer,
+ * `pr-watch-with-update.js`, has always driven {@link watchPrToTerminal}
+ * directly, with no bus.
  *
  * Critical contract:
  *   - Required-check **names** are resolved from `gh pr checks` at
@@ -26,13 +26,13 @@
  *
  * Side-effect firewall: the loop shells out to `gh` through injectable
  * ports and returns a verdict. It does NOT mutate ticket labels, post
- * comments, call `notify`, or emit on the bus.
+ * comments, call `notify`, or write any ledger.
  */
 
 import { spawnSync } from 'node:child_process';
 
-import { parsePrNumberFromUrl } from '../../../github-url.js';
-import { applyBehindUpdate } from '../../behind-recovery.js';
+import { parsePrNumberFromUrl } from '../github-url.js';
+import { applyBehindUpdate } from './behind-recovery.js';
 
 /**
  * Map `gh pr checks` `state` values to the canonical lowercase outcome
@@ -115,8 +115,8 @@ export function normalizeCheckState(raw) {
 }
 
 /**
- * Parse a PR number out of a PR URL. The bus contract gives us
- * `pr.created.prUrl`; `gh pr checks` accepts either the URL or the
+ * Parse a PR number out of a PR URL. Callers hand in the URL `gh pr
+ * create` returned; `gh pr checks` accepts either the URL or the
  * number — we pass the URL through verbatim, but the helper still
  * exists for tests asserting we never silently coerce a malformed URL.
  *

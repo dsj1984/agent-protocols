@@ -1,18 +1,25 @@
 # Lifecycle event schemas
 
-JSON Schemas for the lifecycle event taxonomy consumed by the
-`/deliver` lifecycle bus
-(`lib/orchestration/lifecycle/bus.js`). The bus validates every
-emit payload against one of these schemas before invoking
-listeners; a schema mismatch fails the emit and propagates the
-throw.
+JSON Schemas for the two events a delivery run can append to its per-run
+lifecycle ledger. `appendLedgerEvent`
+(`lib/orchestration/lifecycle/emit-ledger-event.js`) validates every payload
+against one of these before the write; a schema mismatch throws and nothing is
+appended.
 
-Each event in the Tech Spec taxonomy has a `<event>.schema.json`
-file. The ledger record (`emitted | completed | failed` union)
-lives in `ledger-record.schema.json` and is consumed by
-`ledger-writer.js`.
+`ledger-record.schema.json` is the NDJSON record envelope
+(`emitted | completed | failed`), not an event. Only `emitted` has a writer —
+see the schema's own description for why the other two kinds remain.
 
-Schemas are intentionally permissive (`additionalProperties: true`)
-on inner objects whose shape is dictated by upstream tooling (e.g.
-`gh pr view` JSON, `checkOutcomes`). The required-key set is the
-contract.
+**A schema belongs here only while code emits its event.** Story #4545 applied
+that rule to the `epic.*` and `acceptance.reconcile.*` families; Story #5024
+applied it to the remaining fifteen when it retired the lifecycle bus that had
+been their only publish path. `tests/lifecycle/schema-registry.test.js` enforces
+it in both directions, so a schema file for an event nobody emits fails the
+suite rather than reading green.
+
+Schemas are intentionally permissive (`additionalProperties: true`) on inner
+objects whose shape is dictated by upstream tooling (e.g. `gh pr view` JSON).
+The required-key set is the contract.
+
+Full reference:
+[`docs/LIFECYCLE.md`](https://github.com/dsj1984/mandrel/blob/main/docs/LIFECYCLE.md).

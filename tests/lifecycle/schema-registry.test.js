@@ -21,41 +21,29 @@ const SCHEMA_DIR = path.resolve(
 );
 
 /**
- * Event taxonomy that MUST have a schema file in `.agents/schemas/lifecycle/`.
+ * The lifecycle events that MUST have a schema file in
+ * `.agents/schemas/lifecycle/`.
  *
- * Every event here has a live emitter. Story #4545 pruned the entries whose
- * emitters were deleted with the Epic-orchestration stratum (all
- * `acceptance.reconcile.*`, plus the `epic.automerge.*` / `epic.cleanup.*` /
- * `epic.close.*` / `epic.complete` / `epic.finalize.*` / `epic.merge.*` /
- * `epic.blocked` / `epic.plan.*` / `epic.snapshot.*` families) — their schema
- * files went with them. The `epic.watch.*` pair followed later: the only
- * production Watcher consumer (`pr-watch-with-update.js`) runs without a
- * bus, so the emits (and schemas) were dead.
+ * **A schema earns its place only while code emits it** — the rule
+ * `docs/LIFECYCLE.md` states and Story #4545 applied when it pruned the
+ * `epic.*` / `acceptance.reconcile.*` families. Story #5024 applied it to the
+ * rest: retiring the lifecycle bus left `appendLedgerEvent` (a bare
+ * `appendFileSync` from the `single-story-close` flow) as the only producer of
+ * any lifecycle record, and it writes exactly these two events. Fifteen
+ * schemas whose emitters had gone with the Epic-orchestration stratum went
+ * with the bus.
  *
- * Adding a new event here without adding the matching schema file fails this
- * test — that's the point. The bus reads the schema by name at emit time.
+ * This list is checked in BOTH directions below. The one-way version pinned
+ * the dead schemas in place: it asserted every listed event had a file while
+ * its own comment claimed "every event here has a live emitter" — a claim
+ * nothing verified, and false for 15 of 17 by the time #5024 measured it. An
+ * orphan schema file now fails too, so a deleted emitter cannot leave its
+ * schema behind.
+ *
  * `ledger-record` is deliberately absent: it is the ledger envelope, not an
  * event, and is asserted separately below.
  */
-const REQUIRED_EVENTS = Object.freeze([
-  'checkpoint.written',
-  'close-validate.end',
-  'close-validate.start',
-  'code-review.end',
-  'code-review.start',
-  'intervention.recorded',
-  'loop.tick',
-  'merge.flip-failed',
-  'merge.unlanded',
-  'notification.emitted',
-  'pr.created',
-  'retro.end',
-  'retro.start',
-  'story.blocked',
-  'story.dispatch.end',
-  'story.dispatch.start',
-  'story.merged',
-]);
+const REQUIRED_EVENTS = Object.freeze(['merge.flip-failed', 'merge.unlanded']);
 
 function readSchema(name) {
   return JSON.parse(
@@ -64,7 +52,7 @@ function readSchema(name) {
 }
 
 describe('lifecycle/schema-registry', () => {
-  it('every event in the Tech Spec taxonomy has a schema file', () => {
+  it('every required event has a schema file', () => {
     const files = new Set(
       readdirSync(SCHEMA_DIR).filter((f) => f.endsWith('.schema.json')),
     );
@@ -74,6 +62,22 @@ describe('lifecycle/schema-registry', () => {
         `missing schema for event "${event}" (expected ${event}.schema.json)`,
       );
     }
+  });
+
+  it('ships no schema file for an event nobody emits', () => {
+    // The direction the one-way assertion missed: a schema whose emitter was
+    // deleted used to sit here reading green forever. `ledger-record` is the
+    // envelope, not an event, so it is the one permitted extra.
+    const allowed = new Set([...REQUIRED_EVENTS, 'ledger-record']);
+    const orphans = readdirSync(SCHEMA_DIR)
+      .filter((f) => f.endsWith('.schema.json'))
+      .map((f) => f.replace(/\.schema\.json$/, ''))
+      .filter((event) => !allowed.has(event));
+    assert.deepEqual(
+      orphans,
+      [],
+      `schema file(s) with no emitter in REQUIRED_EVENTS: ${orphans.join(', ')}`,
+    );
   });
 
   it('every event schema compiles under AJV draft 2020-12', () => {
@@ -96,8 +100,8 @@ describe('lifecycle/schema-registry', () => {
       kind: 'emitted',
       seqId: 1,
       ts: '2026-05-17T10:00:00.000Z',
-      event: 'story.dispatch.start',
-      payload: { storyId: 2172, waveIndex: 0 },
+      event: 'merge.unlanded',
+      payload: { storyId: 5024, blockClass: 'checks-failed' },
     });
     assert.equal(ok, true, JSON.stringify(validate.errors));
   });
@@ -110,8 +114,8 @@ describe('lifecycle/schema-registry', () => {
       kind: 'completed',
       seqId: 1,
       ts: '2026-05-17T10:00:00.001Z',
-      event: 'story.dispatch.start',
-      listener: 'LedgerWriter',
+      event: 'merge.unlanded',
+      listener: 'ArchivedListener',
     });
     assert.equal(ok, true, JSON.stringify(validate.errors));
   });
@@ -124,8 +128,8 @@ describe('lifecycle/schema-registry', () => {
       kind: 'failed',
       seqId: 1,
       ts: '2026-05-17T10:00:00.002Z',
-      event: 'story.dispatch.start',
-      listener: 'LedgerWriter',
+      event: 'merge.unlanded',
+      listener: 'ArchivedListener',
       error: { name: 'Error', message: 'boom' },
     });
     assert.equal(ok, true, JSON.stringify(validate.errors));
@@ -139,7 +143,7 @@ describe('lifecycle/schema-registry', () => {
       kind: 'unknown',
       seqId: 1,
       ts: '2026-05-17T10:00:00.000Z',
-      event: 'story.dispatch.start',
+      event: 'merge.unlanded',
     });
     assert.equal(ok, false);
   });

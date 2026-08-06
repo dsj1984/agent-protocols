@@ -1,13 +1,13 @@
 {
   "$schema": ".agents/schemas/baselines/duplication.schema.json",
   "kernelVersion": "1.0.0",
-  "generatedAt": "2026-08-06T10:31:29.291Z",
+  "generatedAt": "2026-08-06T11:38:14.623Z",
   "rollup": {
     "*": {
-      "percentage": 7.89,
-      "duplicatedLines": 1799,
-      "totalLines": 22804,
-      "filesWithDuplication": 80
+      "percentage": 7.82,
+      "duplicatedLines": 1766,
+      "totalLines": 22570,
+      "filesWithDuplication": 79
     }
   },
   "rows": [
@@ -36,16 +36,10 @@
       "percentage": 4.43
     },
     {
-      "path": ".agents/scripts/check-lifecycle-doc-drift.js",
-      "duplicatedLines": 10,
-      "totalLines": 411,
-      "percentage": 2.43
-    },
-    {
       "path": ".agents/scripts/check-lifecycle-lint.js",
-      "duplicatedLines": 22,
-      "totalLines": 376,
-      "percentage": 5.85
+      "duplicatedLines": 11,
+      "totalLines": 300,
+      "percentage": 3.67
     },
     {
       "path": ".agents/scripts/check-windows-git-perf.js",
@@ -200,8 +194,8 @@
     {
       "path": ".agents/scripts/lib/config-settings-schema.js",
       "duplicatedLines": 20,
-      "totalLines": 523,
-      "percentage": 3.82
+      "totalLines": 798,
+      "percentage": 2.51
     },
     {
       "path": ".agents/scripts/lib/config/gates/shared.js",
@@ -337,9 +331,9 @@
     },
     {
       "path": ".agents/scripts/lint-label-vocabulary.js",
-      "duplicatedLines": 22,
-      "totalLines": 236,
-      "percentage": 9.32
+      "duplicatedLines": 10,
+      "totalLines": 214,
+      "percentage": 4.67
     },
     {
       "path": ".agents/scripts/post-structured-comment.js",

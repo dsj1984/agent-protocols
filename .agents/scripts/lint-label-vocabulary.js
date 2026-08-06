@@ -38,8 +38,8 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-
 import { runAsCli } from './lib/cli-utils.js';
+import { walkFilesByExtension } from './lib/fs-walk.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, '..', '..');
@@ -72,28 +72,6 @@ export const KNOWN_AXES = Object.freeze([
 ]);
 
 /**
- * Walk a directory tree synchronously, yielding absolute paths of files
- * matching `.md`. Mirrors the walker shape in `check-lifecycle-lint.js`.
- */
-function* walkMd(dir) {
-  let entries;
-  try {
-    entries = readdirSync(dir, { withFileTypes: true });
-  } catch (err) {
-    if (err.code === 'ENOENT') return;
-    throw err;
-  }
-  for (const entry of entries) {
-    const p = path.join(dir, entry.name);
-    if (entry.isDirectory()) {
-      yield* walkMd(p);
-    } else if (entry.isFile() && entry.name.endsWith('.md')) {
-      yield p;
-    }
-  }
-}
-
-/**
  * Resolve a mixed list of file/directory paths into the flat set of
  * markdown files to scan. Missing paths are silently skipped (the
  * walker handles ENOENT) so the lint is robust under partial trees.
@@ -116,7 +94,7 @@ function* resolveTargets(targets) {
     for (const entry of stat) {
       const p = path.join(target, entry.name);
       if (entry.isDirectory()) {
-        yield* walkMd(p);
+        yield* walkFilesByExtension(p, '.md');
       } else if (entry.isFile() && entry.name.endsWith('.md')) {
         yield p;
       }

@@ -87,7 +87,7 @@ const ALLOWLIST = new Set([
   '.agents/scripts/lib/install-cmd-parser.js',
   '.agents/scripts/lib/onboard/init-tail.js',
   '.agents/scripts/lib/orchestration/git-cleanup/phases/git-probes.js',
-  '.agents/scripts/lib/orchestration/lifecycle/listeners/watcher.js',
+  '.agents/scripts/lib/orchestration/pr-watch.js',
   '.agents/scripts/lib/orchestration/remote-verifier.js',
   '.agents/scripts/lib/orchestration/review-providers/codex.js',
   '.agents/scripts/lib/orchestration/review-providers/scoped-lint.js',

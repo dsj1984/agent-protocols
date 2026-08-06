@@ -567,20 +567,19 @@ There is no Epic wave loop, no `epic/<id>` integration branch, and no
 The `/deliver <storyId...>` slash command is the sole entry point for Story
 delivery. It runs end-to-end inside the operator's Claude session, composing the
 orchestration primitives into a Story-sequencing coordinator (see
-[`workflows/deliver.md`](../.agents/workflows/deliver.md)) with the lifecycle
-bus chain at its core. There is no remote-trigger surface and no deliver-runner
-CLI — delivery only ever runs locally, in the operator's session, with Story
-sub-agents launched through the Agent tool.
+[`workflows/deliver.md`](../.agents/workflows/deliver.md)). There is no
+remote-trigger surface and no deliver-runner CLI — delivery only ever runs
+locally, in the operator's session, with Story sub-agents launched through the
+Agent tool.
 
-The bus is the **single canonical runner model** under Epic #2172:
-every phase transition, ticket-state flip, structured-comment upsert,
-and webhook fan-out is emitted as a typed event that fixed-roster
-listeners consume. The append-only NDJSON ledger at
-`temp/run-<id>/lifecycle.ndjson` is the resume contract. See
-[`LIFECYCLE.md`](LIFECYCLE.md) for the bus contract, event taxonomy,
-ledger format, and listener model — that document is the canonical
-reference for the lifecycle bus, and the older "phase boundaries
-inline-emit comments" framing is retired.
+**Side effects are direct calls, not events.** Epic #2172 routed phase
+transitions through a typed lifecycle bus with a fixed listener roster; the
+Story-only cutover moved every one of those side effects into the close path
+itself (`helpers/deliver-story` / `single-story-close.js`), and Story #5024
+retired the emptied bus. What survives is a narrow append-only ledger: two
+merge-terminal events written directly by `appendLedgerEvent`. See
+[`LIFECYCLE.md`](LIFECYCLE.md) for the ledger contract, its two-event taxonomy,
+and the record format.
 
 ### Sub-agent topology
 

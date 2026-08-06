@@ -51,10 +51,10 @@ the floor-vs-ratchet policy are tooling commitments rather than ADRs and live in
 
 | Decision | Governs | Surface |
 | --- | --- | --- |
+| [`20260806-lifecycle-bus-retired`](#adr-20260806-lifecycle-bus-retired-delete-the-lifecycle-bus-the-close-path-owns-its-side-effects-directly) | Delete the lifecycle bus; the close path owns its side effects directly | `.agents/scripts/lib/orchestration/lifecycle/emit-ledger-event.js` |
 | [`20260802-4938-schema-compilers`](#adr-20260802-4938-schema-compilers-a-schema-is-compiled-by-code-or-declares-in-file-why-not) | A schema is compiled by code, or declares in-file why not | `.agents/scripts/check-schema-references.js` |
 | [`20260726-v2-story-collapse`](#adr-20260726-v2-story-collapse-story-only-ticket-model-one-plan-one-deliver-one-engine) | Story-only ticket model; one /plan, one /deliver, one engine | `.agents/workflows/deliver.md` |
 | [`20260624-loop-units-division-of-labor`](#adr-20260624-loop-units-division-of-labor-mandrel-owns-content--oracle--contract-the-host-owns-cadence--iteration) | mandrel owns content + oracle + contract; the host owns cadence +… | `.agents/scripts/sync-claude-commands.js` |
-| [`20260610-lifecycle-bus-retained`](#adr-20260610-lifecycle-bus-retained-keep-the-lifecycle-bus-collapse-by-deletion-is-already-done) | Keep the lifecycle bus; collapse-by-deletion is already done | `.agents/scripts/lib/orchestration/lifecycle/bus.js` |
 | [`20260610-planning-determinism-dispositions`](#adr-20260610-planning-determinism-dispositions-per-layer-dispositions-for-the-deterministic-planning-proxies) | Per-layer dispositions for the deterministic planning proxies | `.agents/scripts/lib/orchestration/ticket-validator.js` |
 | [`Overturn`](#overturn-drain-pending-cleanup-demoted-to-a-helper) | `drain-pending-cleanup` demoted to a helper | `.agents/scripts/drain-pending-cleanup.js` |
 | [`20260604-flat-command-projection-revert`](#adr-20260604-flat-command-projection-revert-revert-the-plugin-cutover--project-workflows-as-flat-name-commands) | Revert the plugin cutover — project workflows as flat `/<name>` c… | `.agents/scripts/sync-claude-commands.js` |
@@ -87,11 +87,12 @@ the floor-vs-ratchet policy are tooling commitments rather than ADRs and live in
 | [`20260512-loop-adoption`](#adr-20260512-loop-adoption-adopt-built-in-loop-no-homegrown-surface-to-reconcile) | Adopt built-in `/loop`; no homegrown surface to reconcile | `.agents/scripts/lib/util/poll-loop.js` |
 | [`20260513-command-naming-discipline`](#adr-20260513-command-naming-discipline-domain-vocabulary-command-names-single-mandrel-prefixed-discoverability-entry) | Domain-vocabulary command names; single Mandrel-prefixed discover… | `.agents/scripts/sync-claude-commands.js` |
 
-**Closed (21).** Body collapsed to a one-line outcome; full text
+**Closed (22).** Body collapsed to a one-line outcome; full text
 at the release tag named in the entry.
 
 | Decision | Recorded | Status |
 | --- | --- | --- |
+| [`20260610-lifecycle-bus-retained`](#adr-20260610-lifecycle-bus-retained-keep-the-lifecycle-bus-collapse-by-deletion-is-already-done-superseded) | Keep the lifecycle bus (superseded) | Superseded |
 | [`20260611-two-tier-hierarchy`](#adr-20260611-two-tier-hierarchy-remove-the-feature-tier-epic--story-superseded) | Remove the Feature tier (Epic → Story) (superseded) | Superseded |
 | [`20260603-plugin-namespace-cutover`](#adr-20260603-plugin-namespace-cutover-project-workflows-as-a-claude-code-plugin-mandrelname-superseded) | Project workflows as a Claude Code plugin (`/mandrel:<name>`) (su… | Superseded |
 | [`20260527-three-tier-hierarchy`](#adr-20260527-three-tier-hierarchy-collapse-the-task-level-epic--feature--story-superseded) | Collapse the Task level (Epic → Feature → Story) (superseded) | Superseded |
@@ -236,8 +237,10 @@ is the only merge surface.
   next wave boundary.
 - Some v1 primitives outlived their decisions and are now consumed elsewhere:
   `lib/util/concurrent-map.js` (bounded fan-out), `lib/util/poll-loop.js`
-  (bounded waits), the atomic tmp+rename write, and the lifecycle bus. Their
-  originating ADRs are superseded on the Epic-runner axis only, and each says so.
+  (bounded waits), and the atomic tmp+rename write. Their originating ADRs are
+  superseded on the Epic-runner axis only, and each says so. The lifecycle bus
+  was on this list until Story #5024 established it had outlived its consumers
+  entirely, not just its originating decision.
 - `lib/util/phase-timer.js` survived the collapse without its consumer and was
   deleted in Story #5008: no producer posts the `phase-timings` structured
   comment any more, even though the kind is still registered in
@@ -297,9 +300,16 @@ Deleted the Feature tier end to end and published Epic → Story as the only sha
 
 ---
 
-## ADR 20260610-lifecycle-bus-retained: Keep the lifecycle bus; collapse-by-deletion is already done
+## ADR 20260610-lifecycle-bus-retained: Keep the lifecycle bus; collapse-by-deletion is already done (superseded)
 
-**Status:** Accepted
+**Status:** Superseded by [`20260806-lifecycle-bus-retired`](#adr-20260806-lifecycle-bus-retired-delete-the-lifecycle-bus-the-close-path-owns-its-side-effects-directly)
+**Outcome:** The decision was sound on its own premises and every premise
+expired. It kept the bus *for the close-tail*, where the schema/ordering/resume
+guarantees earned their cost; the v2 Story-only cutover then moved every
+close-tail side effect into the close path and deleted the listeners one by one,
+leaving the bus with no publisher. Its mechanical safety net — the #3901
+event-connectivity contract test — did not survive either, and without it
+fifteen emitter-less schemas accumulated unnoticed.
 **Date:** 2026-06-10
 **Surface:** `.agents/scripts/lib/orchestration/lifecycle/bus.js`
 **Scope:** Story #3911 (audit findings — see git history at `409e0529`).
@@ -392,11 +402,15 @@ is now the sole production wiring path).
 ### Consequences
 
 - The lifecycle bus, its schema-validation seam, the `LedgerWriter` hook
-  ordering, and the close-tail listener roster are **retained as the canonical
-  architecture**. `docs/LIFECYCLE.md` remains authoritative.
-- The "wrong-emit / dead-wire" bug class is mechanically fenced by the
-  #3901 connectivity contract test rather than by prose — future contributors
-  who add a schema without wiring it (emitter + subscriber) fail CI.
+  ordering, and the close-tail listener roster were **retained as the canonical
+  architecture** — until Story #5024 deleted all four. `docs/LIFECYCLE.md` is
+  still authoritative and now documents a ledger, not a bus.
+- The "wrong-emit / dead-wire" bug class was to be mechanically fenced by the
+  #3901 connectivity contract test rather than by prose. **That test no longer
+  exists**, and nothing replaced it; Story #5024 re-established the guard in the
+  narrower form the surviving surface can support (`schema-registry.test.js`
+  asserts the schema roster in both directions, so an emitter-less schema fails
+  CI).
 - The wave loop needs no further collapse; §2.2/§6-step-3 closed it via #3909.
 - The §4 directional question is **resolved as "no rewrite"** with the rationale
   recorded here, so a future reader does not re-litigate it. Should the resume
@@ -2547,3 +2561,100 @@ The seven-row recategorization matrix from the Epic body (#1184) codifies the sp
 - **Brand-prefix every command** (the maximalist position). Rejected — clutters the `/` menu, makes every consumer-facing example longer, reverses the same naming logic that keeps `.agents/` and `.agentrc.json` stable through the rebrand, and offers no information value because the consumer already knows which framework they installed.
 - **No brand prefix anywhere, including a discoverability entry.** Rejected — adopters need *some* affordance to tell Mandrel-owned commands apart from Claude Code built-ins. Without a single entry point, the only path is reading the docs site, which is a worse first-run experience than typing `/mandrel`.
 - **Per-command opt-in: prefix only the "Mandrel-distinctive" commands.** Rejected — every framework command is "Mandrel-distinctive" by virtue of being owned by the framework. Drawing the line by judgment regenerates the same ambiguity the rule is designed to eliminate.
+
+---
+
+## ADR 20260806-lifecycle-bus-retired: Delete the lifecycle bus; the close path owns its side effects directly
+
+**Status:** Accepted
+**Date:** 2026-08-06
+**Surface:** `.agents/scripts/lib/orchestration/lifecycle/emit-ledger-event.js`
+**Scope:** Story #5024.
+**Supersedes:** [`20260610-lifecycle-bus-retained`](#adr-20260610-lifecycle-bus-retained-keep-the-lifecycle-bus-collapse-by-deletion-is-already-done-superseded).
+
+### Context
+
+The 2026-06-10 decision kept the bus because its guarantees were load-bearing
+**for the close-tail** — schema validation before any side effect,
+`emitted`-before-`completed` ordering as the resume substrate, and one-place
+secret-stripped observability. It was explicit that the hot path which did not
+need those guarantees already bypassed the bus, and that what remained on it was
+exactly the close-tail chain (acceptance-reconcile → finalize → automerge-arm →
+merge-watch → cleanup).
+
+The v2 Story-only cutover then dissolved that chain. `helpers/deliver-story` /
+`single-story-close.js` took over every close-tail side effect as a direct call;
+the listeners were deleted individually (`MergeWatcher` #4545, `Watcher` #5006,
+and the `AutomergeArmer` / `Finalizer` / `Cleaner` family before them). Measured
+at `073415eb`, what was left was a closed island: `emit-loop-tick.js` was the
+only non-test importer of `bus.js` and `ledger-writer.js` and had no importer of
+its own, and `trace-logger.js` had none at all. All four already carried
+whole-module dead-export rows in `baselines/dead-exports-production.json`.
+
+Two consequences of that drift were invisible because the instruments that would
+have caught them were gone or inverted. The #3901 event-connectivity contract
+test — the mechanical fence the retention decision leaned on — no longer exists,
+so **15 of 17 lifecycle schemas had no emitter**. And `schema-registry.test.js`
+asserted only that each *listed* event had a schema file, never that a schema had
+an emitter, so it actively pinned the dead schemas in place while its own comment
+claimed "every event here has a live emitter".
+
+### Decision
+
+**1. Delete the bus, both observers, and `emit-loop-tick.js`.** The retention
+rationale is not rebutted — it is unreachable. A schema-validation seam no
+publisher enters validates nothing; an ordering guarantee with no second writer
+orders nothing; a resume contract is not a contract when no module implements
+resume (there is none under `lifecycle/`). `emitLoopTick` was not a consumer
+escape hatch either: no `runAsCli` wrapper, and no reference anywhere in the
+shipped `.agents/` instruction surface.
+
+**2. The ledger survives the bus.** `appendLedgerEvent` — a bare `appendFileSync`
+that already bypassed the bus by design — keeps writing the two merge-terminal
+events (`merge.unlanded`, `merge.flip-failed`) that make a
+work-complete-but-unmerged outcome attributable. Schema validation before the
+write is retained; it is the one guarantee that survives without a listener
+chain to order.
+
+**3. A schema earns its place only while code emits it** — and the assertion runs
+in **both** directions. This is the rule Story #4545 applied to the `epic.*`
+families, restated so it cannot rot again: `schema-registry.test.js` now fails on
+an orphan schema file as well as a missing one. The one-way version is how 15
+schemas read green for months.
+
+**4. Gates orphaned by this deletion go with it, not after it.**
+`check-lifecycle-doc-drift.js` guarded a listener table against a `listeners/`
+directory; with no bus, a listener cannot be added at all, so the guard becomes
+structurally unable to fire — the criterion Story #5004 used to retire
+`check-gherkin-placeholders.js`. The same applies to the lifecycle lint's
+wildcard-observer rule, whose predicate needed both a `lifecycle/listeners/**`
+file and a `bus.on('*', …)` call. Deleting the guarded surface and leaving the
+guard is how a repo accumulates instruments that cannot fail.
+
+**5. `loop.tick` leaves the notification vocabulary.** Its only producer was the
+bus path, it never called `notify()`, and the notify CLI hardcodes
+`event: 'operator-message'` with no `--event` flag — so no consumer could reach
+it either. It shipped in `NOTIFICATIONS_DEFAULTS`, meaning every consumer was
+subscribed by default to something no code path could deliver. Removing it from
+the enum makes a resurrection fail at config-validation time, the same contract
+that retired `story.heartbeat` (A22).
+
+### Consequences
+
+- `docs/LIFECYCLE.md` describes a **ledger**, not a bus: no bus contract, no
+  seqId guarantee, no secret-strip section, no listener model, and no resume
+  section describing a module that does not exist.
+- The `ledger-record` envelope keeps its three kinds, but only `emitted` has a
+  writer. `completed` / `failed` are explicitly a **read** contract for archived
+  ledgers — `failed` requires a `listener` field only a listener chain could
+  supply.
+- `watchPrToTerminal` moved from `lifecycle/listeners/watcher.js` to
+  `lib/orchestration/pr-watch.js`, beside `merge-poll.js` — the home #4545 chose
+  for `MergeWatcher`'s surviving parts. A move, not a rewrite: poll timing, probe
+  sources, the check-state vocabulary and the BEHIND-recovery helper are
+  unchanged.
+- **Left open deliberately:** `merge.unlanded` and `merge.flip-failed` are
+  allowlistable for webhooks but have no `notify()` dispatcher — they reach the
+  ledger, not the notify path. Unlike `loop.tick` they have a live producer, so
+  whether to wire the dispatch or drop the allowlist entries is a decision, not
+  dead code, and it is not taken here.

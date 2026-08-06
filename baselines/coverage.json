@@ -1,12 +1,12 @@
 {
   "$schema": ".agents/schemas/baselines/coverage.schema.json",
   "kernelVersion": "1.0.0",
-  "generatedAt": "2026-08-06T11:07:48.322Z",
+  "generatedAt": "2026-08-06T11:38:10.211Z",
   "rollup": {
     "*": {
-      "lines": 95.85,
-      "branches": 86.43,
-      "functions": 88.75
+      "lines": 95.88,
+      "branches": 86.55,
+      "functions": 88.73
     }
   },
   "rows": [
@@ -113,16 +113,10 @@
       "functions": 66.67
     },
     {
-      "path": ".agents/scripts/check-lifecycle-doc-drift.js",
-      "lines": 92.89,
-      "branches": 81.82,
-      "functions": 100
-    },
-    {
       "path": ".agents/scripts/check-lifecycle-lint.js",
-      "lines": 93.35,
-      "branches": 96.23,
-      "functions": 83.33
+      "lines": 100,
+      "branches": 97.87,
+      "functions": 100
     },
     {
       "path": ".agents/scripts/check-schema-references.js",
@@ -1373,6 +1367,12 @@
       "functions": 100
     },
     {
+      "path": ".agents/scripts/lib/fs-walk.js",
+      "lines": 100,
+      "branches": 100,
+      "functions": 100
+    },
+    {
       "path": ".agents/scripts/lib/gates/baseline-store.js",
       "lines": 98.11,
       "branches": 81.82,
@@ -1805,21 +1805,9 @@
       "functions": 100
     },
     {
-      "path": ".agents/scripts/lib/orchestration/lifecycle/bus.js",
-      "lines": 95.15,
-      "branches": 87.27,
-      "functions": 90.91
-    },
-    {
       "path": ".agents/scripts/lib/orchestration/lifecycle/emit-ledger-event.js",
       "lines": 90.85,
       "branches": 60,
-      "functions": 100
-    },
-    {
-      "path": ".agents/scripts/lib/orchestration/lifecycle/emit-loop-tick.js",
-      "lines": 90.61,
-      "branches": 50,
       "functions": 100
     },
     {
@@ -1832,24 +1820,6 @@
       "path": ".agents/scripts/lib/orchestration/lifecycle/emit-merge-unlanded.js",
       "lines": 96.85,
       "branches": 60,
-      "functions": 100
-    },
-    {
-      "path": ".agents/scripts/lib/orchestration/lifecycle/ledger-writer.js",
-      "lines": 99.13,
-      "branches": 89.47,
-      "functions": 91.67
-    },
-    {
-      "path": ".agents/scripts/lib/orchestration/lifecycle/listeners/watcher.js",
-      "lines": 96.17,
-      "branches": 84.62,
-      "functions": 88.24
-    },
-    {
-      "path": ".agents/scripts/lib/orchestration/lifecycle/trace-logger.js",
-      "lines": 96.51,
-      "branches": 83.33,
       "functions": 100
     },
     {
@@ -2007,6 +1977,12 @@
       "lines": 98.27,
       "branches": 87.5,
       "functions": 100
+    },
+    {
+      "path": ".agents/scripts/lib/orchestration/pr-watch.js",
+      "lines": 96.17,
+      "branches": 84.62,
+      "functions": 88.24
     },
     {
       "path": ".agents/scripts/lib/orchestration/project-meta-cache.js",
@@ -2868,8 +2844,8 @@
     },
     {
       "path": ".agents/scripts/lint-label-vocabulary.js",
-      "lines": 94.51,
-      "branches": 82.61,
+      "lines": 95.79,
+      "branches": 89.47,
       "functions": 100
     },
     {

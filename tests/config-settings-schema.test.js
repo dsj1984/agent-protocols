@@ -174,7 +174,7 @@ describe('github.* shape', () => {
           notifications: {
             mentionOperator: false,
             commentEvents: ['state-transition'],
-            webhookEvents: ['story-merged', 'loop.tick'],
+            webhookEvents: ['story-merged', 'merge.unlanded'],
           },
         },
       }),
@@ -1009,11 +1009,11 @@ describe('notification event vocabularies', () => {
     assert.ok(COMMENT_EVENT_NAMES.length < WEBHOOK_EVENT_NAMES.length);
   });
 
-  it('keeps run-scoped and firehose beats out of the comment vocabulary', () => {
+  it('keeps run-scoped beats out of the comment vocabulary', () => {
     // Narrower on the ticket-scope axis, deliberately: these are not about
     // one Story issue, so a comment has nowhere meaningful to land.
-    for (const name of ['merge.unlanded', 'merge.flip-failed', 'loop.tick']) {
-      assert.ok(WEBHOOK_EVENT_NAMES.includes(name), `${name} is emitted`);
+    for (const name of ['merge.unlanded', 'merge.flip-failed']) {
+      assert.ok(WEBHOOK_EVENT_NAMES.includes(name), `${name} is allowlistable`);
       assert.ok(
         !COMMENT_EVENT_NAMES.includes(name),
         `run-scoped event "${name}" must stay out of the comment vocabulary`,
@@ -1029,10 +1029,35 @@ describe('notification event vocabularies', () => {
           owner: 'o',
           repo: 'r',
           operatorHandle: '@op',
-          notifications: { commentEvents: ['loop.tick'] },
+          notifications: { commentEvents: ['merge.unlanded'] },
         },
       },
       /must be equal to one of the allowed values/,
     );
+  });
+
+  it('rejects the retired loop.tick on BOTH notification channels', () => {
+    // Story #5024 retired `loop.tick` with the lifecycle bus that was its
+    // only producer. Removing it from the enum is what makes a resurrection
+    // fail loudly at config-validation time instead of silently never firing
+    // — the same contract that retired `story.heartbeat` (A22). It shipped in
+    // NOTIFICATIONS_DEFAULTS, so every consumer was subscribed by default to
+    // an event no code path could deliver.
+    assert.ok(!WEBHOOK_EVENT_NAMES.includes('loop.tick'));
+    assert.ok(!COMMENT_EVENT_NAMES.includes('loop.tick'));
+    for (const channel of ['webhookEvents', 'commentEvents']) {
+      expectErrors(
+        {
+          ...REQ,
+          github: {
+            owner: 'o',
+            repo: 'r',
+            operatorHandle: '@op',
+            notifications: { [channel]: ['loop.tick'] },
+          },
+        },
+        /must be equal to one of the allowed values/,
+      );
+    }
   });
 });

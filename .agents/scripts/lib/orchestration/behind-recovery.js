@@ -5,7 +5,7 @@
  * Two loops watch an open PR and both must fast-forward it when GitHub
  * reports `mergeStateStatus: BEHIND`:
  *
- *   - the CI-watch loop (`lifecycle/listeners/watcher.js#watchPrToTerminal`),
+ *   - the CI-watch loop (`pr-watch.js#watchPrToTerminal`),
  *     which probes with a synchronous `gh pr view` spawn and re-enters its
  *     poll loop after each update; and
  *   - the merge wait (`single-story-close/phases/confirm-merge.js`), which
