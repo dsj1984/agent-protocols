@@ -37,9 +37,11 @@
  * and `prune-baseline-orphans.js --check` run in CI's `baselines` job only —
  * `.agents/rules/known-tooling-behavior.md` entry 2 carries the current
  * coverage table. Nor are the CI gates this command structurally cannot
- * reproduce (action pinning, TruffleHog secret scan, the BASELINE_SCOPE=full
- * push-scoped maintainability run) — those are catalogued in
- * docs/ci-contract.md.
+ * reproduce (action pinning, TruffleHog secret scan) — those are catalogued
+ * in docs/ci-contract.md. The nightly full-scope re-score
+ * (.github/workflows/baseline-drift.yml) is deliberately outside this
+ * mirror too: it re-scores the whole tree, which is the cost `verify` exists
+ * to avoid paying on every run.
  */
 
 import { spawnSync } from 'node:child_process';

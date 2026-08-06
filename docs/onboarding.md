@@ -134,9 +134,8 @@ touched git/orchestration hooks, and `npm run verify` when you want pre-PR
 confidence (audit + lint + full tests + baselines + the dead-exports and
 context-budget ratchets; the arch-cycles ratchet rides along inside `lint`).
 `npm run verify` is a **true CI mirror** for the gates it can prove locally,
-but a small set of CI gates (action pinning, the TruffleHog secret scan, the
-push-scoped `BASELINE_SCOPE=full` maintainability run, and the
-`check-test-temp-hygiene.js` snapshot/assert bracket around the test run)
+but a small set of CI gates (action pinning, the TruffleHog secret scan, and
+the `check-test-temp-hygiene.js` snapshot/assert bracket around the test run)
 cannot be reproduced from a local working tree — those are catalogued in
 [`ci-contract.md`](ci-contract.md), so a local green is necessary but not
 sufficient. Pre-push runs only diff-scoped quality preview plus coverage/CRAP
@@ -153,7 +152,8 @@ are enforced at four sites, earliest first:
 | [`.husky/pre-commit`](../.husky/pre-commit) — `quality-preview.js --staged` | staged index paths only | **Yes** — a threshold violation exits non-zero and the commit is refused |
 | [`.husky/pre-push`](../.husky/pre-push) — `quality-preview.js --changed-since origin/main` plus `crap:check` | diff against `origin/main` | **Yes** — the push is refused |
 | Story close-validation (`single-story-close.js`) | the Story's whole change set | **Yes** — close stops |
-| CI (`ci.yml`, push + PR) | diff-scoped on PR, `BASELINE_SCOPE=full` on push to `main` | **Yes** — a required check fails |
+| CI (`ci.yml`, push + PR) | diff-scoped — the `baselines` job reads the committed rows for the changed files | **Yes** — a required check fails |
+| Nightly (`baseline-drift.yml`, 05:43 UTC) | **full-scope re-score** — every file, including ones no diff touched | **Yes** — the run fails and a `meta::baseline-drift` issue is filed |
 
 `.husky/pre-commit` is the one most easily forgotten and the one that bites
 first: it fires before any other gate, and a green `npm run lint` /

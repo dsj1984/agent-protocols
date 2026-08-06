@@ -307,11 +307,18 @@ describe('check-baseline-drift CLI (AC-7)', () => {
       kinds: ['maintainability', 'crap'],
       tolerance: null,
       json: false,
+      requireScored: false,
     });
     assert.deepEqual(
       parseArgs(['--gate', 'crap', '--tolerance', '2', '--json']),
-      { kinds: ['crap'], tolerance: 2, json: true },
+      { kinds: ['crap'], tolerance: 2, json: true, requireScored: false },
     );
+    assert.deepEqual(parseArgs(['--require-scored']), {
+      kinds: ['maintainability', 'crap'],
+      tolerance: null,
+      json: false,
+      requireScored: true,
+    });
   });
 
   it('rejects an unknown gate, a non-numeric tolerance, and stray argv', () => {
@@ -358,6 +365,92 @@ describe('check-baseline-drift CLI (AC-7)', () => {
     });
     assert.deepEqual(seen.kinds, ['crap']);
     assert.equal(seen.tolerance, 3);
+  });
+
+  /**
+   * Story #5023 — the skip-is-green contract is a fail-open trap for the
+   * scheduled use this CLI exists for. Measured on the real repo: `--gate
+   * crap` with no coverage artifact prints "✅ No baseline drift detected"
+   * and exits 0. These pin the opt-in that closes it.
+   */
+  describe('--require-scored', () => {
+    /** A run where `crap` skipped and `maintainability` came back clean. */
+    const mixedRun = {
+      ok: true,
+      results: [
+        {
+          kind: 'maintainability',
+          ok: true,
+          drifted: [],
+          added: [],
+          removed: [],
+        },
+        { kind: 'crap', ok: true, skipped: 'no-scored-rows' },
+      ],
+    };
+
+    it('turns a skipped kind into exit 2 naming the kind and the reason', async () => {
+      const res = await runCheckBaselineDrift({
+        argv: ['--require-scored'],
+        detect: async () => mixedRun,
+      });
+      assert.equal(res.exitCode, 2);
+      assert.match(res.output, /--require-scored/);
+      assert.match(res.output, /crap \(no-scored-rows\)/);
+      // The drift table for the kinds that DID score is still rendered.
+      assert.match(res.output, /maintainability/);
+    });
+
+    it('leaves the same run at exit 0 without the flag', async () => {
+      const res = await runCheckBaselineDrift({
+        argv: [],
+        detect: async () => mixedRun,
+      });
+      assert.equal(res.exitCode, 0);
+      assert.doesNotMatch(res.output, /--require-scored/);
+    });
+
+    it('does not mask real drift: a drifted kind still exits 1', async () => {
+      const res = await runCheckBaselineDrift({
+        argv: ['--require-scored'],
+        detect: async () => ({
+          ok: false,
+          results: [
+            {
+              kind: 'maintainability',
+              refreshCommand: 'npm run maintainability:update -- --full-scope',
+              ok: false,
+              tolerance: 0.5,
+              scanned: 1,
+              baselineRows: 1,
+              drifted: [
+                {
+                  key: 'src/a.js',
+                  label: 'src/a.js',
+                  baseline: 80,
+                  current: 70,
+                  delta: -10,
+                },
+              ],
+              added: [],
+              removed: [],
+            },
+          ],
+        }),
+      });
+      assert.equal(res.exitCode, 1);
+    });
+
+    it('appends the note to the --json payload too', async () => {
+      const res = await runCheckBaselineDrift({
+        argv: ['--require-scored', '--json'],
+        detect: async () => mixedRun,
+      });
+      assert.equal(res.exitCode, 2);
+      const [payload, note] = res.output.split(/\n(?=\[drift\])/);
+      assert.equal(JSON.parse(payload).ok, true);
+      assert.match(note, /crap \(no-scored-rows\)/);
+    });
   });
 
   it('emits a machine-readable report under --json', async () => {

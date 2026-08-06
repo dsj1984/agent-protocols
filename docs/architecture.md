@@ -1190,11 +1190,10 @@ with three jobs:
 1. **Validate and Test** — the main job, in step order: `npm audit`
    (SCA), TruffleHog secret scanning, **Lint and Format** via
    `npm run lint` (which folds in the Biome format check — Story #1829),
-   **Maintainability Check** via `npm run maintainability:check`
-   (`node .agents/scripts/check-baselines.js --gate maintainability`;
-   diff-scoped on PRs, `BASELINE_SCOPE=full` on push-to-main), and
-   **Run Tests with Coverage** via `npm run test:coverage`. Artifacts:
+   and **Run Tests with Coverage** via `npm run test:coverage`. Artifacts:
    `test-results` (test output) and `coverage-final` (c8 coverage map).
+   A `Maintainability Check` step sat between the last two until Story
+   #5004 removed it as a duplicate of the `baselines` job.
 2. **baselines** — `node .agents/scripts/check-baselines.js --format text`,
    surfaced as its own required status check (Epic #1943 / Story #1981);
    the unified floor + tolerance + schema gate that replaced the retired
@@ -1202,6 +1201,11 @@ with three jobs:
    scripts.
 3. **Windows Smoke** — advisory (non-required) Windows leg (Story #3389):
    bootstrap dry-run, command sync, and config-resolution tests.
+
+A second workflow, `baseline-drift.yml`, runs on a nightly schedule rather
+than per change. It is the only automated **full-scope**
+baseline re-score in the repository: every gate in `ci.yml` reads committed
+baseline rows, so none of them can see drift in a file no branch touched.
 
 Distribution is **not** handled by `ci.yml` — see
 [**Distribution Model**](#distribution-model).
@@ -1234,12 +1238,24 @@ close ▶ │ close-validation DEFAULT_GATES:       │
                             │
         ┌───────────────────▼───────────────────┐
 CI    ▶ │ ci.yml:                               │
-        │   audit+secrets → lint+format → MI    │
-        │   (check-baselines --gate maint.) →   │
+        │   audit+secrets → lint+format →       │
         │   test:coverage → baselines job       │
         │   (check-baselines --format text)     │
+        └───────────────────┬───────────────────┘
+                            │
+        ┌───────────────────▼───────────────────┐
+night ▶ │ baseline-drift.yml (05:43 UTC):       │
+        │   check-baseline-drift --gate         │
+        │   maintainability --require-scored    │
+        │   (the ONLY full-scope re-score;      │
+        │    files no diff touched)             │
         └───────────────────────────────────────┘
 ```
+
+Every box above `baseline-drift.yml` is **diff-scoped** — it reads the
+committed baseline rows for the files a change touched. The nightly box is
+the only one that re-scores the tree, which is why drift in an untouched file
+is invisible to all of them.
 
 ### Evidence-aware gate caching
 

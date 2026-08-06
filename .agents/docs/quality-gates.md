@@ -172,15 +172,20 @@ baseline still trips the gate.
   run on push; use `npm run verify` locally before a PR. CI enforces the
   authoritative full gate set on every PR.
 - **CI** (`.github/workflows/ci.yml`): the `validate` job runs
-  **Lint and Format** (`npm run lint`), a **Maintainability Check**
-  (`npm run maintainability:check` → `check-baselines.js --gate
-  maintainability`, diff-scoped on PRs via
-  `delivery.quality.gateScoping`, full scope on push-to-main via
-  `BASELINE_SCOPE=full`), and **Run Tests with Coverage**
+  **Lint and Format** (`npm run lint`) and **Run Tests with Coverage**
   (`npm run test:coverage`), uploading the `test-results` and
   `coverage-final` artifacts. A separate required **baselines** job runs
   the unified `node .agents/scripts/check-baselines.js --format text`,
-  which enforces floors across every configured gate.
+  which enforces floors across every configured gate and is the only
+  baseline gate on the per-change path. (Story #5004 removed a
+  `Maintainability Check` step from `validate` that re-ran
+  `check-baselines.js --gate maintainability` at the same scope; a later
+  correction pass revisited its record of what the step's
+  `BASELINE_SCOPE=full` branch did — see `docs/ci-contract.md`.)
+- **Nightly** (`.github/workflows/baseline-drift.yml`): the only
+  automated **full-scope re-score**. See
+  [`check-baseline-drift.js`](#check-baseline-driftjs--the-scheduled-full-scope-re-score)
+  below.
 
 ### Opt-out
 
@@ -567,9 +572,33 @@ tolerance, **in either direction**. A row that silently improved is equally
 strong evidence the baseline no longer describes the tree.
 
 Exit codes: `0` no drift (or every kind skipped), `1` drift detected, `2` the
-check could not run. It is designed to be wired as a scheduled CI job;
-scheduling it is deliberately consumer-side work, and nothing in this
-repository runs it automatically.
+check could not run.
+
+**`--require-scored`.** "Every kind skipped" mapping to `0` is a
+fail-open trap for the scheduled use this CLI was built for. Measured: with no
+`coverage/coverage-final.json` on disk, `check-baseline-drift.js --gate crap`
+prints `✅ No baseline drift detected` and exits `0` — a nightly job wired that
+way is green and inert. Pass `--require-scored` and any skipped kind exits `2`
+instead, naming the kind and the skip reason. Use it in every scheduled
+invocation.
+
+This repository schedules the maintainability kind in
+`.github/workflows/baseline-drift.yml` (framework repo only — that path is not
+part of the materialized `.agents/` payload) — nightly at 05:43 UTC plus
+`workflow_dispatch`; it files or updates one
+`meta::baseline-drift` issue with the report, closes it when the tree comes
+back clean, and fails the run. A consumer materializing `.agents/` still owns
+its own schedule.
+
+`crap` is deliberately **not** in that job. Its drift identity is
+`path::method@startLine`, so anything that shifts a method's line re-keys its
+row: measured on this tree with a real coverage artifact, 82 rows drifted but
+1438 were reported added and 898 removed — and 853 of those removals are the
+same `path::method` reappearing at a different line. The added/removed axis is
+re-keying churn, not drift, and the remedy the report prints
+(`npm run crap:update -- --full-scope`) additionally re-measures, pulling in
+near-empty coverage entries minted by CLI-spawning tests. Fixing the identity
+is a prerequisite to scheduling the kind.
 
 ### `check-baseline-scope.js` — is this baseline still measuring the tree?
 

@@ -5,10 +5,6 @@
   "mode": "production",
   "rows": [
     {
-      "file": ".agents/scripts/check-baseline-drift.js",
-      "symbol": "*"
-    },
-    {
       "file": ".agents/scripts/post-structured-comment.js",
       "symbol": "*"
     },
@@ -26,10 +22,6 @@
     },
     {
       "file": ".agents/scripts/lib/audit-suite/frontmatter-lint.js",
-      "symbol": "*"
-    },
-    {
-      "file": ".agents/scripts/lib/baselines/drift-detector.js",
       "symbol": "*"
     },
     {
@@ -1331,10 +1323,6 @@
     {
       "file": ".agents/scripts/lib/preflight-runner.js",
       "symbol": "logNonBlockers"
-    },
-    {
-      "file": ".agents/scripts/lib/baselines/refresh-service.js",
-      "symbol": "resolveDefaultScorer"
     },
     {
       "file": ".agents/scripts/lib/baselines/refresh-service.js",
