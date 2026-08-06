@@ -70,9 +70,8 @@ export const STORY_FORM_RELATIVE_PATH = `${ISSUE_TEMPLATE_RELATIVE_DIR}/story.ym
  * generated YAML uses it verbatim as the field `label` so GitHub's
  * `### {label}` render produces a heading the parser recognises.
  *
- * Machine-managed body fields (`wide`, `reason_to_exist`,
- * `estimated_test_files`, `depends_on` meta) are intentionally absent —
- * the runtime fills those. `depends_on` is exposed as a free-text input
+ * Machine-managed body fields (`wide`, `reason_to_exist`, `depends_on`
+ * meta) are intentionally absent — the runtime fills those. `depends_on` is exposed as a free-text input
  * that serializes to the `blocked by #N` footer `parse()` already reads.
  *
  * @type {Array<{

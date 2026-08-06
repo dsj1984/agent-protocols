@@ -13,12 +13,11 @@
  *   - parse(): null/undefined input throws
  *   - serialize(): structured object → markdown
  *   - serialize(): includes footer when opts.includeFooter = true
- *   - serialize(): meta comment block for wide / estimated_test_files
+ *   - serialize(): meta comment block for wide / reason_to_exist
  *   - serialize(): omits empty sections
  *   - parse()/serialize(): optional `## Spec` folded Tech Spec text block
  *   - extractChangePaths(): flags glob entries
  *   - round-trip: parse(serialize(body)) reproduces body
- *   - test-surface-unestimated warning on absent estimated_test_files
  */
 
 import assert from 'node:assert/strict';
@@ -89,7 +88,6 @@ const CANONICAL_BODY = {
   references: [],
   wide: null,
   depends_on: [],
-  estimated_test_files: null,
 };
 
 // ---------------------------------------------------------------------------
@@ -134,17 +132,9 @@ describe('parse() — markdown', () => {
     assert.deepEqual(body.depends_on, []);
   });
 
-  it('emits test-surface-unestimated warning when estimated_test_files absent', () => {
+  it('emits no warnings for a clean canonical markdown body', () => {
     const { warnings } = parse(CANONICAL_MARKDOWN);
-    assert.ok(
-      warnings.some((w) => w.startsWith('test-surface-unestimated')),
-      `expected test-surface-unestimated warning, got: ${JSON.stringify(warnings)}`,
-    );
-  });
-
-  it('sets estimated_test_files to null for markdown bodies', () => {
-    const { body } = parse(CANONICAL_MARKDOWN);
-    assert.equal(body.estimated_test_files, null);
+    assert.deepEqual(warnings, []);
   });
 
   it('sets wide to null when not present in markdown', () => {
@@ -278,10 +268,9 @@ describe('parse() — structured object input', () => {
       reason: 'mechanical sweep across every consumer site',
     });
     assert.deepEqual(body.depends_on, ['story-abc']);
-    assert.equal(body.estimated_test_files, null);
   });
 
-  it('preserves numeric estimated_test_files', () => {
+  it('drops a retired estimated_test_files key from a structured object', () => {
     const obj = {
       goal: 'X.',
       changes: [],
@@ -290,8 +279,8 @@ describe('parse() — structured object input', () => {
       estimated_test_files: 5,
     };
     const { body, warnings } = parse(obj);
-    assert.equal(body.estimated_test_files, 5);
-    assert.ok(!warnings.some((w) => w.startsWith('test-surface-unestimated')));
+    assert.ok(!('estimated_test_files' in body));
+    assert.deepEqual(warnings, []);
   });
 
   it('normalises references to PathEntry objects', () => {
@@ -419,11 +408,10 @@ describe('serialize()', () => {
     assert.ok(out.includes('"wide":{"reason":"broad cutover for one reason"}'));
   });
 
-  it('emits meta comment block for estimated_test_files', () => {
+  it('never emits a retired estimated_test_files meta key', () => {
     const body = { ...CANONICAL_BODY, estimated_test_files: 7 };
     const out = serialize(body);
-    assert.ok(out.includes('<!-- meta:'));
-    assert.ok(out.includes('"estimated_test_files":7'));
+    assert.ok(!out.includes('estimated_test_files'));
   });
 
   it('throws StoryBodyParseError for null body', () => {
@@ -490,7 +478,6 @@ describe('round-trip: serialize → parse', () => {
       references: [{ path: 'docs/arch.md', assumption: 'exists' }],
       wide: null,
       depends_on: [],
-      estimated_test_files: null,
     };
     const md = serialize(body);
     const { body: reparsed } = parse(md);
@@ -524,7 +511,6 @@ describe('non_goals (advisory negative-scope section)', () => {
       wide: null,
       reason_to_exist: null,
       depends_on: [],
-      estimated_test_files: null,
     };
     const md = serialize(body);
     // The hyphenated canonical heading is emitted.
@@ -545,7 +531,6 @@ describe('non_goals (advisory negative-scope section)', () => {
       wide: null,
       reason_to_exist: null,
       depends_on: [],
-      estimated_test_files: null,
     };
     const md = serialize(body);
     // An empty non_goals emits no section — the body must be byte-identical
@@ -699,7 +684,6 @@ blocked by #42`;
     assert.deepEqual(body.verify, []);
     assert.deepEqual(body.references, []);
     assert.equal(body.wide, null);
-    assert.equal(body.estimated_test_files, null);
     assert.deepEqual(body.depends_on, ['#42']);
     assert.ok(warnings.some((w) => w.startsWith('unstructured-body:')));
   });

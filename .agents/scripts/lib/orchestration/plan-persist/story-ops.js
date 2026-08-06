@@ -273,7 +273,6 @@ function bodyObjectFromTicket(ticket) {
     wide: ticket.wide ?? null,
     reason_to_exist: ticket.reason_to_exist ?? null,
     depends_on: ticket.depends_on ?? [],
-    estimated_test_files: ticket.estimated_test_files ?? null,
   }).body;
 }
 

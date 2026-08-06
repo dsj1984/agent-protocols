@@ -37,11 +37,7 @@ describe('renderIssueForm — field set and labels', () => {
       'references',
     ]);
     // Machine-managed body fields must NOT be form fields.
-    for (const forbidden of [
-      'wide',
-      'reason_to_exist',
-      'estimated_test_files',
-    ]) {
+    for (const forbidden of ['wide', 'reason_to_exist']) {
       assert.ok(!ids.includes(forbidden), `${forbidden} must be absent`);
     }
   });

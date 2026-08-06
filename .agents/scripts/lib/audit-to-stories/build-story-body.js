@@ -249,7 +249,6 @@ export function buildStoryBody({ group, edges = [] }) {
     wide: null,
     reason_to_exist: null,
     depends_on: [],
-    estimated_test_files: null,
   };
 
   // Serialize via the canonical serializer (no footer — depends_on is empty).
