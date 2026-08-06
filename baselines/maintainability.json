@@ -1,7 +1,7 @@
 {
   "$schema": ".agents/schemas/baselines/maintainability.schema.json",
   "kernelVersion": "0.1.0",
-  "generatedAt": "2026-08-06T10:55:15.476Z",
+  "generatedAt": "2026-08-06T11:07:48.702Z",
   "rollup": {
     "*": {
       "min": 76.381,
@@ -2101,6 +2101,10 @@
     {
       "path": ".agents/scripts/update-crap-baseline.js",
       "mi": 85.477
+    },
+    {
+      "path": ".agents/scripts/update-dead-exports-baseline.js",
+      "mi": 93.247
     },
     {
       "path": ".agents/scripts/update-duplication-baseline.js",

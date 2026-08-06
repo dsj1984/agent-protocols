@@ -1,7 +1,7 @@
 {
   "$schema": ".agents/schemas/baselines/crap.schema.json",
   "kernelVersion": "0.1.0",
-  "generatedAt": "2026-08-06T10:46:29.326Z",
+  "generatedAt": "2026-08-06T11:08:10.918Z",
   "scoringSemantics": "method-identity-v3",
   "tsTranspilerVersion": "6.0.3",
   "provenanceStamped": true,
@@ -10651,6 +10651,54 @@
       "method": "validateSignal",
       "startLine": 108,
       "crap": 6.058619987787503
+    },
+    {
+      "path": ".agents/scripts/lib/observability/source-classifier.js",
+      "method": "toScanString",
+      "startLine": 186,
+      "crap": 2
+    },
+    {
+      "path": ".agents/scripts/lib/observability/source-classifier.js",
+      "method": "containsFrameworkPrefix",
+      "startLine": 201,
+      "crap": 3
+    },
+    {
+      "path": ".agents/scripts/lib/observability/source-classifier.js",
+      "method": "containsFrameworkScriptBasename",
+      "startLine": 222,
+      "crap": 3
+    },
+    {
+      "path": ".agents/scripts/lib/observability/source-classifier.js",
+      "method": "namesFrameworkSurface",
+      "startLine": 242,
+      "crap": 2
+    },
+    {
+      "path": ".agents/scripts/lib/observability/source-classifier.js",
+      "method": "classifyPathSource",
+      "startLine": 271,
+      "crap": 3
+    },
+    {
+      "path": ".agents/scripts/lib/observability/source-classifier.js",
+      "method": "isSupplied",
+      "startLine": 310,
+      "crap": 2
+    },
+    {
+      "path": ".agents/scripts/lib/observability/source-classifier.js",
+      "method": "detailsScanText",
+      "startLine": 320,
+      "crap": 4
+    },
+    {
+      "path": ".agents/scripts/lib/observability/source-classifier.js",
+      "method": "classifySignalSource",
+      "startLine": 373,
+      "crap": 11
     },
     {
       "path": ".agents/scripts/lib/observability/terse-result.js",
@@ -23645,6 +23693,61 @@
       "startLine": 243,
       "crap": 1,
       "anonymous": true
+    },
+    {
+      "path": ".agents/scripts/update-dead-exports-baseline.js",
+      "method": "parseArgv",
+      "startLine": 73,
+      "crap": 6
+    },
+    {
+      "path": ".agents/scripts/update-dead-exports-baseline.js",
+      "method": "resolveKnipKernelVersion",
+      "startLine": 105,
+      "crap": 3
+    },
+    {
+      "path": ".agents/scripts/update-dead-exports-baseline.js",
+      "method": "normalizeRows",
+      "startLine": 129,
+      "crap": 4
+    },
+    {
+      "path": ".agents/scripts/update-dead-exports-baseline.js",
+      "method": "<anon normalizeRows/(a,b)#0>",
+      "startLine": 141,
+      "crap": 2,
+      "anonymous": true
+    },
+    {
+      "path": ".agents/scripts/update-dead-exports-baseline.js",
+      "method": "buildEnvelope",
+      "startLine": 153,
+      "crap": 2
+    },
+    {
+      "path": ".agents/scripts/update-dead-exports-baseline.js",
+      "method": "collectKnipReport",
+      "startLine": 178,
+      "crap": 3
+    },
+    {
+      "path": ".agents/scripts/update-dead-exports-baseline.js",
+      "method": "describeUnusableReport",
+      "startLine": 204,
+      "crap": 4
+    },
+    {
+      "path": ".agents/scripts/update-dead-exports-baseline.js",
+      "method": "runCli",
+      "startLine": 229,
+      "crap": 4
+    },
+    {
+      "path": ".agents/scripts/update-dead-exports-baseline.js",
+      "method": "main",
+      "startLine": 283,
+      "crap": 2
     },
     {
       "path": ".agents/scripts/update-maintainability-baseline.js",
