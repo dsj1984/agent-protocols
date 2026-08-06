@@ -16,13 +16,9 @@
  * actually reaped and every close said it did. Best-effort means the close
  * still succeeds on refusal; it does not mean the close may claim an
  * outcome it never checked.
- *
- * Also clears the trace-hook env vars so subsequent tooling falls back to
- * the no-op branch instead of pointing at a (now-reaped) worktree.
  */
 
 import { Logger } from '../../../Logger.js';
-import { clearActiveStoryEnv } from '../../../observability/active-story-env.js';
 import { WorktreeManager as DefaultWorktreeManager } from '../../../worktree-manager.js';
 
 /**
@@ -90,16 +86,6 @@ export async function reapWorktreePhase({
         `[single-story-close] ⚠️ Failed to reap worktree: ${err?.message ?? err}`,
       );
     }
-  }
-
-  // Clear the trace-hook env vars so subsequent tooling falls back to the
-  // no-op branch instead of pointing at a (now-reaped) worktree.
-  try {
-    clearActiveStoryEnv({
-      logger: { warn: (m) => progress('ENV', `⚠️ ${m}`) },
-    });
-  } catch {
-    // Non-fatal.
   }
 
   return worktreeReaped;

@@ -61,10 +61,10 @@ Everything outside them is prose or a centralized constant.
    behind `review-provider-factory.js` with `optional: true` skip semantics and
    injectable `invokeFn` / `probeFn` / `spawnFn` seams. The `native` provider is
    fully host-agnostic.
-4. **Hook, env, and session contract** — the tool-trace hook parses the
-   harness's stdin contract from `.claude/settings.json`; `CC_*` vars are the
-   propagation channel throughout; remote/web detection keys entirely on
-   `CLAUDE_CODE_REMOTE*`.
+4. **Hook, env, and session contract** — `.claude/settings.json` declares the
+   harness's hook contract; remote/web detection keys entirely on
+   `CLAUDE_CODE_REMOTE*`. Story #5003 removed the tool-trace hook and the
+   `CC_*` propagation channel it was the only reader of.
 5. **Dynamic-workflows feature gating** — a Claude Code-only, paid-plan,
    research-preview feature gated on `CLAUDE_CODE_*` env flags and a
    `not-claude-runtime` reason sentinel, with per-lens workflow blocks mirrored

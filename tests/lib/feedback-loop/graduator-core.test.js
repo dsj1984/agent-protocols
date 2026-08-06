@@ -204,17 +204,21 @@ describe('createFollowUpIssue', () => {
   });
 });
 
+/**
+ * The pre-parsed findings every walk below files. Story #5003 made this the
+ * ONLY source: the structured-comment read/parse limb (`spec.parseFindings`,
+ * `spec.commentMarker`, `provider.getTicketComments`) went with the Epic-era
+ * audit-results graduator.
+ */
+const FINDINGS = () => [
+  { severity: 'low', path: 'src/x.js', summary: 'FIND', index: 0 },
+];
+
 /** Minimal spec for the parametrized graduate() walk. */
 function makeSpec(overrides = {}) {
   return {
     fnName: 'testGraduate',
     isAutoFileEnabled: () => true,
-    commentMarker: '<!-- test-marker -->',
-    noCommentReason: 'no-test-comment',
-    parseFindings: (body) =>
-      body.includes('FIND')
-        ? [{ severity: 'low', path: 'src/x.js', summary: 'FIND', index: 0 }]
-        : [],
     buildContentMarker: (epicId, finding) =>
       `<!-- f-${epicId}-${finding.index} -->`,
     buildLegacyMarker: (epicId, index) =>
@@ -234,16 +238,16 @@ describe('graduate (parametrized walk)', () => {
 
   it('short-circuits when the toggle is disabled', async () => {
     let called = false;
-    const provider = {
-      getTicketComments: async () => {
-        called = true;
-        return [];
-      },
+    const spawnImpl = () => {
+      called = true;
+      throw new Error('unreachable');
     };
     const env = await graduate({
       epicId: 1,
-      provider,
+      findings: FINDINGS(),
+      provider: {},
       currentRepo,
+      spawnImpl,
       spec: makeSpec({ isAutoFileEnabled: () => false }),
     });
     assert.deepEqual(env, {
@@ -251,24 +255,25 @@ describe('graduate (parametrized walk)', () => {
       skipped: [{ reason: 'toggle-disabled' }],
       errors: [],
     });
-    assert.equal(called, false, 'provider must not be read when toggled off');
+    assert.equal(called, false, 'nothing spawns when toggled off');
   });
 
-  it('records the spec-specific no-comment reason when the marker is absent', async () => {
-    const provider = { getTicketComments: async () => [{ body: 'unrelated' }] };
+  // Story #5003 — findings[] is now the only source. A caller that omits it
+  // short-circuits into errors[] rather than silently filing nothing, which
+  // is what the deleted structured-comment limb would have degraded to.
+  it('short-circuits into errors[] when findings[] is absent', async () => {
     const env = await graduate({
       epicId: 1,
-      provider,
+      provider: {},
       currentRepo,
       spec: makeSpec(),
     });
-    assert.deepEqual(env.skipped, [{ reason: 'no-test-comment' }]);
+    assert.deepEqual(env.filed, []);
+    assert.match(env.errors[0], /findings\[\] is required/);
   });
 
   it('files a follow-up issue using the injected parser + builder', async () => {
-    const provider = {
-      getTicketComments: async () => [{ body: '<!-- test-marker --> FIND' }],
-    };
+    const provider = {};
     const spawnImpl = makeSpawnStub({
       git: () => ({ code: 0 }),
       ghSearch: () => ({ stdout: '[]', code: 0 }),
@@ -276,6 +281,7 @@ describe('graduate (parametrized walk)', () => {
     });
     const env = await graduate({
       epicId: 42,
+      findings: FINDINGS(),
       provider,
       currentRepo,
       classifier: () => 'consumer',
@@ -297,25 +303,23 @@ describe('graduate (parametrized walk)', () => {
   });
 
   it('decorateRecord copies finding-specific fields onto records', async () => {
-    const provider = {
-      getTicketComments: async () => [{ body: '<!-- test-marker --> FIND' }],
-    };
+    const provider = {};
     const spawnImpl = makeSpawnStub({ git: () => ({ code: 1 }) }); // file-removed
     const env = await graduate({
       epicId: 1,
+      findings: [
+        {
+          severity: 'low',
+          path: 'src/x.js',
+          summary: 's',
+          index: 0,
+          lens: 'audit-security',
+        },
+      ],
       provider,
       currentRepo,
       spawnImpl,
       spec: makeSpec({
-        parseFindings: () => [
-          {
-            severity: 'low',
-            path: 'src/x.js',
-            summary: 's',
-            index: 0,
-            lens: 'audit-security',
-          },
-        ],
         decorateRecord: (record, finding) => {
           record.lens = finding.lens;
           return record;
@@ -326,19 +330,31 @@ describe('graduate (parametrized walk)', () => {
     assert.equal(env.skipped[0].lens, 'audit-security');
   });
 
-  it('never throws — provider failures land in errors[]', async () => {
+  it('never throws — a failing cross-repo comment upsert lands in errors[]', async () => {
+    // `persistCrossRepoDeferred` upserts through the ticketing helper, which
+    // reads the existing comments first. A provider that faults there is the
+    // failure this asserts degrades into errors[] rather than throwing —
+    // Story #5003 removed the up-front `getTicketComments` precondition, so
+    // this is now the walk's only provider-fault path.
     const provider = {
+      postComment: async () => {},
       getTicketComments: async () => {
         throw new Error('provider down');
       },
     };
+    const spawnImpl = makeSpawnStub({ git: () => ({ code: 0 }) });
     const env = await graduate({
       epicId: 1,
+      findings: FINDINGS(),
       provider,
       currentRepo,
+      frameworkRepo: { owner: 'other', repo: 'framework' },
+      classifier: () => 'framework',
+      spawnImpl,
       spec: makeSpec(),
     });
     assert.equal(env.filed.length, 0);
+    assert.equal(env.skipped[0]?.reason, 'cross-repo-deferred');
     assert.match(env.errors[0], /provider down/);
   });
 });
@@ -387,9 +403,7 @@ describe('graduate — dedup dispatch (Story #4657)', () => {
   const wrappedMarker = (epicId, index) => `<!-- f-${epicId}-${index} -->`;
 
   it('AC-2: identifies the marker via the undelimited search query', async () => {
-    const provider = {
-      getTicketComments: async () => [{ body: '<!-- test-marker --> FIND' }],
-    };
+    const provider = {};
     // Match ONLY on the undelimited marker text — a wrapped query never hits.
     const spawnImpl = makeSpawnStub({
       git: () => ({ code: 0 }),
@@ -400,6 +414,7 @@ describe('graduate — dedup dispatch (Story #4657)', () => {
     });
     const env = await graduate({
       epicId: 42,
+      findings: FINDINGS(),
       provider,
       currentRepo,
       classifier: () => 'consumer',
@@ -416,9 +431,7 @@ describe('graduate — dedup dispatch (Story #4657)', () => {
   });
 
   it('AC-3: legacy ordinal markers get the same normalization', async () => {
-    const provider = {
-      getTicketComments: async () => [{ body: '<!-- test-marker --> FIND' }],
-    };
+    const provider = {};
     // Content marker absent; the legacy marker is present — matched only in
     // its undelimited form.
     const spawnImpl = makeSpawnStub({
@@ -430,6 +443,7 @@ describe('graduate — dedup dispatch (Story #4657)', () => {
     });
     const env = await graduate({
       epicId: 1,
+      findings: FINDINGS(),
       provider,
       currentRepo,
       classifier: () => 'consumer',
@@ -449,9 +463,7 @@ describe('graduate — dedup dispatch (Story #4657)', () => {
   });
 
   it('AC-4: a duplicate inside the search-index window is caught by the strong read', async () => {
-    const provider = {
-      getTicketComments: async () => [{ body: '<!-- test-marker --> FIND' }],
-    };
+    const provider = {};
     // Search index misses it (empty), but the strongly-consistent issue list
     // returns a body carrying the marker.
     const spawnImpl = makeSpawnStub({
@@ -466,6 +478,7 @@ describe('graduate — dedup dispatch (Story #4657)', () => {
     });
     const env = await graduate({
       epicId: 42,
+      findings: FINDINGS(),
       provider,
       currentRepo,
       classifier: () => 'consumer',
@@ -495,9 +508,7 @@ describe('graduate — dedup dispatch (Story #4657)', () => {
   });
 
   it('AC-5: the strong read runs only on the would-file path', async () => {
-    const provider = {
-      getTicketComments: async () => [{ body: '<!-- test-marker --> FIND' }],
-    };
+    const provider = {};
     // Search already reports a match → no gh issue list spawn. The match
     // carries no `state`, which since Story #4837 is deliberately NOT read as
     // open: an unknown state never authorizes an edit, so this stays a skip.
@@ -507,6 +518,7 @@ describe('graduate — dedup dispatch (Story #4657)', () => {
     });
     const env = await graduate({
       epicId: 42,
+      findings: FINDINGS(),
       provider,
       currentRepo,
       classifier: () => 'consumer',
@@ -523,9 +535,7 @@ describe('graduate — dedup dispatch (Story #4657)', () => {
   });
 
   it('AC-7: an undecidable probe still files rather than swallowing', async () => {
-    const provider = {
-      getTicketComments: async () => [{ body: '<!-- test-marker --> FIND' }],
-    };
+    const provider = {};
     // Both read probes error; only the create succeeds.
     const spawnImpl = makeSpawnStub({
       git: () => ({ code: 0 }),
@@ -539,6 +549,7 @@ describe('graduate — dedup dispatch (Story #4657)', () => {
     });
     const env = await graduate({
       epicId: 42,
+      findings: FINDINGS(),
       provider,
       currentRepo,
       classifier: () => 'consumer',
@@ -561,9 +572,7 @@ describe('graduate — dedup dispatch (Story #4657)', () => {
  */
 describe('graduate — recurrence updates the open follow-up (Story #4837)', () => {
   const currentRepo = { owner: 'o', repo: 'r' };
-  const provider = {
-    getTicketComments: async () => [{ body: '<!-- test-marker --> FIND' }],
-  };
+  const provider = {};
 
   it('edits the existing open issue in place and never creates a second one', async () => {
     // Arrange — the search index already holds an OPEN follow-up.
@@ -582,6 +591,7 @@ describe('graduate — recurrence updates the open follow-up (Story #4837)', () 
     // Act.
     const env = await graduate({
       epicId: 42,
+      findings: FINDINGS(),
       provider,
       currentRepo,
       classifier: () => 'consumer',
@@ -628,6 +638,7 @@ describe('graduate — recurrence updates the open follow-up (Story #4837)', () 
     // Act.
     const env = await graduate({
       epicId: 42,
+      findings: FINDINGS(),
       provider,
       currentRepo,
       classifier: () => 'consumer',
@@ -669,6 +680,7 @@ describe('graduate — recurrence updates the open follow-up (Story #4837)', () 
     // Act.
     const env = await graduate({
       epicId: 42,
+      findings: FINDINGS(),
       provider,
       currentRepo,
       classifier: () => 'consumer',
@@ -709,6 +721,7 @@ describe('graduate — recurrence updates the open follow-up (Story #4837)', () 
     // Act.
     const env = await graduate({
       epicId: 42,
+      findings: FINDINGS(),
       provider,
       currentRepo,
       classifier: () => 'consumer',
@@ -744,6 +757,7 @@ describe('graduate — recurrence updates the open follow-up (Story #4837)', () 
     });
     const env = await graduate({
       epicId: 42,
+      findings: FINDINGS(),
       provider,
       currentRepo,
       classifier: () => 'consumer',
@@ -777,14 +791,13 @@ describe('graduate — recurrence updates the open follow-up (Story #4837)', () 
  */
 describe('graduate — live-API guard fails closed (Story #4837)', () => {
   const currentRepo = { owner: 'o', repo: 'r' };
-  const provider = {
-    getTicketComments: async () => [{ body: '<!-- test-marker --> FIND' }],
-  };
+  const provider = {};
 
   /** Run the walk with NO injected spawn seam. */
   const walkWithoutSeam = (overrides) =>
     graduate({
       epicId: 42,
+      findings: FINDINGS(),
       provider,
       currentRepo,
       classifier: () => 'consumer',
@@ -868,6 +881,7 @@ describe('graduate — live-API guard fails closed (Story #4837)', () => {
     });
     const env = await graduate({
       epicId: 42,
+      findings: FINDINGS(),
       provider,
       currentRepo,
       classifier: () => 'consumer',
@@ -879,12 +893,10 @@ describe('graduate — live-API guard fails closed (Story #4837)', () => {
 
   it('the refusal is per-finding and decorated, never a silent empty envelope', async () => {
     const env = await walkWithoutSeam({
-      spec: makeSpec({
-        parseFindings: () => [
-          { severity: 'low', path: 'src/a.js', summary: 's', index: 0 },
-          { severity: 'low', path: 'src/b.js', summary: 's', index: 1 },
-        ],
-      }),
+      findings: [
+        { severity: 'low', path: 'src/a.js', summary: 's', index: 0 },
+        { severity: 'low', path: 'src/b.js', summary: 's', index: 1 },
+      ],
     });
     assert.equal(env.skipped.length, 2);
     assert.deepEqual(

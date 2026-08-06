@@ -146,14 +146,14 @@ export const STRUCTURED_COMMENT_TYPES = Object.freeze([
   // `--steal`, not by TTL expiry. One entry per ticket; re-acquires upsert
   // in place.
   'plan-lease',
-  // Story #4415 (Epic #4406) — the feedback-loop graduators
-  // (`audit-results-graduator.js` / `retro-proposals-graduator.js`) upsert a
-  // `cross-repo-deferred` comment on the Epic listing findings that route
+  // Story #4415 (Epic #4406) — the feedback-loop graduator
+  // (`retro-proposals-graduator.js`) upserts a
+  // `cross-repo-deferred` comment listing findings that route
   // to a different repository and were therefore not filed here. Replaces
   // the prior log-line-only trace so the deferral survives the finalize
   // run as a durable, operator-visible record. Discriminated by a
-  // `graduator="audit-results|code-review"` attr so the two graduators
-  // upsert independent comments; re-runs upsert in place.
+  // `graduator="<name>"` attr so independent graduators do not clobber each
+  // other's comment; re-runs upsert in place.
   'cross-repo-deferred',
   // Epic #4474 (PR3) / v2 Stage 3 — `plan-persist.js` upserts a single
   // `plan-summary` comment on the primary Story at terminal persist

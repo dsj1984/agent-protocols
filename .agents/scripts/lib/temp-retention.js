@@ -31,7 +31,7 @@
  * ## Keep-class
  *
  * `signals.ndjson` is the artifact whose value *starts* when the run ends —
- * `signals-view`, `acceptance-eval`, and the loop-health check all read it
+ * `acceptance-eval` and the loop-health check both read it
  * long after the Story merged. It is excluded twice over: it is not in the
  * evidence basename allowlist, and {@link KEEP_BASENAMES} is re-checked at
  * the deletion site. Defence in depth is warranted for the one file whose

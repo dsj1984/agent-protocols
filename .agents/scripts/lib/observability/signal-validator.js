@@ -17,22 +17,20 @@
  * document (no hand-rolled drift). `strict: false` matches the repo's
  * other draft-07 validators (see `tests/schemas/signal-schemas.test.js`).
  *
- * A per-Epic reject tally is persisted under the Epic temp tree
- * (`temp/run-<eid>/signal-rejects.json`) so a cross-process reader (the
- * loop-health check, a follow-on Story) can surface how many records were
- * dropped. The tally is read-modify-written best-effort; a lost increment
- * under a write race is acceptable for a diagnostic counter.
+ * Story #5003 deleted the persisted per-Epic reject tally
+ * (`temp/run-<eid>/signal-rejects.json`) and its `readSignalRejectCount`
+ * reader: the tally was keyed on a positive `epicId`, and v2 Stories are
+ * standalone, so nothing ever wrote a row and nothing could ever read one.
+ * Write-time validation itself is untouched.
  */
 
 import { readFileSync } from 'node:fs';
-import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import Ajv from 'ajv';
 import addFormats from 'ajv-formats';
 
-import { runArtifactPath } from '../config/temp-paths.js';
 import { Logger } from '../Logger.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -44,8 +42,6 @@ const SCHEMA_PATH = path.resolve(
   'schemas',
   'signal-event.schema.json',
 );
-
-const REJECT_TALLY_BASENAME = 'signal-rejects.json';
 
 /**
  * Compile the signal-event schema once. Returns `null` when the schema
@@ -125,80 +121,4 @@ export function validateSignal(record) {
   const field = violatingFieldOf(_validate.errors);
   const message = _validate.errors?.[0]?.message ?? 'schema validation failed';
   return { valid: false, violatingField: field, message };
-}
-
-/**
- * Increment the per-Epic reject tally persisted under the Epic temp tree.
- * Best-effort and never throws: a missing/corrupt tally file resets to a
- * count of 1. When `epicId` is not a positive integer (e.g. a standalone
- * friction record with `epicId: null`) the tally write is skipped — there
- * is no Epic temp tree to anchor it to.
- *
- * @param {{ epicId: number|null|undefined, config?: object, field?: string|null }} args
- * @returns {Promise<number|null>} the new count, or null when skipped/failed.
- */
-export async function recordSignalReject({ epicId, config, field }) {
-  if (!Number.isInteger(epicId) || epicId <= 0) return null;
-  let target;
-  try {
-    target = runArtifactPath(epicId, REJECT_TALLY_BASENAME, config);
-  } catch {
-    return null;
-  }
-  try {
-    let prior = { count: 0, lastField: null };
-    try {
-      const raw = await fs.readFile(target, 'utf8');
-      const parsed = JSON.parse(raw);
-      if (
-        parsed &&
-        typeof parsed === 'object' &&
-        Number.isFinite(parsed.count)
-      ) {
-        prior = { count: parsed.count, lastField: parsed.lastField ?? null };
-      }
-    } catch {
-      // Missing or corrupt file → start a fresh tally.
-    }
-    const next = {
-      count: prior.count + 1,
-      lastField: field ?? prior.lastField ?? null,
-      updatedAt: new Date().toISOString(),
-    };
-    await fs.mkdir(path.dirname(target), { recursive: true });
-    await fs.writeFile(target, `${JSON.stringify(next)}\n`, 'utf8');
-    return next.count;
-  } catch (err) {
-    Logger.warn(
-      `signal-validator: failed to persist reject tally for epic-${epicId}: ${
-        err instanceof Error ? err.message : String(err)
-      }`,
-    );
-    return null;
-  }
-}
-
-/**
- * Read the current per-Epic reject count. Cross-process readable
- * counterpart to {@link recordSignalReject}. Returns 0 when the tally
- * file is absent or unreadable.
- *
- * @param {{ epicId: number, config?: object }} args
- * @returns {Promise<number>}
- */
-export async function readSignalRejectCount({ epicId, config }) {
-  if (!Number.isInteger(epicId) || epicId <= 0) return 0;
-  let target;
-  try {
-    target = runArtifactPath(epicId, REJECT_TALLY_BASENAME, config);
-  } catch {
-    return 0;
-  }
-  try {
-    const raw = await fs.readFile(target, 'utf8');
-    const parsed = JSON.parse(raw);
-    return parsed && Number.isFinite(parsed.count) ? parsed.count : 0;
-  } catch {
-    return 0;
-  }
 }

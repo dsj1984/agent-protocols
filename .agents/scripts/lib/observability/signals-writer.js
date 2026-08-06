@@ -1,20 +1,21 @@
 /**
- * Append-only signals/trace writer (Epic #1030 Story #1041).
+ * Append-only signals writer (Epic #1030 Story #1041).
  *
  * Centralizes the per-(epic, story) NDJSON streams under
- * `temp/run-<id>/stories/story-<sid>/signals.ndjson` (and a sibling
- * `traces.ndjson` for trace-shaped records). Detector modules and the
- * runtime trace hook all funnel through this writer so the on-disk
- * shape stays under one schema and one set of robustness guarantees.
+ * `temp/run-<id>/stories/story-<sid>/signals.ndjson`. Every live emitter
+ * funnels through this writer so the on-disk shape stays under one schema
+ * and one set of robustness guarantees. The sibling `traces.ndjson` stream
+ * and its `appendTrace` entry point went in Story #5003 with the tool-trace
+ * hook that was its only producer.
  *
  * Robustness contract (Tech Spec #1032 §observability):
  *   - **Best-effort.** Every entry point swallows fs / JSON failures
  *     after logging via `Logger.warn`. Observability MUST NOT take down
  *     the runner — a failed write is a missing signal, not a halted
  *     wave.
- *   - **No buffering.** Each `appendSignal` / `appendTrace` opens the
- *     target file, writes one newline-terminated JSON line, and closes.
- *     The Tech Spec explicitly forbids in-process buffering: detectors
+ *   - **No buffering.** Each `appendSignal` opens the target file, writes
+ *     one newline-terminated JSON line, and closes.
+ *     The Tech Spec explicitly forbids in-process buffering: emitters
  *     fire from inside per-Story sub-agents that may exit abruptly, and
  *     a buffered tail would silently disappear on `process.exit`.
  *   - **Lazy directory creation.** The first write to a fresh Story
@@ -42,22 +43,10 @@ import {
   STANDALONE_DIRNAME,
   STORIES_DIRNAME,
   signalsFile,
-  storyTempDir,
 } from '../config/temp-paths.js';
 import { Logger } from '../Logger.js';
-import { recordSignalReject, validateSignal } from './signal-validator.js';
+import { validateSignal } from './signal-validator.js';
 import { classifySignalSource } from './source-classifier.js';
-
-const TRACES_BASENAME = 'traces.ndjson';
-
-/**
- * Async traces-file path (kept private — consumers thread through
- * `appendTrace`). Mirrors `signalsFile` but with the `traces.ndjson`
- * sibling so the analyzer can scan signals and traces independently.
- */
-function tracesFile(eid, sid, config) {
-  return path.join(storyTempDir(eid, sid, config), TRACES_BASENAME);
-}
 
 /**
  * Best-effort decoration of a signal record with a `source` field
@@ -111,21 +100,23 @@ function tagSignalSource(signal) {
 /**
  * Validate a record against the canonical `signal-event.schema.json`
  * before it is appended. On failure the record is **dropped** (never
- * appended), a `Logger.warn` names the violating field, and the per-Epic
- * reject tally is incremented under the Epic temp tree. Never throws —
+ * appended) and a `Logger.warn` names the violating field. Never throws —
  * the writer's best-effort contract is preserved.
  *
+ * Story #5003 removed the persisted per-Epic reject tally this used to
+ * increment: v2 Stories are standalone (`epicId` is always null), so the
+ * tally was never written and its only reader could never see one.
+ *
  * @param {unknown} record
- * @param {{ epicId?: number|null, config?: object, label: string }} ctx
- * @returns {Promise<boolean>} true when the record is valid (safe to append).
+ * @param {string} label
+ * @returns {boolean} true when the record is valid (safe to append).
  */
-async function validateOrDrop(record, { epicId, config, label }) {
+function validateOrDrop(record, label) {
   const { valid, violatingField, message } = validateSignal(record);
   if (valid) return true;
   Logger.warn(
     `signals-writer: dropping schema-invalid ${label} record — violating field '${violatingField}' (${message}).`,
   );
-  await recordSignalReject({ epicId, config, field: violatingField });
   return false;
 }
 
@@ -189,42 +180,8 @@ export async function appendSignal(args) {
     return false;
   }
   const tagged = tagSignalSource(signal);
-  const ok = await validateOrDrop(tagged, {
-    epicId: Number.isInteger(epicId) ? epicId : null,
-    config,
-    label: 'signal',
-  });
-  if (!ok) return false;
+  if (!validateOrDrop(tagged, 'signal')) return false;
   return appendOne(target, tagged);
-}
-
-/**
- * Append one trace record to `temp/run-<id>/stories/story-<sid>/traces.ndjson`.
- * Same robustness contract as `appendSignal` — never throws.
- *
- * @param {{ epicId: number, storyId: number, trace: unknown, config?: object }} args
- * @returns {Promise<boolean>}
- */
-export async function appendTrace(args) {
-  const { epicId, storyId, trace, config } = args ?? {};
-  let target;
-  try {
-    target = tracesFile(epicId, storyId, config);
-  } catch (err) {
-    Logger.warn(
-      `signals-writer: invalid epicId/storyId for appendTrace: ${
-        err instanceof Error ? err.message : String(err)
-      }`,
-    );
-    return false;
-  }
-  const ok = await validateOrDrop(trace, {
-    epicId: Number.isInteger(epicId) ? epicId : null,
-    config,
-    label: 'trace',
-  });
-  if (!ok) return false;
-  return appendOne(target, trace);
 }
 
 /**

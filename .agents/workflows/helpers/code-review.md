@@ -293,14 +293,9 @@ For every finding, provide:
 
 Findings that Step 4.5 remediated on `[HEAD_REF]` MUST be rendered under a
 dedicated **`## Fixed on-branch`** heading, **not** in the severity groups
-above. This is the contract seam that keeps remediated findings from
-spawning ghost follow-up issues: the
-[audit-results graduator](../../scripts/lib/feedback-loop/audit-results-graduator.js)
-(the sole canonical reader of the unified comment)
-skips every entry inside this section (both because a fixed entry is
-rendered with a **✅ prefix** — so it carries no leading severity emoji the
-parser would match — and because the parser has an explicit
-Fixed-on-branch section guard).
+above. This keeps a remediated finding legible as remediated to every reader
+of the unified comment — human or downstream — rather than reading as an
+outstanding severity-grouped finding.
 
 Render each fixed finding as a `✅`-prefixed line naming its original
 severity, the file path in backticks, and the remediating commit SHA, e.g.:

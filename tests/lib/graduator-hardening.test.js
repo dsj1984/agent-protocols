@@ -6,7 +6,11 @@
  * spawn timeout, a per-run filing cap, the pre-parsed / path-less
  * `graduate()` seam the retro auto-filer consumes, the probe-error vs
  * confirmed-missing distinction, and durable persistence of
- * cross-repo-deferred findings as a structured comment on the Epic.
+ * cross-repo-deferred findings as a structured comment.
+ *
+ * Story #5003 re-pointed the suite at the shared `graduate()` walk directly:
+ * the `audit-results-graduator.js` shell it used to drive was Epic-era and is
+ * deleted, and the walk is the contract these ACs are actually about.
  *
  * All gh/git child processes are stubbed via the `spawnImpl` seam and the
  * provider is a stub — no real network, git, or filesystem access.
@@ -17,16 +21,9 @@ import { EventEmitter } from 'node:events';
 import { describe, it } from 'node:test';
 
 import {
-  buildContentMarker as buildAuditContentMarker,
-  buildIdempotencyMarker as buildAuditLegacyMarker,
-  graduateAuditResults,
-  parseFindings as parseAuditFindings,
-} from '../../.agents/scripts/lib/feedback-loop/audit-results-graduator.js';
-import {
   contentFingerprint,
   graduate,
   runChild,
-  VERIFICATION_RESULTS_MARKER,
 } from '../../.agents/scripts/lib/feedback-loop/graduator-core.js';
 import {
   _resetStructuredCommentCache,
@@ -78,9 +75,6 @@ function makeSpec(overrides = {}) {
   return {
     fnName: 'testGraduate',
     isAutoFileEnabled: () => true,
-    commentMarker: '<!-- test-marker -->',
-    noCommentReason: 'no-test-comment',
-    parseFindings: () => [],
     buildContentMarker: (epicId, finding) =>
       `<!-- content-${epicId}-${contentFingerprint({
         category: finding.severity,
@@ -117,44 +111,46 @@ function makeRecordingProvider(initialComments = []) {
 }
 
 describe('AC1 — content-hash idempotency markers', () => {
+  const spec = makeSpec();
+  const mk = (overrides) => ({
+    severity: 'high',
+    path: 'src/api.js',
+    summary: 'finding',
+    index: 0,
+    ...overrides,
+  });
+
   it('keeps a finding marker stable across sibling reorder / insert', () => {
-    const bodyA = [
-      VERIFICATION_RESULTS_MARKER,
-      '#### audit-security',
-      '🟠 high finding in `src/api.js`',
-      '🟡 medium finding in `src/util.js`',
-    ].join('\n');
-    // Reordered + a sibling inserted; the src/api.js finding now has a
-    // different parse index but identical content.
-    const bodyB = [
-      VERIFICATION_RESULTS_MARKER,
-      '#### audit-security',
-      '🟢 suggestion in `src/new.js`',
-      '🟡 medium finding in `src/util.js`',
-      '🟠 high finding in `src/api.js`',
-    ].join('\n');
-    const apiA = parseAuditFindings(bodyA).find((f) => f.path === 'src/api.js');
-    const apiB = parseAuditFindings(bodyB).find((f) => f.path === 'src/api.js');
-    assert.notEqual(apiA.index, apiB.index, 'parse index must have shifted');
+    // Same content, different parse index — the whole point of the
+    // content hash is that the ordinal cannot move the marker.
+    const at0 = mk({ index: 0 });
+    const at4 = mk({ index: 4 });
+    assert.notEqual(at0.index, at4.index, 'parse index must have shifted');
     assert.equal(
-      buildAuditContentMarker(2586, apiA),
-      buildAuditContentMarker(2586, apiB),
+      spec.buildContentMarker(2586, at0),
+      spec.buildContentMarker(2586, at4),
       'content marker must survive sibling churn',
     );
   });
 
   it('gives two distinct findings distinct markers', () => {
-    const findings = parseAuditFindings(
-      [
-        VERIFICATION_RESULTS_MARKER,
-        '#### audit-security',
-        '🟠 high finding in `src/api.js`',
-        '🟡 medium finding in `src/util.js`',
-      ].join('\n'),
+    const m0 = spec.buildContentMarker(2586, mk());
+    const m1 = spec.buildContentMarker(
+      2586,
+      mk({ severity: 'medium', path: 'src/util.js', index: 1 }),
     );
-    const m0 = buildAuditContentMarker(2586, findings[0]);
-    const m1 = buildAuditContentMarker(2586, findings[1]);
     assert.notEqual(m0, m1);
+  });
+
+  it('keys the fingerprint on category|path|title, not on the ordinal', () => {
+    assert.equal(
+      contentFingerprint({ category: 'high', path: 'src/api.js', title: 'f' }),
+      contentFingerprint({ category: 'high', path: 'src/api.js', title: 'f' }),
+    );
+    assert.notEqual(
+      contentFingerprint({ category: 'high', path: 'src/api.js', title: 'f' }),
+      contentFingerprint({ category: 'high', path: 'src/b.js', title: 'f' }),
+    );
   });
 });
 
@@ -223,7 +219,7 @@ describe('AC3 — per-run filing cap', () => {
 });
 
 describe('AC4 — pre-parsed findings + path-less seam', () => {
-  it('bypasses structured-comment parsing when findings are supplied', async () => {
+  it('never reads the ticket comments when findings are supplied', async () => {
     let getCommentsCalled = false;
     const provider = {
       getTicketComments: async () => {
@@ -249,7 +245,7 @@ describe('AC4 — pre-parsed findings + path-less seam', () => {
     assert.equal(
       getCommentsCalled,
       false,
-      'pre-parsed findings must bypass the comment read',
+      'the walk must never read ticket comments to source findings',
     );
   });
 
@@ -317,8 +313,8 @@ describe('AC5 — legacy (epicId, parse-index) marker recognition', () => {
     assert.equal(env.skipped[0].reason, 'already-filed');
     // Sanity: the legacy marker the walk probed carries the parse index.
     assert.equal(
-      buildAuditLegacyMarker(4406, 3),
-      '<!-- audit-results-followup: epic-4406-finding-3 -->',
+      makeSpec().buildLegacyMarker(4406, 3),
+      '<!-- legacy-4406-finding-3 -->',
     );
   });
 });
@@ -340,28 +336,33 @@ describe('AC6 — probe-error distinction + durable cross-repo deferral', () => 
     assert.equal(env.skipped[0].reason, 'probe-error');
   });
 
-  it('upserts cross-repo-deferred findings into a durable Epic comment', async () => {
+  it('upserts cross-repo-deferred findings into a durable comment', async () => {
     _resetStructuredCommentCache();
-    const codeReviewBody = [
-      VERIFICATION_RESULTS_MARKER,
-      '### 🚨 Critical Findings',
-      '🟠 High Risk: `.agents/scripts/foo.js` (framework path)',
-    ].join('\n');
-    const provider = makeRecordingProvider([{ body: codeReviewBody }]);
+    const provider = makeRecordingProvider();
     const spawnImpl = makeSpawnStub({
       git: () => ({ code: 0 }),
       ghSearch: () => ({ stdout: '[]', code: 0 }),
       ghCreate: () => ({ stdout: 'https://x/issues/1', code: 0 }),
     });
-    const env = await graduateAuditResults({
+    const env = await graduate({
       epicId: 4406,
       provider,
       config: {},
-      // Listener runs in the consumer repo → the .agents/ finding routes
-      // cross-repo.
+      // The walk runs in the consumer repo → the framework-classified
+      // finding routes cross-repo.
       currentRepo: { owner: 'acme', repo: 'product' },
       frameworkRepo: { owner: 'dsj1984', repo: 'mandrel' },
+      classifier: () => 'framework',
       spawnImpl,
+      findings: [
+        {
+          severity: 'high',
+          path: '.agents/scripts/foo.js',
+          summary: 'framework finding',
+          index: 0,
+        },
+      ],
+      spec: makeSpec(),
     });
     const crossRepo = env.skipped.find(
       (s) => s.reason === 'cross-repo-deferred',
@@ -381,24 +382,25 @@ describe('AC6 — probe-error distinction + durable cross-repo deferral', () => 
 
   it('is a no-op (no error) when the provider cannot post comments', async () => {
     // Provider without postComment — the persist step must silently skip.
-    const provider = {
-      getTicketComments: async () => [
-        {
-          body: [
-            VERIFICATION_RESULTS_MARKER,
-            '🟠 High Risk: `.agents/scripts/foo.js`',
-          ].join('\n'),
-        },
-      ],
-    };
+    const provider = { getTicketComments: async () => [] };
     const spawnImpl = makeSpawnStub({ git: () => ({ code: 0 }) });
-    const env = await graduateAuditResults({
+    const env = await graduate({
       epicId: 4406,
       provider,
       config: {},
       currentRepo: { owner: 'acme', repo: 'product' },
       frameworkRepo: { owner: 'dsj1984', repo: 'mandrel' },
+      classifier: () => 'framework',
       spawnImpl,
+      findings: [
+        {
+          severity: 'high',
+          path: '.agents/scripts/foo.js',
+          summary: 'framework finding',
+          index: 0,
+        },
+      ],
+      spec: makeSpec(),
     });
     assert.equal(env.errors.length, 0, JSON.stringify(env.errors));
     assert.ok(env.skipped.some((s) => s.reason === 'cross-repo-deferred'));
@@ -417,7 +419,7 @@ describe('ticketing — cross-repo-deferred is a registered comment type', () =>
       provider,
       4406,
       'cross-repo-deferred',
-      { graduator: 'audit-results' },
+      { graduator: 'test' },
     );
     assert.equal(found, null);
   });

@@ -1,7 +1,7 @@
 /**
  * `lib/signals/` barrel.
  *
- * Consumers do `import { read, schema, buildSpanTree, appendSignal } from './lib/signals/index.js'`
+ * Consumers do `import { schema, appendSignal } from './lib/signals/index.js'`
  * (or `import * as signals from './lib/signals/index.js'`) so a future
  * shape migration only has to touch this file.
  *
@@ -14,13 +14,15 @@
  *     via `./write.js` so the gate scripts (and any
  *     new code) converge on `lib/signals/` instead of importing the
  *     writer directly from `lib/observability/`.
+ *   - Story #5003 — the reader half (`read`, `buildSpanTree`) went with the
+ *     `signals-view.js` viewer: it walked a `run-<id>/` layout no v2 writer
+ *     populates. `appendTrace` went with the tool-trace hook, its only
+ *     producer. What remains is the live write surface.
  *
  * @module lib/signals
  */
 
-import { read } from './read.js';
 import * as schema from './schema.js';
-import { buildSpanTree } from './span-tree.js';
-import { appendSignal, appendTrace, forEachLine } from './write.js';
+import { appendSignal, forEachLine } from './write.js';
 
-export { appendSignal, appendTrace, buildSpanTree, forEachLine, read, schema };
+export { appendSignal, forEachLine, schema };

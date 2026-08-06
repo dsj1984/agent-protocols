@@ -169,20 +169,13 @@ call site.
 | `plan-run-audit-roster`     | `lib/orchestration/run-epilogue.js`                                     | Audit lenses selected for the run, grounded in the landed diff.          |
 | `plan-run-sibling-coherence`| `lib/orchestration/run-epilogue.js`                                     | Cross-Story coherence findings for a multi-Story plan run.               |
 | `model-attribution`         | `lib/orchestration/model-attribution.js`                                | Which model executed the work. Shape SSOT: `.agents/schemas/model-attribution.schema.json` — documented, not AJV-compiled; the runtime gate is the hand-rolled `validateModelAttributionPayload` in the same writer. |
-| `cross-repo-deferred`       | `lib/feedback-loop/graduator-core.js`                                   | Findings routed to another repository and therefore not filed here. Discriminated by a `graduator` attr so each graduator upserts independently. |
+| `cross-repo-deferred`       | `lib/feedback-loop/graduator-core.js`                                   | Findings routed to another repository and therefore not filed here. Discriminated by a `graduator` attr so independent graduators upsert without clobbering each other. |
 
-**Graduation off `verification-results`.**
-`lib/feedback-loop/audit-results-graduator.js` reads that comment and
-auto-graduates every non-blocking finding (severity high/medium/low/suggestion
-— anything not a 🔴 Critical Blocker) into a routed follow-up issue carrying
-`meta::audit-finding`, `meta::framework-gap`/`meta::consumer-improvement`,
-`audit-results::<severity>`, and `domain::<lens>`, keyed by an
-`<!-- audit-results-followup: epic-<id>-finding-<idx> -->` idempotency marker.
-Toggle: `delivery.feedbackLoop.auditResultsAutoFile` (default `true`). The
-graduator keeps its `audit-results` name and label prefix from when it read a
-separate `audit-results` comment; that comment type is retired — Stories #4411
-and #4412 folded it into `verification-results` — but the graduator is
-unchanged.
+**Graduation off `verification-results` is retired.** Story #5003 deleted the
+audit-results graduator: it read that comment off an **Epic**, and the v2
+ticket model is Story-only, so it could never resolve a finding. The surviving graduator is
+`lib/feedback-loop/retro-proposals-graduator.js`, which consumes pre-parsed
+findings from the retro composer rather than reading any comment.
 
 The `mcp__mandrel__post_structured_comment` tool is **gone**; the
 direct CLI is the only path. Earlier dispatcher snapshots referencing the MCP
