@@ -1,23 +1,21 @@
 // tests/lib/orchestration/lifecycle/listener-watcher.test.js
 /**
- * Unit tests for the lifecycle Watcher listener
- * (Story #2256 / Task #2261).
+ * Unit tests for the PR CI-watch loop and its pure helpers
+ * (Story #2256 / Task #2261; re-pointed by Story #5006).
  *
  * Acceptance contract:
- *   - Subscribes to `pr.created` (and ONLY that event).
  *   - Required-check names come from `gh pr checks --required` at
  *     runtime — NOT from `.agentrc.json.branchProtection.requiredChecks`.
- *   - Polls until every check is terminal, recording the outcome in the
- *     `classifications` log. (The retired `epic.watch.start` / `.end`
- *     bus emits were deleted with their schemas — the watch path has no
- *     bus-observable side effects.)
- *   - Listener is idempotent on repeat `(event, seqId)`.
+ *   - The loop polls until every check is terminal and returns the verdict.
+ *     (Story #5006 deleted the `Watcher` bus listener that wrapped it — the
+ *     `epic.watch.start` / `.end` emits and their schemas were already gone,
+ *     so nothing drove it. The watch path has no bus-observable side
+ *     effects and the returned verdict is the whole surface.)
  */
 
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { Bus } from '../../../../.agents/scripts/lib/orchestration/lifecycle/bus.js';
 import {
   allTerminal,
   extractPrNumber,
@@ -25,7 +23,7 @@ import {
   parseGhPrChecks,
   pollUntilTerminal,
   reduceOutcomes,
-  Watcher,
+  watchPrToTerminal,
 } from '../../../../.agents/scripts/lib/orchestration/lifecycle/listeners/watcher.js';
 
 function quietLogger() {
@@ -229,15 +227,15 @@ describe('pollUntilTerminal', () => {
   });
 });
 
-describe('Watcher (bus integration)', () => {
+describe('watchPrToTerminal (bus-free)', () => {
   it('watches to terminal with runtime-resolved required checks', async () => {
-    const bus = new Bus();
     let ghCalls = 0;
-    const watcher = new Watcher({
-      bus,
+    const verdict = await watchPrToTerminal({
+      prUrl: 'https://github.com/owner/repo/pull/9',
       cwd: '/tmp',
       pollIntervalMs: 0,
       maxPolls: 5,
+      maxUpdates: 0,
       sleepFn: async () => {},
       ghPrChecksFn: () => {
         ghCalls += 1;
@@ -253,215 +251,76 @@ describe('Watcher (bus integration)', () => {
       },
       logger: quietLogger(),
     });
-    watcher.register();
 
-    await bus.emit('pr.created', {
-      prUrl: 'https://github.com/owner/repo/pull/9',
-      head: 'epic/2172',
-      base: 'main',
-    });
-
-    const cls = watcher.classifications[0];
-    assert.equal(cls.outcome, 'watched');
-    assert.equal(
-      cls.requiredChecks,
-      2,
-      'required-check count resolved from the runtime gh probe',
+    assert.equal(verdict.terminal, true);
+    assert.equal(verdict.green, true);
+    assert.deepEqual(
+      verdict.requiredChecks,
+      ['Validate and Test', 'baselines'],
+      'required-check names resolved from the runtime gh probe',
     );
     // First probe + one terminal iteration (the while-loop exits
     // before a second probe because outcomes are already terminal).
     assert.equal(ghCalls, 1);
   });
 
-  it('required-check names come from gh, NOT .agentrc.json', () => {
-    // The Watcher constructor accepts no agentrc/config injection at
-    // all — required checks are resolved exclusively from the
-    // `ghPrChecksFn` return value. This guards against future drift
-    // where someone might plumb config into the listener.
-    const watcher = new Watcher({
-      bus: new Bus(),
-      ghPrChecksFn: () => ({ status: 0, stdout: '[]', stderr: '' }),
-      logger: quietLogger(),
-    });
-    // Verify no config-shaped property leaked onto the instance.
-    assert.ok(!('agentrc' in watcher), 'watcher must not carry agentrc');
-    assert.ok(
-      !('branchProtection' in watcher),
-      'watcher must not carry branchProtection config',
-    );
-    assert.ok(
-      !('requiredChecks' in watcher),
-      'watcher must not pre-resolve requiredChecks at construct-time',
-    );
-  });
-
-  it('subscribes ONLY to pr.created', () => {
-    const watcher = new Watcher({
-      bus: new Bus(),
-      ghPrChecksFn: () => ({ status: 0, stdout: '[]', stderr: '' }),
-      logger: quietLogger(),
-    });
-    assert.deepEqual([...watcher.events], ['pr.created']);
-  });
-
-  it('listener is idempotent on repeat (event, seqId)', async () => {
-    const bus = new Bus();
-    let ghCalls = 0;
-    const watcher = new Watcher({
-      bus,
-      pollIntervalMs: 0,
-      sleepFn: async () => {},
-      ghPrChecksFn: () => {
-        ghCalls += 1;
-        return {
-          status: 0,
-          stdout: '[{"name":"lint","state":"SUCCESS"}]',
-          stderr: '',
-        };
-      },
-      logger: quietLogger(),
-    });
-    watcher.register();
-
-    const ctx = {
-      event: 'pr.created',
-      seqId: 50,
-      payload: {
-        prUrl: 'https://github.com/o/r/pull/1',
-        head: 'epic/2172',
-        base: 'main',
-      },
-    };
-    await watcher.handle(ctx);
-    await watcher.handle(ctx);
-
-    assert.equal(ghCalls, 1, 'gh pr checks invoked exactly once');
-    const dup = watcher.classifications.find(
-      (c) => c.outcome === 'skipped' && c.reason === 'duplicate-seqId',
-    );
-    assert.ok(dup, 'duplicate seqId logged');
-  });
-
-  it('handles polling: pending → terminal across multiple iterations', async () => {
-    const bus = new Bus();
-    const responses = [
-      // First probe — name resolution + initial state (pending).
-      {
-        status: 8,
-        stdout: '[{"name":"lint","state":"","bucket":"pending"}]',
-        stderr: '',
-      },
-      // Second tick — still pending.
-      {
-        status: 8,
-        stdout: '[{"name":"lint","state":"","bucket":"pending"}]',
-        stderr: '',
-      },
-      // Third tick — terminal.
-      {
-        status: 0,
-        stdout: '[{"name":"lint","state":"SUCCESS","bucket":"pass"}]',
-        stderr: '',
-      },
-    ];
-    let idx = 0;
-    const watcher = new Watcher({
-      bus,
-      pollIntervalMs: 0,
-      maxPolls: 5,
-      sleepFn: async () => {},
-      ghPrChecksFn: () => responses[Math.min(idx++, responses.length - 1)],
-      logger: quietLogger(),
-    });
-    watcher.register();
-
-    await bus.emit('pr.created', {
-      prUrl: 'https://github.com/o/r/pull/2',
-      head: 'epic/2172',
-      base: 'main',
-    });
-    const cls = watcher.classifications[0];
-    assert.equal(cls.outcome, 'watched');
-    assert.equal(cls.polls, 2);
-  });
-
-  it('hits the iteration cap with checks still pending and classifies still-running (Story #4358)', async () => {
-    const bus = new Bus();
-    // maxResumes defaults to 0, so the cap fires once with the check
-    // still pending and none failed → the slow-but-not-red sentinel.
-    const watcher = new Watcher({
-      bus,
-      pollIntervalMs: 0,
-      maxPolls: 3,
-      sleepFn: async () => {},
-      ghPrChecksFn: () => ({
-        status: 8,
-        stdout: '[{"name":"slow","state":"","bucket":"pending"}]',
-        stderr: '',
-      }),
-      logger: quietLogger(),
-    });
-    watcher.register();
-
-    await bus.emit('pr.created', {
-      prUrl: 'https://github.com/o/r/pull/3',
-      head: 'epic/2172',
-      base: 'main',
-    });
-    const cls = watcher.classifications[0];
-    assert.equal(cls.outcome, 'still-running');
-  });
-
-  it('re-arms up to maxResumes before declaring still-running (Story #4358)', async () => {
-    const bus = new Bus();
-    const watcher = new Watcher({
-      bus,
-      pollIntervalMs: 0,
-      maxPolls: 2,
-      maxResumes: 2,
-      sleepFn: async () => {},
-      ghPrChecksFn: () => ({
-        status: 8,
-        stdout: '[{"name":"slow","state":"","bucket":"pending"}]',
-        stderr: '',
-      }),
-      logger: quietLogger(),
-    });
-    watcher.register();
-
-    await bus.emit('pr.created', {
-      prUrl: 'https://github.com/o/r/pull/6',
-      head: 'epic/2172',
-      base: 'main',
-    });
-    const cls = watcher.classifications[0];
-    assert.equal(cls.outcome, 'still-running');
-    assert.equal(cls.resumesApplied, 2, 'resume budget fully spent');
-  });
-
-  it('genuine gh failure (status != 0/8 with empty stdout) classifies failed', async () => {
-    const bus = new Bus();
-    const watcher = new Watcher({
-      bus,
+  it('required-check names come from gh, NOT .agentrc.json', async () => {
+    // The loop accepts no agentrc/config argument at all — required checks
+    // are resolved exclusively from the `ghPrChecksFn` return value. A
+    // future attempt to plumb branch-protection config in would have to
+    // change this signature, which is what the assertion guards.
+    const verdict = await watchPrToTerminal({
+      prUrl: 'https://github.com/o/r/pull/1',
+      cwd: '/tmp',
       pollIntervalMs: 0,
       maxPolls: 1,
+      maxUpdates: 0,
       sleepFn: async () => {},
       ghPrChecksFn: () => ({
-        status: 4,
-        stdout: '',
-        stderr: 'gh: not authenticated',
+        status: 0,
+        stdout: '[{"name":"gh-resolved-only","state":"SUCCESS"}]',
+        stderr: '',
       }),
       logger: quietLogger(),
+      // Deliberately passed and deliberately ignored.
+      config: {
+        github: {
+          branchProtection: { requiredChecks: [{ name: 'from-config' }] },
+        },
+      },
     });
-    watcher.register();
+    assert.deepEqual(verdict.requiredChecks, ['gh-resolved-only']);
+  });
 
-    await bus.emit('pr.created', {
-      prUrl: 'https://github.com/o/r/pull/4',
-      head: 'epic/2172',
-      base: 'main',
+  it('reports gh-checks-failed when the probe faults with no parseable body', async () => {
+    const verdict = await watchPrToTerminal({
+      prUrl: 'https://github.com/o/r/pull/1',
+      cwd: '/tmp',
+      pollIntervalMs: 0,
+      maxPolls: 5,
+      maxUpdates: 0,
+      sleepFn: async () => {},
+      ghPrChecksFn: () => ({ status: 1, stdout: '', stderr: 'boom' }),
+      logger: quietLogger(),
     });
-    const failed = watcher.classifications.find((c) => c.outcome === 'failed');
-    assert.ok(failed);
-    assert.match(failed.reason, /gh-checks-failed/);
+    assert.equal(verdict.requiredChecksEmpty, true);
+    assert.equal(verdict.terminal, false);
+    assert.equal(verdict.green, false);
+    assert.match(verdict.error, /gh-checks-failed/);
+  });
+
+  it('distinguishes an empty required-check set from a gh fault', async () => {
+    const verdict = await watchPrToTerminal({
+      prUrl: 'https://github.com/o/r/pull/1',
+      cwd: '/tmp',
+      pollIntervalMs: 0,
+      maxPolls: 5,
+      maxUpdates: 0,
+      sleepFn: async () => {},
+      ghPrChecksFn: () => ({ status: 0, stdout: '[]', stderr: '' }),
+      logger: quietLogger(),
+    });
+    assert.equal(verdict.requiredChecksEmpty, true);
+    assert.match(verdict.error, /gh-checks-empty/);
   });
 });

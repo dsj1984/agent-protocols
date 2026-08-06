@@ -17,8 +17,11 @@
  *
  * Scope:
  *   - Listener files scanned: every `*.js` under
- *     `.agents/scripts/lib/orchestration/lifecycle/listeners/` except
- *     `index.js` (the factory).
+ *     `.agents/scripts/lib/orchestration/lifecycle/listeners/` that
+ *     exports a class, except `index.js` (the factory). A module in that
+ *     directory exporting no class is not a listener and is skipped —
+ *     since Story #5006 that is `watcher.js`, which kept its path when its
+ *     bus listener was deleted so its CLI consumer's import stayed stable.
  *   - Subscription source: each listener exposes its subscription list
  *     via a `this.events = Object.freeze([...])` assignment containing
  *     a literal array of single-quoted event names. Listeners that do
@@ -268,8 +271,29 @@ export function diffListenerEvents({ code, doc }) {
 }
 
 /**
+ * A listener is a file that exports a class. Every listener in the model is
+ * `export class <PascalName> { register() … }`, so the exported class is the
+ * cheapest honest discriminator — and it is the one the doc table keys on.
+ *
+ * The distinction became load-bearing in Story #5006, which deleted the
+ * `Watcher` bus listener but left its plain CI-poll primitive
+ * (`watchPrToTerminal`) at `listeners/watcher.js` for its CLI consumer.
+ * Without this test the loader would read that module as a listener with a
+ * *dynamic* subscription — `extractCodeEvents` returns `wildcard` whenever
+ * `this.events` is absent — and demand a `*` doc row for something that
+ * subscribes to nothing at all.
+ *
+ * @param {string} src
+ * @returns {boolean}
+ */
+function declaresListenerClass(src) {
+  return /^export\s+class\s+[A-Z]/m.test(src);
+}
+
+/**
  * Walk the listeners directory and return [{ pascalName, filePath,
- * code }] for every `.js` file (excluding `index.js`).
+ * code }] for every `.js` file that declares a listener class (excluding
+ * `index.js`).
  *
  * @param {string} listenersDir
  * @param {{ read?: typeof readFileSync, readDir?: typeof readdirSync }} [opts]
@@ -289,6 +313,7 @@ export function loadCodeListeners(
     const pascalName = kebabToPascal(basename);
     const filePath = path.join(listenersDir, ent.name);
     const src = read(filePath, 'utf8');
+    if (!declaresListenerClass(src)) continue;
     const code = extractCodeEvents(src);
     out.push({ pascalName, filePath, code });
   }

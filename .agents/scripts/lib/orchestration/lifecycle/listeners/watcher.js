@@ -1,13 +1,18 @@
 // .agents/scripts/lib/orchestration/lifecycle/listeners/watcher.js
 /**
- * Watcher — lifecycle listener that owns the required-check poll loop
- * for an open Epic PR. Story #2256 / Task #2261 (Epic #2172).
+ * watcher.js — the required-check poll loop for an open PR.
+ * Story #2256 / Task #2261 (Epic #2172).
  *
- * Subscribes to:
- *   - `pr.created` → resolve the required-check names from GitHub at
- *     runtime via `gh pr checks <pr> --required`, then poll until every
- *     check reaches a terminal state (or a per-listener wall-clock
- *     deadline expires), recording the outcome in `classifications`.
+ * **Not a listener.** This module shipped as the `Watcher` lifecycle
+ * listener, subscribing to `pr.created` and recording each watch in an
+ * in-memory `classifications` log. Story #5006 deleted the class: the
+ * `epic.watch.*` bus events went with the Epic-orchestration stratum, so
+ * nothing emitted `pr.created` at it and no chain registered it — the only
+ * production consumer, `pr-watch-with-update.js`, has always driven
+ * {@link watchPrToTerminal} directly, with no bus. What is left is that
+ * plain primitive plus its pure parse/reduce helpers. The file keeps its
+ * path so the CLI's import is stable; the directory's README records that
+ * it is the one non-listener living there.
  *
  * Critical contract:
  *   - Required-check **names** are resolved from `gh pr checks` at
@@ -16,29 +21,18 @@
  *     branch-protection ruleset on GitHub is the source of truth at
  *     watch time. This guards against config drift (a config file that
  *     hasn't been updated after a protection rule changed on GitHub
- *     would otherwise cause the watcher to either skip a required check
+ *     would otherwise cause the watch to either skip a required check
  *     or wait for a removed one indefinitely).
  *
- * Idempotency contract (AC-10): per-instance `Set<string>` of
- * `${event}:${seqId}` keys. A repeat `(event, seqId)` short-circuits
- * without re-polling and emits nothing. Combined with the bus-level
- * replay defence, this is sufficient — re-running `/deliver` after
- * a crash will produce a NEW seqId and the listener legitimately
- * re-runs the poll loop (which is itself idempotent: the outcome map
- * always reflects the live GitHub state).
- *
- * Side-effect firewall: the listener shells out to `gh` and records
- * its outcome in the in-memory `classifications` log. It does NOT
- * mutate ticket labels, post comments, call `notify`, or emit on the
- * bus — the production consumer (`pr-watch-with-update.js`) drives
- * `watchPrToTerminal` directly without a bus, and the retired
- * `epic.watch.start` / `epic.watch.end` bus events went with the
- * Epic-orchestration stratum.
+ * Side-effect firewall: the loop shells out to `gh` through injectable
+ * ports and returns a verdict. It does NOT mutate ticket labels, post
+ * comments, call `notify`, or emit on the bus.
  */
 
 import { spawnSync } from 'node:child_process';
 
 import { parsePrNumberFromUrl } from '../../../github-url.js';
+import { applyBehindUpdate } from '../../behind-recovery.js';
 
 /**
  * Map `gh pr checks` `state` values to the canonical lowercase outcome
@@ -184,9 +178,9 @@ function ghPrChecks({ prUrl, cwd, repo, spawnFn = spawnSync }) {
 }
 
 /**
- * Default `gh pr view` spawn — probes `mergeStateStatus` so the Watcher
+ * Default `gh pr view` spawn — probes `mergeStateStatus` so the watch loop
  * can detect the BEHIND condition (PR head is behind its base branch)
- * AFTER every required check is green. Exported so tests can stub.
+ * AFTER every required check is green. Injectable so tests can stub.
  */
 function ghPrView({ prUrl, cwd, repo, spawnFn = spawnSync }) {
   const result = spawnFn(
@@ -377,8 +371,8 @@ function defaultSleep(ms) {
  * an empty stdout) are logged and skipped — the outer cap eventually
  * short-circuits if `gh` is unrecoverably broken.
  *
- * Exported so the BEHIND-recovery outer loop in `Watcher.handle()` can
- * call this for each CI cycle without duplicating the inner logic.
+ * Exported so {@link watchPrToTerminal}'s BEHIND-recovery outer loop can
+ * call it once per CI cycle without duplicating the inner logic.
  *
  * @param {object} opts
  * @param {string} opts.prUrl
@@ -434,9 +428,10 @@ export async function pollUntilTerminal({
  * commit after each. Plain async function with NO bus coupling: it
  * shells out to `gh` (via injectable spawns) and returns the verdict.
  *
- * This is the load-bearing primitive shared by the `Watcher` lifecycle
- * listener (`handle()`) and the `pr-watch-with-update.js` CLI, so both
- * paths perform identical polling and BEHIND-recovery. Story #3902.
+ * The load-bearing primitive the `pr-watch-with-update.js` CLI drives.
+ * Story #3902 introduced it so the (since-retired) `Watcher` listener and
+ * the CLI could not drift apart on polling or BEHIND-recovery; the CLI is
+ * now its only caller.
  *
  * @param {object} opts
  * @param {string} opts.prUrl              PR URL or number (passed to `gh` verbatim).
@@ -463,11 +458,10 @@ export async function pollUntilTerminal({
  *   real `setTimeout`-backed sleep; tests override with a no-op.
  * @param {{ info?: Function, warn?: Function, debug?: Function }} opts.logger
  * @param {{status:number,stdout:string,stderr:string}} [opts.firstProbe]
- *   Optional already-issued `gh pr checks` result. When the caller (the
- *   `Watcher` listener) has already probed once to resolve the required
- *   check names, it threads that result here so the loop does not
- *   double-spend the first `gh pr checks` call. Omit it (the CLI path)
- *   and the loop issues the first probe itself.
+ *   Optional already-issued `gh pr checks` result. A caller that has
+ *   already probed once to resolve the required-check names threads it
+ *   here so the loop does not double-spend the first `gh pr checks` call.
+ *   Omit it (the CLI path) and the loop issues the first probe itself.
  * @returns {Promise<{
  *   outcomes: object,
  *   requiredChecks: string[],
@@ -502,8 +496,8 @@ export async function watchPrToTerminal({
   firstProbe,
 }) {
   // First probe: resolve the required-check name set at runtime. Reuse a
-  // caller-supplied probe (the listener already issued one to resolve the
-  // required check names) so we never double-spend the first `gh` call.
+  // caller-supplied probe (issued to resolve the required-check names) so
+  // we never double-spend the first `gh` call.
   const first = firstProbe ?? ghPrChecksFn({ prUrl, cwd, repo });
   // `gh` exits 8 when checks are still pending; this is expected and
   // does not indicate failure. Any other non-zero status with no
@@ -579,6 +573,9 @@ export async function watchPrToTerminal({
       // Bounded by `maxUpdates` so a racing base branch can't ping-pong
       // indefinitely.
       if (!allTerminal(outcomes) || !allGreen(outcomes)) break;
+      // Budget is checked before the `gh pr view` spawn so an exhausted arm
+      // costs no extra round-trip; the shared helper re-checks it as a
+      // fail-safe, and its callback therefore never fires on this path.
       if (updatesApplied >= maxUpdates) break;
       const view = ghPrViewFn({ prUrl, cwd, repo });
       if (view.status !== 0) {
@@ -587,15 +584,26 @@ export async function watchPrToTerminal({
         );
         break;
       }
-      const mergeStateStatus = parseMergeStateStatus(view.stdout);
-      if (mergeStateStatus !== 'BEHIND') break;
-      const update = ghPrUpdateBranchFn({ prUrl, cwd, repo });
-      if (update.status !== 0) {
-        logger.warn?.(
-          `[Watcher] gh pr update-branch failed (status=${update.status}): ${update.stderr}`,
-        );
-        break;
-      }
+      const recovery = await applyBehindUpdate({
+        mergeStateStatus: parseMergeStateStatus(view.stdout),
+        updatesUsed: updatesApplied,
+        maxUpdates,
+        updateBranch: async () => {
+          const update = ghPrUpdateBranchFn({ prUrl, cwd, repo });
+          return update.status === 0
+            ? { ok: true }
+            : {
+                ok: false,
+                detail: `status=${update.status}: ${update.stderr}`,
+              };
+        },
+        onUpdateFailed: (detail) =>
+          logger.warn?.(`[Watcher] gh pr update-branch failed (${detail})`),
+      });
+      // Anything but a landed fast-forward ends the arm: not BEHIND means
+      // there is nothing to recover, and a failed update must not silently
+      // re-poll as though the head moved.
+      if (!recovery.updated) break;
       updatesApplied += 1;
       logger.info?.(
         `[Watcher] PR BEHIND base — issued gh pr update-branch (#${updatesApplied}/${maxUpdates}); re-polling required checks.`,
@@ -642,162 +650,4 @@ export async function watchPrToTerminal({
     green: terminal && allGreen(finalOutcomes),
     stillRunning,
   };
-}
-
-/**
- * Watcher listener.
- */
-export class Watcher {
-  /**
-   * @param {object} opts
-   * @param {object} opts.bus
-   * @param {string} [opts.cwd]
-   * @param {number} [opts.pollIntervalMs] default 10_000.
-   * @param {number} [opts.maxPolls] safety cap on iterations; default
-   *   180 (≈30 min @ 10s).
-   * @param {number} [opts.maxUpdates] cap on `gh pr update-branch`
-   *   recovery calls per `pr.created` event; default 3. Mirrors the
-   *   legacy `pr-watch-with-update` cap so a racing base branch
-   *   can't induce an infinite update-branch ping-pong.
-   * @param {number} [opts.maxResumes] Story #4358: how many times to
-   *   re-arm the poll loop after the cap fires with checks still pending
-   *   (and none failed) before declaring `still-running`; default 0.
-   * @param {Function} [opts.ghPrChecksFn] override for tests.
-   * @param {Function} [opts.ghPrViewFn] override for tests; resolves
-   *   `mergeStateStatus` for the BEHIND-recovery gate.
-   * @param {Function} [opts.ghPrUpdateBranchFn] override for tests;
-   *   issues the fast-forward update on the PR.
-   * @param {Function} [opts.sleepFn] override for tests.
-   * @param {{ info?: Function, warn?: Function, debug?: Function }} [opts.logger]
-   */
-  constructor(opts = {}) {
-    if (!opts.bus || typeof opts.bus.on !== 'function') {
-      throw new TypeError('Watcher requires a bus with on()');
-    }
-    this.bus = opts.bus;
-    this.cwd = opts.cwd ?? process.cwd();
-    this.pollIntervalMs = Number.isInteger(opts.pollIntervalMs)
-      ? opts.pollIntervalMs
-      : 10_000;
-    this.maxPolls = Number.isInteger(opts.maxPolls) ? opts.maxPolls : 180;
-    this.maxUpdates =
-      Number.isInteger(opts.maxUpdates) && opts.maxUpdates >= 0
-        ? opts.maxUpdates
-        : 3;
-    this.maxResumes =
-      Number.isInteger(opts.maxResumes) && opts.maxResumes >= 0
-        ? opts.maxResumes
-        : 0;
-    this.ghPrChecksFn = opts.ghPrChecksFn ?? ghPrChecks;
-    this.ghPrViewFn = opts.ghPrViewFn ?? ghPrView;
-    this.ghPrUpdateBranchFn = opts.ghPrUpdateBranchFn ?? ghPrUpdateBranch;
-    this.sleepFn = opts.sleepFn ?? defaultSleep;
-    this.logger = opts.logger ?? console;
-    /** @type {Set<string>} `${event}:${seqId}` idempotency cache. */
-    this._seen = new Set();
-    /**
-     * Classification log — every `pr.created` we observe lands here
-     * with the outcome (`watched`, `failed`, `skipped-duplicate`,
-     * `still-running`, `timed-out`). Mirrors the Finalizer / Reconciler
-     * "no silent skip" surface.
-     */
-    this.classifications = [];
-    this.events = Object.freeze(['pr.created']);
-  }
-
-  register() {
-    return this.events.map((event) =>
-      this.bus.on(event, async (ctx) => this.handle(ctx)),
-    );
-  }
-
-  async handle({ event, seqId, payload }) {
-    const key = `${event}:${seqId}`;
-    if (this._seen.has(key)) {
-      this.classifications.push({
-        event,
-        seqId,
-        outcome: 'skipped',
-        reason: 'duplicate-seqId',
-      });
-      this.logger.debug?.(`[Watcher] skip duplicate ${key} (idempotent)`);
-      return;
-    }
-    this._seen.add(key);
-
-    const prUrl = payload?.prUrl;
-    if (typeof prUrl !== 'string' || prUrl.length === 0) {
-      this.classifications.push({
-        event,
-        seqId,
-        outcome: 'failed',
-        reason: 'no-pr-url',
-      });
-      return;
-    }
-
-    // First probe: resolve the required-check name set at runtime BEFORE
-    // the (potentially long) poll loop runs. We thread this probe into
-    // `watchPrToTerminal` (via `firstProbe`) so the shared loop reuses it
-    // instead of double-spending the first `gh pr checks` call.
-    const first = this.ghPrChecksFn({ prUrl, cwd: this.cwd });
-    const firstEntries = parseGhPrChecks(first.stdout);
-    if (firstEntries.length === 0 && first.status !== 0 && first.status !== 8) {
-      this.classifications.push({
-        event,
-        seqId,
-        outcome: 'failed',
-        reason: `gh-checks-failed:status=${first.status}`,
-      });
-      this.logger.warn?.(
-        `[Watcher] gh pr checks failed (status=${first.status}): ${first.stderr}`,
-      );
-      return;
-    }
-
-    const requiredChecks = firstEntries.map((e) => e.name);
-
-    // Delegate the poll + BEHIND-recovery loop to the shared plain
-    // primitive so the CLI (`pr-watch-with-update.js`) and this listener
-    // run identical logic.
-    const { polls, updatesApplied, resumesApplied, terminal, stillRunning } =
-      await watchPrToTerminal({
-        prUrl,
-        cwd: this.cwd,
-        maxPolls: this.maxPolls,
-        maxUpdates: this.maxUpdates,
-        maxResumes: this.maxResumes,
-        pollIntervalMs: this.pollIntervalMs,
-        ghPrChecksFn: this.ghPrChecksFn,
-        ghPrViewFn: this.ghPrViewFn,
-        ghPrUpdateBranchFn: this.ghPrUpdateBranchFn,
-        sleepFn: this.sleepFn,
-        logger: this.logger,
-        firstProbe: first,
-      });
-
-    // `still-running` (slow CI, not red) is a distinct classification from
-    // a genuine `timed-out` — reserved for a check that never went
-    // terminal within the poll cap AND the resume budget while none
-    // failed. `watched` covers every terminal arm (green or red).
-    const outcome = terminal
-      ? 'watched'
-      : stillRunning
-        ? 'still-running'
-        : 'timed-out';
-    this.classifications.push({
-      event,
-      seqId,
-      outcome,
-      polls,
-      updatesApplied,
-      resumesApplied,
-      requiredChecks: requiredChecks.length,
-    });
-  }
-
-  reset() {
-    this._seen.clear();
-    this.classifications = [];
-  }
 }

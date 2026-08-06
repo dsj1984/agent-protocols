@@ -96,6 +96,7 @@ import {
   readPrMergeState as defaultReadPrMergeState,
 } from '../../../single-story/confirm-merge.js';
 import { pollUntil } from '../../../util/poll-loop.js';
+import { applyBehindUpdate } from '../../behind-recovery.js';
 import {
   emitMergeFlipFailed as defaultEmitMergeFlipFailed,
   MERGED_FLIP_FAILED_BLOCK_CLASS,
@@ -635,7 +636,15 @@ async function blockOnUnlanded({
 /**
  * Bring a BEHIND PR up to date, bounded by `updateAttempts`. Best-effort:
  * a failed update is not itself a terminal — the next poll re-reads the
- * real state and lets the normal classification decide.
+ * real state and lets the normal classification decide, which is why a
+ * failed attempt still counts against the wait's tick.
+ *
+ * The BEHIND / budget / did-it-land decision itself lives in the shared
+ * {@link applyBehindUpdate} (Story #5006) — the CI-watch loop in
+ * `lifecycle/listeners/watcher.js` runs the same one. This wrapper supplies
+ * the merge wait's probe source, its `gh` facade (bounded by
+ * {@link withGhTimeout}, so a wedged child cannot strand an unattended
+ * async-mode wait), and its operator wording.
  *
  * @returns {Promise<boolean>} whether an update was actually attempted.
  */
@@ -648,31 +657,33 @@ async function maybeUpdateBehindPr({
   ghTimeoutMs = MERGE_WAIT_GH_TIMEOUT_MS,
   progress,
 }) {
-  if (probe.mergeStateStatus !== 'BEHIND') return false;
-  if (updatesUsed >= updateAttempts) {
-    progress?.(
-      'CONFIRM',
-      `⚠️ PR #${prNumber} is BEHIND but the update budget (${updateAttempts}) is spent — not updating again.`,
-    );
-    return false;
-  }
-  try {
-    await withGhTimeout(
-      (gh ?? defaultGh).pr.updateBranch(prNumber),
-      ghTimeoutMs,
-      `gh pr update-branch ${prNumber}`,
-    );
-    progress?.(
-      'CONFIRM',
-      `⏫ PR #${prNumber} was BEHIND its base — updated (attempt ${updatesUsed + 1}/${updateAttempts}).`,
-    );
-  } catch (err) {
-    progress?.(
-      'CONFIRM',
-      `⚠️ gh pr update-branch failed (continuing): ${err?.message ?? err}`,
-    );
-  }
-  return true;
+  const recovery = await applyBehindUpdate({
+    mergeStateStatus: probe.mergeStateStatus,
+    updatesUsed,
+    maxUpdates: updateAttempts,
+    updateBranch: () =>
+      withGhTimeout(
+        (gh ?? defaultGh).pr.updateBranch(prNumber),
+        ghTimeoutMs,
+        `gh pr update-branch ${prNumber}`,
+      ),
+    onBudgetSpent: () =>
+      progress?.(
+        'CONFIRM',
+        `⚠️ PR #${prNumber} is BEHIND but the update budget (${updateAttempts}) is spent — not updating again.`,
+      ),
+    onUpdated: () =>
+      progress?.(
+        'CONFIRM',
+        `⏫ PR #${prNumber} was BEHIND its base — updated (attempt ${updatesUsed + 1}/${updateAttempts}).`,
+      ),
+    onUpdateFailed: (detail) =>
+      progress?.(
+        'CONFIRM',
+        `⚠️ gh pr update-branch failed (continuing): ${detail}`,
+      ),
+  });
+  return recovery.attempted;
 }
 
 /**

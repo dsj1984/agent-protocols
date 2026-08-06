@@ -10,7 +10,12 @@ live in this folder**.
 ## Files here
 
 - [`watcher.js`](./watcher.js) — the CI-poll loop (`watchPrToTerminal`)
-  driven by `pr-watch-with-update.js`.
+  driven by `pr-watch-with-update.js`. **Not a listener**, and the only
+  non-listener in this directory: Story #5006 deleted the `Watcher` bus
+  class that wrapped it, leaving the plain primitive at this path so the
+  CLI's import stayed stable.
+  [`check-lifecycle-doc-drift.js`](../../../../check-lifecycle-doc-drift.js)
+  skips it because it exports no class.
 
 `merge-watcher.js` was deleted in Story #4545: the Epic-era `MergeWatcher`
 listener had no production caller after the v2.0.0 Story-only cutover. The
@@ -19,19 +24,13 @@ now live in
 [`lib/orchestration/merge-poll.js`](../../merge-poll.js), a home the close
 path owns.
 
-Other close-tail side effects (ledger write, finalize/PR open, automerge
-arm, branch cleanup, label transition) are owned by the Story delivery
-path (`helpers/deliver-story` / `single-story-close.js`) rather than a
-`buildDefaultListenerChain` factory in this directory.
-
-## Idempotency contract
-
-Listeners MUST be idempotent on `(event, seqId)`. The bus may invoke a
-listener twice for the same seqId during the resume window (when an
-`emitted` ledger line landed but the matching `completed` did not). The
-canonical pattern is a per-instance `Set<seqId>` checked at the top of
-the listener body; the second invocation returns early without mutating
-external state.
+**No bus listener ships under this directory in v2.** Close-tail side effects
+(ledger write, finalize/PR open, automerge arm, branch cleanup, label
+transition) are owned by the Story delivery path (`helpers/deliver-story` /
+`single-story-close.js`) rather than a `buildDefaultListenerChain` factory
+here. The firewall below is the contract any listener added back must meet;
+`LedgerWriter` and `TraceLogger` register on the bus today but live in
+sibling modules.
 
 ## Side-effect firewall
 
