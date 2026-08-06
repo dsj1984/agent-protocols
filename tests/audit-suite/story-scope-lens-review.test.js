@@ -13,8 +13,8 @@
  *     is best-effort (git / materialization failure degrades to skipped).
  *   - The lens pass runs inside `runStoryReviewCore`, and the close entry
  *     point (`runStoryScopeReview`) reaches it through that shared spine.
- *     Story #5006 retired the Epic-attached `runStoryCodeReview` entry, so
- *     the standalone path is the only one left to pin.
+ *     Story #5006 retired the Epic-attached entry point, so the standalone
+ *     path is the only one left to pin.
  */
 
 import assert from 'node:assert/strict';
