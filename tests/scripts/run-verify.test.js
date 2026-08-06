@@ -93,10 +93,12 @@ const CI_RATCHETS_NOT_MIRRORED_LOCALLY = new Map([
     'check-baseline-scope.js',
     'Row-set honesty gate — meaningful only against a fully-scored tree; reachable as `npm run baselines:scope`.',
   ],
-  [
-    'prune-baseline-orphans.js',
-    'Companion remedy to check-baseline-scope; reachable as `npm run baselines:prune -- --check`.',
-  ],
+  // `prune-baseline-orphans.js` left this map in v2.32.0 along with the CI step
+  // it exempted: `--check` has no merge-base attribution, so holding it in the
+  // required job cancelled `check-baseline-scope.js`'s inherited-divergence
+  // warning. It is an operator remedy now (`npm run baselines:prune`), and this
+  // assertion is bidirectional — a stale exemption fails as loudly as a missing
+  // one.
 ]);
 
 test('every ratchet CI’s `baselines` job runs is mirrored locally or exempted', () => {

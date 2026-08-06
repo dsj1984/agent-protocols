@@ -149,7 +149,34 @@ describe('opt-in', () => {
   });
 });
 
+describe('background inheritance', () => {
+  it('checks a feature Background whose only scenarios live under a Rule', async () => {
+    const { code, stderr } = await run('rule-background');
+    assert.equal(code, 1);
+    assert.match(stderr, /no definition anywhere claims this background step/);
+  });
+
+  it('reports an inherited background step once, not once per container', async () => {
+    const { stderr } = await run('rule-background');
+    const hits = stderr.match(/claims this background step/g) ?? [];
+    assert.equal(hits.length, 1, `duplicated findings:\n${stderr}`);
+  });
+});
+
 describe('fail-closed inside the opt-in', () => {
+  it('refuses a scope whose featureRoots do not exist, naming them', async () => {
+    const { code, stderr } = await run('missing-root');
+    assert.equal(code, 1);
+    assert.match(stderr, /scope "app" names featureRoots that do not exist/);
+    assert.match(stderr, /featurez/);
+    // It must not report the friendly "nothing to check" line: the corpus is
+    // real, the config just cannot see it.
+    assert.ok(
+      !/nothing to check/.test(stderr),
+      `reported a clean run over an unchecked corpus:\n${stderr}`,
+    );
+  });
+
   it('refuses a scope that resolves zero step definitions, naming its step roots', async () => {
     const { code, stderr } = await run('blackout');
     assert.equal(code, 1);

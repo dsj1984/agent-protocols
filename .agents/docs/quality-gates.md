@@ -720,8 +720,14 @@ without being measured needs its producer (`npm run coverage:update`,
 `npm run maintainability:update`), because inventing a row would be claiming a
 measurement nobody took.
 
-CI runs `--check` only. Writing is always an operator (or agent) decision made
-with the branch in hand.
+**CI does not run the pruner in either mode.** `--check` exits 1 on any stale
+row without asking which change set introduced it, so pairing it with
+`check-baseline-scope.js` in the required job cancelled that gate's merge-base
+attribution: a row inherited from `main` — say one PR deletes a file while a
+second, branched earlier, re-adds its row through a baseline refresh — reds
+every open PR on divergence its author did not create and cannot fix from
+their branch. The scope gate reports that row as an inherited warning; the
+pruner is the remedy an operator (or agent) runs with the branch in hand.
 
 ---
 

@@ -69,14 +69,20 @@ commands** the script knows nothing about, so a locally green
 | `check-workflow-citations.js` | no | no | **no** |
 | `check-cyclomatic.js` | no | no | **yes** |
 | `check-schema-references.js` | no | no | **yes** |
+| `check-knip-entries.js` | no | no | **yes** |
 | `check-baseline-scope.js` | no | no | **no** |
-| `prune-baseline-orphans.js --check` | no | no | **no** |
 
-Three are still in **no** local aggregate command —
-`check-workflow-citations.js`, `check-baseline-scope.js` and
-`prune-baseline-orphans.js --check`. Each is reachable only as its own npm
-script (`check:workflow-citations`, `baselines:scope`, `baselines:prune`) or a
+Two are still in **no** local aggregate command —
+`check-workflow-citations.js` and `check-baseline-scope.js`. Each is reachable
+only as its own npm script (`check:workflow-citations`, `baselines:scope`) or a
 direct invocation.
+
+`prune-baseline-orphans.js --check` left this table in v2.32.0: it no longer
+runs in CI in any mode. It reports the same absent / out-of-scope rows as
+`check-baseline-scope.js` but without merge-base attribution, so holding it in
+the required job made the scope gate's inherited-divergence warning
+unreachable — a stale row on `main` red every open PR regardless of who landed
+it. It stays the operator's remedy, via `npm run baselines:prune`.
 
 `check-context-budget.js` additionally runs in `.husky/pre-push`. It is
 zero-tolerance in **both** directions — a change that *shrinks* the

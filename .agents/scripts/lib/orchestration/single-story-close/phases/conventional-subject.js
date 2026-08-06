@@ -120,6 +120,8 @@ const BREAKING_FOOTER_RE = /^BREAKING[ -]CHANGE:[ \t]*(.*)$/;
 
 /** A git-trailer-shaped line (`Some-Token: value`) — ends a footer's text. */
 const TRAILER_RE = /^[A-Za-z][A-Za-z-]*:[ \t]/;
+/** An opening or closing markdown code fence: ``` or ~~~, optionally indented. */
+const FENCE_RE = /^\s{0,3}(`{3,}|~{3,})/;
 
 /**
  * True iff `subject` is a parseable Conventional Commit subject under the
@@ -276,8 +278,32 @@ function readFooterNote(lines, start, head) {
  *   counts. False for the Story body, which has no header.
  * @returns {{ breaking: boolean, notes: string[], subject: string|null }}
  */
+/**
+ * Blank every line inside a markdown code fence, keeping line indices intact.
+ *
+ * A Story `## Spec` that documents this very contract quotes the footer in a
+ * fence; reading that as a declaration ships a `<type>!:` subject and a release
+ * note for a break nobody made. Fenced spans are the only place the anchored
+ * footer regex can fire on non-footer text — an indented block or a blockquote
+ * already fails the `^` anchor. Blanking rather than dropping means a fence
+ * also closes an open footer note, which is what a paragraph break would do.
+ *
+ * @param {string[]} lines
+ * @returns {string[]}
+ */
+function blankFencedLines(lines) {
+  let fence = null;
+  return lines.map((line) => {
+    const marker = line.match(FENCE_RE)?.[1][0];
+    if (!marker) return fence === null ? line : '';
+    if (fence === null) fence = marker;
+    else if (fence === marker) fence = null;
+    return '';
+  });
+}
+
 function scanForBreaking(text, readHeaderBang) {
-  const lines = String(text ?? '').split('\n');
+  const lines = blankFencedLines(String(text ?? '').split('\n'));
   const notes = [];
   let breaking = false;
   let subject = null;

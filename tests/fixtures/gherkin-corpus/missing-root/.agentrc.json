@@ -1,0 +1,15 @@
+{
+  "project": {
+    "paths": { "agentRoot": ".agents", "docsRoot": "docs", "tempRoot": "temp" }
+  },
+  "qa": {
+    "gherkinLint": {
+      "scopes": {
+        "app": {
+          "featureRoots": ["featurez"],
+          "stepRoots": ["steps"]
+        }
+      }
+    }
+  }
+}

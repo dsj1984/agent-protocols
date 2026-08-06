@@ -265,8 +265,17 @@ function listTopLevelClis({ repoRoot, fsImpl = fs }) {
  * `entry` array. Glob-bearing patterns are ignored — this reads the explicit
  * enumeration only, which is the surface #5001 made authoritative.
  *
+ * The trailing `!` is knip's production-mode marker and is load-bearing, not
+ * decoration: in a `--production` run knip keeps only the suffixed entries and
+ * *negates* the rest (`WorkspaceWorker`'s `hasProductionSuffix` /
+ * `hasNoProductionSuffix` split). So an entry written without it leaves the CLI
+ * unreachable in exactly the pass that emits whole-file rows — the #5012 shape
+ * this gate exists to catch. Reading it as satisfied would point the operator
+ * away from the cause, so unsuffixed entries are reported as their own
+ * divergence rather than silently normalized.
+ *
  * @param {{ repoRoot: string, fsImpl?: typeof fs }} opts
- * @returns {{ entries: string[], error: string | null }}
+ * @returns {{ entries: string[], unsuffixed: string[], error: string | null }}
  */
 function readKnipEntries({ repoRoot, fsImpl = fs }) {
   const configPath = path.join(repoRoot, 'knip.json');
@@ -274,19 +283,36 @@ function readKnipEntries({ repoRoot, fsImpl = fs }) {
   try {
     parsed = JSON.parse(fsImpl.readFileSync(configPath, 'utf8'));
   } catch (error) {
-    return { entries: [], error: `cannot read knip.json: ${error.message}` };
+    return {
+      entries: [],
+      unsuffixed: [],
+      error: `cannot read knip.json: ${error.message}`,
+    };
   }
   if (!Array.isArray(parsed?.entry)) {
-    return { entries: [], error: 'knip.json has no "entry" array' };
+    return {
+      entries: [],
+      unsuffixed: [],
+      error: 'knip.json has no "entry" array',
+    };
   }
   const prefix = '.agents/scripts/';
-  const entries = parsed.entry
+  const declared = parsed.entry
     .filter((e) => typeof e === 'string' && e.startsWith(prefix))
-    .map((e) => e.replace(/!$/, ''))
     .filter((e) => !e.includes('*'))
-    .map((e) => e.slice(prefix.length))
-    .filter((e) => !e.includes('/'));
-  return { entries: [...new Set(entries)].sort(), error: null };
+    .map((e) => ({
+      cli: e.slice(prefix.length).replace(/!$/, ''),
+      suffixed: e.endsWith('!'),
+    }))
+    .filter((e) => !e.cli.includes('/'));
+
+  const entries = declared.map((e) => e.cli);
+  const unsuffixed = declared.filter((e) => !e.suffixed).map((e) => e.cli);
+  return {
+    entries: [...new Set(entries)].sort(),
+    unsuffixed: [...new Set(unsuffixed)].sort(),
+    error: null,
+  };
 }
 
 /**
@@ -300,14 +326,29 @@ function readKnipEntries({ repoRoot, fsImpl = fs }) {
  *   missing: Array<{ cli: string, invokers: string[] }>,
  *   stale: string[],
  *   phantom: string[],
+ *   unsuffixed: string[],
  * }}
  *   `missing` — invoked but not declared (the #5012 bug).
  *   `stale` — declared but invoked by nothing.
  *   `phantom` — declared but no such file on disk (a rename left the list behind).
+ *   `unsuffixed` — declared without the `!` production marker, which knip's
+ *     production pass negates rather than honours (the #5012 bug wearing a
+ *     declared entry).
  */
 export function resolveEntrySync({ repoRoot, fsImpl = fs }) {
-  const { entries: declared, error } = readKnipEntries({ repoRoot, fsImpl });
-  const empty = { clis: [], declared, missing: [], stale: [], phantom: [] };
+  const {
+    entries: declared,
+    unsuffixed,
+    error,
+  } = readKnipEntries({ repoRoot, fsImpl });
+  const empty = {
+    clis: [],
+    declared,
+    missing: [],
+    stale: [],
+    phantom: [],
+    unsuffixed: [],
+  };
   if (error) return { error, ...empty };
 
   const clis = listTopLevelClis({ repoRoot, fsImpl });
@@ -338,7 +379,24 @@ export function resolveEntrySync({ repoRoot, fsImpl = fs }) {
   const onDisk = new Set(clis);
   const phantom = declared.filter((cli) => !onDisk.has(cli));
 
-  return { error: null, clis, declared, missing, stale, phantom };
+  return { error: null, clis, declared, missing, stale, phantom, unsuffixed };
+}
+
+/**
+ * Total divergences across every direction. Single source of the gate's
+ * pass/fail arithmetic so a newly added direction cannot be counted in the
+ * report but missed by the exit code.
+ *
+ * @param {ReturnType<typeof resolveEntrySync>} report
+ * @returns {number}
+ */
+export function countDivergences(report) {
+  return (
+    report.missing.length +
+    report.stale.length +
+    report.phantom.length +
+    report.unsuffixed.length
+  );
 }
 
 /**
@@ -376,12 +434,21 @@ export function renderEntrySyncReport(report) {
     lines.push(`? ${cli} — declared in knip.json "entry" but not on disk`);
     lines.push('    drop the stale path (the file was renamed or removed).');
   }
-  const total =
-    report.missing.length + report.stale.length + report.phantom.length;
+  for (const cli of report.unsuffixed) {
+    lines.push(`! ${cli} — declared in knip.json "entry" without a "!" suffix`);
+    lines.push(
+      `    write it as ".agents/scripts/${cli}!" — the production pass negates an`,
+    );
+    lines.push(
+      '    unsuffixed entry, so knip still reads the CLI as unreachable.',
+    );
+  }
+  const total = countDivergences(report);
   lines.push(
     `[knip-entries] clis=${report.clis.length} declared=${report.declared.length} ` +
       `missing=${report.missing.length} stale=${report.stale.length} ` +
-      `phantom=${report.phantom.length} ${total > 0 ? '(gate fail)' : '(ok)'}`,
+      `phantom=${report.phantom.length} unsuffixed=${report.unsuffixed.length} ` +
+      `${total > 0 ? '(gate fail)' : '(ok)'}`,
   );
   return lines.join('\n');
 }
