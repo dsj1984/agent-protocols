@@ -1,12 +1,12 @@
 {
   "$schema": ".agents/schemas/baselines/coverage.schema.json",
   "kernelVersion": "1.0.0",
-  "generatedAt": "2026-08-06T10:46:27.495Z",
+  "generatedAt": "2026-08-06T10:55:16.737Z",
   "rollup": {
     "*": {
-      "lines": 95.81,
-      "branches": 86.47,
-      "functions": 88.61
+      "lines": 95.85,
+      "branches": 86.41,
+      "functions": 88.75
     }
   },
   "rows": [
@@ -828,8 +828,8 @@
     },
     {
       "path": ".agents/scripts/lib/cli-args.js",
-      "lines": 97.85,
-      "branches": 85.27,
+      "lines": 97.82,
+      "branches": 86.54,
       "functions": 100
     },
     {
@@ -1530,8 +1530,8 @@
     },
     {
       "path": ".agents/scripts/lib/observability/runtime-friction.js",
-      "lines": 96.92,
-      "branches": 81.72,
+      "lines": 97.05,
+      "branches": 82.11,
       "functions": 100
     },
     {
@@ -2075,10 +2075,16 @@
       "functions": 100
     },
     {
+      "path": ".agents/scripts/lib/orchestration/review-providers/mi-exemptions.js",
+      "lines": 100,
+      "branches": 90.48,
+      "functions": 100
+    },
+    {
       "path": ".agents/scripts/lib/orchestration/review-providers/native.js",
-      "lines": 93.62,
-      "branches": 80.65,
-      "functions": 93.75
+      "lines": 97.51,
+      "branches": 86.73,
+      "functions": 100
     },
     {
       "path": ".agents/scripts/lib/orchestration/review-providers/parse-findings.js",
@@ -2190,8 +2196,8 @@
     },
     {
       "path": ".agents/scripts/lib/orchestration/single-story-close/phases/options.js",
-      "lines": 98.65,
-      "branches": 87.5,
+      "lines": 98.78,
+      "branches": 95.24,
       "functions": 100
     },
     {
@@ -2214,7 +2220,7 @@
     },
     {
       "path": ".agents/scripts/lib/orchestration/single-story-close/phases/review-block.js",
-      "lines": 90.91,
+      "lines": 91.84,
       "branches": 66.67,
       "functions": 100
     },
@@ -2222,6 +2228,12 @@
       "path": ".agents/scripts/lib/orchestration/single-story-close/phases/review-outcome.js",
       "lines": 90.91,
       "branches": 75,
+      "functions": 100
+    },
+    {
+      "path": ".agents/scripts/lib/orchestration/single-story-close/phases/review-override.js",
+      "lines": 96.82,
+      "branches": 85.71,
       "functions": 100
     },
     {
@@ -2238,8 +2250,8 @@
     },
     {
       "path": ".agents/scripts/lib/orchestration/single-story-close/runner.js",
-      "lines": 96.75,
-      "branches": 83.54,
+      "lines": 96.88,
+      "branches": 84.34,
       "functions": 89.47
     },
     {
@@ -3084,9 +3096,9 @@
     },
     {
       "path": ".agents/scripts/single-story-close.js",
-      "lines": 91.04,
-      "branches": 100,
-      "functions": 50
+      "lines": 100,
+      "branches": 50,
+      "functions": 100
     },
     {
       "path": ".agents/scripts/single-story-confirm-merge.js",

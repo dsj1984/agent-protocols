@@ -1821,6 +1821,10 @@
       "symbol": "*"
     },
     {
+      "file": ".agents/scripts/lib/orchestration/single-story-close/phases/review-override.js",
+      "symbol": "*"
+    },
+    {
       "file": ".agents/scripts/lib/orchestration/single-story-close/phases/worktree-reap.js",
       "symbol": "*"
     },
