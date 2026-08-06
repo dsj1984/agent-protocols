@@ -4,9 +4,9 @@
   "generatedAt": "2026-08-06T09:25:56.820Z",
   "rollup": {
     "*": {
-      "lines": 95.75,
-      "branches": 86.34,
-      "functions": 88.44
+      "lines": 95.74,
+      "branches": 86.35,
+      "functions": 88.42
     }
   },
   "rows": [
@@ -2564,12 +2564,6 @@
       "path": ".agents/scripts/lib/story-body/story-body.js",
       "lines": 99.34,
       "branches": 94.92,
-      "functions": 100
-    },
-    {
-      "path": ".agents/scripts/lib/story-lifecycle.js",
-      "lines": 97.94,
-      "branches": 80,
       "functions": 100
     },
     {
