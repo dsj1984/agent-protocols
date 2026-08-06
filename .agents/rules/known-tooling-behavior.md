@@ -23,13 +23,14 @@ delivery cycle.
 
 ## 1. `npm run lint` prints `Summary: 0 error(s)` and can still exit 1
 
-**Behavior.** `npm run lint` is `run-lint.js`, which spawns six tools
-concurrently with inherited stdio and exits with the first non-zero code.
-`Summary: 0 error(s)` is **markdownlint-cli2's own verdict**, not the
-aggregate — it is printed whether or not Biome, the lifecycle lint, the
-workflow-CLI lint, the label-vocabulary lint, or the arch-cycle ratchet
-failed. Because the tools run in parallel, that line can land anywhere in
-the output, including last, so the tail of a failing run reads green.
+**Behavior.** `npm run lint` is `run-lint.js`, which spawns eight tools
+concurrently with inherited stdio and exits with the first non-zero code —
+Biome, markdownlint-cli2, the lifecycle lint, the workflow-CLI lint, the
+label-vocabulary lint, the workflow-timeout gate, the arch-cycle ratchet, and
+the Gherkin corpus gate. `Summary: 0 error(s)` is **markdownlint-cli2's own
+verdict**, not the aggregate — it is printed whether or not any of the other
+seven failed. Because the tools run in parallel, that line can land anywhere
+in the output, including last, so the tail of a failing run reads green.
 Biome's format diagnostics are `error`-severity, so a file that only needs
 reformatting fails the check while emitting no lint rule name at all.
 

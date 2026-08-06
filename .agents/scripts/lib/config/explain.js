@@ -251,6 +251,10 @@ const PREFIX_MEANINGS = Object.freeze([
     'QA harness deployment target (baseUrl, per-environment sign-in seam, allowWrites gate).',
   ],
   ['qa.personas', 'QA harness persona / credential mapping.'],
+  [
+    'qa.gherkinLint',
+    'Static Gherkin corpus gate: per-scope feature/step roots plus the exemption-tag and step-waiver escapes.',
+  ],
 ]);
 
 /**

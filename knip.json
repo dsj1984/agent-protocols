@@ -21,6 +21,7 @@
     ".agents/scripts/check-cyclomatic.js!",
     ".agents/scripts/check-dead-exports.js!",
     ".agents/scripts/check-doc-links.js!",
+    ".agents/scripts/check-gherkin-corpus.js!",
     ".agents/scripts/check-knip-entries.js!",
     ".agents/scripts/check-lifecycle-lint.js!",
     ".agents/scripts/check-schema-references.js!",

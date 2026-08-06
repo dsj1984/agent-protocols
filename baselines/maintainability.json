@@ -1,11 +1,11 @@
 {
   "$schema": ".agents/schemas/baselines/maintainability.schema.json",
   "kernelVersion": "0.1.0",
-  "generatedAt": "2026-08-06T11:37:41.155Z",
+  "generatedAt": "2026-08-06T11:50:07.753Z",
   "rollup": {
     "*": {
       "min": 76.381,
-      "p50": 98.526,
+      "p50": 98.358,
       "p95": 122.913
     }
   },
@@ -77,6 +77,10 @@
     {
       "path": ".agents/scripts/check-doc-links.js",
       "mi": 89.461
+    },
+    {
+      "path": ".agents/scripts/check-gherkin-corpus.js",
+      "mi": 98.082
     },
     {
       "path": ".agents/scripts/check-knip-entries.js",
@@ -463,6 +467,10 @@
       "mi": 89.079
     },
     {
+      "path": ".agents/scripts/lib/bdd-step-index.js",
+      "mi": 94.261
+    },
+    {
       "path": ".agents/scripts/lib/bootstrap/branch-protection.js",
       "mi": 91.552
     },
@@ -685,6 +693,10 @@
     {
       "path": ".agents/scripts/lib/config/paths.js",
       "mi": 108.85
+    },
+    {
+      "path": ".agents/scripts/lib/config/qa.js",
+      "mi": 111.128
     },
     {
       "path": ".agents/scripts/lib/config/quality.js",
@@ -2028,7 +2040,7 @@
     },
     {
       "path": ".agents/scripts/run-lint.js",
-      "mi": 107.603
+      "mi": 112.164
     },
     {
       "path": ".agents/scripts/run-test-profile.js",

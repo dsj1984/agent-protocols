@@ -336,6 +336,58 @@ its `new-method count over c=<flag>` column.
 
 ---
 
+## Gherkin corpus gate (opt-in)
+
+`check-gherkin-corpus.js` is a static gate over a project's `.feature` corpus.
+It runs inside `npm run lint` — the same required check as the arch-cycle
+ratchet — and it enforces two things:
+
+- **must-compile.** Every in-scope `.feature` is parsed with the real
+  `@cucumber/gherkin` parser and a failure is reported at `file:line:column`.
+  Re-implementing acceptance is the defect the gate exists to prevent: a
+  hand-rolled reader skips what it does not recognise, so a corpus that cannot
+  generate reads clean.
+- **must-bind.** Every active scenario's steps are resolved against the step
+  definitions of **its own scope only**. A file that fails must-compile is
+  excluded from must-bind — a broken file parses as an arbitrary subset of
+  itself, and linting the remainder buries the one actionable finding.
+
+The gate is **opt-in**: with no `qa.gherkinLint` block in `.agentrc.json` it
+reports that it is not configured and exits 0, even when `.feature` files
+exist on disk. An upgrade must never redden the lint of a corpus the consumer
+never asked the framework to police. This repository does not configure it.
+
+```jsonc
+"qa": {
+  "gherkinLint": {
+    "scopes": {
+      "web": {
+        "featureRoots": ["apps/web/tests/features"],
+        "stepRoots": ["apps/web/tests/steps"]
+      }
+    },
+    "exemptionTags": ["@skip"],
+    "stepWaivers": []
+  }
+}
+```
+
+Inside the opt-in the gate fails **closed**. An unresolvable
+`@cucumber/gherkin`, or a scope resolving zero step definitions, exits 1
+naming the cause and the remedy — reporting every step as unbound would be the
+same blackout in a different costume. The parser is an optional peer
+dependency resolved from the consumer project's own module chain, so a
+consumer with no BDD tier gains nothing; install it with
+`npm install --save-dev @cucumber/gherkin` when enabling the gate.
+
+Two escapes exist because the step index is a source scan (heuristic) while
+the parser is exact: `exemptionTags` (default `["@skip"]`) drops a scenario
+from must-bind, and `stepWaivers` drops one exact step text. Neither is an
+escape from must-compile — a parse error in an exempt scenario's file still
+fails the run.
+
+---
+
 ## CRAP gate — Consumer onboarding
 
 > Baseline envelope, axes, and component model: see the

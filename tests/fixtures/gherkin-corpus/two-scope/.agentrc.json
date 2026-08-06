@@ -1,0 +1,21 @@
+{
+  "project": {
+    "paths": { "agentRoot": ".agents", "docsRoot": "docs", "tempRoot": "temp" }
+  },
+  "qa": {
+    "gherkinLint": {
+      "scopes": {
+        "app-a": {
+          "featureRoots": ["app-a/features"],
+          "stepRoots": ["app-a/steps"]
+        },
+        "app-b": {
+          "featureRoots": ["app-b/features"],
+          "stepRoots": ["app-b/steps"]
+        }
+      },
+      "exemptionTags": ["@skip", "@wip"],
+      "stepWaivers": ["a step the index cannot see"]
+    }
+  }
+}

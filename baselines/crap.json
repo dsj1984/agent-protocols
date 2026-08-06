@@ -1,7 +1,7 @@
 {
   "$schema": ".agents/schemas/baselines/crap.schema.json",
   "kernelVersion": "0.1.0",
-  "generatedAt": "2026-08-06T11:38:10.688Z",
+  "generatedAt": "2026-08-06T11:50:10.268Z",
   "scoringSemantics": "method-identity-v3",
   "tsTranspilerVersion": "6.0.3",
   "provenanceStamped": true,
@@ -6876,39 +6876,39 @@
     {
       "path": ".agents/scripts/lib/config/explain.js",
       "method": "isSecretKey",
-      "startLine": 276,
+      "startLine": 280,
       "crap": 1
     },
     {
       "path": ".agents/scripts/lib/config/explain.js",
       "method": "<anon isSecretKey/(segment)#0>",
-      "startLine": 279,
+      "startLine": 283,
       "crap": 1,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/config/explain.js",
       "method": "<anon isSecretKey/(segment)#0/(pattern)#0>",
-      "startLine": 280,
+      "startLine": 284,
       "crap": 1,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/config/explain.js",
       "method": "meaningFor",
-      "startLine": 290,
+      "startLine": 294,
       "crap": 7
     },
     {
       "path": ".agents/scripts/lib/config/explain.js",
       "method": "attribute",
-      "startLine": 319,
+      "startLine": 323,
       "crap": 2
     },
     {
       "path": ".agents/scripts/lib/config/explain.js",
       "method": "explainConfig",
-      "startLine": 342,
+      "startLine": 346,
       "crap": 3
     },
     {
@@ -6951,6 +6951,44 @@
       "path": ".agents/scripts/lib/config/paths.js",
       "method": "getPaths",
       "startLine": 69,
+      "crap": 1
+    },
+    {
+      "path": ".agents/scripts/lib/config/qa.js",
+      "method": "stringArray",
+      "startLine": 36,
+      "crap": 2
+    },
+    {
+      "path": ".agents/scripts/lib/config/qa.js",
+      "method": "<anon stringArray/(item)#0>",
+      "startLine": 38,
+      "crap": 2,
+      "anonymous": true
+    },
+    {
+      "path": ".agents/scripts/lib/config/qa.js",
+      "method": "normalizeScope",
+      "startLine": 48,
+      "crap": 1
+    },
+    {
+      "path": ".agents/scripts/lib/config/qa.js",
+      "method": "resolveGherkinLint",
+      "startLine": 66,
+      "crap": 7
+    },
+    {
+      "path": ".agents/scripts/lib/config/qa.js",
+      "method": "<anon resolveGherkinLint/(name)#0>",
+      "startLine": 75,
+      "crap": 1,
+      "anonymous": true
+    },
+    {
+      "path": ".agents/scripts/lib/config/qa.js",
+      "method": "getGherkinLint",
+      "startLine": 93,
       "crap": 1
     },
     {
@@ -23188,35 +23226,42 @@
     },
     {
       "path": ".agents/scripts/run-lint.js",
+      "method": "<anon (name,script)#0>",
+      "startLine": 48,
+      "crap": 2,
+      "anonymous": true
+    },
+    {
+      "path": ".agents/scripts/run-lint.js",
       "method": "runTask",
-      "startLine": 115,
+      "startLine": 113,
       "crap": 2
     },
     {
       "path": ".agents/scripts/run-lint.js",
       "method": "<anon runTask/(resolve)#0>",
-      "startLine": 116,
+      "startLine": 114,
       "crap": 2,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/run-lint.js",
       "method": "<anon runTask/(resolve)#0/(err)#0>",
-      "startLine": 118,
+      "startLine": 116,
       "crap": 2,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/run-lint.js",
       "method": "<anon runTask/(resolve)#0/(code,signal)#0>",
-      "startLine": 122,
+      "startLine": 120,
       "crap": 6,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/run-lint.js",
       "method": "<anon (code)#0>",
-      "startLine": 134,
+      "startLine": 132,
       "crap": 2,
       "anonymous": true
     },

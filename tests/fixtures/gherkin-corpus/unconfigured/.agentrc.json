@@ -1,0 +1,5 @@
+{
+  "project": {
+    "paths": { "agentRoot": ".agents", "docsRoot": "docs", "tempRoot": "temp" }
+  }
+}

@@ -1,12 +1,12 @@
 {
   "$schema": ".agents/schemas/baselines/coverage.schema.json",
   "kernelVersion": "1.0.0",
-  "generatedAt": "2026-08-06T11:38:10.211Z",
+  "generatedAt": "2026-08-06T11:50:06.682Z",
   "rollup": {
     "*": {
-      "lines": 95.88,
-      "branches": 86.55,
-      "functions": 88.73
+      "lines": 95.9,
+      "branches": 86.58,
+      "functions": 88.78
     }
   },
   "rows": [
@@ -105,6 +105,12 @@
       "lines": 95.61,
       "branches": 89.77,
       "functions": 86.67
+    },
+    {
+      "path": ".agents/scripts/check-gherkin-corpus.js",
+      "lines": 97.85,
+      "branches": 84.85,
+      "functions": 100
     },
     {
       "path": ".agents/scripts/check-knip-entries.js",
@@ -671,6 +677,12 @@
       "functions": 100
     },
     {
+      "path": ".agents/scripts/lib/bdd-step-index.js",
+      "lines": 96.63,
+      "branches": 92.19,
+      "functions": 90.91
+    },
+    {
       "path": ".agents/scripts/lib/bootstrap/branch-protection.js",
       "lines": 98.2,
       "branches": 91.78,
@@ -1062,6 +1074,12 @@
     },
     {
       "path": ".agents/scripts/lib/config/paths.js",
+      "lines": 100,
+      "branches": 100,
+      "functions": 100
+    },
+    {
+      "path": ".agents/scripts/lib/config/qa.js",
       "lines": 100,
       "branches": 100,
       "functions": 100

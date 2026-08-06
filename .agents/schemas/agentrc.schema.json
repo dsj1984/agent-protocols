@@ -2095,6 +2095,81 @@
             }
           ]
         },
+        "gherkinLint": {
+          "type": "object",
+          "description": "Static Gherkin corpus gate (Story #5013). Optional; the gate runs only when this block is present, so an upgrade never reddens the lint of a consumer that never asked the framework to police its `.feature` files. Inside the opt-in it fails closed: an unresolvable `@cucumber/gherkin` parser, or a scope resolving zero step definitions, exits 1 rather than reporting a clean run.",
+          "default": {
+            "scopes": {
+              "web": {
+                "featureRoots": ["apps/web/tests/features"],
+                "stepRoots": ["apps/web/tests/steps"]
+              }
+            },
+            "exemptionTags": ["@skip"],
+            "stepWaivers": []
+          },
+          "properties": {
+            "scopes": {
+              "type": "object",
+              "description": "Binding scopes, keyed by name. Each scope resolves its own features against its own step definitions only — pooling every step root into one matcher list is what makes a cross-app false bind possible, where a step defined solely in app B silently vouches for app A. The scope name appears verbatim in every unbound finding.",
+              "minProperties": 1,
+              "additionalProperties": {
+                "type": "object",
+                "properties": {
+                  "featureRoots": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                      "type": "string",
+                      "not": {
+                        "pattern": "([;&|`]|\\$\\()"
+                      },
+                      "minLength": 1
+                    },
+                    "description": "Directories holding the `.feature` files of this scope, walked recursively."
+                  },
+                  "stepRoots": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                      "type": "string",
+                      "not": {
+                        "pattern": "([;&|`]|\\$\\()"
+                      },
+                      "minLength": 1
+                    },
+                    "description": "Directories holding the step definitions of this scope, walked recursively. Resolving zero definitions here is a fail-closed error, not a clean run."
+                  }
+                },
+                "required": ["featureRoots", "stepRoots"],
+                "additionalProperties": false
+              }
+            },
+            "exemptionTags": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "not": {
+                  "pattern": "([;&|`]|\\$\\()"
+                },
+                "minLength": 1
+              },
+              "description": "Tags marking a scenario as intentionally non-binding, so must-bind skips it. Never an escape from must-compile: a parse error in the file still fails the run. Default: [\"@skip\"].",
+              "default": ["@skip"]
+            },
+            "stepWaivers": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "description": "Exact step texts must-bind never reports as unbound. The step index is a source scan and therefore heuristic while the parser is exact, so a false unbound must always have an escape that does not require switching the gate off. Default: [].",
+              "default": []
+            }
+          },
+          "required": ["scopes"],
+          "additionalProperties": false
+        },
         "consoleAllowlist": {
           "type": "array",
           "items": {

@@ -91,6 +91,7 @@
     "@biomejs/biome": "^2.5.0",
     "@commitlint/cli": "^21.0.2",
     "@commitlint/config-conventional": "^21.0.2",
+    "@cucumber/gherkin": "^42.0.1",
     "c8": "^11.0.0",
     "chokidar": "^5.0.0",
     "husky": "^9.1.7",
@@ -111,14 +112,19 @@
     "typhonjs-escomplex": "^0.1.0"
   },
   "peerDependencies": {
+    "@cucumber/gherkin": ">=32.0.0",
     "typescript": ">=5.0.0"
   },
   "peerDependenciesMeta": {
+    "@cucumber/gherkin": {
+      "optional": true
+    },
     "typescript": {
       "optional": true
     }
   },
   "//": {
+    "peerDependencies.@cucumber/gherkin": "OPTIONAL peer, mirroring the `typescript` precedent, and deliberately NOT a runtime dependency. `check-gherkin-corpus.js` is the only consumer and it is opt-in behind `qa.gherkinLint`, so a consumer with no BDD tier must gain nothing from an upgrade. The devDependency alongside it is what lets this repository's own suite drive the real parser. The gate resolves it through a require path anchored at the consumer project — `.agents/` reaches a consumer by plain file copy, so a bare specifier would resolve against the consumer's module chain, which under a non-hoisting linker need not hold it.",
     "overrides.js-yaml": "COUPLED to devDependencies.markdownlint-cli2 — do not bump either alone, and do NOT drop this override. It is load-bearing: markdownlint-cli2 0.22.x pulls js-yaml 4.1.1, which carries GHSA-52cp-r559-cp3m (high) and GHSA-h67p-54hq-rp68 (moderate); removing the override was measured to reintroduce both (1 high + 1 moderate), while with it in place `npm audit` is clean. An npm override also wins over a transitive package's own pin, so this tree-wide ^4.2.0 is imposed on every js-yaml consumer regardless of what they declare — and markdownlint-cli2 0.23.x declares an exact js-yaml 5.2.1. A dry-run bump confirmed the trap: markdownlint-cli2 0.23.1 resolves against js-yaml 4.3.0, two majors off what it declares, silently. The only safe move is to raise this override and bump markdownlint-cli2 in ONE reviewed commit (first confirming cosmiconfig, under @commitlint/cli, tolerates the same major). renovate.json excludes markdownlint-cli2 from devDependency auto-merge so that pair cannot drift apart unattended.",
     "dependencies.js-yaml": "States the SAME range as overrides.js-yaml above. The two are deliberate duplicates — npm has no way to reference the direct range from the overrides block — so they MUST move in lockstep; changing one without the other silently splits the direct and transitive resolutions."
   },
