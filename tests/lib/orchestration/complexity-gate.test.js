@@ -35,7 +35,10 @@ import {
   createStoryIssues,
 } from '../../../.agents/scripts/lib/orchestration/plan-persist/story-ops.js';
 import { deriveChangeLevel } from '../../../.agents/scripts/lib/orchestration/review-depth.js';
-import { serialize as serializeStoryBody } from '../../../.agents/scripts/lib/story-body/story-body.js';
+import {
+  parse as parseStoryBody,
+  serialize as serializeStoryBody,
+} from '../../../.agents/scripts/lib/story-body/story-body.js';
 
 /** Stand-in sensitive-path manifest, mirroring the review-depth fixtures. */
 const RULES = {
@@ -186,18 +189,13 @@ describe('deriveStoryShape — the deterministic backstop (AC-1, AC-3)', () => {
 
   test('AC-1: a verbose-but-trivial Story derives lite — prose length is not shape', () => {
     // A long spec around a one-create footprint: word count would call this
-    // complex; the shape (derived from the serialized body) says lite.
-    const decision = resolveStoryDispatchMode({
-      body: storyBody({
-        spec: `Context and constraints. ${'Detail sentence about the trivial script. '.repeat(60)}`,
-        changes: [{ path: 'bin/hello.js', assumption: 'creates' }],
-        acceptance: ['prints hello'],
-      }),
-      storyCount: 1,
+    // complex; the shape says lite because prose is not one of its inputs.
+    const derived = deriveStoryShape({
+      changes: [{ path: 'bin/hello.js', assumption: 'creates' }],
+      acceptance: ['prints hello'],
       injectedRules: RULES,
     });
-    assert.equal(decision.route.route, 'lite');
-    assert.equal(decision.mode, 'inline');
+    assert.equal(derived.route, 'lite');
   });
 
   test('Story #4764: criterion count is contract detail, not effort — it no longer routes', () => {
@@ -495,96 +493,79 @@ describe('deriveStoryShape — sensitivity wins (AC-6)', () => {
   });
 });
 
-describe('resolveStoryDispatchMode — body-derived dispatch (AC-4, AC-5)', () => {
-  const liteBody = storyBody({
-    changes: [{ path: 'bin/hello.js', assumption: 'creates' }],
-    acceptance: ['prints hello'],
-  });
-  // Full-shaped by EFFORT, not by count (Story #4764): two deployables is
-  // clearly-epic scope however few files each side touches.
-  const fullBody = storyBody({
-    changes: [
-      { path: 'apps/api/src/handler.js', assumption: 'refactors-existing' },
-      { path: 'apps/web/src/page.js', assumption: 'refactors-existing' },
-    ],
-    acceptance: ['both sides agree'],
-  });
-
-  test('AC-5: a lite-shaped Story derives lite with the route::lite label ABSENT', () => {
-    const decision = resolveStoryDispatchMode({
-      body: liteBody,
-      labels: ['type::story', 'agent::ready'],
-      storyCount: 1,
-      injectedRules: RULES,
-    });
-    assert.equal(decision.mode, 'inline');
-    assert.equal(decision.route.route, 'lite');
-    assert.match(
-      decision.reasons.at(-1),
-      /hint only/i,
-      'the label is reported as a hint, never the control signal',
-    );
-  });
-
-  test('the label present on a lite-shaped Story is consistent — the derived route is unchanged', () => {
-    const decision = resolveStoryDispatchMode({
-      body: liteBody,
-      labels: ['type::story', LITE_ROUTE_LABEL],
-      storyCount: 2,
-      injectedRules: RULES,
-    });
-    assert.equal(decision.route.route, 'lite');
-    assert.equal(
-      decision.mode,
-      'subagent',
-      'the label cannot buy a session a concurrent sibling also needs',
-    );
-  });
-
-  test('the label NEVER routes: a full-shaped Story with route::lite dispatches subagent', () => {
-    const decision = resolveStoryDispatchMode({
-      body: fullBody,
-      labels: ['type::story', LITE_ROUTE_LABEL],
-      injectedRules: RULES,
-    });
-    assert.equal(decision.mode, 'subagent');
-    assert.equal(decision.route.route, 'full');
-  });
-
-  test('AC-6: a sensitive-footprint Story dispatches subagent (fresh critic path)', () => {
-    const decision = resolveStoryDispatchMode({
-      body: storyBody({
-        changes: [{ path: 'src/billing/banner.js', assumption: 'creates' }],
-        acceptance: ['shows the banner'],
-      }),
-      labels: [LITE_ROUTE_LABEL],
-      injectedRules: RULES,
-    });
-    assert.equal(decision.mode, 'subagent');
-    assert.match(decision.reasons[0], /sensitivity wins/i);
-  });
-
-  test('a missing or unparseable body is conservative subagent — labels alone never route', () => {
-    for (const body of [undefined, null, '', '   ']) {
-      const decision = resolveStoryDispatchMode({
-        body,
-        labels: [LITE_ROUTE_LABEL],
-        injectedRules: RULES,
+describe('resolveStoryDispatchMode — topology only (Story #5006)', () => {
+  /**
+   * AC-4's core claim: the dispatch decision reads `storyCount` and nothing
+   * else. Proven structurally rather than by example — a probe object whose
+   * every other key is an accessor records any read, so a future
+   * reintroduction of the body parse fails here instead of quietly costing a
+   * parse per Story.
+   */
+  function dispatchWithProbe(storyCount) {
+    const touched = [];
+    const probe = { storyCount };
+    for (const key of [
+      'body',
+      'labels',
+      'config',
+      'injectedRules',
+      'selectSensitivePathClassesFn',
+    ]) {
+      Object.defineProperty(probe, key, {
+        enumerable: true,
+        get() {
+          touched.push(key);
+          return undefined;
+        },
       });
-      assert.equal(decision.mode, 'subagent');
     }
-    assert.equal(resolveStoryDispatchMode().mode, 'subagent');
+    return { decision: resolveStoryDispatchMode(probe), touched };
+  }
+
+  test('AC-4: a single-Story run is inline, reading no body', () => {
+    const { decision, touched } = dispatchWithProbe(1);
+    assert.equal(decision.mode, 'inline');
+    assert.deepEqual(
+      touched,
+      [],
+      'dispatch must read storyCount alone — no body, label, config or rules access',
+    );
   });
 
-  test('planning.complexityGate.enabled=false disables inline dispatch everywhere', () => {
-    const decision = resolveStoryDispatchMode({
-      body: liteBody,
-      labels: [LITE_ROUTE_LABEL],
-      config: { planning: { complexityGate: { enabled: false } } },
-      injectedRules: RULES,
+  test('AC-4: a multi-Story run is subagent, reading no body', () => {
+    for (const storyCount of [2, 3, 12]) {
+      const { decision, touched } = dispatchWithProbe(storyCount);
+      assert.equal(decision.mode, 'subagent');
+      assert.deepEqual(touched, []);
+    }
+  });
+
+  test("AC-4: the verdict carries no route — the shape is the caller's to derive", () => {
+    // `deriveStoryShape` is still the shape SSOT (persist and the light path
+    // call it). What is gone is dispatch deriving a route no consumer read.
+    assert.equal('route' in resolveStoryDispatchMode({ storyCount: 1 }), false);
+    assert.equal('route' in resolveStoryDispatchMode({ storyCount: 4 }), false);
+  });
+
+  test('the label is inert: it is not even an argument any more', () => {
+    const withLabel = resolveStoryDispatchMode({
+      storyCount: 2,
+      labels: ['type::story', LITE_ROUTE_LABEL],
     });
-    assert.equal(decision.mode, 'subagent');
-    assert.match(decision.reasons[0], /disabled/i);
+    const without = resolveStoryDispatchMode({ storyCount: 2 });
+    assert.deepEqual(withLabel, without);
+  });
+
+  test('the shape kill-switch cannot reach dispatch either', () => {
+    const off = resolveStoryDispatchMode({
+      storyCount: 1,
+      config: { planning: { complexityGate: { enabled: false } } },
+    });
+    assert.equal(
+      off.mode,
+      'inline',
+      'planning.complexityGate governs shape derivation, not run topology',
+    );
   });
 
   test('the hint label constant keeps its persisted shape', () => {
@@ -615,12 +596,7 @@ describe('resolveStoryDispatchMode — run topology (Story #4736)', () => {
   });
 
   test('AC-1: a single-Story run is inline even for a full-shaped Story', () => {
-    const decision = resolveStoryDispatchMode({
-      body: fullBody,
-      labels: ['type::story'],
-      storyCount: 1,
-      injectedRules: RULES,
-    });
+    const decision = resolveStoryDispatchMode({ storyCount: 1 });
     assert.equal(decision.mode, 'inline');
     assert.match(decision.reasons[0], /single-Story run/i);
     assert.match(
@@ -632,12 +608,7 @@ describe('resolveStoryDispatchMode — run topology (Story #4736)', () => {
 
   test('AC-1: a multi-Story run still dispatches sub-agents for full-shaped Stories', () => {
     for (const storyCount of [2, 3, 12]) {
-      const decision = resolveStoryDispatchMode({
-        body: fullBody,
-        labels: ['type::story'],
-        storyCount,
-        injectedRules: RULES,
-      });
+      const decision = resolveStoryDispatchMode({ storyCount });
       assert.equal(
         decision.mode,
         'subagent',
@@ -646,62 +617,25 @@ describe('resolveStoryDispatchMode — run topology (Story #4736)', () => {
     }
   });
 
-  test('AC-2: the derived route is still reported inline, so ceremony reads the same shape', () => {
-    const decision = resolveStoryDispatchMode({
-      body: fullBody,
-      storyCount: 1,
-      injectedRules: RULES,
-    });
-    assert.equal(
-      decision.route.route,
-      'full',
-      'inline changes WHERE the engine runs, never what the shape says about it',
-    );
-
-    const sensitive = resolveStoryDispatchMode({
-      body: sensitiveBody,
-      storyCount: 1,
-      injectedRules: RULES,
-    });
-    assert.equal(sensitive.mode, 'inline');
-    assert.equal(
-      sensitive.route.route,
-      'full',
-      'a sensitive footprint still derives full — inline dispatch does not launder it to lite',
-    );
-  });
-
-  test('a single-Story run is inline with an unparseable body (route reports null)', () => {
-    const decision = resolveStoryDispatchMode({
-      body: '   ',
-      storyCount: 1,
-      injectedRules: RULES,
-    });
-    assert.equal(decision.mode, 'inline');
-    assert.equal(decision.route, null);
-  });
-
-  test('the shape kill-switch does not reach the topology rule', () => {
-    const decision = resolveStoryDispatchMode({
-      body: fullBody,
-      storyCount: 1,
-      config: { planning: { complexityGate: { enabled: false } } },
-      injectedRules: RULES,
-    });
-    assert.equal(
-      decision.mode,
-      'inline',
-      'planning.complexityGate governs shape derivation, not run topology',
-    );
+  test('AC-2: inline changes WHERE the engine runs, never the shape of the work', () => {
+    // The shape SSOT is unaffected by the dispatch verdict: a full-shaped and
+    // a sensitive-footprint Story both still derive `full`, and a run that
+    // dispatches them inline does not launder either to lite.
+    for (const body of [fullBody, sensitiveBody]) {
+      const parsed = parseStoryBody(body).body;
+      const derived = deriveStoryShape({
+        changes: parsed.changes,
+        acceptance: parsed.acceptance,
+        injectedRules: RULES,
+      });
+      assert.equal(derived.route, 'full');
+      assert.equal(resolveStoryDispatchMode({ storyCount: 1 }).mode, 'inline');
+    }
   });
 
   test('an unknown or non-single run size is conservative sub-agent dispatch', () => {
     for (const storyCount of [undefined, null, 0, '1', 1.5, -1]) {
-      const decision = resolveStoryDispatchMode({
-        body: fullBody,
-        storyCount,
-        injectedRules: RULES,
-      });
+      const decision = resolveStoryDispatchMode({ storyCount });
       assert.equal(
         decision.mode,
         'subagent',
@@ -743,21 +677,23 @@ describe('resolveStoryDispatchMode — inline is one session, so one Story (#482
 
   test('AC-1: the measured two-Story and three-Story runs no longer claim the session', () => {
     for (const storyCount of [2, 3]) {
-      const decision = resolveStoryDispatchMode({
-        body: liteBody,
-        labels: ['type::story', LITE_ROUTE_LABEL],
-        storyCount,
-        injectedRules: RULES,
-      });
+      // The body that used to buy `inline` unconditionally is still lite by
+      // shape — it just no longer reaches the dispatch decision at all.
+      const parsed = parseStoryBody(liteBody).body;
+      assert.equal(
+        deriveStoryShape({
+          changes: parsed.changes,
+          acceptance: parsed.acceptance,
+          injectedRules: RULES,
+        }).route,
+        'lite',
+      );
+
+      const decision = resolveStoryDispatchMode({ storyCount });
       assert.equal(
         decision.mode,
         'subagent',
         `a lite-shaped Story in a ${storyCount}-Story run must not be told to run in the router's own session`,
-      );
-      assert.equal(
-        decision.route.route,
-        'lite',
-        'the derived shape is still reported — only its authority over dispatch is gone',
       );
       assert.match(
         decision.reasons[0],
@@ -768,13 +704,10 @@ describe('resolveStoryDispatchMode — inline is one session, so one Story (#482
   });
 
   test('AC-2: the single-Story inline rule is untouched, whatever the shape', () => {
-    for (const body of [liteBody, fullBody, '   ']) {
-      const decision = resolveStoryDispatchMode({
-        body,
-        labels: ['type::story'],
-        storyCount: 1,
-        injectedRules: RULES,
-      });
+    // The shapes are enumerated to make the point explicit even though the
+    // rule cannot see them: none of them can change a one-Story verdict.
+    for (const _body of [liteBody, fullBody, '   ']) {
+      const decision = resolveStoryDispatchMode({ storyCount: 1 });
       assert.equal(decision.mode, 'inline');
       assert.match(decision.reasons[0], /single-Story run/i);
     }
@@ -795,6 +728,8 @@ describe('resolveStoryDispatchMode — inline is one session, so one Story (#482
       for (const body of bodies) {
         for (const labels of labelSets) {
           for (const config of configs) {
+            // Every retired input is still passed: an argument the rule
+            // ignores must stay unable to conjure a second session.
             const { mode } = resolveStoryDispatchMode({
               body,
               labels,
@@ -946,24 +881,29 @@ describe('persist ↔ deliver route round-trip — one shape, two read points', 
         acceptance: stories[0].acceptance,
         injectedRules: RULES,
       });
-      // Deliver's read point: the serialized body markdown, re-parsed.
-      const deliverSide = resolveStoryDispatchMode({
-        body: stories[0].body,
-        labels: [],
-        storyCount: 2,
+      // Deliver's read point: the serialized body markdown, re-parsed — the
+      // path `light-suitability.js` takes when the light route needs a shape.
+      const reparsed = parseStoryBody(stories[0].body).body;
+      const deliverSide = deriveStoryShape({
+        changes: reparsed.changes,
+        acceptance: reparsed.acceptance,
         injectedRules: RULES,
       });
 
       assert.equal(persistSide.route, expectedRoute);
       assert.equal(
-        deliverSide.route.route,
+        deliverSide.route,
         persistSide.route,
         'persist and deliver derived different routes from the same Story',
       );
-      // The ROUTE is what round-trips. The MODE is not a function of shape at
-      // all (Story #4829): in a two-Story run every shape dispatches as a
-      // sub-agent, because the router has one session and two Stories.
-      assert.equal(deliverSide.mode, 'subagent');
+      // The ROUTE is what round-trips. The dispatch MODE is not a function of
+      // shape at all (Story #4829, hard-wired by #5006): in a two-Story run
+      // every shape dispatches as a sub-agent, because the router has one
+      // session and two Stories.
+      assert.equal(
+        resolveStoryDispatchMode({ storyCount: 2 }).mode,
+        'subagent',
+      );
     });
   }
 });

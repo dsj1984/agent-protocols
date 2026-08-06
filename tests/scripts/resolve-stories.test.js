@@ -38,17 +38,6 @@ import { parseDag } from '../../.agents/scripts/stories-wave-tick.js';
 
 const REPO = { owner: 'dsj1984', repo: 'mandrel', issueNumber: 4534 };
 
-/**
- * Stand-in sensitive-path manifest for the dispatchMode shape derivation —
- * injected so no test reads the repo's live `audit-rules.json` (whose
- * operator-editable globs would otherwise decide these assertions).
- */
-const RULES = {
-  sensitivePaths: {
-    security: { filePatterns: ['**/auth/**'] },
-  },
-};
-
 function storyBody({
   changes = ['.agents/scripts/a.js'],
   blockedBy = null,
@@ -169,7 +158,6 @@ describe('the resolver envelope composes with the scheduler adapter', () => {
   it('parseDag accepts the resolver output verbatim (run-breaker #1)', () => {
     const env = buildStoriesEnvelope({
       stories: [toStoryRecord(issue())],
-      injectedRules: RULES,
     });
     assert.ok(env.dag[0].files.every((f) => typeof f === 'string'));
     const { nodes, error } = parseDag(env.dag);
@@ -294,10 +282,11 @@ describe('storiesToDag — body and native edges union into one graph', () => {
 });
 
 describe('buildStoriesEnvelope — per-Story dispatchMode (Story #4722)', () => {
-  // Story #4736 put a run-topology rule ahead of the shape read: a run
-  // resolving ONE Story is inline whatever its shape. Every assertion about
-  // the shape axis therefore needs a multi-Story set to reach that axis at
-  // all — this filler Story is the second element, never the subject.
+  // Story #4736 put a run-topology rule ahead of the shape read, and Story
+  // #5006 removed the shape read entirely: `resolveStoryDispatchMode` sees
+  // only the resolved set size. Every assertion below therefore pins the ONE
+  // remaining axis — a sibling in the set — against the inputs that used to
+  // move the verdict and no longer can.
   const filler = () =>
     toStoryRecord(
       issue({ number: 99, body: storyBody({ changes: ['src/filler.js'] }) }),
@@ -307,18 +296,16 @@ describe('buildStoriesEnvelope — per-Story dispatchMode (Story #4722)', () => 
     // One refactor + one acceptance criterion, no sensitive path: a
     // lite-shaped body — which USED to come back `inline` here. It cannot:
     // `inline` means the router's own session, and this set has a sibling that
-    // may be dispatched on the same beat. The shape still decides ceremony;
-    // it no longer decides where the engine runs.
+    // may be dispatched on the same beat.
     const env = buildStoriesEnvelope({
       stories: [toStoryRecord(issue({ number: 1 })), filler()],
-      injectedRules: RULES,
     });
     assert.equal(env.stories[0].dispatchMode, 'subagent');
   });
 
-  it('AC-4/AC-5: the route::lite label never routes — a full-shaped body dispatches subagent', () => {
-    // Full-shaped by EFFORT since Story #4764: two deployables is clearly-epic
-    // scope, where a mere file count no longer routes anything.
+  it('AC-4/AC-5: the route::lite label never routes — it is not even read', () => {
+    // Full-shaped by EFFORT since Story #4764 (two deployables), carrying the
+    // lite hint label. Neither input reaches the dispatch decision.
     const wide = storyBody({
       changes: ['apps/api/src/a.js', 'apps/web/src/b.js'],
     });
@@ -333,33 +320,18 @@ describe('buildStoriesEnvelope — per-Story dispatchMode (Story #4722)', () => 
         ),
         filler(),
       ],
-      injectedRules: RULES,
     });
     assert.equal(env.stories[0].dispatchMode, 'subagent');
   });
 
-  it('AC-6: a sensitive-path footprint dispatches subagent even at lite width', () => {
+  it('a Story body the resolver cannot parse still gets a mode', () => {
+    // Dispatch no longer parses the body, so an unparseable one cannot make
+    // the resolver throw or degrade — it is simply irrelevant.
     const env = buildStoriesEnvelope({
       stories: [
-        toStoryRecord(
-          issue({
-            number: 1,
-            body: storyBody({ changes: ['src/auth/session.js'] }),
-            labels: [{ name: 'type::story' }, { name: 'route::lite' }],
-          }),
-        ),
+        toStoryRecord(issue({ number: 1, body: 'not a story body at all' })),
         filler(),
       ],
-      injectedRules: RULES,
-    });
-    assert.equal(env.stories[0].dispatchMode, 'subagent');
-  });
-
-  it('planning.complexityGate.enabled=false forces subagent dispatch', () => {
-    const env = buildStoriesEnvelope({
-      stories: [toStoryRecord(issue({ number: 1 })), filler()],
-      config: { planning: { complexityGate: { enabled: false } } },
-      injectedRules: RULES,
     });
     assert.equal(env.stories[0].dispatchMode, 'subagent');
   });
@@ -380,7 +352,6 @@ describe('buildStoriesEnvelope — single-Story runs dispatch inline (Story #473
   it('AC-1: a one-Story run is inline even for a full-shaped Story', () => {
     const env = buildStoriesEnvelope({
       stories: [toStoryRecord(issue({ number: 1, body: wideBody }))],
-      injectedRules: RULES,
     });
     assert.equal(env.stories.length, 1);
     assert.equal(env.stories[0].dispatchMode, 'inline');
@@ -392,7 +363,6 @@ describe('buildStoriesEnvelope — single-Story runs dispatch inline (Story #473
         toStoryRecord(issue({ number: 1, body: wideBody })),
         toStoryRecord(issue({ number: 2, body: wideBody })),
       ],
-      injectedRules: RULES,
     });
     assert.deepEqual(
       env.stories.map((s) => s.dispatchMode),
@@ -416,7 +386,6 @@ describe('buildStoriesEnvelope — single-Story runs dispatch inline (Story #473
           }),
         ),
       ],
-      injectedRules: RULES,
     });
     assert.equal(env.stories[0].dispatchMode, 'subagent');
   });
@@ -450,7 +419,7 @@ describe('buildStoriesEnvelope ↔ ready set — one run, one consistent answer'
   ]) {
     it(`the measured ${ids.length}-Story run: no Story claims the session the tick fans out from`, () => {
       const stories = ids.map(liteStory);
-      const env = buildStoriesEnvelope({ stories, injectedRules: RULES });
+      const env = buildStoriesEnvelope({ stories });
 
       // The tick's view of the same run: every Story ready, cap 5 — the
       // reported condition, reproduced rather than assumed.
@@ -477,7 +446,7 @@ describe('buildStoriesEnvelope ↔ ready set — one run, one consistent answer'
 
   it('a one-Story run keeps inline — and its ready set is the one Story', () => {
     const stories = [liteStory(4829)];
-    const env = buildStoriesEnvelope({ stories, injectedRules: RULES });
+    const env = buildStoriesEnvelope({ stories });
     const ready = planReadySet({
       stories: [{ id: 4829, dependsOn: [], files: ['src/feature-4829.js'] }],
       doneIds: new Set(),
@@ -500,7 +469,6 @@ describe('buildStoriesEnvelope — done[] is what unlocks cross-run delivery', (
         toStoryRecord(issue({ number: 1, state: 'closed' })),
         toStoryRecord(issue({ number: 2 })),
       ],
-      injectedRules: RULES,
     });
     assert.deepEqual(env.done, [1]);
   });
@@ -517,7 +485,6 @@ describe('buildStoriesEnvelope — done[] is what unlocks cross-run delivery', (
     const env = buildStoriesEnvelope({
       stories,
       foreignDone: [4530],
-      injectedRules: RULES,
     });
     assert.deepEqual(env.dag[0].dependsOn, [4530]);
     assert.deepEqual(env.done, [4530]);
@@ -529,7 +496,6 @@ describe('buildStoriesEnvelope — done[] is what unlocks cross-run delivery', (
         toStoryRecord(issue({ number: 9, state: 'closed' })),
         toStoryRecord(issue({ number: 3, state: 'closed' })),
       ],
-      injectedRules: RULES,
     });
     assert.deepEqual(
       env.stories.map((s) => s.id),

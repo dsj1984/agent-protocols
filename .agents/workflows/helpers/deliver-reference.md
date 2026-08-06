@@ -118,7 +118,8 @@ engine runs, never what runs — gates, PR, and terminal envelope are identical.
 **Read the mode; never infer it from shape.** Before spawning
 anything, read the Story's `dispatchMode` from the resolver envelope
 (`stories[].dispatchMode`, produced by `resolveStoryDispatchMode` in
-`lib/orchestration/complexity-gate.js`). A Story with `dispatchMode: "inline"`
+`lib/orchestration/complexity-gate.js`, which decides on the resolved set size
+alone — it does not read the Story body). A Story with `dispatchMode: "inline"`
 executes [`deliver-story.md`](deliver-story.md) **inline in this session** — no
 `story-worker` sub-agent boot and no fresh acceptance-critic sub-agents
 (sub-agent boots are the dominant deliver-phase token cost at trivial scope) —
