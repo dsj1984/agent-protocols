@@ -1,14 +1,14 @@
 {
   "$schema": ".agents/schemas/baselines/crap.schema.json",
   "kernelVersion": "0.1.0",
-  "generatedAt": "2026-08-06T04:55:32.524Z",
+  "generatedAt": "2026-08-06T05:02:31.188Z",
   "scoringSemantics": "method-identity-v3",
   "tsTranspilerVersion": "6.0.3",
   "provenanceStamped": true,
   "rollup": {
     "*": {
       "p50": 2,
-      "p95": 10.0244140625,
+      "p95": 10.022261179285973,
       "max": 29.000120920774684,
       "methodsAbove20": 8
     }
@@ -17104,82 +17104,118 @@
     {
       "path": ".agents/scripts/lib/orchestration/single-story-close/runner.js",
       "method": "emitTerminal",
-      "startLine": 56,
+      "startLine": 57,
       "crap": 2
     },
     {
       "path": ".agents/scripts/lib/orchestration/single-story-close/runner.js",
       "method": "alreadyClosedResult",
-      "startLine": 92,
+      "startLine": 93,
       "crap": 2
     },
     {
       "path": ".agents/scripts/lib/orchestration/single-story-close/runner.js",
       "method": "resolveWorktreePath",
-      "startLine": 136,
+      "startLine": 137,
       "crap": 2
     },
     {
       "path": ".agents/scripts/lib/orchestration/single-story-close/runner.js",
       "method": "runPrePushPhases",
-      "startLine": 142,
+      "startLine": 143,
       "crap": 3
     },
     {
       "path": ".agents/scripts/lib/orchestration/single-story-close/runner.js",
       "method": "openAndReviewPr",
-      "startLine": 199,
-      "crap": 2
+      "startLine": 202,
+      "crap": 3.000287945866177
     },
     {
       "path": ".agents/scripts/lib/orchestration/single-story-close/runner.js",
       "method": "releaseLease",
-      "startLine": 251,
+      "startLine": 266,
       "crap": 2
     },
     {
       "path": ".agents/scripts/lib/orchestration/single-story-close/runner.js",
       "method": "releaseLeaseOnBlock",
-      "startLine": 306,
+      "startLine": 319,
       "crap": 1
     },
     {
       "path": ".agents/scripts/lib/orchestration/single-story-close/runner.js",
       "method": "closeResult",
-      "startLine": 315,
+      "startLine": 328,
       "crap": 3
     },
     {
       "path": ".agents/scripts/lib/orchestration/single-story-close/runner.js",
       "method": "runSingleStoryClose",
-      "startLine": 361,
-      "crap": 5.006103515625
+      "startLine": 374,
+      "crap": 5.005565294821493
     },
     {
       "path": ".agents/scripts/lib/orchestration/single-story-close/runner.js",
       "method": "<anon runSingleStoryClose/(next)#0>",
-      "startLine": 402,
+      "startLine": 417,
       "crap": 1,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/orchestration/single-story-close/runner.js",
+      "method": "resolveAutoMergeOutcome",
+      "startLine": 451,
+      "crap": 3.0308039068369643
+    },
+    {
+      "path": ".agents/scripts/lib/orchestration/single-story-close/runner.js",
+      "method": "reportWaitTerminal",
+      "startLine": 472,
+      "crap": 3.616172051089406
+    },
+    {
+      "path": ".agents/scripts/lib/orchestration/single-story-close/runner.js",
+      "method": "finishWithMergeWait",
+      "startLine": 503,
+      "crap": 1
+    },
+    {
+      "path": ".agents/scripts/lib/orchestration/single-story-close/runner.js",
+      "method": "finishWithoutMergeWait",
+      "startLine": 567,
+      "crap": 1
+    },
+    {
+      "path": ".agents/scripts/lib/orchestration/single-story-close/runner.js",
+      "method": "elapsedSecondsSince",
+      "startLine": 615,
+      "crap": 1
+    },
+    {
+      "path": ".agents/scripts/lib/orchestration/single-story-close/runner.js",
+      "method": "reportOperatorMergeSkip",
+      "startLine": 628,
+      "crap": 3.474609375
+    },
+    {
+      "path": ".agents/scripts/lib/orchestration/single-story-close/runner.js",
       "method": "runClosePipeline",
-      "startLine": 431,
-      "crap": 15.100364399607761
+      "startLine": 650,
+      "crap": 8
     },
     {
       "path": ".agents/scripts/lib/orchestration/single-story-close/runner.js",
       "method": "<anon runClosePipeline/()#0>",
-      "startLine": 481,
-      "crap": 1.0215303083306095,
+      "startLine": 715,
+      "crap": 1,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/orchestration/single-story-close/runner.js",
       "method": "<anon runClosePipeline/()#1>",
-      "startLine": 497,
-      "crap": 1.0215303083306095,
+      "startLine": 732,
+      "crap": 1,
       "anonymous": true
     },
     {
