@@ -19649,44 +19649,6 @@
       "anonymous": true
     },
     {
-      "path": ".agents/scripts/lib/story-lifecycle.js",
-      "method": "resolveStoryHierarchy",
-      "startLine": 38,
-      "crap": 3
-    },
-    {
-      "path": ".agents/scripts/lib/story-lifecycle.js",
-      "method": "fetchChildTickets",
-      "startLine": 72,
-      "crap": 1
-    },
-    {
-      "path": ".agents/scripts/lib/story-lifecycle.js",
-      "method": "isRetryableError",
-      "startLine": 84,
-      "crap": 9
-    },
-    {
-      "path": ".agents/scripts/lib/story-lifecycle.js",
-      "method": "batchTransitionTickets",
-      "startLine": 119,
-      "crap": 2.0005831753899987
-    },
-    {
-      "path": ".agents/scripts/lib/story-lifecycle.js",
-      "method": "<anon batchTransitionTickets/(ticket)#0>",
-      "startLine": 134,
-      "crap": 9.0368684569868,
-      "anonymous": true
-    },
-    {
-      "path": ".agents/scripts/lib/story-lifecycle.js",
-      "method": "<anon batchTransitionTickets/(ticket)#0/(resolve)#0>",
-      "startLine": 174,
-      "crap": 1,
-      "anonymous": true
-    },
-    {
       "path": ".agents/scripts/lib/templates/decomposer-prompts.js",
       "method": "renderDecomposerSystemPrompt",
       "startLine": 28,

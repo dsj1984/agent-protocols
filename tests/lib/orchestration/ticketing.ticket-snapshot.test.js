@@ -5,7 +5,7 @@
  * invocation when `opts.notify` was set: once for the notify
  * `fromState` snapshot, once inside the provider's label-merge path.
  * Threading `opts.ticketSnapshot` from a caller that already holds the
- * ticket (e.g. `batchTransitionTickets`) eliminates both reads.
+ * ticket eliminates both reads.
  */
 
 import assert from 'node:assert/strict';
