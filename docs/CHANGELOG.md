@@ -15,6 +15,48 @@ All notable changes to this project will be documented in this file.
 -->
 <!-- markdownlint-disable-file MD004 MD012 MD037 -->
 
+## [2.32.0](https://github.com/dsj1984/mandrel/compare/mandrel-v2.31.0...mandrel-v2.32.0) (2026-08-06)
+
+
+### ⚠ BREAKING CHANGES
+
+* `.agents/scripts/validate-docs-freshness.js` is removed from the published payload. It had no invoker in `package.json` scripts, Husky hooks, CI workflows, or any workflow markdown, so no shipped flow loses a step. A consumer calling it by hand should drop the call; the `delivery.docsFreshness.paths` key it read is unchanged and is still consumed by the audit-documentation lens.
+* `project.commands.lintBaseline` is removed from the `.agentrc.json` schema. The `project.commands` block is `additionalProperties: false`, so a config still carrying the key now fails validation instead of being ignored. `npx mandrel update` deletes it for you; delete it by hand otherwise. Nothing replaces it — the framework no longer ships a lint-baseline capture CLI, and a consumer that wants the `lint` baseline kind writes `baselines/lint.json` from its own linter.
+* `ITicketingProvider` no longer declares `getRecentComments`, `addSubIssue`, `removeSubIssue` or `createPullRequest`, and `GitHubProvider` no longer installs them. A consumer implementing or calling those members must drop them: open pull requests with `gh pr create` (as `single-story-close.js` does) and read a ticket's comments through `getTicketComments`.
+* `apply-quality-bootstrap.js` no longer prints a `baselines` key. Its stdout envelope is now `{ quality }`, and the retired baselines migration is reported as `quality.legacyBaselines` instead. A consumer parsing `.baselines.action` from `/mandrel-update` Step 3.5 must read `.quality.legacyBaselines.action` (`absent` | `pruned`); the pre-v2 snapshot relocation into `temp/epic/<id>/baselines/` no longer happens at all.
+* the delivery.lease config block (delivery.lease.ttlMs) is removed from .agentrc.json. The schema now rejects it as an unknown key, so a consumer carrying it must delete the block. Nothing replaces it: the lease has no TTL, and a stranded claim is cleared with --steal.
+* `delivery.acceptanceEval.clusterCeiling` is removed from the agentrc schema. The block is `additionalProperties: false`, so a consumer `.agentrc.json` still carrying the key now fails AJV validation — delete the key; nothing read it.
+
+### Added
+
+* baseline honesty surface: framework-owned scope/staleness gate + measurement-free orphan pruner ([#5012](https://github.com/dsj1984/mandrel/issues/5012)) ([#5016](https://github.com/dsj1984/mandrel/issues/5016)) ([71f7134](https://github.com/dsj1984/mandrel/commit/71f713419bba8523ab6bbca60fb962d5919f18b1))
+* **baselines:** baseline-refresh: schedule the full-scope re-score ([#5028](https://github.com/dsj1984/mandrel/issues/5028)) ([eee9005](https://github.com/dsj1984/mandrel/commit/eee9005933a572f69ac3faa94bfc1d7193dfd7d4))
+* **gates:** make the dead-exports ratchet detect whole-file death (refs [#5001](https://github.com/dsj1984/mandrel/issues/5001)) ([#5014](https://github.com/dsj1984/mandrel/issues/5014)) ([38dfc3c](https://github.com/dsj1984/mandrel/commit/38dfc3c690c14c80b0fd2dc97dd7cbd599a19322))
+* one child-process exec wrapper: single maxBuffer SSOT, normalized errors, lint-banned raw spawns ([#5009](https://github.com/dsj1984/mandrel/issues/5009)) ([#5029](https://github.com/dsj1984/mandrel/issues/5029)) ([956dcfc](https://github.com/dsj1984/mandrel/commit/956dcfc777fe74b2c35e208ee1a44ee7a47a3fd1))
+* planning surface diet: delete the parallel authoring pipeline and stop rejecting output the validator can already fix ([#5005](https://github.com/dsj1984/mandrel/issues/5005)) ([#5020](https://github.com/dsj1984/mandrel/issues/5020)) ([a62efd5](https://github.com/dsj1984/mandrel/commit/a62efd5d27f9d82761f150a5edd0388eb0370493))
+* **quality:** derive knip's CLI entry list instead of trusting memory ([#5026](https://github.com/dsj1984/mandrel/issues/5026)) ([7554851](https://github.com/dsj1984/mandrel/commit/7554851979de86622baf58f2467b5198d3202ed9))
+* ship a fail-closed dead-exports baseline producer so the ratchet has an updater, not a hand-edit ([#5011](https://github.com/dsj1984/mandrel/issues/5011)) ([#5033](https://github.com/dsj1984/mandrel/issues/5033)) ([eede007](https://github.com/dsj1984/mandrel/commit/eede007c502fab485de480c2517516f8e015491d))
+* ship a static gherkin corpus gate: must-compile with the real parser, must-bind scoped per step root ([#5013](https://github.com/dsj1984/mandrel/issues/5013)) ([#5034](https://github.com/dsj1984/mandrel/issues/5034)) ([9f4e83e](https://github.com/dsj1984/mandrel/commit/9f4e83ede2c7a55a6dd94e2d8b162e54fb4de217))
+
+
+### Fixed
+
+* close six defects found reviewing the v2.32.0 release diff ([#5035](https://github.com/dsj1984/mandrel/issues/5035)) ([625004c](https://github.com/dsj1984/mandrel/commit/625004ccc65a65508ef99b239ddd09fafb13c56f))
+* **close:** review lens must honour maintainability ignoreGlobs; add a logged override ([#5030](https://github.com/dsj1984/mandrel/issues/5030)) ([e21ff82](https://github.com/dsj1984/mandrel/commit/e21ff82b8ee80c80a9d3ff7803247c992f0a3abc))
+* derive the squash subject from release impact, keep acronyms, propagate breaking changes ([#5027](https://github.com/dsj1984/mandrel/issues/5027)) ([a7bb9af](https://github.com/dsj1984/mandrel/commit/a7bb9af0353853c60ac6a2b59ea04b7c66695dbc))
+
+
+### Changed
+
+* cRAP surface diet: delete the dead combined scan, unify the baseline read path, stop the c≈5 cap on untestable CLI wiring ([#5002](https://github.com/dsj1984/mandrel/issues/5002)) ([#5017](https://github.com/dsj1984/mandrel/issues/5017)) ([7624c12](https://github.com/dsj1984/mandrel/commit/7624c125f974cce0820d494b63efad6e56b9beae))
+* delivery/orchestration sweep: retire Epic-era close residue and collapse self-documented-unreachable machinery ([#5006](https://github.com/dsj1984/mandrel/issues/5006)) ([#5021](https://github.com/dsj1984/mandrel/issues/5021)) ([7c19dc5](https://github.com/dsj1984/mandrel/commit/7c19dc5d449f4a9926a7b59c9c9f0dbadf92e091))
+* **orchestration:** delete production-dead story-lifecycle module ([#5025](https://github.com/dsj1984/mandrel/issues/5025)) ([811966c](https://github.com/dsj1984/mandrel/commit/811966c0e1d0f2a746261e342f64acfe1b6f6bd5))
+* providers/QA/misc sweep: prune Epic-era provider surface, dead subsystems, and QA round-trip ceremony ([#5008](https://github.com/dsj1984/mandrel/issues/5008)) ([#5023](https://github.com/dsj1984/mandrel/issues/5023)) ([a019c14](https://github.com/dsj1984/mandrel/commit/a019c144149b23b7102fcd39e466842a3880cfa2))
+* remove the write-only observability surface: tool-trace hooks, dead signals viewer, Epic-era graduator ([#5003](https://github.com/dsj1984/mandrel/issues/5003)) ([#5018](https://github.com/dsj1984/mandrel/issues/5018)) ([3a6273f](https://github.com/dsj1984/mandrel/commit/3a6273f3dc78796ac89a62c1fefa0d95200bac8e))
+* retire the orphaned lifecycle-bus stratum: bus, both observers, the emitter-less schemas, and the doc-drift guard behind them ([#5024](https://github.com/dsj1984/mandrel/issues/5024)) ([#5032](https://github.com/dsj1984/mandrel/issues/5032)) ([caed250](https://github.com/dsj1984/mandrel/commit/caed2501520ce292832b99f12a5478350954c8b9))
+* rules refresh: retire the phantom docs-freshness gate, demote §1.H, condense testing pedagogy ([#5010](https://github.com/dsj1984/mandrel/issues/5010)) ([#5031](https://github.com/dsj1984/mandrel/issues/5031)) ([18715c4](https://github.com/dsj1984/mandrel/commit/18715c4a13448b0992ad8b005193414a0fcf493f))
+* single-source the config surface and finish the bootstrap vestige cleanup ([#5007](https://github.com/dsj1984/mandrel/issues/5007)) ([#5022](https://github.com/dsj1984/mandrel/issues/5022)) ([073415e](https://github.com/dsj1984/mandrel/commit/073415ebbefb2b5d4df05e3e52bbd4b11cf73120))
+
 ## [2.31.0](https://github.com/dsj1984/mandrel/compare/mandrel-v2.30.0...mandrel-v2.31.0) (2026-08-05)
 
 
