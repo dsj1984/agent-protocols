@@ -459,7 +459,7 @@
         },
         "docsFreshness": {
           "type": "object",
-          "description": "Documentation-freshness gate scope: the files a change of consequence is expected to touch.",
+          "description": "Documentation-freshness scope: the files a change of consequence is expected to touch. Read by the audit-documentation lens to seed its target set; no delivery gate enforces it.",
           "properties": {
             "paths": {
               "type": "array",
@@ -470,7 +470,7 @@
                 },
                 "minLength": 1
               },
-              "description": "Repo-relative documentation paths the freshness gate watches.",
+              "description": "Repo-relative documentation paths the audit-documentation lens adds to its target set.",
               "default": ["README.md"]
             }
           },

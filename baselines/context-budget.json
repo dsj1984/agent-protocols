@@ -1,10 +1,10 @@
 {
   "$schema": "https://mandrel.dev/baselines/context-budget.schema.json",
-  "generatedAt": "2026-08-06T09:28:00.015Z",
+  "generatedAt": "2026-08-06T10:31:51.139Z",
   "toleranceBytes": 2048,
   "tiers": {
     "alwaysLoaded": {
-      "totalBytes": 21357,
+      "totalBytes": 21107,
       "files": [
         {
           "path": ".agentrc.json",
@@ -12,11 +12,11 @@
         },
         {
           "path": ".agents/instructions.md",
-          "bytes": 9035
+          "bytes": 8819
         },
         {
           "path": ".agents/rules/git-conventions.md",
-          "bytes": 3122
+          "bytes": 3088
         },
         {
           "path": ".agents/rules/security-baseline.md",
@@ -33,11 +33,11 @@
       ]
     },
     "mandatoryRead": {
-      "totalBytes": 328629,
+      "totalBytes": 328692,
       "files": [
         {
           "path": "docs/architecture.md",
-          "bytes": 88216
+          "bytes": 88279
         },
         {
           "path": "docs/data-dictionary.md",
@@ -54,7 +54,7 @@
       ]
     },
     "workflow": {
-      "totalBytes": 256623,
+      "totalBytes": 256568,
       "files": [
         {
           "path": ".agents/workflows/audit-accessibility.md",
@@ -86,7 +86,7 @@
         },
         {
           "path": ".agents/workflows/audit-documentation.md",
-          "bytes": 11889
+          "bytes": 11834
         },
         {
           "path": ".agents/workflows/audit-navigability.md",
@@ -201,7 +201,7 @@
     ]
   },
   "workflowClosure": {
-    "reachableTotalBytes": 442827,
+    "reachableTotalBytes": 442772,
     "entryPoints": [
       {
         "path": ".agents/workflows/audit-accessibility.md",
@@ -240,8 +240,8 @@
       },
       {
         "path": ".agents/workflows/audit-documentation.md",
-        "mandatoryBytes": 11889,
-        "reachableBytes": 224822
+        "mandatoryBytes": 11834,
+        "reachableBytes": 224767
       },
       {
         "path": ".agents/workflows/audit-navigability.md",

@@ -1,11 +1,11 @@
 {
   "$schema": ".agents/schemas/baselines/maintainability.schema.json",
   "kernelVersion": "0.1.0",
-  "generatedAt": "2026-08-06T10:31:23.849Z",
+  "generatedAt": "2026-08-06T10:46:27.843Z",
   "rollup": {
     "*": {
       "min": 76.381,
-      "p50": 98.358,
+      "p50": 98.344,
       "p95": 122.913
     }
   },
@@ -52,7 +52,7 @@
     },
     {
       "path": ".agents/scripts/check-baseline-drift.js",
-      "mi": 90.226
+      "mi": 96.931
     },
     {
       "path": ".agents/scripts/check-baseline-scope.js",
@@ -2105,10 +2105,6 @@
     {
       "path": ".agents/scripts/update-ticket-state.js",
       "mi": 91.705
-    },
-    {
-      "path": ".agents/scripts/validate-docs-freshness.js",
-      "mi": 103.244
     },
     {
       "path": ".agents/scripts/validate-skills.js",

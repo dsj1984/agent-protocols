@@ -18,9 +18,9 @@
  *
  * So the axis is **changed lines over implementation files**, and the companion
  * classes the framework itself mandates are exempt from the count: obeying
- * `rules/testing-standards.md` (test-first), the `delivery.docsFreshness` gate,
- * and the baseline ratchets must not inflate the number that then rejects the
- * change. Re-counting those same 33 merges on implementation files alone moves
+ * `rules/testing-standards.md` (test-first), the documentation a change of
+ * consequence is expected to touch, and the baseline ratchets must not inflate
+ * the number that then rejects the change. Re-counting those same 33 merges on implementation files alone moves
  * the four-file pass rate from 21% to 58%.
  *
  * ## Three contracts worth not rediscovering
@@ -88,7 +88,7 @@ const COMPANION_PATH_GLOBS = Object.freeze([
   '**/*.test.tsx',
   'tests/**',
   'features/**',
-  // Documentation — mandated by the delivery.docsFreshness gate.
+  // Documentation — the prose a change of consequence is expected to refresh.
   'docs/**',
   '**/*.md',
   // Generated baseline data — written by the ratchets, not hand-authored.

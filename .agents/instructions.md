@@ -77,11 +77,8 @@ present, else the **Tech Stack** section of `docs/architecture.md`.
 
 ### H. Observability & Friction Telemetry
 
-You MUST log operational friction (repeated tool errors, unrecoverable
-command failures, self-corrected ambiguity, automatable boilerplate):
-`node .agents/scripts/diagnose-friction.js --story [STORY_ID] --cmd <cmd> <args...>`
-— a **local NDJSON signal** (not posted to the ticket). Schema and the
-`AGENT_LOG_LEVEL` table:
+Optional: `diagnose-friction.js` wraps a command and records its failure
+shape as a local NDJSON signal —
 [`docs/execution-reference.md`](docs/execution-reference.md#friction-telemetry).
 
 ### I. Anti-Thrashing Protocol

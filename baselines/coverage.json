@@ -1,12 +1,12 @@
 {
   "$schema": ".agents/schemas/baselines/coverage.schema.json",
   "kernelVersion": "1.0.0",
-  "generatedAt": "2026-08-06T10:31:25.748Z",
+  "generatedAt": "2026-08-06T10:46:27.495Z",
   "rollup": {
     "*": {
-      "lines": 95.8,
+      "lines": 95.81,
       "branches": 86.47,
-      "functions": 88.59
+      "functions": 88.61
     }
   },
   "rows": [
@@ -66,9 +66,9 @@
     },
     {
       "path": ".agents/scripts/check-baseline-drift.js",
-      "lines": 91.3,
-      "branches": 100,
-      "functions": 66.67
+      "lines": 94.79,
+      "branches": 96.97,
+      "functions": 75
     },
     {
       "path": ".agents/scripts/check-baseline-scope.js",
