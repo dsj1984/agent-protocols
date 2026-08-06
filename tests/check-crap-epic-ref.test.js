@@ -7,7 +7,9 @@ import { loadCrapBaseline } from '../.agents/scripts/lib/baselines/kinds/crap.js
  * Story #1120 — assert check-crap reads its baseline envelope at the
  * Epic-branch HEAD via baseline-loader when `--epic-ref` is supplied,
  * including the same shape-check / `tsTranspilerVersion` back-fill the
- * legacy `getCrapBaseline` path applies.
+ * working-tree read applies. Story #5002 moved that read behind
+ * `baselines/reader.js`; these cases inject their own `readFromTree`, so they
+ * pin the epic-ref fallback chain rather than either reader.
  */
 
 const VALID_BASELINE = {
