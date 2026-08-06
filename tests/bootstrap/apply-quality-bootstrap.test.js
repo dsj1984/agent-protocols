@@ -6,18 +6,19 @@
  * Exercises the script that replaced Step 3.5's inline `node -e` heredoc. The
  * Story's acceptance criteria are:
  *
- *   1. The script calls the same `applyQualityBootstrap` +
- *      `migrateBaselinesLayout` helpers and prints the same `{ quality,
- *      baselines }` JSON shape.
+ *   1. The script calls `applyQualityBootstrap` and prints the `{ quality }`
+ *      JSON envelope.
  *   2. It is idempotent — a second run is a no-op beyond reporting.
- *   3. A unit test exercises the script against both helpers, covering the
+ *   3. A unit test exercises the script against the helper, covering the
  *      success path and an idempotent re-run.
  *
- * The composition is tested two ways: against the *real* helpers in a tmp
+ * The composition is tested two ways: against the *real* helper in a tmp
  * project tree (success path + idempotent re-run, asserting on-disk effects),
- * and against injected stubs (asserting the wiring — that both helpers are
- * invoked with the project-root-derived arguments and that the envelope keys
- * preserve the heredoc shape).
+ * and against an injected stub (asserting the wiring — that the helper is
+ * invoked with the project root).
+ *
+ * Story #5007 retired the second `migrateBaselinesLayout` step, so the
+ * envelope no longer carries a `baselines` key.
  */
 
 import assert from 'node:assert/strict';
@@ -37,9 +38,9 @@ function readJson(p) {
   return JSON.parse(fs.readFileSync(p, 'utf8'));
 }
 
-describe('applyBootstrapAndMigration — wiring (stubbed helpers)', () => {
-  it('invokes both helpers with project-root-derived args and preserves the heredoc envelope shape', () => {
-    const calls = { quality: [], baselines: [] };
+describe('applyBootstrapAndMigration — wiring (stubbed helper)', () => {
+  it('invokes the quality helper with the project root and returns the single-key envelope', () => {
+    const calls = { quality: [] };
     const projectRoot = '/tmp/some-consumer';
 
     const result = applyBootstrapAndMigration({
@@ -48,37 +49,19 @@ describe('applyBootstrapAndMigration — wiring (stubbed helpers)', () => {
         calls.quality.push(ctx);
         return { helper: { action: 'already-present' } };
       },
-      migrateBaselinesLayout: (args) => {
-        calls.baselines.push(args);
-        return { action: 'no-baselines-dir', moves: [], prunedDirs: [] };
-      },
     });
 
     // applyQualityBootstrap receives { projectRoot }.
     assert.equal(calls.quality.length, 1);
     assert.deepEqual(calls.quality[0], { projectRoot });
 
-    // migrateBaselinesLayout receives baselinesDir = <root>/baselines and
-    // repoRoot = <root>.
-    assert.equal(calls.baselines.length, 1);
-    assert.equal(
-      calls.baselines[0].baselinesDir,
-      path.join(projectRoot, 'baselines'),
-    );
-    assert.equal(calls.baselines[0].repoRoot, projectRoot);
-
-    // The envelope keeps the heredoc's two-key shape.
-    assert.deepEqual(Object.keys(result), ['quality', 'baselines']);
+    // Story #5007: the retired baselines migration is gone from the envelope.
+    assert.deepEqual(Object.keys(result), ['quality']);
     assert.deepEqual(result.quality, { helper: { action: 'already-present' } });
-    assert.deepEqual(result.baselines, {
-      action: 'no-baselines-dir',
-      moves: [],
-      prunedDirs: [],
-    });
   });
 });
 
-describe('applyBootstrapAndMigration — real helpers against a tmp project', () => {
+describe('applyBootstrapAndMigration — real helper against a tmp project', () => {
   let tmpRoot;
 
   beforeEach(() => {
@@ -113,11 +96,10 @@ describe('applyBootstrapAndMigration — real helpers against a tmp project', ()
     fs.rmSync(tmpRoot, { recursive: true, force: true });
   });
 
-  it('runs both helpers, returns the { quality, baselines } envelope, and applies the on-disk effects', () => {
+  it('runs the quality install, returns the { quality } envelope, and applies the on-disk effects', () => {
     const result = applyBootstrapAndMigration({ projectRoot: tmpRoot });
 
-    // Envelope shape matches the retired heredoc.
-    assert.deepEqual(Object.keys(result), ['quality', 'baselines']);
+    assert.deepEqual(Object.keys(result), ['quality']);
     assert.ok(result.quality.helper);
     assert.ok(result.quality.hook);
     assert.ok(result.quality.scripts);
@@ -147,8 +129,8 @@ describe('applyBootstrapAndMigration — real helpers against a tmp project', ()
     assert.equal(typeof pkg.scripts['quality:preview'], 'string');
     assert.equal(typeof pkg.scripts['quality:watch'], 'string');
 
-    // No baselines dir in this fixture → migration reports the no-op shape.
-    assert.equal(result.baselines.action, 'no-baselines-dir');
+    // No committed baselines/epic tree in this fixture → prune is a no-op.
+    assert.equal(result.quality.legacyBaselines.action, 'absent');
   });
 
   it('is idempotent — a second run is a no-op beyond reporting and leaves identical on-disk state', () => {
@@ -170,7 +152,7 @@ describe('applyBootstrapAndMigration — real helpers against a tmp project', ()
     assert.equal(second.quality.hook.action, 'already-present');
     assert.equal(second.quality.scripts.action, 'no-change');
     assert.equal(second.quality.config.action, 'no-change');
-    assert.equal(second.baselines.action, 'no-baselines-dir');
+    assert.equal(second.quality.legacyBaselines.action, 'absent');
 
     // The files are byte-for-byte identical after the second run — the
     // re-run mutates nothing on disk.

@@ -19,7 +19,6 @@ import { PHASE_GROUPS } from '../../.agents/scripts/lib/bootstrap/manifest.js';
 import {
   applyProjectBootstrap,
   BOOTSTRAP_PHASES,
-  isPhaseApproved,
   runPhases,
   throwIfFatal,
 } from '../../.agents/scripts/lib/bootstrap/project-bootstrap.js';
@@ -124,51 +123,6 @@ describe('throwIfFatal', () => {
   });
 });
 
-describe('isPhaseApproved', () => {
-  it('always runs an always-run infrastructure phase (no phaseGroup)', () => {
-    // Both gate states: even a present approvedGroups set never blocks an
-    // ungrouped phase.
-    assert.equal(isPhaseApproved({ name: 'install', run: () => ({}) }), true);
-    assert.equal(
-      isPhaseApproved({ name: 'install', run: () => ({}) }, new Set()),
-      true,
-    );
-  });
-
-  it('runs a grouped phase when no approval gate is supplied', () => {
-    const phase = {
-      name: 'pkg',
-      phaseGroup: PHASE_GROUPS.REPO_CONFIG,
-      run: () => ({}),
-    };
-    assert.equal(isPhaseApproved(phase, undefined), true);
-  });
-
-  it('runs a grouped phase when its group is in the approved set', () => {
-    const phase = {
-      name: 'pkg',
-      phaseGroup: PHASE_GROUPS.REPO_CONFIG,
-      run: () => ({}),
-    };
-    assert.equal(
-      isPhaseApproved(phase, new Set([PHASE_GROUPS.REPO_CONFIG])),
-      true,
-    );
-  });
-
-  it('declines a grouped phase when its group is absent from the set', () => {
-    const phase = {
-      name: 'pkg',
-      phaseGroup: PHASE_GROUPS.REPO_CONFIG,
-      run: () => ({}),
-    };
-    assert.equal(
-      isPhaseApproved(phase, new Set([PHASE_GROUPS.IDE_WIRING])),
-      false,
-    );
-  });
-});
-
 describe('runPhases', () => {
   it('lands each phase result on report[phase.name] in order', async () => {
     const order = [];
@@ -244,51 +198,31 @@ describe('runPhases', () => {
     assert.equal(ran, true);
   });
 
-  it('skips a declined grouped phase without running it and records the no-op', async () => {
-    let ran = false;
+  it('runs every grouped phase — phaseGroup is ledger metadata, not a gate', async () => {
+    // Story #5007 removed the phased-approval gate: a `phaseGroup` string now
+    // only tags the entry for the install ledger and `mandrel uninstall`.
+    const ran = [];
     const phases = [
       {
         name: 'gated',
         phaseGroup: PHASE_GROUPS.REPO_CONFIG,
         run: () => {
-          ran = true;
+          ran.push('gated');
           return { mutated: true };
         },
       },
       {
         name: 'always',
-        run: () => ({ ok: true }),
+        run: () => {
+          ran.push('always');
+          return { ok: true };
+        },
       },
     ];
-    const report = await runPhases(phases, {
-      approvedGroups: new Set([PHASE_GROUPS.IDE_WIRING]),
-    });
-    assert.equal(ran, false);
-    assert.deepEqual(report.gated, {
-      skipped: true,
-      reason: 'phase-group-declined',
-      phaseGroup: PHASE_GROUPS.REPO_CONFIG,
-    });
-    // Declining one group never short-circuits the rest.
+    const report = await runPhases(phases, {});
+    assert.deepEqual(ran, ['gated', 'always']);
+    assert.deepEqual(report.gated, { mutated: true });
     assert.deepEqual(report.always, { ok: true });
-  });
-
-  it('does not skip a declined fatal grouped phase (no throw)', async () => {
-    // A declined ide-wiring group must also skip its fatal parity check
-    // rather than throwing on the un-run result.
-    const phases = [
-      {
-        name: 'gatedFatal',
-        phaseGroup: PHASE_GROUPS.IDE_WIRING,
-        run: () => ({ ok: false }),
-        isFatal: true,
-        formatError: () => 'should not throw — phase was skipped',
-      },
-    ];
-    const report = await runPhases(phases, {
-      approvedGroups: new Set([PHASE_GROUPS.REPO_CONFIG]),
-    });
-    assert.equal(report.gatedFatal.reason, 'phase-group-declined');
   });
 
   it('awaits async phase functions', async () => {

@@ -15,8 +15,7 @@
  * `HUMAN_INTENT_FIELDS` table here, and each field's heading is the exact
  * section name the parser maps (`goal` → `## Goal`, etc.). The CI
  * conformance lint (`lint-issue-body.js`) runs the real `parse()` against
- * human-opened issues so the form and the parser cannot silently drift —
- * the same model `ci-workflow-template.js` follows for `ci.yml`.
+ * human-opened issues so the form and the parser cannot silently drift.
  *
  * ## Form fields ⊆ body schema
  *
@@ -366,7 +365,7 @@ jobs:
 
 /**
  * Write (or refresh) the Story issue form into a project checkout. Idempotent at
- * the byte level — mirrors {@link ensureCiWorkflow}'s contract:
+ * the byte level:
  *
  * - file absent → `created`
  * - byte-identical → `unchanged`

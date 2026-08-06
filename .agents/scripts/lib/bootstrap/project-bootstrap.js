@@ -20,7 +20,7 @@ import { isCommandExcluded } from '../command-header.js';
 import { detectPackageManager as detectPm } from '../detect-package-manager.js';
 import { LEDGER_RELATIVE_PATH } from './install-ledger.js';
 import { ensureIssueForms } from './issue-forms-template.js';
-import { PHASE_GROUPS, previewMutationManifest } from './manifest.js';
+import { PHASE_GROUPS } from './manifest.js';
 import { applyQualityBootstrap } from './quality-bootstrap.js';
 
 export const SYNC_COMMAND = 'node .agents/scripts/sync-claude-commands.js';
@@ -436,8 +436,7 @@ export function ensureGitignore(ctx) {
  * project (Story #4227). Derived from the Story-body SSOT so a human-filed
  * ticket round-trips through `story-body.parse()`. Idempotent and additive,
  * mirroring `ensureGitignore`: byte-identical forms are `unchanged`,
- * operator-edited forms are preserved (`custom-skip`). Honours `ctx.preview`
- * (no writes) like the other phases.
+ * operator-edited forms are preserved (`custom-skip`).
  *
  * Returns the per-form action envelope keyed by ticket type.
  *
@@ -446,13 +445,9 @@ export function ensureGitignore(ctx) {
  *
  * @param {object} ctx
  * @param {string} ctx.projectRoot
- * @param {boolean} [ctx.preview]
  */
 function ensureIssueFormsPhase(ctx) {
-  const { forms } = ensureIssueForms({
-    projectRoot: ctx.projectRoot,
-    write: !ctx.preview,
-  });
+  const { forms } = ensureIssueForms({ projectRoot: ctx.projectRoot });
   const outcomes = {};
   for (const form of forms) {
     outcomes[form.type] = { action: form.action, path: form.path };
@@ -691,12 +686,11 @@ const fatalParity = (result) =>
  * bootstrap.
  *
  * Each project-side mutation phase carries a `phaseGroup` matching one of
- * the consent-first {@link PHASE_GROUPS}. When a phased-approval gate is
- * supplied via `ctx.approvedGroups`, a phase whose `phaseGroup` is not in
- * the approved set is skipped (recorded as a `phase-group-declined` no-op)
- * — declining one group never short-circuits the others (Story #3524).
- * Phases with no `phaseGroup` (the Node-version precondition and the
- * dependency install) are always-run infrastructure, never gated.
+ * the {@link PHASE_GROUPS}. Since Story #5007 that string is pure
+ * ledger/uninstall metadata — every phase runs on every install, and the
+ * ledger decides after the fact which groups actually landed. Phases with no
+ * `phaseGroup` (the Node-version precondition and the dependency install)
+ * are always-run infrastructure.
  */
 export const BOOTSTRAP_PHASES = Object.freeze([
   {
@@ -771,24 +765,6 @@ export const BOOTSTRAP_PHASES = Object.freeze([
 ]);
 
 /**
- * Decide whether a phase should run given the approved-phase-group gate.
- * An always-run infrastructure phase (no `phaseGroup`) runs unconditionally.
- * A grouped phase runs only when no gate is supplied (`approvedGroups`
- * absent — the un-gated legacy path) or when its group is in the gate.
- *
- * Exported for unit testing.
- *
- * @param {BootstrapPhase} phase
- * @param {Set<string>|undefined} approvedGroups
- * @returns {boolean}
- */
-export function isPhaseApproved(phase, approvedGroups) {
-  if (!phase.phaseGroup) return true;
-  if (!approvedGroups) return true;
-  return approvedGroups.has(phase.phaseGroup);
-}
-
-/**
  * Throw with the formatted message when the phase is marked fatal and
  * the result indicates an abort. Pure helper so the driver stays a
  * single-branch loop.
@@ -809,12 +785,6 @@ export function throwIfFatal(phase, result) {
  * the result on `report[phase.name]`, then route fatal phases through
  * `throwIfFatal`. Returns the accumulated report.
  *
- * When `ctx.approvedGroups` is a `Set`, a grouped phase whose `phaseGroup`
- * is not approved is skipped and recorded as
- * `{ skipped: true, reason: 'phase-group-declined', phaseGroup }` — it never
- * runs, never throws (so a declined `ide-wiring` group also skips its
- * fatal `parity` check), and never short-circuits the remaining phases.
- *
  * Exported for tests so phase ordering and fatal behaviour can be
  * asserted without spawning a full bootstrap.
  *
@@ -825,14 +795,6 @@ export function throwIfFatal(phase, result) {
 export async function runPhases(phases, ctx) {
   const report = {};
   for (const phase of phases) {
-    if (!isPhaseApproved(phase, ctx.approvedGroups)) {
-      report[phase.name] = {
-        skipped: true,
-        reason: 'phase-group-declined',
-        phaseGroup: phase.phaseGroup,
-      };
-      continue;
-    }
     const result = await phase.run(ctx, report);
     report[phase.name] = result;
     throwIfFatal(phase, result);
@@ -844,24 +806,16 @@ export async function runPhases(phases, ctx) {
  * Compose every step in order. Each returned key is the outcome of one
  * step so the CLI can render a structured summary.
  *
- * When `ctx.preview` is truthy, the function performs **no writes and no
- * network I/O**. Instead it derives the operator-facing change list from
- * the single mutation-manifest source ({@link previewMutationManifest}) and
- * returns `{ preview: true, groups, entries }` — the exact same source the
- * consent-first install screen renders. Deriving the preview from
- * `buildMutationManifest` (rather than from a parallel hand-maintained list)
- * guarantees the preview the operator approves and the execution that
- * follows enumerate one identical set of mutations (Story #3521).
+ * Story #5007 removed the no-write `ctx.preview` branch: it had zero
+ * production callers (bootstrap's own `--dry-run` renders a hand-rolled text
+ * plan instead) and it survived only to serve the consent-first install
+ * screen Story #3690 replaced with a plain summary+confirm loop.
  *
  * @param {object} ctx
  * @param {string} ctx.projectRoot
  * @param {string} [ctx.agentRoot]
  * @param {{ owner: string, repo: string, baseBranch: string,
  *           operatorHandle: string|null }} ctx.answers
- * @param {boolean} [ctx.preview]   — no-write preview from the manifest.
- * @param {Set<string>} [ctx.approvedGroups] — when present, only phases
- *   whose `phaseGroup` is in this set execute (the consent-first gate from
- *   Story #3524); always-run infrastructure phases ignore it.
  * @param {boolean} [ctx.withQuality]
  * @param {boolean} [ctx.skipGithub]
  * @param {boolean} [ctx.skipInstall]
@@ -871,6 +825,5 @@ export async function runPhases(phases, ctx) {
  * @returns {Promise<object>}
  */
 export async function applyProjectBootstrap(ctx) {
-  if (ctx.preview) return previewMutationManifest(ctx);
   return runPhases(BOOTSTRAP_PHASES, ctx);
 }

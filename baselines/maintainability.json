@@ -1,7 +1,7 @@
 {
   "$schema": ".agents/schemas/baselines/maintainability.schema.json",
   "kernelVersion": "0.1.0",
-  "generatedAt": "2026-08-06T04:55:31.027Z",
+  "generatedAt": "2026-08-06T05:26:01.131Z",
   "rollup": {
     "*": {
       "min": 74.146,
@@ -20,7 +20,7 @@
     },
     {
       "path": ".agents/scripts/apply-quality-bootstrap.js",
-      "mi": 109.526
+      "mi": 115.686
     },
     {
       "path": ".agents/scripts/audit-baselines.js",
@@ -40,7 +40,7 @@
     },
     {
       "path": ".agents/scripts/bootstrap.js",
-      "mi": 89.405
+      "mi": 89.674
     },
     {
       "path": ".agents/scripts/check-action-pinning.js",
@@ -467,16 +467,8 @@
       "mi": 89.079
     },
     {
-      "path": ".agents/scripts/lib/bootstrap/baselines-layout-migration.js",
-      "mi": 88.081
-    },
-    {
       "path": ".agents/scripts/lib/bootstrap/branch-protection.js",
       "mi": 91.552
-    },
-    {
-      "path": ".agents/scripts/lib/bootstrap/ci-workflow-template.js",
-      "mi": 100.821
     },
     {
       "path": ".agents/scripts/lib/bootstrap/commit-push.js",
@@ -500,11 +492,11 @@
     },
     {
       "path": ".agents/scripts/lib/bootstrap/issue-forms-template.js",
-      "mi": 96.871
+      "mi": 96.864
     },
     {
       "path": ".agents/scripts/lib/bootstrap/manifest.js",
-      "mi": 79.798
+      "mi": 76.538
     },
     {
       "path": ".agents/scripts/lib/bootstrap/merge-methods.js",
@@ -516,7 +508,7 @@
     },
     {
       "path": ".agents/scripts/lib/bootstrap/project-bootstrap.js",
-      "mi": 94.539
+      "mi": 94.883
     },
     {
       "path": ".agents/scripts/lib/bootstrap/prompt.js",
@@ -524,7 +516,7 @@
     },
     {
       "path": ".agents/scripts/lib/bootstrap/quality-bootstrap.js",
-      "mi": 84.684
+      "mi": 84.67
     },
     {
       "path": ".agents/scripts/lib/bootstrap/summary.js",

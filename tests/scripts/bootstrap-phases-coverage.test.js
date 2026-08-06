@@ -10,12 +10,12 @@
  *
  *   - `persistProjectNumber`  — numeric-only persistence, merge-into-existing,
  *                               no-op on blank/non-numeric, read-failure path.
- *   - `executeBootstrap`      — approves every phase group; threads
+ *   - `executeBootstrap`      — runs every project-side phase; threads
  *                               `--with-quality`.
  *   - `executeGithubBootstrap`— the `GhExecError` stderr/stdout/args surfacing
  *                               path (catch branch).
  *   - `recordLedger` /        — applied-group filtering and the
- *     `resolveAppliedGroups`    no-mutations-applied branch.
+ *     `resolveAppliedGroups`    github-admin drop branches.
  *   - `collectAndConfirm`     — the `operatorHandle ⇐ owner` fallback and the
  *                               creation-approval branch.
  *   - `dryRunPlan`            — the plan is actually rendered (not just the
@@ -293,7 +293,6 @@ describe('recordLedger / resolveAppliedGroups', () => {
       projectRoot: dir,
       answers: { owner: 'acme', repo: 'widget' },
       flags: {},
-      approvedGroups: new Set(Object.values(PHASE_GROUPS)),
       report: {},
       ...overrides,
     };
@@ -345,20 +344,19 @@ describe('recordLedger / resolveAppliedGroups', () => {
     );
   });
 
-  it('records the no-mutations-applied branch when the manifest is empty', () => {
+  it('applies every local phase group with no approval gate to thread', (t) => {
+    // Story #5007: the manifest's unconditional ide-wiring / repo-config
+    // entries always survive the filter, so a ledger is always written.
     const dir = makeScratchDir();
-    const state = ledgerState(dir, {
-      // No approved groups → buildMutationManifest filters to zero entries.
-      approvedGroups: new Set(),
-    });
+    captureInfo(t);
+    const state = ledgerState(dir, { report: { github: {} } });
     const res = recordLedger(state);
     assert.equal(res.ok, true);
-    assert.deepEqual(state.report.ledger, {
-      written: false,
-      reason: 'no-mutations-applied',
-    });
-    // Nothing written to disk.
-    assert.equal(fs.existsSync(path.join(dir, LEDGER_RELATIVE_PATH)), false);
+    assert.equal(state.report.ledger.written, true);
+    assert.deepEqual(
+      [...state.report.ledger.approvedGroups].sort(),
+      [...Object.values(PHASE_GROUPS)].sort(),
+    );
   });
 });
 
@@ -489,11 +487,10 @@ describe('executeBootstrap — project-side bootstrap (lib seam mocked)', () => 
     const res = await mod.executeBootstrap(state);
     assert.equal(res.ok, true);
     assert.deepEqual(res.payload.report, { applied: true });
-    // Every phase group is approved (phased approval was removed in #3690).
-    assert.deepEqual(
-      [...res.payload.approvedGroups].sort(),
-      [...Object.values(PHASE_GROUPS)].sort(),
-    );
+    // Story #5007: no approvedGroups set is threaded any more — the payload
+    // carries the report alone and every project-side phase ran.
+    assert.equal(res.payload.approvedGroups, undefined);
+    assert.equal(received.approvedGroups, undefined);
     assert.equal(received.withQuality, false);
   });
 
