@@ -1,10 +1,23 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import {
-  compare,
-  indexBaselineRowsByFile,
-  methodIdentityKey,
-} from '../../../.agents/scripts/lib/baselines/kinds/crap.js';
+import { compare } from '../../../.agents/scripts/lib/baselines/kinds/crap.js';
+import { resolveIncrementalContext } from '../../../.agents/scripts/lib/crap-baseline-join.js';
+
+/**
+ * The per-file baseline index, read through its production door.
+ *
+ * `indexBaselineRowsByFile` / `methodIdentityKey` became module-local when
+ * Story #5002 folded `crap-baseline-index.js` into `crap-baseline-join.js` —
+ * both callers now live inside that module, so exporting them would have left
+ * two entry points nothing in production reaches.
+ * `resolveIncrementalContext` is the one that does.
+ *
+ * @param {Array<object>|undefined} baselineRows
+ * @returns {Map<string, Map<string, object>>}
+ */
+function indexBaselineRowsByFile(baselineRows) {
+  return resolveIncrementalContext({ baselineRows }).baselineByFile;
+}
 
 // ---------------------------------------------------------------------------
 // crap.compare.test.js — pure compare(head, base) for the CRAP kind
@@ -90,9 +103,10 @@ describe('kinds/crap.compare()', () => {
 // Story #4981 — the incremental-coverage join reuses this method-identity
 // half-key (`crapRowKey` minus the file component) rather than reinventing
 // file diffing or a second identity scheme.
-describe('methodIdentityKey / indexBaselineRowsByFile (Story #4981)', () => {
-  it('builds the per-file half of crapRowKey', () => {
-    assert.equal(methodIdentityKey({ method: 'foo', startLine: 10 }), 'foo@10');
+describe('the per-file baseline index (Story #4981, folded by #5002)', () => {
+  it("keys each file's rows by the per-file half of crapRowKey", () => {
+    const idx = indexBaselineRowsByFile([row('src/a.js', 'foo', 10, 25)]);
+    assert.deepEqual([...idx.get('src/a.js').keys()], ['foo@10']);
   });
 
   it('indexes rows by file, then by method identity', () => {
