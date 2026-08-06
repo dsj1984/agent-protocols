@@ -1,11 +1,11 @@
 {
   "$schema": "https://mandrel.dev/baselines/cyclomatic.schema.json",
-  "generatedAt": "2026-08-02T16:10:36.601Z",
+  "generatedAt": "2026-08-06T03:08:59.288Z",
   "ceiling": 12,
   "rollup": {
     "*": {
-      "filesAboveCeiling": 62,
-      "methodsAboveCeiling": 68,
+      "filesAboveCeiling": 59,
+      "methodsAboveCeiling": 64,
       "maxCyclomatic": 20
     }
   },
@@ -107,16 +107,6 @@
     },
     {
       "file": ".agents/scripts/lib/crap-utils.js",
-      "methodsAboveCeiling": 2,
-      "maxCyclomatic": 15
-    },
-    {
-      "file": ".agents/scripts/lib/dead-exports-knip.js",
-      "methodsAboveCeiling": 1,
-      "maxCyclomatic": 14
-    },
-    {
-      "file": ".agents/scripts/lib/feedback-loop/audit-results-graduator.js",
       "methodsAboveCeiling": 1,
       "maxCyclomatic": 13
     },
@@ -144,11 +134,6 @@
       "file": ".agents/scripts/lib/mutation/survivor-report.js",
       "methodsAboveCeiling": 1,
       "maxCyclomatic": 16
-    },
-    {
-      "file": ".agents/scripts/lib/observability/tool-trace-hook.js",
-      "methodsAboveCeiling": 1,
-      "maxCyclomatic": 15
     },
     {
       "file": ".agents/scripts/lib/orchestration/ceremony-routing.js",
@@ -278,7 +263,7 @@
     {
       "file": ".agents/scripts/lib/wave-runner/ready-set.js",
       "methodsAboveCeiling": 1,
-      "maxCyclomatic": 14
+      "maxCyclomatic": 13
     },
     {
       "file": ".agents/scripts/lib/worktree/lifecycle/creation.js",
