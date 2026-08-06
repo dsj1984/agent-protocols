@@ -1,0 +1,179 @@
+name: Baseline Drift
+
+# Nightly full-scope baseline re-score.
+#
+# ── Why this exists ──────────────────────────────────────────────────────────
+# Every per-change enforcement site for the baselines is DIFF-SCOPED:
+# close-validation, `.husky/pre-push`, and CI's required `baselines` job all
+# compare the files a branch touched against their committed rows. A file
+# nobody touches after its row is written is never re-scored, so drift
+# introduced indirectly — a dependency getting more complex, a shared helper
+# moving underneath a file — is invisible for as long as nobody happens to edit
+# that file. `check-baseline-drift.js` is the counterpart that re-scores the
+# whole tree; until this workflow, nothing ran it, and its own header said so.
+#
+# ── What this does NOT restore ───────────────────────────────────────────────
+# Story #5004 deleted the `validate` job's `Maintainability Check` step, whose
+# `BASELINE_SCOPE: ${{ github.event_name == 'pull_request' && '' || 'full' }}`
+# env block was recorded (in this file and in docs/ci-contract.md) as a
+# push-to-main full-scope sweep lost with the step. That record was wrong, and
+# this workflow is not its replacement, because there was nothing to replace:
+# `BASELINE_SCOPE=full` on the READ path does not re-score anything.
+# `check-baselines.js` reads the COMMITTED baseline envelope; `full` only makes
+# `evaluateCompare` skip the head-vs-base compare arm
+# (`.agents/scripts/lib/orchestration/check-baselines/phases/compare.js`), so
+# the push leg ran floors-only over rows the diff-scoped PR leg had already
+# compared — strictly weaker, and a strict subset of the required `baselines`
+# job on push runs too. Full-scope RE-SCORING has only ever existed on the
+# WRITE path (`*:update -- --full-scope`) and in `check-baseline-drift.js`.
+#
+# So this is a new capability, not a restoration: nothing in this repository
+# has ever re-scored untouched files automatically.
+#
+# ── Why maintainability only ─────────────────────────────────────────────────
+# `DRIFT_KINDS` is `['maintainability', 'crap']`, and `crap` is deliberately
+# NOT wired here yet. Two measured reasons:
+#
+#   1. Its drift identity is `path::method@startLine`, and `startLine` moves
+#      whenever anything above a method changes. Measured on this tree with a
+#      real coverage artifact: 82 drifted, 1438 added, 898 removed — and 853 of
+#      those 898 removals are the same `path::method` reappearing at a new
+#      line. The added/removed axis is almost entirely re-keying churn, so a
+#      job that failed on it would red every night on noise.
+#   2. The remedy it prints, `npm run crap:update -- --full-scope`, is a known
+#      trap: `NODE_V8_COVERAGE` covers the whole suite process tree, so a test
+#      that spawns a CLI mints near-empty coverage entries whose methods then
+#      score against the ceiling and breach the `methodsAbove20` floor.
+#
+# Maintainability has neither problem — its identity is the file path, and this
+# tree's first full-scope run produced 20 drifted rows with 0 added and 0
+# removed. Wiring `crap` needs its drift identity fixed first; that is tracked
+# separately, not silently skipped here.
+#
+# Action pinning mirrors ci.yml: first-party `actions/*` stay on major-version
+# tags so Dependabot's github-actions ecosystem can bump them in place.
+
+on:
+  schedule:
+    # 05:43 UTC nightly — ahead of install-matrix.yml's 06:17 sweep so the two
+    # nightly jobs do not contend for the same runner slot.
+    - cron: '43 5 * * *'
+  workflow_dispatch: # Allow manual triggering
+
+concurrency:
+  group: ${{ github.workflow }}
+  # Never cancel in flight: a cancelled run silently skips a night's check, and
+  # this job's whole purpose is that nobody is watching it.
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  maintainability-drift:
+    name: Full-scope maintainability drift
+    runs-on: ubuntu-latest
+    # Observed 1.7s to re-score all 556 rows; the runtime here is checkout plus
+    # `npm ci`. 15 minutes is comfortably inside the 10–30 window
+    # `check-workflow-timeouts.js` enforces.
+    timeout-minutes: 15
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node & Install
+        uses: ./.github/actions/setup
+
+      - name: Re-score maintainability full-scope
+        id: drift
+        # `--require-scored` is load-bearing, not belt-and-braces: without it a
+        # kind the detector cannot score at all returns `{ ok: true, skipped }`
+        # and this job goes green having measured nothing. `pipefail` makes the
+        # pipeline carry node's status rather than tee's, and `|| code=$?`
+        # keeps the step alive so the reporting steps below still run.
+        run: |
+          set -o pipefail
+          code=0
+          node .agents/scripts/check-baseline-drift.js \
+            --gate maintainability --require-scored 2>&1 \
+            | tee drift-report.txt || code=$?
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+
+      - name: Upload drift report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: baseline-drift-report
+          path: drift-report.txt
+          if-no-files-found: warn
+
+      - name: File or update the drift tracking issue
+        if: steps.drift.outputs.code != '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        # One tracking issue, reused. The label is the lookup key rather than a
+        # title search because `gh issue list --label` hits the list endpoint
+        # directly — GitHub's issue SEARCH index lags, and a lookup that misses
+        # opens a duplicate every night. `--force` makes label creation
+        # idempotent so the workflow is self-sufficient in a fresh clone.
+        run: |
+          set -euo pipefail
+          gh label create meta::baseline-drift --force \
+            --color 'B60205' \
+            --description 'Full-scope baseline re-score found drift the diff-scoped gates cannot see'
+
+          # Bound the body: the report is one line per drifted row and GitHub
+          # rejects bodies over 65536 chars.
+          {
+            echo "The nightly full-scope re-score found the committed baseline no longer describes the tree."
+            echo
+            echo "Run: $RUN_URL"
+            echo
+            echo '```'
+            head -c 30000 drift-report.txt
+            echo
+            echo '```'
+            echo
+            echo "This is drift the diff-scoped gates structurally cannot see — the rows belong to files no recent branch touched. Refresh with the command the report prints and commit it with a \`baseline-refresh:\` tagged subject."
+          } > issue-body.md
+
+          existing="$(gh issue list --label meta::baseline-drift --state open \
+            --limit 1 --json number --jq '.[0].number // empty')"
+
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --body-file issue-body.md
+            echo "Updated existing drift issue #$existing"
+          else
+            gh issue create \
+              --title 'Baseline drift: full-scope re-score disagrees with the committed baseline' \
+              --label meta::baseline-drift \
+              --body-file issue-body.md
+          fi
+
+      - name: Close the drift tracking issue
+        if: steps.drift.outputs.code == '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        # A tracking issue left open after someone refreshed the baseline is
+        # the same rot in a different place — the surface has to be able to go
+        # quiet on its own or it stops being read.
+        run: |
+          set -euo pipefail
+          existing="$(gh issue list --label meta::baseline-drift --state open \
+            --limit 1 --json number --jq '.[0].number // empty')"
+          if [ -n "$existing" ]; then
+            gh issue close "$existing" \
+              --comment 'Full-scope re-score is clean again — the committed baseline describes the tree. Closing automatically.'
+          fi
+
+      - name: Fail on drift
+        if: steps.drift.outputs.code != '0'
+        # Fail last, so the artifact and the tracking issue both exist before
+        # the run goes red. GitHub emails the repo owner on a failed SCHEDULED
+        # run, which is the second half of "fails loudly" — the issue is the
+        # durable surface, the failed run is the notification.
+        run: |
+          echo "::error::check-baseline-drift.js exited ${{ steps.drift.outputs.code }} — see the tracking issue and the baseline-drift-report artifact."
+          exit 1
