@@ -719,4 +719,108 @@ describe('runSingleStoryClose review-halt orchestration', () => {
       /Code review blocked delivery/,
     );
   });
+
+  /**
+   * The sanctioned override.
+   *
+   * The forced choice this replaces: on Story #5007 / PR #5022 a FALSE critical
+   * blocker (an exempt-by-config schema module the ratchet correctly ignored)
+   * halted close, and `--help` offered no flag that overrides a review verdict.
+   * The only way to land was a hand-run `gh pr merge`, which bypasses the gate
+   * with no record of what was overridden or why. The bar here: the override
+   * arms auto-merge, never parks the Story at `agent::blocked`, and leaves a
+   * trail on both the Story and the PR.
+   */
+  it('--override-review-block lands the PR, records the reason, and never blocks the Story', async (t) => {
+    if (typeof t.mock?.module !== 'function') {
+      t.skip(
+        'module mocking unavailable without --experimental-test-module-mocks',
+      );
+      return;
+    }
+    const REASON =
+      'exempt schema blob per gates.maintainability.ignoreGlobs; ratchet passed';
+    const ghCalls = [];
+    const gh = makeFakeGh((args) => {
+      ghCalls.push(args.slice());
+      if (args[1] === 'list') return [];
+      if (args[1] === 'create') {
+        return 'https://github.com/owner/repo/pull/555\n';
+      }
+      if (args[1] === 'merge') return '';
+      throw new Error(`unexpected gh: ${args.join(' ')}`);
+    });
+    t.mock.module(GIT_UTILS_URL, gitUtilsMock());
+    mockCloseValidation(t, closeValidationMock());
+    t.mock.module(WORKTREE_MANAGER_URL, worktreeManagerMock());
+
+    const { runSingleStoryClose } = await import(`${SUT_URL}?t=override`);
+    const recorder = fakeProviderRecorder();
+    const outcome = await runSingleStoryClose({
+      storyId: 2839,
+      noWaitForMerge: true,
+      cwd: '/repo',
+      skipValidation: true,
+      skipSync: true,
+      overrideReviewBlock: REASON,
+      injectedProvider: recorder.provider,
+      injectedConfig: fakeConfig(),
+      injectedGh: gh,
+      injectedRunCodeReview: async () => ({
+        status: 'ok',
+        severity: { critical: 1, high: 0, medium: 0, suggestion: 0 },
+        posted: true,
+        postedCommentId: 9999,
+        commentTargetId: 555,
+        halted: true,
+        blockerReason: '1 critical blocker(s)',
+      }),
+    });
+
+    // The PR was armed — the whole point of the flag.
+    assert.ok(
+      ghCalls.find((c) => c[1] === 'merge'),
+      'auto-merge must be armed when the blocker is overridden',
+    );
+    // The Story is proceeding, so it must NOT be parked at agent::blocked.
+    for (const u of recorder.updates) {
+      assert.equal(
+        (u.payload?.labels?.add ?? []).includes('agent::blocked'),
+        false,
+        'an overridden run must never transition the Story to agent::blocked',
+      );
+    }
+    // The trail: the reason is recorded verbatim, on the Story AND on the PR.
+    const overrideRecords = recorder.postedComments.filter((c) =>
+      /Code-review blocker overridden by operator/.test(c.payload.body),
+    );
+    assert.equal(
+      overrideRecords.length,
+      2,
+      'the override is recorded on both the Story and the PR',
+    );
+    for (const record of overrideRecords) {
+      assert.ok(record.payload.body.includes(REASON));
+      assert.match(record.payload.body, /1 critical blocker\(s\)/);
+    }
+    assert.deepEqual(
+      overrideRecords.map((c) => c.ticketId).sort((a, b) => a - b),
+      [555, 2839].sort((a, b) => a - b),
+    );
+    // The envelope says `overridden`, never `passed` — the review DID fail.
+    assert.equal(outcome.terminal.gates.codeReview, 'overridden');
+  });
+
+  it('a reasonless override is rejected before any phase runs', async () => {
+    const { runSingleStoryClose } = await import(`${SUT_URL}?t=override-bare`);
+    await assert.rejects(
+      runSingleStoryClose({
+        storyId: 2839,
+        cwd: '/repo',
+        // A bare `--override-review-block` reaches the parser as `true`.
+        overrideReviewBlock: true,
+      }),
+      /--override-review-block requires a reason of at least 12 characters/,
+    );
+  });
 });

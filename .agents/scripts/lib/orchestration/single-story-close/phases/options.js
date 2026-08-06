@@ -9,7 +9,11 @@
  */
 
 import path from 'node:path';
-import { parseMergeWatchMode, parseSprintArgs } from '../../../cli-args.js';
+import {
+  parseMergeWatchMode,
+  parseOverrideReviewBlock,
+  parseSprintArgs,
+} from '../../../cli-args.js';
 import { getDeliveryRouting } from '../../../config/delivery-routing.js';
 import { PROJECT_ROOT } from '../../../project-root.js';
 import { isOperatorMergeReason } from './auto-merge.js';
@@ -91,8 +95,8 @@ export function resolveWaitForMerge({
  * (`waitForMergeExplicit` / `noWaitForMerge`) for the runner to resolve once
  * the config and the arm outcome exist.
  *
- * @param {{ storyIdParam, cwdParam, skipValidationParam, skipSyncParam, noAutoMergeParam, waitForMergeParam, noWaitForMergeParam, maxWaitSecondsParam, mergeWatchModeParam }} raw
- * @returns {{ storyId, cwd, skipValidation, skipSync, noAutoMerge, waitForMergeExplicit, noWaitForMerge, maxWaitSeconds, mergeWatchMode }}
+ * @param {{ storyIdParam, cwdParam, skipValidationParam, skipSyncParam, noAutoMergeParam, waitForMergeParam, noWaitForMergeParam, maxWaitSecondsParam, mergeWatchModeParam, overrideReviewBlockParam }} raw
+ * @returns {{ storyId, cwd, skipValidation, skipSync, noAutoMerge, waitForMergeExplicit, noWaitForMerge, maxWaitSeconds, mergeWatchMode, overrideReviewBlock }}
  */
 export function parseCloseOptions({
   storyIdParam,
@@ -104,6 +108,7 @@ export function parseCloseOptions({
   noWaitForMergeParam,
   maxWaitSecondsParam,
   mergeWatchModeParam,
+  overrideReviewBlockParam,
 }) {
   // An injecting caller (`storyIdParam` supplied) is not reading argv at all,
   // so there is nothing to parse and `parsed` stays empty. This used to build a
@@ -148,5 +153,12 @@ export function parseCloseOptions({
         ? waitForMergeExplicit
         : undefined,
     noWaitForMerge: !!resolveFlag(noWaitForMergeParam, parsed.noWaitForMerge),
+    // `undefined` when unsupplied, which is what keeps a review
+    // critical blocker blocking. An injecting caller passes the reason string
+    // directly; both doors run the same validating parser, so neither can arm
+    // a reasonless override.
+    overrideReviewBlock: parseOverrideReviewBlock(
+      resolveFlag(overrideReviewBlockParam, parsed.overrideReviewBlock),
+    ),
   };
 }

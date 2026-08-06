@@ -1050,3 +1050,117 @@ test('renderFindings: a healthy review body is byte-identical with an absent or 
   assert.match(withoutField, /### ✅ No findings/);
   assert.equal(withoutField.includes('Degraded'), false);
 });
+
+/**
+ * The maintainability dimension honours
+ * `delivery.quality.gates.maintainability.ignoreGlobs`.
+ *
+ * Live defect (Story #5007 / PR #5022): the ratchet (`check-baselines.js`)
+ * PASSED because the exempted `config-settings-schema*.js` files are absent
+ * from the MI baseline, while this lens raised a critical blocker on the very
+ * same files in the very same close run. A critical finding halts
+ * `single-story-close.js` before auto-merge, so the two surfaces disagreeing
+ * meant a hand-run merge was the only way to land legitimate work.
+ *
+ * The bar these tests hold: an exempted file produces NO finding at ANY
+ * severity — not a downgraded one. The matching rules themselves are unit-tested
+ * in `mi-exemptions.test.js`; these pin the provider's wiring and its output.
+ */
+
+/** The three real paths from PR #5022, and the glob that exempts all of them. */
+const EXEMPT_FILES = [
+  '.agents/scripts/lib/config-settings-schema-delivery.js',
+  '.agents/scripts/lib/config-settings-schema-quality.js',
+  '.agents/scripts/lib/config-settings-schema.js',
+];
+const EXEMPT_GLOB = '.agents/scripts/lib/config-settings-schema*.js';
+
+/** A body fat enough to classify below the healthy tier when scored. */
+const FAT_SOURCE = `export const blob = {\n${Array.from(
+  { length: 400 },
+  (_v, i) => `  key${i}: { a: ${i}, b: '${i}', c: [${i}, ${i + 1}] },`,
+).join('\n')}\n};\n`;
+
+/**
+ * Build a provider whose diff is `files`, every one of them scoring badly if
+ * scored at all — which is what makes "no finding" evidence of the exemption
+ * rather than evidence of health.
+ */
+function providerOverFiles(files, { resolveIgnoreGlobsFn }) {
+  const infoLines = [];
+  const gitSpawnFn = (_cwd, sub) => {
+    if (sub === 'diff')
+      return { status: 0, stdout: `${files.join('\n')}\n`, stderr: '' };
+    if (sub === 'show') return { status: 0, stdout: FAT_SOURCE, stderr: '' };
+    return { status: 0, stdout: '', stderr: '' };
+  };
+  const provider = createNativeProvider({
+    gitSpawnFn,
+    resolveIgnoreGlobsFn,
+    logger: { info: (m) => infoLines.push(m), warn: () => {} },
+    scopeLint: 'off',
+  });
+  return { provider, infoLines };
+}
+
+const REVIEW_INPUT = {
+  scope: 'story',
+  ticketId: 5007,
+  baseRef: 'main',
+  headRef: 'story-5007',
+};
+
+test('runReview: an exempt file produces no finding at any severity, and is named on the log', async () => {
+  const { provider, infoLines } = providerOverFiles(EXEMPT_FILES, {
+    resolveIgnoreGlobsFn: () => [EXEMPT_GLOB],
+  });
+
+  const findings = await provider.runReview(REVIEW_INPUT);
+
+  // No finding of ANY severity — the whole point. A downgraded finding would
+  // still be a false positive, just a quieter one.
+  assert.deepEqual(findings, []);
+  for (const severity of ALLOWED_SEVERITIES) {
+    assert.equal(
+      findings.filter((f) => f.severity === severity).length,
+      0,
+      `expected zero ${severity} findings on exempt files`,
+    );
+  }
+
+  const exemptLine = infoLines.find((l) => l.includes('exempt via'));
+  assert.ok(exemptLine, `expected an exemption log line, got: ${infoLines}`);
+  assert.match(exemptLine, /3 changed file\(s\) exempt via/);
+  for (const file of EXEMPT_FILES) assert.ok(exemptLine.includes(file));
+});
+
+test('runReview: exemptions spare only the matched files — an unmatched sibling still reports', async () => {
+  const scoredPath = '.agents/scripts/lib/orchestration/some-runner.js';
+  const { provider } = providerOverFiles([...EXEMPT_FILES, scoredPath], {
+    resolveIgnoreGlobsFn: () => [EXEMPT_GLOB],
+  });
+
+  const findings = await provider.runReview(REVIEW_INPUT);
+
+  assert.ok(findings.length > 0, 'the unmatched file must still be scored');
+  for (const finding of findings) assert.equal(finding.file, scoredPath);
+});
+
+test('runReview: an empty exemption list scores every changed file', async () => {
+  // Also the shape an unresolvable config degrades to — see
+  // `mi-exemptions.test.js` for the fail-open itself. Scoring everything at
+  // worst yields an advisory a human reads; failing the other way would
+  // silently retire the dimension.
+  const { provider, infoLines } = providerOverFiles(EXEMPT_FILES, {
+    resolveIgnoreGlobsFn: () => [],
+  });
+
+  const findings = await provider.runReview(REVIEW_INPUT);
+
+  assert.ok(findings.length > 0, 'nothing is exempt, so everything is scored');
+  assert.equal(
+    infoLines.some((l) => l.includes('exempt via')),
+    false,
+    'nothing was exempted, so nothing is reported as exempt',
+  );
+});

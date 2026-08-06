@@ -83,6 +83,16 @@ export const RUNTIME_FRICTION_CATEGORIES = Object.freeze({
    * ceilings recalibratable from recorded evidence.
    */
   LIGHT_SCOPE_REJECTED: 'light-scope-rejected',
+  /**
+   * An operator overrode a Story-scope code-review critical blocker with
+   * `--override-review-block <reason>`. Deliberately its own
+   * bucket: this is the one signal that says a gate's verdict was rejected by
+   * a human who then shipped anyway, so a rising `occurrences` count is direct
+   * evidence the gate is miscalibrated rather than the code being bad. It is
+   * *not* `TOOL_DEGRADED` — the tool ran fine and produced a verdict; what
+   * failed was the verdict's usefulness.
+   */
+  REVIEW_BLOCK_OVERRIDDEN: 'review-block-overridden',
 });
 
 /** Cap on free-form reason text copied into a signal's `details`. */

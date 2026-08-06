@@ -5947,12 +5947,6 @@
     },
     {
       "path": ".agents/scripts/lib/cli-args.js",
-      "method": "parseSprintArgs",
-      "startLine": 71,
-      "crap": 4
-    },
-    {
-      "path": ".agents/scripts/lib/cli-args.js",
       "method": "camelCase",
       "startLine": 148,
       "crap": 1
@@ -5975,6 +5969,12 @@
       "method": "coerceValue",
       "startLine": 159,
       "crap": 4.074074074074074
+    },
+    {
+      "path": ".agents/scripts/lib/cli-args.js",
+      "method": "parseSprintArgs",
+      "startLine": 179,
+      "crap": 6
     },
     {
       "path": ".agents/scripts/lib/cli-args.js",
@@ -15276,8 +15276,8 @@
     {
       "path": ".agents/scripts/lib/orchestration/review-providers/native.js",
       "method": "createNativeProvider",
-      "startLine": 475,
-      "crap": 8.016294553673958
+      "startLine": 481,
+      "crap": 9.008069531050543
     },
     {
       "path": ".agents/scripts/lib/orchestration/review-providers/native.js",
@@ -16582,8 +16582,8 @@
     {
       "path": ".agents/scripts/lib/orchestration/single-story-close/runner.js",
       "method": "openAndReviewPr",
-      "startLine": 202,
-      "crap": 3.000287945866177
+      "startLine": 203,
+      "crap": 4.000175582990398
     },
     {
       "path": ".agents/scripts/lib/orchestration/single-story-close/runner.js",
@@ -16655,8 +16655,8 @@
     {
       "path": ".agents/scripts/lib/orchestration/single-story-close/runner.js",
       "method": "runClosePipeline",
-      "startLine": 652,
-      "crap": 8
+      "startLine": 680,
+      "crap": 9
     },
     {
       "path": ".agents/scripts/lib/orchestration/single-story-close/runner.js",

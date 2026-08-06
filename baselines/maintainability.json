@@ -1,11 +1,11 @@
 {
   "$schema": ".agents/schemas/baselines/maintainability.schema.json",
   "kernelVersion": "0.1.0",
-  "generatedAt": "2026-08-06T10:46:27.843Z",
+  "generatedAt": "2026-08-06T10:55:15.476Z",
   "rollup": {
     "*": {
       "min": 76.381,
-      "p50": 98.344,
+      "p50": 98.358,
       "p95": 122.913
     }
   },
@@ -568,7 +568,7 @@
     },
     {
       "path": ".agents/scripts/lib/cli-args.js",
-      "mi": 89.234
+      "mi": 90.688
     },
     {
       "path": ".agents/scripts/lib/cli-usage.js",
@@ -1359,8 +1359,12 @@
       "mi": 97.791
     },
     {
+      "path": ".agents/scripts/lib/orchestration/review-providers/mi-exemptions.js",
+      "mi": 105.32
+    },
+    {
       "path": ".agents/scripts/lib/orchestration/review-providers/native.js",
-      "mi": 93.44
+      "mi": 92.442
     },
     {
       "path": ".agents/scripts/lib/orchestration/review-providers/parse-findings.js",
@@ -1459,6 +1463,10 @@
       "mi": 121.456
     },
     {
+      "path": ".agents/scripts/lib/orchestration/single-story-close/phases/review-override.js",
+      "mi": 107.61
+    },
+    {
       "path": ".agents/scripts/lib/orchestration/single-story-close/phases/worktree-reap.js",
       "mi": 113.344
     },
@@ -1468,7 +1476,7 @@
     },
     {
       "path": ".agents/scripts/lib/orchestration/single-story-close/runner.js",
-      "mi": 80.523
+      "mi": 79.707
     },
     {
       "path": ".agents/scripts/lib/orchestration/single-story-lease-guard.js",

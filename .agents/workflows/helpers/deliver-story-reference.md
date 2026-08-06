@@ -394,6 +394,16 @@ judgment that help text cannot carry.
   wants the PR left at `agent::closing` for a human land (or a wrapper that
   will invoke `single-story-confirm-merge.js` itself). Reports `pending` —
   the work is not done, nothing is broken, and one named command finishes it.
+- `--override-review-block "<reason>"` — when the Story-scope review's
+  **critical** blocker is one you have read and judged wrong (a false positive,
+  or a finding the ratchet correctly exempts). It is the only sanctioned way
+  past that halt: reach for it instead of merging the PR by hand, because a
+  hand-merge bypasses the gate and records nothing. The reason is mandatory and
+  is written to three places (Story comment, PR comment, a
+  `review-block-overridden` friction signal), and the terminal envelope reports
+  `gates.codeReview: "overridden"` rather than `"passed"`. If you find yourself
+  reaching for it twice for the same shape of finding, the gate is
+  miscalibrated — fix the gate, not the run.
 - `--max-wait-seconds <n>` — from a headless caller with no host
   tool-invocation ceiling, to keep single-block semantics
   without editing the consumer's config.
