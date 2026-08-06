@@ -34,17 +34,12 @@
 //   operator-facing string explaining the verdict (always populated,
 //   including for present tiers).
 //
-//   acceptanceMatrix(criteria) -> {
-//     tiers: TIERS,
-//     rows: [{ id, label, verdict }, ...],
-//   }
-//
-//   Maps each acceptance criterion to its per-tier `coverageVerdict`, giving
-//   the AC × test-tier matrix the markdown report (lib/qa/coverage-report.js)
-//   renders.
+// Story #5008 removed the `acceptanceMatrix` feeder and the markdown report it
+// fed: the QA workflows read the per-tier verdict and author the missing-test
+// prose directly, so the AC x tier matrix was a round-trip with no reader.
 
-/** The three test tiers, in pyramid order (base → top). */
-export const TIERS = Object.freeze(['unit', 'contract', 'acceptance']);
+/** The three test tiers, in pyramid order (base -> top). */
+const TIERS = Object.freeze(['unit', 'contract', 'acceptance']);
 
 const PRESENT = 'present';
 const ABSENT = 'absent';
@@ -216,81 +211,4 @@ export function coverageVerdict(surface = {}) {
   }
 
   return verdict;
-}
-
-/**
- * Normalize a single criterion descriptor into `{id, label, surface}`. A
- * descriptor may carry `id`, `label` (falls back to id), and either a nested
- * `surface` or a flat `{symbol, tests}` shape.
- */
-function normalizeOne(entry, index) {
-  const e = entry && typeof entry === 'object' ? entry : {};
-  const id =
-    typeof e.id === 'string' && e.id.trim() !== ''
-      ? e.id.trim()
-      : `AC-${index + 1}`;
-  const label =
-    typeof e.label === 'string' && e.label.trim() !== '' ? e.label.trim() : id;
-
-  let surface;
-  if (e.surface && typeof e.surface === 'object') {
-    surface = e.surface;
-  } else if (Array.isArray(e.tests) || typeof e.symbol === 'string') {
-    surface = { symbol: e.symbol, tests: e.tests };
-  } else {
-    surface = {};
-  }
-
-  return { id, label, surface };
-}
-
-/**
- * Normalize the criteria input for {@link acceptanceMatrix}. Accepts either an
- * array of criterion descriptors or a plain object keyed by criterion id whose
- * values are surfaces (or `{surface}` wrappers). Returns a normalized array of
- * `{id, label, surface}`.
- *
- * @param {Array<object>|object} criteria
- * @returns {Array<{id:string,label:string,surface:object}>}
- */
-function normalizeCriteria(criteria) {
-  if (Array.isArray(criteria)) {
-    return criteria.map((entry, index) => normalizeOne(entry, index));
-  }
-  if (criteria && typeof criteria === 'object') {
-    return Object.entries(criteria).map(([id, value], index) =>
-      normalizeOne(
-        value && typeof value === 'object' && !Array.isArray(value)
-          ? { id, ...value }
-          : { id, surface: { tests: value } },
-        index,
-      ),
-    );
-  }
-  throw new TypeError(
-    'acceptanceMatrix: criteria must be an array or an object',
-  );
-}
-
-/**
- * Build the AC × test-tier matrix: for each acceptance criterion, the per-tier
- * {@link coverageVerdict}. This is the structured shape the markdown report
- * (`lib/qa/coverage-report.js`) renders into a table.
- *
- * @param {Array<{id?:string,label?:string,surface?:object,symbol?:string,tests?:Array}>|Record<string,object>} criteria
- *   Acceptance criteria, either as an array of descriptors or an object keyed
- *   by criterion id. Each descriptor names a surface (nested `surface`, or a
- *   flat `{symbol, tests}`).
- * @returns {{tiers: ReadonlyArray<string>,
- *            rows: Array<{id:string,label:string,
- *                         verdict:ReturnType<typeof coverageVerdict>}>}}
- */
-export function acceptanceMatrix(criteria) {
-  const normalized = normalizeCriteria(criteria);
-  const rows = normalized.map(({ id, label, surface }) => ({
-    id,
-    label,
-    verdict: coverageVerdict(surface),
-  }));
-  return { tiers: TIERS, rows };
 }

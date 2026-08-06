@@ -305,7 +305,6 @@ own PR.
 | `lib/util/concurrent-map.js`                               | `concurrentMap(items, fn, { concurrency })` bounded-concurrency fanout. Adopters: `resolve-stories.js`, `providers/github/issues.js`, `providers/github/sub-issues.js`, `providers/github/blocked-by-add.js`, `lib/orchestration/ticketing/bulk.js`. |
 | `providers/github/cache.js`                                | Per-instance ticket cache; `peekFresh(ticketId, maxAgeMs)` treats entries older than the caller's max age as cache misses, and the cache is primed after bulk ticket fetches.   |
 | `providers/github/issues.js`                               | Bulk `GET /issues?labels=agent::*&state=open` path replaces per-ticket probes when the tracked-story set is large; per-ticket fallback on errors.    |
-| `lib/util/phase-timer.js` + `phase-timer-state.js`         | Records `{ phase, elapsedMs }` spans across the `story-init` → sub-agent → `story-close` boundaries. Posts `phase-timings` comments on Story close.  |
 
 #### Concurrency caps
 
@@ -386,11 +385,10 @@ classDiagram
         +getSubTickets(parentId) Promise
         +getTicket(ticketId) Promise
         +getTicketDependencies(ticketId) Promise
-        +createIssue(payload) Promise
-        +addSubIssue(parentId, childId) Promise
+        +getTicketComments(ticketId) Promise
         +updateTicket(ticketId, mutations) Promise
         +postComment(ticketId, payload) Promise
-        +createPullRequest(branchName, ticketId) Promise
+        +deleteComment(commentId) Promise
         +ensureLabels(labelDefs) Promise
         +ensureProjectFields(fieldDefs) Promise
     }
@@ -1440,8 +1438,7 @@ resolution (`resolve-qa-contract.js`), scenario selection
 the LLM owns navigation, assertion, and triage. The same `lib/qa/`
 directory also houses the shared exploratory-QA core consumed by
 `/qa-assist` and `/qa-explore` (see below): `qa-session.js`,
-`redact-evidence.js`, `coverage-verdict.js`, `coverage-report.js`,
-`propose-missing-test.js`, and `qa-context-hydrator.js`. The full run procedure is the SSOT in
+`redact-evidence.js`, and `coverage-verdict.js`. The full run procedure is the SSOT in
 [`.agents/workflows/qa-run.md`](../.agents/workflows/qa-run.md);
 the instrumentation conventions live in the
 `skills/stack/qa/qa-harness` skill.
@@ -1543,10 +1540,9 @@ Both record observations as `QaLedgerItem`s
 rolling session under `temp/qa/`** (`qa-session.js` owns session/ledger
 resolution), so items from either entry point flow through the identical
 machinery: dedup/classification/routing (`lib/findings/`), coverage
-verdicts (`coverage-verdict.js` / `coverage-report.js`), missing-test
-proposals (`propose-missing-test.js`), context hydration
-(`qa-context-hydrator.js`), and evidence redaction
-(`redact-evidence.js`). Procedure SSOT remains the workflow files:
+verdicts (`coverage-verdict.js`), and evidence redaction
+(`redact-evidence.js`). Locating code and naming the missing test are the
+model's own work — Story #5008 removed the helpers that wrapped them. Procedure SSOT remains the workflow files:
 [`qa-assist.md`](../.agents/workflows/qa-assist.md) and
 [`qa-explore.md`](../.agents/workflows/qa-explore.md).
 
