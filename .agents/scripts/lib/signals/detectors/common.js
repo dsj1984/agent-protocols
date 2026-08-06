@@ -2,7 +2,7 @@
  * detectors/common.js — shared helpers for the signals layer.
  *
  * Hoisted out of the detector modules (retry, rework) plus
- * `signals/read.js` and `signals/schema.js`, all of which shipped
+ * the since-deleted `signals/read.js`, and `signals/schema.js`, all of which shipped
  * byte-equivalent copies of these predicates. See Story #2464.
  */
 
