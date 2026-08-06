@@ -19,7 +19,7 @@
  * module mechanizes it.
  *
  * Contract (pure where possible — the only side effect is an injectable
- * `git log` read used to derive the type):
+ * `git log` read):
  *
  *   - If `storyTitle` is **already** a parseable Conventional Commit
  *     subject, it is preserved verbatim and suffixed with `(#<storyId>)`.
@@ -28,116 +28,48 @@
  *     `<type>: <descriptive text> (#<storyId>)`. The `type` is derived
  *     from the branch's own (already-conventional) commit subjects when
  *     available, falling back to a safe configured default (`chore`).
+ *   - Either way, a branch (or Story) that declares a breaking change gets
+ *     the `!` marker and a `BREAKING CHANGE:` footer on the PR body.
  *
- * Mirrors the already-normalized Epic-finalize default in
- * `lib/orchestration/finalize/open-or-locate-pr.js` (`feat: Epic #<id>`),
- * bringing the standalone path to the same guarantee.
+ * The rules that decide *what* the subject says now live in
+ * `conventional-subject.js` — type precedence, acronym-safe casing, and
+ * breaking-change collection are pure and unit-tested there. What is left
+ * here is the git read those rules consume and the assembly of the two
+ * strings `gh pr create` needs.
  */
 
 import { gitSpawn as defaultGitSpawn } from '../../../git-utils.js';
 import { Logger as DefaultLogger } from '../../../Logger.js';
+import {
+  collectBreakingNotes,
+  isConventionalSubject,
+  markBreaking,
+  pickDominantType,
+  shapeDescription,
+} from './conventional-subject.js';
 
 /** Safe default Conventional-Commit type when none can be derived. */
 const DEFAULT_CONVENTIONAL_TYPE = 'chore';
 
 /**
- * The Conventional-Commit types Mandrel accepts. Mirrors
- * `commitlint.config.js` → `type-enum` and `release-please-config.json` →
- * `changelog-sections`. Kept in sync by hand (single hard-cutover, no
- * shim) — adding a type means touching all three.
+ * Record separator between whole commit messages in the `git log` read. A NUL
+ * cannot occur inside a commit message, so splitting on it is unambiguous —
+ * unlike a blank-line or subject-prefix heuristic, which a commit body can
+ * forge.
  */
-const CONVENTIONAL_TYPES = Object.freeze([
-  'feat',
-  'fix',
-  'perf',
-  'refactor',
-  'revert',
-  'docs',
-  'style',
-  'chore',
-  'test',
-  'build',
-  'ci',
-]);
-
-// Precedence used when a branch carries a mix of conventional types: pick
-// the most release-significant one so the squash subject communicates the
-// branch's headline impact (and release-please bumps appropriately).
-const TYPE_PRECEDENCE = Object.freeze([
-  'feat',
-  'fix',
-  'perf',
-  'refactor',
-  'revert',
-  'docs',
-  'style',
-  'test',
-  'build',
-  'ci',
-  'chore',
-]);
-
-const TYPE_GROUP = CONVENTIONAL_TYPES.join('|');
-// Anchored Conventional-Commit header matcher:
-//   <type>(<optional scope>)<optional !>: <non-empty description>
-// Mirrors the shape `@commitlint/config-conventional` enforces (a known
-// type, an optional parenthesised scope, an optional breaking `!`, a
-// colon-space separator, and a non-empty subject). Used for the pure
-// "is this already conventional?" check and to pull the type off a branch
-// commit subject without spawning commitlint per call.
-const CONVENTIONAL_HEADER_RE = new RegExp(
-  `^(?:${TYPE_GROUP})(?:\\([^()\\r\\n]+\\))?!?: \\S.*$`,
-);
-const LEADING_TYPE_RE = new RegExp(
-  `^(${TYPE_GROUP})(?:\\([^()\\r\\n]+\\))?!?:`,
-);
+const RECORD_SEP = '\u0000';
 
 /**
- * True iff `subject` is a parseable Conventional Commit subject under the
- * repo's type vocabulary. Pure.
+ * Read the branch's own commits (those unique to the Story branch relative to
+ * the base branch) as whole messages — subject AND body, because the body is
+ * where a `BREAKING CHANGE:` footer lives.
  *
- * @param {string} subject
- * @returns {boolean}
- */
-function isConventionalSubject(subject) {
-  if (typeof subject !== 'string') return false;
-  return CONVENTIONAL_HEADER_RE.test(subject.trim());
-}
-
-/**
- * Extract the Conventional-Commit `type` from a single commit subject, or
- * `null` when the subject is not conventional. Pure.
+ * Returns `[]` when the read fails, which degrades every downstream rule to
+ * its safe default (type `chore`, no breaking marker) rather than throwing a
+ * close that is otherwise healthy.
  *
- * @param {string} subject
- * @returns {string|null}
- */
-function parseConventionalType(subject) {
-  if (typeof subject !== 'string') return null;
-  const match = subject.trim().match(LEADING_TYPE_RE);
-  return match ? match[1] : null;
-}
-
-/**
- * Pick the most release-significant type from a list of conventional
- * types, honouring `TYPE_PRECEDENCE`. Returns `null` for an empty list.
- * Pure.
- *
- * @param {string[]} types
- * @returns {string|null}
- */
-function pickDominantType(types) {
-  const present = new Set(types.filter(Boolean));
-  for (const candidate of TYPE_PRECEDENCE) {
-    if (present.has(candidate)) return candidate;
-  }
-  return null;
-}
-
-/**
- * Read the branch's own commit subjects (commits unique to the Story
- * branch relative to the base branch) and derive the dominant
- * Conventional-Commit type. Returns `DEFAULT_CONVENTIONAL_TYPE` when no
- * conventional subject is found or the git read fails.
+ * Oldest-first (`--reverse`) is load-bearing: `pickDominantType` breaks a tie
+ * on the Story's primary commit, which is the first one authored.
  *
  * @param {{
  *   storyBranch: string,
@@ -146,96 +78,174 @@ function pickDominantType(types) {
  *   gitSpawn?: typeof defaultGitSpawn,
  *   logger?: { warn?: Function },
  * }} args
- * @returns {string}
+ * @returns {string[]} Whole commit messages, oldest first.
  */
-function deriveTypeFromBranchCommits({
+function readBranchCommits({
   storyBranch,
   baseBranch,
   cwd = process.cwd(),
   gitSpawn = defaultGitSpawn,
   logger = DefaultLogger,
 }) {
+  if (!storyBranch || !baseBranch) return [];
+  const range = `${baseBranch}..${storyBranch}`;
   try {
-    const range = `${baseBranch}..${storyBranch}`;
-    const result = gitSpawn(cwd, 'log', '--no-merges', '--format=%s', range);
-    if (!result || result.status !== 0) {
+    const result = gitSpawn(
+      cwd,
+      'log',
+      '--no-merges',
+      '--reverse',
+      '--format=%B%x00',
+      range,
+    );
+    if (result?.status !== 0) {
       logger?.warn?.(
         `[normalize-pr-title] git log ${range} failed (status=${result?.status ?? 'n/a'}); ` +
-          `defaulting type to "${DEFAULT_CONVENTIONAL_TYPE}".`,
+          `defaulting type to "${DEFAULT_CONVENTIONAL_TYPE}" and assuming no breaking change.`,
       );
-      return DEFAULT_CONVENTIONAL_TYPE;
+      return [];
     }
-    const types = String(result.stdout ?? '')
-      .split('\n')
-      .map((line) => parseConventionalType(line))
-      .filter(Boolean);
-    return pickDominantType(types) ?? DEFAULT_CONVENTIONAL_TYPE;
+    return String(result.stdout ?? '')
+      .split(RECORD_SEP)
+      .map((message) => message.trim())
+      .filter((message) => message.length > 0);
   } catch (err) {
     logger?.warn?.(
-      `[normalize-pr-title] could not derive type from branch commits ` +
-        `(defaulting to "${DEFAULT_CONVENTIONAL_TYPE}"): ${err?.message ?? err}`,
+      `[normalize-pr-title] could not read branch commits ` +
+        `(defaulting to "${DEFAULT_CONVENTIONAL_TYPE}", no breaking change): ${err?.message ?? err}`,
     );
-    return DEFAULT_CONVENTIONAL_TYPE;
+    return [];
   }
 }
 
 /**
- * Produce a PR title that parses as a Conventional Commit.
+ * Produce the PR title and the breaking-change notes that belong with it.
  *
  *   - Already-conventional `storyTitle` → preserved verbatim + `(#<id>)`.
- *   - Otherwise → `<derivedType>: <storyTitle> (#<id>)`.
- *   - Empty / missing `storyTitle` → `<derivedType>: Story #<id>`.
+ *   - Otherwise → `<derivedType>: <shaped storyTitle> (#<id>)`.
+ *   - Empty / missing `storyTitle` → `<derivedType>: story #<id>`.
+ *   - Breaking → `!` inserted before the colon in either shape.
  *
- * The type derivation (`deriveTypeFromBranchCommits`) is the only side
- * effect, and is skipped entirely when the title is already conventional.
+ * `commitMessages` is the branch read (`readBranchCommits`); passing `[]`
+ * yields the safe default type and no breaking marker. `storyBody` is the
+ * Story issue's body, scanned for a declared `BREAKING CHANGE:` footer.
  *
  * @param {{
  *   storyTitle: string,
  *   storyId: number|string,
- *   storyBranch?: string,
- *   baseBranch?: string,
- *   cwd?: string,
- *   gitSpawn?: typeof defaultGitSpawn,
- *   logger?: { warn?: Function },
+ *   commitMessages?: string[],
+ *   storyBody?: string,
  * }} args
- * @returns {string}
+ * @returns {{ title: string, breaking: boolean, breakingNotes: string[] }}
  */
-export function normalizePrTitle({
+function normalizePrTitle({
   storyTitle,
   storyId,
+  commitMessages = [],
+  storyBody = '',
+}) {
+  const idSuffix = `(#${storyId})`;
+  const trimmed = typeof storyTitle === 'string' ? storyTitle.trim() : '';
+  const { breaking, notes } = collectBreakingNotes({
+    commitMessages,
+    storyBody,
+  });
+
+  // Already conventional → preserve verbatim (the maker's own casing and
+  // scope survive), append the id reference. Only the breaking marker may be
+  // added, and only when it is not already there.
+  const subject = isConventionalSubject(trimmed)
+    ? trimmed
+    : synthesizeSubject({ description: trimmed, storyId, commitMessages });
+
+  const marked = breaking ? markBreaking(subject) : subject;
+  return { title: `${marked} ${idSuffix}`, breaking, breakingNotes: notes };
+}
+
+/**
+ * Build a conventional subject for a Story whose title is plain prose.
+ *
+ * @param {{ description: string, storyId: number|string, commitMessages: string[] }} args
+ * @returns {string}
+ */
+function synthesizeSubject({ description, storyId, commitMessages }) {
+  const subjects = commitMessages.map((message) => message.split('\n')[0]);
+  const type = pickDominantType(subjects) ?? DEFAULT_CONVENTIONAL_TYPE;
+  const raw = description.length > 0 ? description : `Story #${storyId}`;
+  return `${type}: ${shapeDescription(raw)}`;
+}
+
+/**
+ * Build the PR body.
+ *
+ * The `Closes #<id>` footer is what auto-closes the Story on merge. A
+ * `BREAKING CHANGE:` footer goes LAST, as the spec requires, so that a repo
+ * configured to use the PR body as the squash-commit message hands
+ * release-please a parseable note rather than prose. When the squash body is
+ * built from the constituent commit messages instead (GitHub's default, and
+ * this repo's setting), the note still reaches `main` through whichever
+ * commit carried the footer — and the `!` in the subject carries the signal
+ * either way.
+ *
+ * @param {{ storyId: number|string, breakingNotes?: string[] }} args
+ * @returns {string}
+ */
+function buildPrBody({ storyId, breakingNotes }) {
+  const lines = [`Closes #${storyId}`, '', '_Auto-opened by `/deliver`._'];
+  if (breakingNotes.length > 0) {
+    lines.push('', `BREAKING CHANGE: ${breakingNotes.join(' ')}`);
+  }
+  return lines.join('\n');
+}
+
+/**
+ * Derive the two strings `gh pr create` needs. One `git log` read serves both
+ * halves: the commit SUBJECTS decide the type, and the commit BODIES — plus
+ * the Story body — decide whether this is a breaking change.
+ *
+ * A declared break is announced on the progress channel, because a `!` the
+ * operator did not expect in the squash subject should be visible while the
+ * close is running rather than discovered in the release notes.
+ *
+ * @param {{ storyTitle: string, storyId: number|string, storyBody?: string,
+ *   storyBranch: string, baseBranch: string, cwd?: string,
+ *   gitSpawn?: typeof defaultGitSpawn,
+ *   progress?: (tag: string, msg: string) => void }} args
+ * @returns {{ title: string, body: string, breaking: boolean, breakingNotes: string[] }}
+ */
+export function buildPullRequestFields({
+  storyTitle,
+  storyId,
+  storyBody = '',
   storyBranch,
   baseBranch,
   cwd = process.cwd(),
   gitSpawn = defaultGitSpawn,
-  logger = DefaultLogger,
+  progress = () => {},
 }) {
-  const idSuffix = `(#${storyId})`;
-  const trimmed = typeof storyTitle === 'string' ? storyTitle.trim() : '';
-
-  // Already conventional → preserve verbatim, append the id reference.
-  if (isConventionalSubject(trimmed)) {
-    return `${trimmed} ${idSuffix}`;
+  const commitMessages = readBranchCommits({
+    storyBranch,
+    baseBranch,
+    cwd,
+    gitSpawn,
+  });
+  const { title, breaking, breakingNotes } = normalizePrTitle({
+    storyTitle,
+    storyId,
+    commitMessages,
+    storyBody,
+  });
+  if (breaking) {
+    progress(
+      'PR',
+      '⚠️  Breaking change declared — the PR title carries `!` and the body a ' +
+        `BREAKING CHANGE footer: ${breakingNotes.join(' ') || '(no note text)'}`,
+    );
   }
-
-  // Not conventional → derive a type and synthesize.
-  const type =
-    storyBranch && baseBranch
-      ? deriveTypeFromBranchCommits({
-          storyBranch,
-          baseBranch,
-          cwd,
-          gitSpawn,
-          logger,
-        })
-      : DEFAULT_CONVENTIONAL_TYPE;
-
-  // Lowercase the leading character of a synthesized description so the
-  // subject satisfies commitlint's `subject-case` rule (matching the
-  // `shapeMergeSubject` behaviour). An already-conventional title is left
-  // untouched (it was preserved verbatim above). The empty-title fallback
-  // uses a lowercased `story #<id>` for the same reason.
-  const rawDescription = trimmed.length > 0 ? trimmed : `Story #${storyId}`;
-  const description =
-    rawDescription.charAt(0).toLowerCase() + rawDescription.slice(1);
-  return `${type}: ${description} ${idSuffix}`;
+  return {
+    title,
+    body: buildPrBody({ storyId, breakingNotes }),
+    breaking,
+    breakingNotes,
+  };
 }
