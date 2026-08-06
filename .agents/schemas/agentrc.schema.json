@@ -276,20 +276,18 @@
                   "story-closing",
                   "operator-message",
                   "merge.unlanded",
-                  "merge.flip-failed",
-                  "loop.tick"
+                  "merge.flip-failed"
                 ]
               },
               "uniqueItems": true,
-              "description": "Events dispatched to the configured webhook. The vocabulary is exactly the set the v2 runtime can emit through `notify()`.",
+              "description": "Events dispatched to the configured webhook. The vocabulary is the allowlist the webhook channel gates on; `merge.unlanded` and `merge.flip-failed` are allowlistable but reach the run ledger rather than `notify()` today.",
               "default": [
                 "state-transition",
                 "story-merged",
                 "story-closing",
                 "operator-message",
                 "merge.unlanded",
-                "merge.flip-failed",
-                "loop.tick"
+                "merge.flip-failed"
               ]
             }
           },

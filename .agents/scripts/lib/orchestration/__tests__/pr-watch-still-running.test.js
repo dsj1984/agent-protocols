@@ -1,11 +1,11 @@
-// .agents/scripts/lib/orchestration/lifecycle/listeners/__tests__/watcher-still-running.test.js
+// .agents/scripts/lib/orchestration/__tests__/pr-watch-still-running.test.js
 /**
  * Story #4358 — slow-vs-failed watch semantics.
  *
  * Pins the load-bearing distinction the unified CI-watch mechanism must
  * hold, at both layers:
  *
- *   - The shared `watchPrToTerminal` primitive (watcher.js):
+ *   - The shared `watchPrToTerminal` primitive (pr-watch.js):
  *       - a genuinely red check short-circuits with `stillRunning:false`
  *         and consumes NO resume budget (`resumesApplied:0`);
  *       - a still-pending-at-cap check re-arms up to `maxResumes` times,
@@ -28,13 +28,13 @@ import {
   runPrWatch,
   STILL_RUNNING_EXIT_CODE,
   WATCH_DEFAULTS,
-} from '../../../../../pr-watch-with-update.js';
-import { classifyFailure } from '../../../ci-rerun-guard.js';
+} from '../../../pr-watch-with-update.js';
+import { classifyFailure } from '../ci-rerun-guard.js';
 import {
   hasFailingCheck,
   promotePendingToStillRunning,
   watchPrToTerminal,
-} from '../watcher.js';
+} from '../pr-watch.js';
 
 function quietLogger() {
   return { info: () => {}, warn: () => {}, error: () => {}, debug: () => {} };

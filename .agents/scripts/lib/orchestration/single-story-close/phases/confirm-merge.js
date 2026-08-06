@@ -641,7 +641,7 @@ async function blockOnUnlanded({
  *
  * The BEHIND / budget / did-it-land decision itself lives in the shared
  * {@link applyBehindUpdate} (Story #5006) — the CI-watch loop in
- * `lifecycle/listeners/watcher.js` runs the same one. This wrapper supplies
+ * `lib/orchestration/pr-watch.js` runs the same one. This wrapper supplies
  * the merge wait's probe source, its `gh` facade (bounded by
  * {@link withGhTimeout}, so a wedged child cannot strand an unattended
  * async-mode wait), and its operator wording.

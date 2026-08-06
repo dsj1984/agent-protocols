@@ -48,14 +48,16 @@ const tasks = [
     ],
   },
   {
-    // Custom Node-based lint for the lifecycle bus surface (Story #2227).
+    // Custom Node-based lint for the lifecycle surface (Story #2227).
     // Enforces:
-    //   1. No `Promise.all` over listener arrays under
-    //      `.agents/scripts/lib/orchestration/lifecycle/**`.
-    //   2. Wildcard-observer firewall: no state-mutating imports in
-    //      listener modules that register on `'*'`.
-    // Both rules are mandated by Tech Spec #2189 and have no biome
-    // equivalent.
+    //   1. No `Promise.all` under
+    //      `.agents/scripts/lib/orchestration/lifecycle/**` — the ledger is
+    //      append-only and a parallel write interleaves records.
+    //   2. Auto-merge lockout: the `gh pr merge` literal appears only in
+    //      `single-story-close/phases/auto-merge.js`.
+    // Neither has a biome equivalent. Story #5024 dropped the third rule (the
+    // wildcard-observer firewall) with the bus and the `listeners/` directory
+    // its predicate required.
     //
     // Use bare `node` (PATH-resolved) rather than `process.execPath`:
     // `process.execPath` on Windows often expands to `C:\Program

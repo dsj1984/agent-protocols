@@ -15,8 +15,8 @@
  *
  * v2.0.0 removed the Epic tier. The Epic-scope envelope and the
  * Epic-scoped `code-review.start` / `.end` lifecycle emits (whose schema
- * requires `epicId`) went with it; Story scope is the only scope and the
- * module no longer touches the lifecycle bus.
+ * requires `epicId`) went with it; Story scope is the only scope. Story #5024
+ * deleted those schemas along with the bus that was their only publish path.
  *
  * Public API:
  *   - `runCodeReview({ ticketId, headRef, provider, logger, ... })` →

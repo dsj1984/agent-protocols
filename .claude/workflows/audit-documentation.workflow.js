@@ -21,8 +21,8 @@
  *
  * ## Deterministic gates run in the calling session
  *
- * The lens's Step 1 deterministic checkers (`check-doc-links.js`,
- * `check-lifecycle-doc-drift.js`, the generators' `--check` mode) require
+ * The lens's Step 1 deterministic checkers (`check-doc-links.js` and the
+ * generators' `--check` mode) require
  * shell execution, which the read-only analysis subagents do not have. The
  * calling session runs them and passes the resulting finding blocks as the
  * `deterministicFindings` input; the synthesis stage folds them into the

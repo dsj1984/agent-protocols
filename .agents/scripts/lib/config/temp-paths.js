@@ -13,7 +13,7 @@
  *     ├─ techspec.md
  *     ├─ manifest.md          (dispatch manifest)
  *     ├─ retro.md             (mirror of GitHub retro at Epic close)
- *     ├─ lifecycle.ndjson     (lifecycle bus ledger)
+ *     ├─ lifecycle.ndjson     (lifecycle ledger)
  *     ├─ checkpoints/...      (pre-v2 epic-runner state store; retained layout)
  *     ├─ <name>               (runArtifactPath escape hatch)
  *     └─ stories/
@@ -124,7 +124,7 @@ export function _clearMainCheckoutRootCache() {
  *
  * The shared test bootstrap (`lib/test-env.js`) sets this to a fresh
  * `os.tmpdir()` directory before spawning the test runner, so any test that
- * reaches a writer (`signals-writer`, the lifecycle `LedgerWriter`, etc.)
+ * reaches a writer (`signals-writer`, `appendLedgerEvent`, etc.)
  * *without* explicitly injecting an absolute tempRoot still resolves under
  * scratch instead of the repo's real `temp/` tree. This is the single
  * injection seam: because every path helper funnels a relative root through
@@ -573,9 +573,10 @@ function storyArtifactPath(eid, sid, name, config) {
 }
 
 /**
- * `temp/run-<eid>/lifecycle.ndjson` — append-only lifecycle bus ledger
- * (Story #2510). The LedgerWriter persists every emitted/completed/failed
- * record here; the TraceLogger renders the companion markdown from it.
+ * `temp/run-<eid>/lifecycle.ndjson` — append-only lifecycle ledger
+ * (Story #2510). `appendLedgerEvent` persists one `emitted` record here per
+ * merge-terminal outcome; Story #5024 retired the `LedgerWriter` listener and
+ * the `TraceLogger` markdown companion that preceded it.
  *
  * The path is also the canonical input the standalone `lifecycle-emit`
  * CLI feeds to `buildDefaultListenerChain` when assembling the default

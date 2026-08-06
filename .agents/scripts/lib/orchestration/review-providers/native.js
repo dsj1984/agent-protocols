@@ -22,10 +22,9 @@
  * `.markdownlintignore`), and a quality-gate ignore glob makes no claim about
  * whether a file should parse or format cleanly.
  *
- * The adapter does NOT post to GitHub, does NOT render a markdown body,
- * and does NOT consult the lifecycle bus. Those concerns belong to
- * `runCodeReview()` (which calls the renderer + the structured-comment
- * upserter) and the listener chain.
+ * The adapter does NOT post to GitHub and does NOT render a markdown body.
+ * Those concerns belong to `runCodeReview()`, which calls the renderer + the
+ * structured-comment upserter.
  *
  * Construction is intentionally zero-arg so the factory can instantiate
  * it without threading config through every call. Per-invocation config

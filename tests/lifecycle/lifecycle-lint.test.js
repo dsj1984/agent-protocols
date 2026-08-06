@@ -4,13 +4,10 @@ import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 
-import {
-  findPromiseAllViolations,
-  findWildcardObserverFirewallViolations,
-} from '../../.agents/scripts/check-lifecycle-lint.js';
+import { findPromiseAllViolations } from '../../.agents/scripts/check-lifecycle-lint.js';
 import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
 
-describe('lifecycle-lint/rule-1-no-promise-all', () => {
+describe('lifecycle-lint/no-promise-all-lifecycle', () => {
   let dir;
   beforeEach(() => {
     dir = makeTempDir('mandrel-lint-1-');
@@ -65,75 +62,5 @@ async function emit(event, payload) {
     const violations = findPromiseAllViolations(dir);
     assert.equal(violations.length, 1);
     assert.equal(violations[0].file, file);
-  });
-});
-
-describe('lifecycle-lint/rule-2-wildcard-firewall', () => {
-  let dir;
-  beforeEach(() => {
-    dir = makeTempDir('mandrel-lint-2-');
-  });
-  afterEach(() => {
-    rmSync(dir, { recursive: true, force: true });
-  });
-
-  it('flags a wildcard listener importing a state-mutating module', () => {
-    const file = path.join(dir, 'observer.js');
-    writeFileSync(
-      file,
-      `
-import { transitionTicketState } from '../../scripts/update-ticket-state.js';
-export function register(bus) {
-  bus.on('*', () => transitionTicketState());
-}
-`,
-      'utf8',
-    );
-    const violations = findWildcardObserverFirewallViolations(dir);
-    assert.equal(violations.length, 1);
-    assert.equal(violations[0].file, file);
-    assert.match(violations[0].hint, /state-mutating/);
-  });
-
-  it('does not flag wildcard observers that only import safe modules', () => {
-    writeFileSync(
-      path.join(dir, 'safe.js'),
-      `
-import { writeFileSync } from 'node:fs';
-export function register(bus) { bus.on('*', () => {}); }
-`,
-      'utf8',
-    );
-    const violations = findWildcardObserverFirewallViolations(dir);
-    assert.deepEqual(violations, []);
-  });
-
-  it('does not flag non-wildcard listeners that import state-mutating modules', () => {
-    writeFileSync(
-      path.join(dir, 'named.js'),
-      `
-import { transitionTicketState } from '../../scripts/update-ticket-state.js';
-export function register(bus) { bus.on('wave.end', () => transitionTicketState()); }
-`,
-      'utf8',
-    );
-    const violations = findWildcardObserverFirewallViolations(dir);
-    assert.deepEqual(violations, []);
-  });
-
-  it('supports a custom blocklist for testing future bans', () => {
-    writeFileSync(
-      path.join(dir, 'custom.js'),
-      `
-import { foo } from '../scary/danger.js';
-export function register(bus) { bus.on('*', foo); }
-`,
-      'utf8',
-    );
-    const violations = findWildcardObserverFirewallViolations(dir, {
-      blocklist: ['danger.js'],
-    });
-    assert.equal(violations.length, 1);
-    assert.match(violations[0].hint, /danger\.js/);
   });
 });

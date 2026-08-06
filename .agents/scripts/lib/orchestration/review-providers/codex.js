@@ -19,7 +19,7 @@
  * `provider: native` explicitly; the probe is the only thing that
  * routes between "configured backend present" and "configured backend
  * missing". The adapter never consults a GitHub provider — the
- * orchestrator owns posting/upserting and the lifecycle bus.
+ * orchestrator owns posting and upserting.
  *
  * @typedef {import('./types.js').Finding} Finding
  * @typedef {import('./types.js').ReviewInput} ReviewInput
