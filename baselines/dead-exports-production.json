@@ -1,7 +1,7 @@
 {
   "$schema": "https://mandrel.dev/baselines/dead-exports.schema.json",
   "kernelVersion": "6.17.1",
-  "generatedAt": "2026-08-06T09:27:44.123956Z",
+  "generatedAt": "2026-08-06T09:44:09.996Z",
   "mode": "production",
   "rows": [
     {
@@ -22,10 +22,6 @@
     },
     {
       "file": ".agents/scripts/lib/plan-phase-cleanup.js",
-      "symbol": "*"
-    },
-    {
-      "file": ".agents/scripts/lib/story-lifecycle.js",
       "symbol": "*"
     },
     {
@@ -157,14 +153,6 @@
       "symbol": "*"
     },
     {
-      "file": ".agents/scripts/lib/runtime-deps/scan-imports.js",
-      "symbol": "*"
-    },
-    {
-      "file": ".agents/scripts/lib/single-story/story-merged-notify.js",
-      "symbol": "*"
-    },
-    {
       "file": ".agents/scripts/lib/orchestration/ceremony-routing.js",
       "symbol": "*"
     },
@@ -190,6 +178,14 @@
     },
     {
       "file": ".agents/scripts/lib/orchestration/story-plan-state.js",
+      "symbol": "*"
+    },
+    {
+      "file": ".agents/scripts/lib/runtime-deps/scan-imports.js",
+      "symbol": "*"
+    },
+    {
+      "file": ".agents/scripts/lib/single-story/story-merged-notify.js",
       "symbol": "*"
     },
     {

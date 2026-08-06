@@ -1687,10 +1687,6 @@
       "mi": 94.035
     },
     {
-      "path": ".agents/scripts/lib/story-lifecycle.js",
-      "mi": 93.77
-    },
-    {
       "path": ".agents/scripts/lib/temp-retention.js",
       "mi": 89.911
     },
