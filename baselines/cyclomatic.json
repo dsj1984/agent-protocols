@@ -4,8 +4,8 @@
   "ceiling": 12,
   "rollup": {
     "*": {
-      "filesAboveCeiling": 59,
-      "methodsAboveCeiling": 64,
+      "filesAboveCeiling": 57,
+      "methodsAboveCeiling": 62,
       "maxCyclomatic": 20
     }
   },
@@ -22,11 +22,6 @@
     },
     {
       "file": ".agents/scripts/check-doc-links.js",
-      "methodsAboveCeiling": 1,
-      "maxCyclomatic": 13
-    },
-    {
-      "file": ".agents/scripts/check-gherkin-placeholders.js",
       "methodsAboveCeiling": 1,
       "maxCyclomatic": 13
     },
@@ -269,11 +264,6 @@
       "file": ".agents/scripts/lib/worktree/lifecycle/creation.js",
       "methodsAboveCeiling": 1,
       "maxCyclomatic": 13
-    },
-    {
-      "file": ".agents/scripts/lint-baseline.js",
-      "methodsAboveCeiling": 1,
-      "maxCyclomatic": 18
     },
     {
       "file": ".agents/scripts/notify.js",

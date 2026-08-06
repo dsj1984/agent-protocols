@@ -255,15 +255,20 @@ introduced, and the baseline tightens when the codebase improves.
 The canonical baseline file lives at `baselines/lint.json` (override via
 `delivery.quality.gates.lint.baselinePath`).
 
-**There is no framework capture CLI.** The `lint-baseline.js` shell that
-used to write this file was retired — it spawned
-`project.commands.lintBaseline` and parsed the linter's JSON, a shape only
+**There is no framework capture CLI.** Story #5004 retired the
+`lint-baseline.js` shell that used to write this file: it spawned a
+configured lint command and parsed the linter's JSON, a shape only
 ESLint-style output satisfies, and this repo's own `npm run lint`
 (Biome + markdownlint fan-out) never produced it, so the gate was
 configured-but-unfed. A consumer that wants the kind writes
 `baselines/lint.json` from its own linter in the envelope shape documented
 under [Baseline reference](#baseline-reference); a consumer that does not is
 unaffected, because an absent baseline leaves the gate unconfigured.
+
+> **Upgrading?** The `project.commands.lintBaseline` key that fed the retired
+> shell is gone from the config schema, which is `additionalProperties: false`
+> — a `.agentrc.json` still carrying it now **fails validation** rather than
+> being silently ignored. Delete the key.
 
 Refresh commits should use a `baseline-refresh:` subject + non-empty body so
 the operator can spot baseline edits in review — same convention as the CRAP
