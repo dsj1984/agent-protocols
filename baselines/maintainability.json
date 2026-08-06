@@ -5,8 +5,8 @@
   "rollup": {
     "*": {
       "min": 74.146,
-      "p50": 98.322,
-      "p95": 126.196
+      "p50": 98.282,
+      "p95": 125.857
     }
   },
   "rows": [
@@ -675,36 +675,8 @@
       "mi": 89.053
     },
     {
-      "path": ".agents/scripts/lib/config/gates/bundle-size.schema.js",
-      "mi": 95.461
-    },
-    {
-      "path": ".agents/scripts/lib/config/gates/coverage.schema.js",
-      "mi": 115.015
-    },
-    {
-      "path": ".agents/scripts/lib/config/gates/duplication.schema.js",
-      "mi": 107.683
-    },
-    {
       "path": ".agents/scripts/lib/config/gates/index.js",
       "mi": 110.732
-    },
-    {
-      "path": ".agents/scripts/lib/config/gates/lighthouse.schema.js",
-      "mi": 98.065
-    },
-    {
-      "path": ".agents/scripts/lib/config/gates/lint.schema.js",
-      "mi": 131.78
-    },
-    {
-      "path": ".agents/scripts/lib/config/gates/maintainability.schema.js",
-      "mi": 104.468
-    },
-    {
-      "path": ".agents/scripts/lib/config/gates/mutation.schema.js",
-      "mi": 127.336
     },
     {
       "path": ".agents/scripts/lib/config/gates/shared.js",

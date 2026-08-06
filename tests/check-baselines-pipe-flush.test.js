@@ -297,9 +297,17 @@ describe('check-baselines: stdout on a pipe', () => {
   // verbatim (write `result.output`, `process.exit(result.exitCode)`, plus a
   // catch arm) over an equally unbounded payload — it prints one row per
   // drifted baseline entry full-scope.
+  //
+  // Story #5012 adds the two honesty-surface CLIs on the same grounds: both
+  // print one line per divergent or pruned row across every baseline kind, so
+  // a full-repo report on a neglected tree is unbounded in exactly the same
+  // way. They adopt `runAsCli`'s settle path from birth; pinning them here is
+  // what stops a later edit from "simplifying" it back to `process.exit()`.
   for (const rel of [
     '.agents/scripts/check-baselines.js',
     '.agents/scripts/check-baseline-drift.js',
+    '.agents/scripts/check-baseline-scope.js',
+    '.agents/scripts/prune-baseline-orphans.js',
   ]) {
     test(`${rel} contains no process.exit call`, () => {
       const source = fs.readFileSync(

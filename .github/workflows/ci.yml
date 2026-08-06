@@ -242,6 +242,18 @@ jobs:
         # acceptance criterion before anyone read the validator. The gate has no
         # baseline: the answer is always zero, and a deliberate exception is
         # declared in the schema's own `x-mandrel-uncompiled` block.
+        #
+        # Story #5012: the baseline honesty surface joins the slot as two
+        # instruments rather than one. `check-baseline-scope.js` asserts that
+        # each committed baseline's ROW SET still describes the tree — an
+        # in-scope file with no row, a row whose file is gone or has left the
+        # gate's scope — because every gate above can be green while measuring
+        # almost nothing, and nothing checked that. `prune-baseline-orphans.js
+        # --check` is its companion: the gate's hard failure is only defensible
+        # while the remedy is a command rather than a full re-score, and
+        # `--check` keeps `main` honest about there being nothing left to prune.
+        # Both are measurement-free — no scorer, no coverage artifact — so they
+        # cost milliseconds and need no test run to have happened.
         run: |
           node .agents/scripts/check-arch-cycles.js --format text
           node .agents/scripts/check-dead-exports.js
@@ -250,6 +262,8 @@ jobs:
           node .agents/scripts/check-workflow-citations.js
           node .agents/scripts/check-cyclomatic.js
           node .agents/scripts/check-schema-references.js
+          node .agents/scripts/check-baseline-scope.js
+          node .agents/scripts/prune-baseline-orphans.js --check
 
   windows-smoke:
     # Story #3389 — advisory Windows leg. Exercises bootstrap, command sync,
