@@ -231,35 +231,38 @@ Declaring \`wide\` with a non-empty reason **lifts the hard session-mass rejecti
 
 #### UI / TESTID INVARIANCE (per CLAUDE.md safety rule):
 
-- Stories that touch UI (\`*.tsx\`, \`*.astro\`, \`*.svelte\`, \`*.vue\`, components folders) MUST end \`changes\` with one of:
-  - \`data-testid invariance: <list of testids that MUST be preserved>\`, or
-  - \`data-testid changes: <old> -> <new>\` paired with a corresponding \`tests/e2e/*.spec.ts\` edit in the same story or a depends_on Story.
+Every \`changes[]\` entry is a \`{ path, assumption }\` object — a prose bullet there is rejected by the parser, so the testid contract is carried where prose belongs:
+
+- Stories that touch UI (\`*.tsx\`, \`*.astro\`, \`*.svelte\`, \`*.vue\`, components folders) MUST carry the testid contract as a top-level \`acceptance[]\` item, one of:
+  - \`"data-testid invariance: <list of testids that MUST be preserved>"\`, or
+  - \`"data-testid changes: <old> -> <new>, with the matching tests/e2e/*.spec.ts selector updated"\` — paired with that \`tests/e2e/*.spec.ts\` file in \`changes[]\`, in the same Story or a depends_on Story.
+- State the preserved-testid set in \`## Non-Goals\` prose as well when the Story deliberately renames nothing.
 - Renaming a testid without the matching e2e edit is FORBIDDEN.
 
 #### BRAND / COPY / STYLE WORK:
 
-- Stories that touch user-visible copy, brand assets, or visual style MUST cite the relevant section of \`docs/style-guide.md\` in \`acceptance\` (e.g. \`"acceptance": ["Hero copy matches docs/style-guide.md §3 (voice & tone)"]\`). If \`docs/style-guide.md\` does not exist or has no relevant section, state that explicitly: \`"acceptance": ["docs/style-guide.md absent — copy reviewed against the inline brand brief in the Epic body"]\`. Silence on style sourcing is a smell.
+- Stories that touch user-visible copy, brand assets, or visual style MUST cite the relevant section of \`docs/style-guide.md\` in \`acceptance\` (e.g. \`"acceptance": ["Hero copy matches docs/style-guide.md §3 (voice & tone)"]\`). If \`docs/style-guide.md\` does not exist or has no relevant section, state that explicitly: \`"acceptance": ["docs/style-guide.md absent — copy reviewed against the inline brand brief in the plan seed"]\`. Silence on style sourcing is a smell.
 
-### WAVE-0 BDD SCAFFOLD STORY (features-first; emit when the Acceptance Spec has \`new\`-disposition rows):
-The Acceptance Spec's AC table (columns \`AC ID | Outcome | Feature File | Scenario | Disposition\`) tags each row's \`Disposition\` with one of \`new | updated | unchanged\`. A \`new\` row names a \`.feature\` file + scenario that does NOT yet exist on \`main\`. The framework is features-first: implementing Stories reference those \`.feature\` paths in their \`verify[]\` lines, so the files MUST already exist when those Stories run — otherwise verification fails mid-delivery on a missing file. (These Gherkin \`.feature\` files are BDD artifacts, unrelated to any ticket tier.)
+### WAVE-0 BDD SCAFFOLD STORY (features-first; emit when your plan verifies against a scenario that does not exist yet):
+The plan-context envelope's \`bddScenarios\` field is the index of Gherkin scenarios that **already exist on \`main\`** — one row per scenario, carrying its \`.feature\` file path, line, scenario title and tags. It is the live signal for this rule: a \`.feature\` path + scenario your plan needs but that appears in no \`bddScenarios\` row does not exist yet. The framework is features-first: implementing Stories reference those \`.feature\` paths in their \`verify[]\` lines, so the files MUST already exist when those Stories run — otherwise verification fails mid-delivery on a missing file.
 
-When the Acceptance Spec contains **one or more \`Disposition: new\` rows**, you MUST emit **exactly one** dedicated wave-0 scaffold Story whose sole job is to create the \`.feature\` files with \`@skip\`-tagged scenarios BEFORE any implementation Story runs:
+When **one or more** \`.feature\` scenarios your plan verifies against are absent from \`bddScenarios\`, you MUST emit **exactly one** dedicated wave-0 scaffold Story whose sole job is to create those \`.feature\` files with \`@skip\`-tagged scenarios BEFORE any implementation Story runs:
 
 - **goal**: contains the literal token \`bdd-scaffold\` (e.g. "bdd-scaffold: create the @skip-tagged feature files the implementation Stories verify against").
 - **depends_on**: EMPTY (\`[]\`) — it runs first, in wave 0.
-- **changes**: one entry per distinct \`.feature\` file named in a \`new\` row, each \`{ "path": "<feature file path>", "assumption": "creates" }\`.
+- **changes**: one entry per distinct absent \`.feature\` file, each \`{ "path": "<feature file path>", "assumption": "creates" }\`.
 - **acceptance**: MUST assert (a) every new \`.feature\` file exists AND (b) every new scenario within them carries an \`@skip\` tag. Keep these observable (a grep/validate command exits 0, a file exists at a path).
 - **verify**: a grep/validate command (tier \`validate\`), NOT an e2e runner — verifying that a file exists with the required tags needs no browser/playwright run. Example: \`grep -rL '@skip' tests/features/<area>/*.feature (validate)\` paired with an existence check.
 - Each implementation Story whose \`verify[]\` references one of these scaffolded \`.feature\` paths MUST \`depends_on\` the scaffold Story (so the scaffold lands in an earlier wave). Omitting the link trips the soft \`missing-bdd-scaffold\` validator finding.
 
-When the Acceptance Spec contains **zero \`new\`-disposition rows** (every row is \`updated\` or \`unchanged\`), do NOT emit a scaffold Story — there is nothing to create.
+When every scenario your plan verifies against is already present in \`bddScenarios\`, do NOT emit a scaffold Story — there is nothing to create.
 
 ### SCOPE-OVERLAP FLAGGING (docs/runbook downstream of config work):
-When a "docs update" / "runbook" / "README" Story appears downstream of an earlier Story in the same Epic whose AC already covers updating the same document (e.g. a "config + runbook" Story followed by a "docs" Story touching the same runbook), the downstream Story's deliverable may be fully absorbed by the earlier Story. Flag the risk directly in the Story's top-level \`acceptance\` array by appending an item of the form:
+When a "docs update" / "runbook" / "README" Story appears downstream of an earlier Story in the same plan whose AC already covers updating the same document (e.g. a "config + runbook" Story followed by a "docs" Story touching the same runbook), the downstream Story's deliverable may be fully absorbed by the earlier Story. Flag the risk directly in the Story's top-level \`acceptance\` array by appending an item of the form:
 "Scope verification note: this story's deliverable may already be satisfied by Story #<slug-or-id>'s AC — before implementing, \`git diff main -- <path>\` against the upstream Story branch and confirm whether a substantive edit is still required, or whether only a cross-reference remains."
 This prevents the executing agent from redoing work the upstream Story already merged.
 
-CRITICAL: Dependencies should follow execution blockers. Stories attach directly to the Epic — never emit a 'parent_slug' field.
+CRITICAL: Dependencies should follow execution blockers. There is no parent ticket — never emit a 'parent_slug' field.
 IMPORTANT DEPENDENCY RULE: Story-to-Story dependencies are expressed via \`depends_on\` (one Story depends_on another Story's slug). Use this to express execution ordering across the plan.
 
 ### REVIEWABILITY BUDGET (Story #2798):
