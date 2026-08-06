@@ -1,7 +1,7 @@
 {
   "$schema": "https://mandrel.dev/baselines/dead-exports.schema.json",
   "kernelVersion": "6.17.1",
-  "generatedAt": "2026-08-06T03:08:48.898Z",
+  "generatedAt": "2026-08-06T03:33:08.947Z",
   "mode": "production",
   "rows": [
     {
@@ -565,10 +565,6 @@
       "symbol": "getStagedFiles"
     },
     {
-      "file": ".agents/scripts/lib/checks/baseline-drift-main-checkout.js",
-      "symbol": "*"
-    },
-    {
       "file": ".agents/scripts/lib/checks/core-bare-clean.js",
       "symbol": "*"
     },
@@ -589,10 +585,6 @@
       "symbol": "*"
     },
     {
-      "file": ".agents/scripts/lib/checks/push-hook-parity.js",
-      "symbol": "*"
-    },
-    {
       "file": ".agents/scripts/lib/checks/state.js",
       "symbol": "clearStateCache"
     },
@@ -606,18 +598,6 @@
     },
     {
       "file": ".agents/scripts/lib/checks/subagent-agent-tool-required.js",
-      "symbol": "*"
-    },
-    {
-      "file": ".agents/scripts/lib/checks/windows-coverage-noise-floor.js",
-      "symbol": "*"
-    },
-    {
-      "file": ".agents/scripts/lib/checks/worktree-bootstrap-env.js",
-      "symbol": "*"
-    },
-    {
-      "file": ".agents/scripts/lib/checks/worktree-residue-biome.js",
       "symbol": "*"
     },
     {
@@ -1535,10 +1515,6 @@
     {
       "file": ".agents/scripts/lib/orchestration/light-suitability.js",
       "symbol": "resolveOperatorOverride"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/lint-baseline-service.js",
-      "symbol": "*"
     },
     {
       "file": ".agents/scripts/lib/orchestration/merge-block-class.js",
@@ -2651,10 +2627,6 @@
     {
       "file": ".agents/scripts/lib/worktree/node-modules-strategy.js",
       "symbol": "selectInstallCommand"
-    },
-    {
-      "file": ".agents/scripts/lint-baseline.js",
-      "symbol": "*"
     },
     {
       "file": ".agents/scripts/post-structured-comment.js",

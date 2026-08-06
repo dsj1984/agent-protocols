@@ -88,13 +88,12 @@ describe('project.* shape', () => {
     );
   });
 
-  it('accepts commands.{lintBaseline,test,typecheck,formatCheck,formatWrite}', () => {
+  it('accepts commands.{test,typecheck,formatCheck,formatWrite}', () => {
     assert.equal(
       validate({
         project: {
           ...REQ.project,
           commands: {
-            lintBaseline: 'npm run lint',
             test: 'npm test',
             typecheck: 'node --version',
             formatCheck: 'npx biome format .',
@@ -109,6 +108,20 @@ describe('project.* shape', () => {
   it('rejects unknown property under commands', () => {
     expectErrors(
       { project: { ...REQ.project, commands: { build: 'npm run build' } } },
+      /additional properties/,
+    );
+  });
+
+  // Story #5004 retired `lint-baseline.js`, the only consumer of this key.
+  // `COMMANDS_SCHEMA` is `additionalProperties: false`, so a consumer config
+  // that still carries it is REJECTED, not silently ignored — the operator
+  // gets a validation error naming the key rather than a command that quietly
+  // never runs.
+  it('rejects the retired commands.lintBaseline key', () => {
+    expectErrors(
+      {
+        project: { ...REQ.project, commands: { lintBaseline: 'npm run lint' } },
+      },
       /additional properties/,
     );
   });

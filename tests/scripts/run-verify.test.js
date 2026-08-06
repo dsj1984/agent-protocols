@@ -48,6 +48,8 @@ test('runVerifySteps runs audit, lint, test, baselines, then the ratchets in ord
     ['node', '.agents/scripts/check-dead-exports.js'],
     ['node', '.agents/scripts/check-dead-exports.js', '--production'],
     ['node', '.agents/scripts/check-context-budget.js'],
+    ['node', '.agents/scripts/check-cyclomatic.js'],
+    ['node', '.agents/scripts/check-schema-references.js'],
   ]);
 });
 
@@ -69,6 +71,112 @@ test('runVerifySteps runs the ratchets CI’s "Architecture Cycle Check" step co
       `expected verify to run ${script}`,
     );
   }
+});
+
+// Story #5004: the guard above names two scripts by hand, so a ratchet ADDED to
+// CI's standalone slot later is invisible to it — which is exactly how
+// check-cyclomatic.js (#4923) and check-schema-references.js (#4938) each
+// reached `main` uncovered by `npm run verify`. Read CI's own step instead and
+// require every script it names to be accounted for: covered by verify,
+// covered by lint, or listed here as a deliberate, reasoned exemption.
+const CI_RATCHETS_NOT_MIRRORED_LOCALLY = new Map([
+  [
+    'check-workflow-citations.js',
+    'Scores workflow prose only; reachable as `npm run check:workflow-citations`.',
+  ],
+  [
+    'check-baseline-scope.js',
+    'Row-set honesty gate — meaningful only against a fully-scored tree; reachable as `npm run baselines:scope`.',
+  ],
+  [
+    'prune-baseline-orphans.js',
+    'Companion remedy to check-baseline-scope; reachable as `npm run baselines:prune -- --check`.',
+  ],
+]);
+
+test('every ratchet CI’s `baselines` job runs is mirrored locally or exempted', () => {
+  const ci = readFileSync(
+    path.join(REPO_ROOT, '.github/workflows/ci.yml'),
+    'utf8',
+  );
+  const baselinesJob = ci.slice(
+    ci.indexOf('\n  baselines:'),
+    ci.indexOf('\n  windows-smoke:'),
+  );
+  assert.ok(baselinesJob.length > 0, 'could not slice the `baselines` job');
+
+  const ciScripts = [
+    ...new Set(
+      [...baselinesJob.matchAll(/\.agents\/scripts\/([\w-]+\.js)/g)].map(
+        (m) => m[1],
+      ),
+    ),
+  ];
+  // A shape guard: if the regex ever stops matching, the assertions below pass
+  // vacuously and the mirror rots again.
+  assert.ok(
+    ciScripts.length >= 8,
+    `expected CI's baselines job to name at least 8 scripts, saw ${ciScripts.length}`,
+  );
+
+  const verifySource = readFileSync(
+    path.join(REPO_ROOT, '.agents/scripts/run-verify.js'),
+    'utf8',
+  );
+  const lintSource = readFileSync(
+    path.join(REPO_ROOT, '.agents/scripts/run-lint.js'),
+    'utf8',
+  );
+  const STEPS_ONLY = verifySource.slice(
+    verifySource.indexOf('const STEPS = ['),
+    verifySource.indexOf('export function runVerifySteps'),
+  );
+
+  const unmirrored = ciScripts.filter(
+    (script) =>
+      !STEPS_ONLY.includes(script) &&
+      !lintSource.includes(script) &&
+      // check-baselines.js is `npm run verify`'s own `baselines` step.
+      script !== 'check-baselines.js' &&
+      !CI_RATCHETS_NOT_MIRRORED_LOCALLY.has(script),
+  );
+  assert.deepEqual(
+    unmirrored,
+    [],
+    `CI's \`baselines\` job runs ${unmirrored.join(', ')}, which no local ` +
+      'aggregate covers. Add each to run-verify.js STEPS, or add it to ' +
+      'CI_RATCHETS_NOT_MIRRORED_LOCALLY with the reason it cannot be.',
+  );
+
+  // The exemption list must not outlive its entries either.
+  for (const script of CI_RATCHETS_NOT_MIRRORED_LOCALLY.keys()) {
+    assert.ok(
+      ciScripts.includes(script),
+      `${script} is exempted from the local mirror but CI no longer runs it — drop the exemption.`,
+    );
+  }
+});
+
+// Story #5004: the duplicate `Maintainability Check` step in the `validate`
+// job was a byte-for-byte subset of the required `baselines` job's
+// check-baselines run on PRs. Pin its absence so it is not reinstated by a
+// merge that "restores" a step nobody meant to keep.
+test('the validate job does not re-run the maintainability gate the baselines job owns', () => {
+  const ci = readFileSync(
+    path.join(REPO_ROOT, '.github/workflows/ci.yml'),
+    'utf8',
+  );
+  const validateJob = ci.slice(
+    ci.indexOf('\n  validate:'),
+    ci.indexOf('\n  baselines:'),
+  );
+  assert.ok(validateJob.length > 0, 'could not slice the `validate` job');
+  assert.equal(
+    /^\s+run:.*maintainability:check/m.test(validateJob),
+    false,
+    'the validate job runs `npm run maintainability:check` again — the ' +
+      'required `baselines` job already runs it on the same scope.',
+  );
 });
 
 // The third check in that CI step, check-arch-cycles.js, is already run by the

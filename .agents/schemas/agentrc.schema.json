@@ -116,16 +116,6 @@
     "commands": {
       "type": "object",
       "properties": {
-        "lintBaseline": {
-          "allOf": [
-            {
-              "$ref": "#/$defs/safeString"
-            },
-            {
-              "minLength": 1
-            }
-          ]
-        },
         "test": {
           "allOf": [
             {

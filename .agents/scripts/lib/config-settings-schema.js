@@ -75,14 +75,13 @@ const PATHS_SCHEMA = {
 };
 
 /**
- * `project.commands` — names of the lint/test/typecheck/format commands the
+ * `project.commands` — names of the test/typecheck/format commands the
  * close-validation chain spawns. `typecheck` accepts `null` to mean
  * "disabled". `validate` and `build` were dropped (no production consumers).
  */
 const COMMANDS_SCHEMA = {
   type: 'object',
   properties: {
-    lintBaseline: { ...SAFE_STRING, minLength: 1 },
     test: { ...SAFE_STRING, minLength: 1 },
     typecheck: NULLABLE_NONEMPTY_SAFE_STRING,
     formatCheck: { ...SAFE_STRING, minLength: 1 },

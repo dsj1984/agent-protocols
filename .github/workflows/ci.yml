@@ -79,14 +79,19 @@ jobs:
         # `npm run format:check` step is folded in and removed.
         run: npm run lint
 
-      - name: Maintainability Check
-        # Epic #1943: scope is resolved by the unified dispatcher via
-        # delivery.quality.gateScoping (.agentrc.json) — diffRef defaults
-        # to main on PR runs; push-to-main runs set BASELINE_SCOPE=full so
-        # untouched files still surface regressions.
-        env:
-          BASELINE_SCOPE: ${{ github.event_name == 'pull_request' && '' || 'full' }}
-        run: npm run maintainability:check
+      # Story #5004: the `Maintainability Check` step that used to sit here
+      # ran `npm run maintainability:check` — `check-baselines.js --gate
+      # maintainability`, a strict subset of the `Run check-baselines` step in
+      # the required `baselines` job below, against the same default scope on
+      # PR runs. It failed on nothing the required job did not already fail on,
+      # so it bought a second full escomplex pass and no protection.
+      #
+      # It ALSO carried a push-to-main-only `BASELINE_SCOPE=full` sweep, which
+      # was NOT a duplicate — that leg re-scored untouched files. Deleting the
+      # step retires it, and nothing here re-scores maintainability full-scope
+      # automatically any more. That is a recorded loss, not an oversight:
+      # docs/ci-contract.md § "Retired: push-scoped maintainability" names
+      # `check-baseline-drift.js` as the operator-run replacement.
 
       - name: Build node-pty for the PTY init guard
         # node-pty (1.x) ships no Linux prebuild and the shared setup installs

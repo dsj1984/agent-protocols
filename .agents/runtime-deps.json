@@ -6,7 +6,6 @@
     "js-yaml": "^4.1.1",
     "minimatch": "^10.0.0",
     "picomatch": "^4.0.4",
-    "string-argv": "^0.3.2",
     "typhonjs-escomplex": "^0.1.0"
   },
   "optionalDependencies": {

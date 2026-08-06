@@ -116,8 +116,7 @@ PowerShell `Get-CimInstance Win32_Process`, terminating them with
 - The close output reports `pending-cleanup persistent-lock: story-N, ...`.
 - `git worktree list` shows `.worktrees/story-N/` for a closed Story.
 - `npm run lint` fails because of a nested `biome.json` in a half-reaped
-  worktree. The `worktree-residue-biome` self-healing check detects this
-  failure mode.
+  worktree.
 
 ### Manual usage
 

@@ -103,7 +103,6 @@ describe('agentrc.schema.json mirror — drift vs runtime AJV schema', () => {
           commands: {
             test: 'npm test',
             typecheck: null,
-            lintBaseline: 'npm run lint',
             formatCheck: 'npx biome format .',
             formatWrite: 'npx biome format --write .',
           },

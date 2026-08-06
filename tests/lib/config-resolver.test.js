@@ -449,7 +449,6 @@ describe('config-resolver — commands defaults', () => {
     // canonical surface for these defaults is `project.commands`.
     const { project } = resolveConfig({ bustCache: true });
     assert.equal(project.commands.test, COMMANDS_DEFAULTS.test);
-    assert.equal(project.commands.lintBaseline, COMMANDS_DEFAULTS.lintBaseline);
     assert.equal(project.commands.formatCheck, COMMANDS_DEFAULTS.formatCheck);
   });
 });

@@ -35,7 +35,6 @@ const REQUIRED_NAMED = [
   'js-yaml',
   'minimatch',
   'picomatch',
-  'string-argv',
   'typhonjs-escomplex',
 ];
 

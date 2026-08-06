@@ -55,34 +55,47 @@ with `npm run format`; never reach for `--no-verify`.
 `node .agents/scripts/check-baselines.js`, but that script only runs the
 gates configured under `delivery.quality.gates` — currently **crap,
 maintainability, and duplication**. CI's job named `baselines` in
-`.github/workflows/ci.yml` runs that script **and then five standalone
-ratchets** the script knows nothing about, so a locally green
+`.github/workflows/ci.yml` runs that script **and then nine standalone
+commands** the script knows nothing about, so a locally green
 `check-baselines.js` is not evidence that the `baselines` check will pass.
 
-| Ratchet CI's `baselines` job runs | Covered by `check-baselines.js` | Covered by `npm run lint` | Covered by `npm run verify` |
+| Command CI's `baselines` job runs | Covered by `check-baselines.js` | Covered by `npm run lint` | Covered by `npm run verify` |
 | --- | --- | --- | --- |
-| `.agents/scripts/check-arch-cycles.js` | no | **yes** | via `lint` |
-| `.agents/scripts/check-dead-exports.js` | no | no | **yes** |
-| `.agents/scripts/check-dead-exports.js --production` | no | no | **yes** |
-| `.agents/scripts/check-context-budget.js` | no | no | **yes** |
-| `.agents/scripts/check-workflow-citations.js` | no | no | **no** |
+| `check-arch-cycles.js` | no | **yes** | via `lint` |
+| `check-dead-exports.js` | no | no | **yes** |
+| `check-dead-exports.js --production` | no | no | **yes** |
+| `check-context-budget.js` | no | no | **yes** |
+| `check-workflow-citations.js` | no | no | **no** |
+| `check-cyclomatic.js` | no | no | **yes** |
+| `check-schema-references.js` | no | no | **yes** |
+| `check-baseline-scope.js` | no | no | **no** |
+| `prune-baseline-orphans.js --check` | no | no | **no** |
 
-`check-workflow-citations.js` is currently in **no** local aggregate command
-— it is reachable only as `npm run check:workflow-citations` or a direct
-invocation.
+Three are still in **no** local aggregate command —
+`check-workflow-citations.js`, `check-baseline-scope.js` and
+`prune-baseline-orphans.js --check`. Each is reachable only as its own npm
+script (`check:workflow-citations`, `baselines:scope`, `baselines:prune`) or a
+direct invocation.
+
+`check-context-budget.js` additionally runs in `.husky/pre-push`. It is
+zero-tolerance in **both** directions — a change that *shrinks* the
+always-loaded doc closure reds it exactly as growth does, and the remedy is a
+committed baseline refresh, not a smaller diff.
 
 **Reproduce.**
 
 ```bash
 node .agents/scripts/check-baselines.js --format text   # names the 3 gates it ran
-sed -n '/name: baselines/,/windows-smoke/p' .github/workflows/ci.yml | grep 'check-'
-grep "label: '" .agents/scripts/run-verify.js            # the 7 steps verify covers
+sed -n '/name: baselines/,/windows-smoke/p' .github/workflows/ci.yml | grep 'js'
+grep "label: '" .agents/scripts/run-verify.js            # the 9 steps verify covers
 ```
 
-**Safe move.** `npm run verify` is the closest local mirror; run
-`node .agents/scripts/check-workflow-citations.js` alongside it when the
-change touches workflow prose under `.agents/workflows/`. Reproducing only
-the `.agentrc.json` command before a push is a false green.
+**Safe move.** `npm run verify` is the closest local mirror. Run
+`node .agents/scripts/check-workflow-citations.js` alongside it when the change
+touches workflow prose under `.agents/workflows/`, and
+`npm run baselines:scope && npm run baselines:prune -- --check` when it adds,
+deletes or moves files inside a scored `targetDirs` root. Reproducing only the
+`.agentrc.json` command before a push is a false green.
 
 ## 3. The two dead-export passes disagree, and the production pass is silent without `!`
 

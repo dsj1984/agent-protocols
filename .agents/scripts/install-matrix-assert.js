@@ -67,7 +67,6 @@ const FRAMEWORK_RUNTIME_DEPS = [
   'js-yaml',
   'minimatch',
   'picomatch',
-  'string-argv',
   'typhonjs-escomplex',
 ];
 

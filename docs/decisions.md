@@ -80,7 +80,7 @@ the floor-vs-ratchet policy are tooling commitments rather than ADRs and live in
 | [`20260424-596c`](#adr-20260424-596c-kernel-version-stamp-on-the-crap-baseline) | Kernel-version stamp on the CRAP baseline | `baselines/crap.json` |
 | [`20260424-638a`](#adr-20260424-638a-story-566-reap-recovery-is-a-self-inflicted-dirty-tree-bug) | `story-566` reap recovery is a self-inflicted dirty-tree bug | `.agents/scripts/lib/worktree/bootstrapper.js` |
 | [`20260426-817a`](#adr-20260426-817a-validation-evidence-is-keyed-by-commit-sha-not-by-build-id) | Validation evidence is keyed by commit SHA, not by build ID | `.agents/scripts/evidence-gate.js` |
-| [`20260426-817c`](#adr-20260426-817c-soft-failing-gates-surface-degraded-state-explicitly-not-silently) | Soft-failing gates surface degraded state explicitly, not silently | `.agents/scripts/lint-baseline.js` |
+| [`20260426-817c`](#adr-20260426-817c-soft-failing-gates-surface-degraded-state-explicitly-not-silently) | Soft-failing gates surface degraded state explicitly, not silently | `.agents/scripts/lib/degraded-mode.js` |
 | [`20260426-817d`](#adr-20260426-817d-cli-entrypoints-carry-nodecoverage-ignore-file-their-main-is-exercised-via-integration-tests-not-unit-line-coverage) | CLI entrypoints carry `node:coverage ignore file`; their `main()`… | `.agents/scripts/notify.js` |
 | [`20260502-960a`](#adr-20260502-960a-production-code-is-not-shaped-by-test-internals--tests-import-helpers-directly-with-an-explicit-ctx-bag) | Production code is not shaped by test internals — tests import he… | `.agents/scripts/lib/worktree/bootstrapper.js` |
 | [`20260507-1114b`](#adr-20260507-1114b-freshness-gate-on-decompose--fail-fast-on-stale-path-references) | Freshness gate on decompose — fail fast on stale path references | `.agents/scripts/lib/orchestration/ticket-validator.js` |
@@ -2231,13 +2231,16 @@ Named `sprint-story-close` the single canonical local Story validation gate, so 
 ## ADR-20260426-817c: Soft-failing gates surface degraded state explicitly, not silently
 
 -   **Status:** Accepted (Epic #817, v5.28.0).
--   **Surface:** `.agents/scripts/lint-baseline.js`
+-   **Surface:** `.agents/scripts/lib/degraded-mode.js`
 -   **Context:** `select-audits.js` (diff timeout fallback to keyword-only),
     `lint-baseline.js` (zero-error fallback on JSON parse failure), and
     `baseline-refresh-guardrail.js` (empty-changed-files on `git diff`
     failure) all returned permissive zero-error envelopes when their
     inputs failed. The audit found this fail-open behaviour produced
     silent green runs that read identically to genuine clean runs.
+    Story #5004 retired `lint-baseline.js`; the ADR's Surface now names
+    the shared helper that builds the envelope, which is where the
+    contract actually lives.
 -   **Decision:** Each soft-failing gate either fails closed under
     `--gate-mode` (or `MANDREL_GATE_MODE=1`) — non-zero exit, no
     permissive output — or returns a structured `{ ok: false, degraded:

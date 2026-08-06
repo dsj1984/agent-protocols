@@ -8,7 +8,7 @@
   "rollup": {
     "*": {
       "p50": 2,
-      "p95": 10.022261179285973,
+      "p95": 10.0244140625,
       "max": 29.000120920774684,
       "methodsAbove20": 8
     }
@@ -1209,193 +1209,6 @@
       "path": ".agents/scripts/check-doc-links.js",
       "method": "main",
       "startLine": 528,
-      "crap": 6
-    },
-    {
-      "path": ".agents/scripts/check-gherkin-placeholders.js",
-      "method": "walkFiles",
-      "startLine": 77,
-      "crap": 6.058619987787503
-    },
-    {
-      "path": ".agents/scripts/check-gherkin-placeholders.js",
-      "method": "discoverFeatures",
-      "startLine": 95,
-      "crap": 2
-    },
-    {
-      "path": ".agents/scripts/check-gherkin-placeholders.js",
-      "method": "<anon discoverFeatures/(name)#0>",
-      "startLine": 100,
-      "crap": 1,
-      "anonymous": true
-    },
-    {
-      "path": ".agents/scripts/check-gherkin-placeholders.js",
-      "method": "discoverStepDefs",
-      "startLine": 107,
-      "crap": 2
-    },
-    {
-      "path": ".agents/scripts/check-gherkin-placeholders.js",
-      "method": "<anon discoverStepDefs/(name)#0>",
-      "startLine": 114,
-      "crap": 1,
-      "anonymous": true
-    },
-    {
-      "path": ".agents/scripts/check-gherkin-placeholders.js",
-      "method": "maskDocStrings",
-      "startLine": 130,
-      "crap": 6
-    },
-    {
-      "path": ".agents/scripts/check-gherkin-placeholders.js",
-      "method": "extractPlaceholders",
-      "startLine": 161,
-      "crap": 2
-    },
-    {
-      "path": ".agents/scripts/check-gherkin-placeholders.js",
-      "method": "parseOutlines",
-      "startLine": 179,
-      "crap": 10
-    },
-    {
-      "path": ".agents/scripts/check-gherkin-placeholders.js",
-      "method": "<anon parseOutlines/(c)#0>",
-      "startLine": 221,
-      "crap": 1,
-      "anonymous": true
-    },
-    {
-      "path": ".agents/scripts/check-gherkin-placeholders.js",
-      "method": "<anon parseOutlines/(c)#1>",
-      "startLine": 222,
-      "crap": 1,
-      "anonymous": true
-    },
-    {
-      "path": ".agents/scripts/check-gherkin-placeholders.js",
-      "method": "parseStepDefs",
-      "startLine": 250,
-      "crap": 6
-    },
-    {
-      "path": ".agents/scripts/check-gherkin-placeholders.js",
-      "method": "readHandlerParams",
-      "startLine": 284,
-      "crap": 4.175582990397805
-    },
-    {
-      "path": ".agents/scripts/check-gherkin-placeholders.js",
-      "method": "<anon readHandlerParams/(p)#0>",
-      "startLine": 299,
-      "crap": 1.010973936899863,
-      "anonymous": true
-    },
-    {
-      "path": ".agents/scripts/check-gherkin-placeholders.js",
-      "method": "<anon readHandlerParams/(p)#1>",
-      "startLine": 300,
-      "crap": 1.010973936899863,
-      "anonymous": true
-    },
-    {
-      "path": ".agents/scripts/check-gherkin-placeholders.js",
-      "method": "readStringLiteral",
-      "startLine": 306,
-      "crap": 4.48828125
-    },
-    {
-      "path": ".agents/scripts/check-gherkin-placeholders.js",
-      "method": "readRegexLiteral",
-      "startLine": 324,
-      "crap": 8.008000000000001
-    },
-    {
-      "path": ".agents/scripts/check-gherkin-placeholders.js",
-      "method": "readHandlerBody",
-      "startLine": 348,
-      "crap": 7.537722908093278
-    },
-    {
-      "path": ".agents/scripts/check-gherkin-placeholders.js",
-      "method": "buildFromExpression",
-      "startLine": 369,
-      "crap": 8.543082081936141
-    },
-    {
-      "path": ".agents/scripts/check-gherkin-placeholders.js",
-      "method": "buildFromRegex",
-      "startLine": 410,
-      "crap": 2.0185185185185186
-    },
-    {
-      "path": ".agents/scripts/check-gherkin-placeholders.js",
-      "method": "countCaptureGroups",
-      "startLine": 423,
-      "crap": 13.259615384615385
-    },
-    {
-      "path": ".agents/scripts/check-gherkin-placeholders.js",
-      "method": "escapeRegex",
-      "startLine": 450,
-      "crap": 1
-    },
-    {
-      "path": ".agents/scripts/check-gherkin-placeholders.js",
-      "method": "substitutePlaceholders",
-      "startLine": 468,
-      "crap": 1
-    },
-    {
-      "path": ".agents/scripts/check-gherkin-placeholders.js",
-      "method": "<anon substitutePlaceholders/(_full,name)#0>",
-      "startLine": 470,
-      "crap": 1,
-      "anonymous": true
-    },
-    {
-      "path": ".agents/scripts/check-gherkin-placeholders.js",
-      "method": "bodyReferencesParam",
-      "startLine": 493,
-      "crap": 3
-    },
-    {
-      "path": ".agents/scripts/check-gherkin-placeholders.js",
-      "method": "bodyReadsAnyArgument",
-      "startLine": 507,
-      "crap": 4
-    },
-    {
-      "path": ".agents/scripts/check-gherkin-placeholders.js",
-      "method": "resolveBinding",
-      "startLine": 531,
-      "crap": 6.002604166666667
-    },
-    {
-      "path": ".agents/scripts/check-gherkin-placeholders.js",
-      "method": "checkFile",
-      "startLine": 558,
-      "crap": 9
-    },
-    {
-      "path": ".agents/scripts/check-gherkin-placeholders.js",
-      "method": "runCheck",
-      "startLine": 616,
-      "crap": 2
-    },
-    {
-      "path": ".agents/scripts/check-gherkin-placeholders.js",
-      "method": "formatViolation",
-      "startLine": 641,
-      "crap": 2
-    },
-    {
-      "path": ".agents/scripts/check-gherkin-placeholders.js",
-      "method": "main",
-      "startLine": 645,
       "crap": 6
     },
     {
@@ -6627,25 +6440,6 @@
       "crap": 3
     },
     {
-      "path": ".agents/scripts/lib/checks/baseline-drift-main-checkout.js",
-      "method": "<anon (p)#0>",
-      "startLine": 51,
-      "crap": 1,
-      "anonymous": true
-    },
-    {
-      "path": ".agents/scripts/lib/checks/baseline-drift-main-checkout.js",
-      "method": "isStoryBranch",
-      "startLine": 82,
-      "crap": 2
-    },
-    {
-      "path": ".agents/scripts/lib/checks/baseline-drift-main-checkout.js",
-      "method": "samePath",
-      "startLine": 96,
-      "crap": 4.021947873799726
-    },
-    {
       "path": ".agents/scripts/lib/checks/index.js",
       "method": "clearRegistryCache",
       "startLine": 108,
@@ -6751,53 +6545,6 @@
       "path": ".agents/scripts/lib/checks/loop-health.js",
       "method": "<anon detectLoopHealth/(title)#0>",
       "startLine": 284,
-      "crap": 1,
-      "anonymous": true
-    },
-    {
-      "path": ".agents/scripts/lib/checks/push-hook-parity.js",
-      "method": "<anon (f)#0>",
-      "startLine": 54,
-      "crap": 1,
-      "anonymous": true
-    },
-    {
-      "path": ".agents/scripts/lib/checks/push-hook-parity.js",
-      "method": "<anon (f)#1>",
-      "startLine": 56,
-      "crap": 1,
-      "anonymous": true
-    },
-    {
-      "path": ".agents/scripts/lib/checks/push-hook-parity.js",
-      "method": "<anon (f)#2>",
-      "startLine": 69,
-      "crap": 1,
-      "anonymous": true
-    },
-    {
-      "path": ".agents/scripts/lib/checks/push-hook-parity.js",
-      "method": "buildFixCommand",
-      "startLine": 84,
-      "crap": 1
-    },
-    {
-      "path": ".agents/scripts/lib/checks/push-hook-parity.js",
-      "method": "<anon buildFixCommand/(g)#0>",
-      "startLine": 90,
-      "crap": 1,
-      "anonymous": true
-    },
-    {
-      "path": ".agents/scripts/lib/checks/push-hook-parity.js",
-      "method": "indent",
-      "startLine": 101,
-      "crap": 1
-    },
-    {
-      "path": ".agents/scripts/lib/checks/push-hook-parity.js",
-      "method": "<anon indent/(line)#0>",
-      "startLine": 104,
       "crap": 1,
       "anonymous": true
     },
@@ -6981,53 +6728,6 @@
       "method": "<anon (o)#0>",
       "startLine": 244,
       "crap": 1.0000877914951989,
-      "anonymous": true
-    },
-    {
-      "path": ".agents/scripts/lib/checks/worktree-bootstrap-env.js",
-      "method": "<anon (wtPath,files)#0>",
-      "startLine": 38,
-      "crap": 3,
-      "anonymous": true
-    },
-    {
-      "path": ".agents/scripts/lib/checks/worktree-bootstrap-env.js",
-      "method": "<anon (entry)#0>",
-      "startLine": 44,
-      "crap": 1,
-      "anonymous": true
-    },
-    {
-      "path": ".agents/scripts/lib/checks/worktree-bootstrap-env.js",
-      "method": "<anon (m)#0>",
-      "startLine": 47,
-      "crap": 1,
-      "anonymous": true
-    },
-    {
-      "path": ".agents/scripts/lib/checks/worktree-bootstrap-env.js",
-      "method": "buildFixCommand",
-      "startLine": 73,
-      "crap": 1
-    },
-    {
-      "path": ".agents/scripts/lib/checks/worktree-residue-biome.js",
-      "method": "<anon (p)#0>",
-      "startLine": 29,
-      "crap": 1,
-      "anonymous": true
-    },
-    {
-      "path": ".agents/scripts/lib/checks/worktree-residue-biome.js",
-      "method": "buildFixCommand",
-      "startLine": 50,
-      "crap": 2
-    },
-    {
-      "path": ".agents/scripts/lib/checks/worktree-residue-biome.js",
-      "method": "<anon buildFixCommand/(p)#0>",
-      "startLine": 54,
-      "crap": 1,
       "anonymous": true
     },
     {

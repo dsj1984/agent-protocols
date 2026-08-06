@@ -14,7 +14,6 @@
       "patterns.md"
     ],
     "commands": {
-      "lintBaseline": "npx eslint . --format json",
       "test": "npm test",
       "typecheck": null,
       "formatCheck": "npx biome format .",

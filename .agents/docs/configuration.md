@@ -62,7 +62,6 @@ top-level keys are validation errors.
 | `paths.tempRoot` | Yes | `string` | — | — |
 | `docsContextFiles` | No | `array<string>` | — | — |
 | `commands` | No | `object` | — | Nested configuration block. |
-| `commands.lintBaseline` | No | `string` | — | — |
 | `commands.test` | No | `string` | — | — |
 | `commands.typecheck` | No | `string` \| `null` | — | — |
 | `commands.formatCheck` | No | `string` | — | — |
@@ -476,7 +475,6 @@ number of keys.
 
 | Key                                                  | Root dogfood                          | Distributed template (`agentrc-reference.json`) | Why they differ                                                                                                                  |
 | ---------------------------------------------------- | ------------------------------------- | ------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------- |
-| `project.commands.lintBaseline`                      | `npm run lint`                        | `npx eslint . --format json`               | Root piggybacks on the repo's existing lint script; consumer template assumes a generic ESLint setup with structured output.     |
 | `delivery.quality.gates.maintainability.targetDirs`  | `[".agents/scripts", "tests"]`        | `["src"]`                                  | Root scans the framework's own source tree; consumer template scans the conventional `src/`.                                     |
 | `delivery.quality.gates.crap.targetDirs`             | `[".agents/scripts"]`                 | `["src"]`                                  | Same reason as maintainability above.                                                                                            |
 | `github.owner` / `.repo` / `.projectNumber` | Populated for `dsj1984/mandrel` | `[OWNER]` / `[REPO]` / `null` | Shared repo identifiers; placeholders in the template are replaced by `node .agents/scripts/bootstrap.js` (or by hand). |
@@ -510,7 +508,7 @@ the lint ratchet, and the CRAP/MI gates.
 
 | File                              | Owner                                | Refresh                                                                |
 | --------------------------------- | ------------------------------------ | ---------------------------------------------------------------------- |
-| `baselines/lint.json`             | `lint-baseline.js`                   | `node .agents/scripts/lint-baseline.js capture`                       |
+| `baselines/lint.json`             | the consumer's own linter            | No framework CLI — see [Lint baseline ratchet](quality-gates.md#lint-baseline-ratchet) |
 | `baselines/crap.json`             | `update-crap-baseline.js`            | `npm run crap:update`                                                   |
 | `baselines/maintainability.json`  | `update-maintainability-baseline.js` | `npm run maintainability:update`                                        |
 | `baselines/bundle-size.json`      | consumer's own build/measure step    | Commit the build's measured sizes; for an intentional growth, run the check with `BUNDLE_SIZE_REFRESH=1` (see [Bundle-size ratchet](quality-gates.md#bundle-size-ratchet--one-shot-refreshacknowledge-story-151)) |

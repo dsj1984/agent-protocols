@@ -1373,7 +1373,6 @@ conventions to follow.
 - **Git hooks:** Husky + `lint-staged`
 - **JSON Schema validation:** Ajv + `ajv-formats`
 - **In-memory filesystem for tests:** `memfs`
-- **Shell argv parsing:** `string-argv`
 - **Complexity metrics:** `typhonjs-escomplex` (maintainability baseline
   enforcement)
 
