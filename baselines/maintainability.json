@@ -1,11 +1,11 @@
 {
   "$schema": ".agents/schemas/baselines/maintainability.schema.json",
   "kernelVersion": "0.1.0",
-  "generatedAt": "2026-08-06T04:12:38.508Z",
+  "generatedAt": "2026-08-06T04:55:31.027Z",
   "rollup": {
     "*": {
       "min": 74.146,
-      "p50": 98.341,
+      "p50": 98.296,
       "p95": 122.913
     }
   },
@@ -80,7 +80,7 @@
     },
     {
       "path": ".agents/scripts/check-lifecycle-doc-drift.js",
-      "mi": 85.238
+      "mi": 86.04
     },
     {
       "path": ".agents/scripts/check-lifecycle-lint.js",
@@ -688,7 +688,7 @@
     },
     {
       "path": ".agents/scripts/lib/config/limits.js",
-      "mi": 107.775
+      "mi": 110.172
     },
     {
       "path": ".agents/scripts/lib/config/paths.js",
@@ -1051,6 +1051,10 @@
       "mi": 97.315
     },
     {
+      "path": ".agents/scripts/lib/orchestration/behind-recovery.js",
+      "mi": 95.247
+    },
+    {
       "path": ".agents/scripts/lib/orchestration/ceremony-routing.js",
       "mi": 98.296
     },
@@ -1100,7 +1104,7 @@
     },
     {
       "path": ".agents/scripts/lib/orchestration/complexity-gate.js",
-      "mi": 99.331
+      "mi": 101.225
     },
     {
       "path": ".agents/scripts/lib/orchestration/consolidation-precondition.js",
@@ -1192,7 +1196,7 @@
     },
     {
       "path": ".agents/scripts/lib/orchestration/lease-guard-shared.js",
-      "mi": 103.119
+      "mi": 113.393
     },
     {
       "path": ".agents/scripts/lib/orchestration/lifecycle/bus.js",
@@ -1220,7 +1224,7 @@
     },
     {
       "path": ".agents/scripts/lib/orchestration/lifecycle/listeners/watcher.js",
-      "mi": 89.438
+      "mi": 91.883
     },
     {
       "path": ".agents/scripts/lib/orchestration/lifecycle/trace-logger.js",
@@ -1359,10 +1363,6 @@
       "mi": 103.288
     },
     {
-      "path": ".agents/scripts/lib/orchestration/resolves-token.js",
-      "mi": 130.397
-    },
-    {
       "path": ".agents/scripts/lib/orchestration/retro-proposals.js",
       "mi": 97.72
     },
@@ -1448,7 +1448,7 @@
     },
     {
       "path": ".agents/scripts/lib/orchestration/single-story-close/phases/confirm-merge.js",
-      "mi": 87.824
+      "mi": 90.578
     },
     {
       "path": ".agents/scripts/lib/orchestration/single-story-close/phases/normalize-pr-title.js",
@@ -1492,7 +1492,7 @@
     },
     {
       "path": ".agents/scripts/lib/orchestration/single-story-lease-guard.js",
-      "mi": 116.294
+      "mi": 119.136
     },
     {
       "path": ".agents/scripts/lib/orchestration/spec-budget.js",
@@ -1511,16 +1511,8 @@
       "mi": 103.587
     },
     {
-      "path": ".agents/scripts/lib/orchestration/story-close/emit-blocked.js",
-      "mi": 102.033
-    },
-    {
       "path": ".agents/scripts/lib/orchestration/story-close/format-autofix.js",
       "mi": 88.765
-    },
-    {
-      "path": ".agents/scripts/lib/orchestration/story-close/phases/code-review.js",
-      "mi": 102.703
     },
     {
       "path": ".agents/scripts/lib/orchestration/story-close/phases/local-lens-review.js",
@@ -1564,7 +1556,7 @@
     },
     {
       "path": ".agents/scripts/lib/orchestration/ticket-lease.js",
-      "mi": 91.945
+      "mi": 95.392
     },
     {
       "path": ".agents/scripts/lib/orchestration/ticket-validator-conflicts.js",
@@ -1904,7 +1896,7 @@
     },
     {
       "path": ".agents/scripts/lib/worktree/lifecycle/merge-reachability.js",
-      "mi": 100.76
+      "mi": 102.885
     },
     {
       "path": ".agents/scripts/lib/worktree/lifecycle/pending-cleanup.js",
@@ -2080,7 +2072,7 @@
     },
     {
       "path": ".agents/scripts/resolve-stories.js",
-      "mi": 104.87
+      "mi": 105.681
     },
     {
       "path": ".agents/scripts/resync-status-column.js",
@@ -2125,10 +2117,6 @@
     {
       "path": ".agents/scripts/sync-agentrc.js",
       "mi": 102.354
-    },
-    {
-      "path": ".agents/scripts/sync-branch-from-base.js",
-      "mi": 90.206
     },
     {
       "path": ".agents/scripts/sync-claude-agents.js",

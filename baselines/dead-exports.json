@@ -1,7 +1,7 @@
 {
   "$schema": "https://mandrel.dev/baselines/dead-exports.schema.json",
   "kernelVersion": "6.17.1",
-  "generatedAt": "2026-08-06T04:13:27.579884Z",
+  "generatedAt": "2026-08-06T04:56:35.927181Z",
   "rows": [
     {
       "file": ".agents/scripts/check-baseline-drift.js",
@@ -226,10 +226,6 @@
     {
       "file": ".agents/scripts/lib/orchestration/reassert-status-column.js",
       "symbol": "DEFAULT_POLL_DELAY_MS"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/resolves-token.js",
-      "symbol": "resolvesOrRefsGrepArgs"
     },
     {
       "file": ".agents/scripts/lib/orchestration/review-providers/codex.js",
