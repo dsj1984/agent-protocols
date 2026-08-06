@@ -47,11 +47,10 @@ const WINDOWS_CWD_RE =
  * (branch advanced to a SHA still reachable from the Epic merge commit).
  *
  * When HEAD is no longer an ancestor (force-push that drops or rewrites
- * the merged tip), the function falls back to a `merge-commit-reachable`
- * check: search the Epic ref for a `--no-ff` merge commit whose subject
- * carries this Story's `(resolves #<id>)` token. Such a merge commit
- * proves the Story branch was integrated even though the current HEAD
- * has diverged, so the worktree is still safe to reap.
+ * the merged tip), the function falls back to a `rebased-equivalents`
+ * check: `git cherry` proves every commit on the branch is already
+ * upstream by patch-id even though the current HEAD has diverged, so the
+ * worktree is still safe to reap.
  *
  * `opts.epicBranch` is the integration / base ref the Story must already
  * be merged into (e.g. `main` or a plan-run branch).

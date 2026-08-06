@@ -2,7 +2,7 @@
  * tests/lib/worktree/lifecycle/merge-reachability.test.js
  *
  * Direct branch coverage for the merge-reachability half of
- * `isSafeToRemove`. Fakes `ctx.git.gitSpawn` so every ancestor / grep
+ * `isSafeToRemove`. Fakes `ctx.git.gitSpawn` so every ancestor / cherry
  * branch is exercised without spinning up a git repo — the end-to-end
  * happy paths stay covered by `post-rebase-reap.test.js`.
  */
@@ -12,7 +12,6 @@ import { describe, it } from 'node:test';
 import {
   checkHeadAncestor,
   checkMergeReachability,
-  hasMergeCommitForStory,
   hasRebasedEquivalents,
   resolveHeadSha,
 } from '../../../../.agents/scripts/lib/worktree/lifecycle/merge-reachability.js';
@@ -116,39 +115,6 @@ describe('checkHeadAncestor', () => {
   });
 });
 
-describe('hasMergeCommitForStory', () => {
-  it('returns false (no spawn) for a branch that does not match story-<id>', () => {
-    const ctx = fakeCtx([]);
-    assert.equal(hasMergeCommitForStory(ctx, 'feature/foo', 'epic/1'), false);
-    assert.equal(ctx.calls.length, 0);
-  });
-
-  it('returns true when the grep finds a matching merge commit', () => {
-    const ctx = fakeCtx([{ status: 0, stdout: 'deadbeef\n' }]);
-    assert.equal(hasMergeCommitForStory(ctx, 'story-42', 'epic/1'), true);
-    assert.deepEqual(ctx.calls[0].args, [
-      'log',
-      'epic/1',
-      '--merges',
-      '-n',
-      '1',
-      '--pretty=%H',
-      '-E',
-      '--grep=resolves #42( |\\)|$)',
-    ]);
-  });
-
-  it('returns false when the grep returns empty stdout', () => {
-    const ctx = fakeCtx([{ status: 0, stdout: '' }]);
-    assert.equal(hasMergeCommitForStory(ctx, 'story-42', 'epic/1'), false);
-  });
-
-  it('returns false when the grep exits non-zero', () => {
-    const ctx = fakeCtx([{ status: 1, stdout: '' }]);
-    assert.equal(hasMergeCommitForStory(ctx, 'story-42', 'epic/1'), false);
-  });
-});
-
 describe('hasRebasedEquivalents', () => {
   it('returns true when every cherry line starts with "- " (all patch-equivalent)', () => {
     const ctx = fakeCtx([
@@ -220,24 +186,10 @@ describe('checkMergeReachability', () => {
     assert.match(out.reason, /fatal: bad ref/);
   });
 
-  it('falls back to merge-commit-reachable when grep finds the commit', async () => {
+  it('falls back to rebased-equivalents when cherry shows all patch-equivalent (Story #3161)', async () => {
     const ctx = fakeCtx([
       { status: 0, stdout: 'abc1234' }, // rev-parse HEAD
       { status: 1 }, // ancestor: not ancestor
-      { status: 0, stdout: 'deadbeef' }, // grep hits
-    ]);
-    const out = await checkMergeReachability(ctx, '/wt', 'story-42', 'epic/1');
-    assert.deepEqual(out, {
-      safe: true,
-      reason: 'merge-commit-reachable',
-    });
-  });
-
-  it('falls back to rebased-equivalents when grep misses but cherry shows all patch-equivalent (Story #3161)', async () => {
-    const ctx = fakeCtx([
-      { status: 0, stdout: 'abc1234' }, // rev-parse HEAD
-      { status: 1 }, // ancestor: not ancestor
-      { status: 0, stdout: '' }, // grep: no match
       { status: 0, stdout: '- aaaa1111\n- bbbb2222\n' }, // cherry: all upstream
     ]);
     const out = await checkMergeReachability(ctx, '/wt', 'story-42', 'epic/1');
@@ -247,11 +199,10 @@ describe('checkMergeReachability', () => {
     });
   });
 
-  it('reports unmerged-commits when all three gates fail', async () => {
+  it('reports unmerged-commits when both gates fail', async () => {
     const ctx = fakeCtx([
       { status: 0, stdout: 'abc1234' }, // rev-parse HEAD
       { status: 1 }, // ancestor: not ancestor
-      { status: 0, stdout: '' }, // grep: no match
       { status: 0, stdout: '- aaaa1111\n+ bbbb2222\n' }, // cherry: + present
     ]);
     const out = await checkMergeReachability(ctx, '/wt', 'story-42', 'epic/1');
@@ -261,7 +212,7 @@ describe('checkMergeReachability', () => {
     });
   });
 
-  it('reports unmerged-commits without spawning grep for non-story branches (cherry still runs)', async () => {
+  it('reports unmerged-commits for a non-story branch (cherry still runs)', async () => {
     const ctx = fakeCtx([
       { status: 0, stdout: 'abc1234' },
       { status: 1 },
