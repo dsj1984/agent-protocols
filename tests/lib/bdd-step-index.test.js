@@ -12,8 +12,7 @@
  */
 
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, it } from 'node:test';
 
@@ -23,11 +22,11 @@ import {
   listStepFiles,
   matchStep,
 } from '../../.agents/scripts/lib/bdd-step-index.js';
+import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
 
 const { expressionToRegExp, parseStepDefinitions } = __testing;
 
-const makeTmpDir = () =>
-  mkdtempSync(path.join(tmpdir(), 'mandrel-bdd-step-index-'));
+const makeTmpDir = () => makeTempDir('bdd-step-index-');
 
 describe('expressionToRegExp', () => {
   it('matches literal text exactly and anchored', () => {
