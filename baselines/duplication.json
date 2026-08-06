@@ -1,13 +1,13 @@
 {
   "$schema": ".agents/schemas/baselines/duplication.schema.json",
   "kernelVersion": "1.0.0",
-  "generatedAt": "2026-08-06T09:56:22.975Z",
+  "generatedAt": "2026-08-06T10:31:29.291Z",
   "rollup": {
     "*": {
-      "percentage": 7.9,
-      "duplicatedLines": 1726,
-      "totalLines": 21840,
-      "filesWithDuplication": 78
+      "percentage": 7.89,
+      "duplicatedLines": 1799,
+      "totalLines": 22804,
+      "filesWithDuplication": 80
     }
   },
   "rows": [
@@ -264,6 +264,12 @@
       "percentage": 3.37
     },
     {
+      "path": ".agents/scripts/lib/orchestration/single-story-close/runner.js",
+      "duplicatedLines": 20,
+      "totalLines": 862,
+      "percentage": 2.32
+    },
+    {
       "path": ".agents/scripts/lib/orchestration/story-close/format-autofix.js",
       "duplicatedLines": 11,
       "totalLines": 520,
@@ -478,6 +484,12 @@
       "duplicatedLines": 55,
       "totalLines": 113,
       "percentage": 48.67
+    },
+    {
+      "path": "lib/migrations/steps/2.32.0-retire-lint-baseline-command.js",
+      "duplicatedLines": 53,
+      "totalLines": 102,
+      "percentage": 51.96
     }
   ]
 }

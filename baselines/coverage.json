@@ -1,12 +1,12 @@
 {
   "$schema": ".agents/schemas/baselines/coverage.schema.json",
   "kernelVersion": "1.0.0",
-  "generatedAt": "2026-08-06T10:16:31.302Z",
+  "generatedAt": "2026-08-06T10:31:25.748Z",
   "rollup": {
     "*": {
-      "lines": 95.77,
-      "branches": 86.4,
-      "functions": 88.47
+      "lines": 95.8,
+      "branches": 86.47,
+      "functions": 88.59
     }
   },
   "rows": [
@@ -2177,10 +2177,16 @@
       "functions": 95.65
     },
     {
+      "path": ".agents/scripts/lib/orchestration/single-story-close/phases/conventional-subject.js",
+      "lines": 100,
+      "branches": 87.3,
+      "functions": 100
+    },
+    {
       "path": ".agents/scripts/lib/orchestration/single-story-close/phases/normalize-pr-title.js",
-      "lines": 92.53,
-      "branches": 42.86,
-      "functions": 60
+      "lines": 100,
+      "branches": 83.87,
+      "functions": 100
     },
     {
       "path": ".agents/scripts/lib/orchestration/single-story-close/phases/options.js",
@@ -2232,9 +2238,9 @@
     },
     {
       "path": ".agents/scripts/lib/orchestration/single-story-close/runner.js",
-      "lines": 96.4,
-      "branches": 83.78,
-      "functions": 84.62
+      "lines": 96.75,
+      "branches": 83.54,
+      "functions": 89.47
     },
     {
       "path": ".agents/scripts/lib/orchestration/single-story-lease-guard.js",
@@ -3272,6 +3278,12 @@
       "path": "lib/migrations/steps/2.20.0-retire-codebase-snapshot.js",
       "lines": 100,
       "branches": 83.33,
+      "functions": 100
+    },
+    {
+      "path": "lib/migrations/steps/2.32.0-retire-lint-baseline-command.js",
+      "lines": 100,
+      "branches": 82.35,
       "functions": 100
     }
   ]
