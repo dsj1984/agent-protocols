@@ -5,6 +5,7 @@ import { test } from 'node:test';
 import { runCli } from '../.agents/scripts/check-knip-entries.js';
 import {
   __testing,
+  countDivergences,
   renderEntrySyncReport,
   resolveEntrySync,
 } from '../.agents/scripts/lib/knip-entry-sync.js';
@@ -131,6 +132,36 @@ test('readKnipEntries: reads explicit top-level entries and ignores globs', () =
   const { entries, error } = readKnipEntries({ repoRoot: root });
   assert.equal(error, null);
   assert.deepEqual(entries, ['a.js']);
+});
+
+test('readKnipEntries: reports an entry declared without the `!` production marker', () => {
+  const root = makeFixtureRepo({ clis: ['a.js', 'b.js'] });
+  fs.writeFileSync(
+    path.join(root, 'knip.json'),
+    JSON.stringify({
+      entry: ['.agents/scripts/a.js!', '.agents/scripts/b.js'],
+    }),
+  );
+  const { entries, unsuffixed, error } = readKnipEntries({ repoRoot: root });
+  assert.equal(error, null);
+  // Still declared — the CLI is named — but knip's production pass negates it.
+  assert.deepEqual(entries, ['a.js', 'b.js']);
+  assert.deepEqual(unsuffixed, ['b.js']);
+});
+
+test('resolveEntrySync: an unsuffixed entry is a divergence, not a satisfied one', () => {
+  const root = makeFixtureRepo({ clis: ['a.js'] });
+  fs.writeFileSync(
+    path.join(root, 'knip.json'),
+    JSON.stringify({ entry: ['.agents/scripts/a.js'] }),
+  );
+  const report = resolveEntrySync({ repoRoot: root });
+  assert.deepEqual(report.unsuffixed, ['a.js']);
+  // The gate must fail: reading it as declared points the operator away from
+  // the cause, and accepting the dead-exports diff would then record a live
+  // CLI as expected-dead (Story #5012).
+  assert.ok(countDivergences(report) > 0);
+  assert.match(renderEntrySyncReport(report), /without a "!" suffix/);
 });
 
 test('readKnipEntries: reports an unreadable or entry-less config as an error', () => {

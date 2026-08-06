@@ -36,6 +36,7 @@
 import process from 'node:process';
 import { runAsCli } from './lib/cli-utils.js';
 import {
+  countDivergences,
   renderEntrySyncReport,
   resolveEntrySync,
 } from './lib/knip-entry-sync.js';
@@ -114,10 +115,7 @@ export async function runCli({
       `${JSON.stringify({ kind: 'knip-entry-sync', ...report }, null, 2)}\n`,
     );
     if (report.error) return EXIT_CANNOT_RUN;
-    return report.missing.length + report.stale.length + report.phantom.length >
-      0
-      ? EXIT_DIVERGED
-      : EXIT_PASS;
+    return countDivergences(report) > 0 ? EXIT_DIVERGED : EXIT_PASS;
   }
 
   if (report.error) {
@@ -127,9 +125,7 @@ export async function runCli({
 
   stdout.write(`\n--- knip-entries ---\n`);
   stdout.write(`${renderEntrySyncReport(report)}\n`);
-  return report.missing.length + report.stale.length + report.phantom.length > 0
-    ? EXIT_DIVERGED
-    : EXIT_PASS;
+  return countDivergences(report) > 0 ? EXIT_DIVERGED : EXIT_PASS;
 }
 
 runAsCli(import.meta.url, async () => runCli(), {

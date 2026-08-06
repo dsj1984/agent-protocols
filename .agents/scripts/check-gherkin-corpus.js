@@ -36,7 +36,43 @@
 //   0  clean, or `qa.gherkinLint` is not configured
 //   1  a parse error, an unbound step, or a fail-closed condition
 
-import { readFileSync } from 'node:fs';
+// .agents/scripts/check-gherkin-corpus.js — static gate over a project's
+// Gherkin corpus: must-compile, then must-bind, scoped per step root.
+//
+// The framework ships the bddgen harness but nothing that inspects the corpus
+// it generates from. Two corpus-wide failures are invisible until generation
+// time, and both take the whole acceptance suite dark at once: a `.feature`
+// the parser rejects, and a step no definition claims. This gate catches both
+// offline, in the same `npm run lint` that already guards every other
+// framework-owned surface.
+//
+// Two contracts make the findings trustworthy rather than merely loud:
+//
+//   must-compile parses with the REAL `@cucumber/gherkin` parser. A gate that
+//   re-implements acceptance is the defect it is trying to prevent: a
+//   hand-rolled line reader silently skips what it does not recognise, so a
+//   corpus that cannot generate reads clean. Whatever bddgen accepts is what
+//   this gate must accept, and the only way to guarantee that is to run the
+//   same parser.
+//
+//   A file failing must-compile is EXCLUDED from must-bind. A broken file
+//   parses as an arbitrary subset of itself, so linting its surviving steps
+//   invents unbound findings that bury the one actionable line — the syntax
+//   error — under noise.
+//
+// The parser is an optional peer dependency (plus a framework devDependency),
+// resolved through a require path rooted at the consumer project rather than
+// imported by bare specifier. `.agents/` reaches a consumer by plain file
+// copy, so a bare specifier here would resolve against the consumer's own
+// module chain, which under a non-hoisting linker need not hold it at all.
+// This mirrors the `typescript` optional-peer precedent and keeps a consumer
+// with no BDD tier from gaining a runtime dependency.
+//
+// Exit codes:
+//   0  clean, or `qa.gherkinLint` is not configured
+//   1  a parse error, an unbound step, or a fail-closed condition
+
+import fs, { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import process from 'node:process';
@@ -200,15 +236,39 @@ export function collectActiveSteps(feature, exemptionTags) {
   const featureTags = tagNames(feature);
   const steps = [];
 
-  const walkContainer = (container, inheritedTags) => {
-    const backgrounds = [];
+  // A background step is reachable from more than one container once Rules are
+  // in play, so emitting is keyed on the step's own line to check it exactly
+  // once per feature rather than once per container that inherits it.
+  const emittedBackgroundLines = new Set();
+  const pushBackgroundSteps = (backgrounds) => {
+    for (const background of backgrounds) {
+      for (const step of background.steps ?? []) {
+        if (emittedBackgroundLines.has(step.location.line)) continue;
+        emittedBackgroundLines.add(step.location.line);
+        steps.push({ line: step.location.line, text: step.text, examples: [] });
+      }
+    }
+  };
+
+  const walkContainer = (container, inheritedTags, inheritedBackgrounds) => {
+    const backgrounds = [...inheritedBackgrounds];
     const scenarios = [];
     for (const child of container?.children ?? []) {
       if (child.background) backgrounds.push(child.background);
       if (child.scenario) scenarios.push(child.scenario);
-      if (child.rule) {
-        walkContainer(child.rule, [...inheritedTags, ...tagNames(child.rule)]);
-      }
+    }
+    // Gherkin runs a feature-level Background for every scenario in the
+    // feature, Rule-nested ones included, so the rule walk inherits the
+    // backgrounds collected above. Recursing before the no-active-scenarios
+    // return is what lets a feature whose scenarios all live under Rules still
+    // have its Background checked.
+    for (const child of container?.children ?? []) {
+      if (!child.rule) continue;
+      walkContainer(
+        child.rule,
+        [...inheritedTags, ...tagNames(child.rule)],
+        backgrounds,
+      );
     }
     const active = scenarios.filter(
       (scenario) =>
@@ -217,11 +277,7 @@ export function collectActiveSteps(feature, exemptionTags) {
         ),
     );
     if (active.length === 0) return;
-    for (const background of backgrounds) {
-      for (const step of background.steps ?? []) {
-        steps.push({ line: step.location.line, text: step.text, examples: [] });
-      }
-    }
+    pushBackgroundSteps(backgrounds);
     for (const scenario of active) {
       for (const step of scenario.steps ?? []) {
         steps.push({
@@ -233,7 +289,7 @@ export function collectActiveSteps(feature, exemptionTags) {
     }
   };
 
-  walkContainer(feature, featureTags);
+  walkContainer(feature, featureTags, []);
   return steps;
 }
 
@@ -323,6 +379,33 @@ export function scanScope({
   };
 }
 
+/**
+ * The featureRoots half of the blackout contract the stepRoots check already
+ * covers on the definitions side. A renamed or typo'd root resolves zero
+ * features, and "nothing to check" would then report green over a corpus
+ * nobody is checking. A root that exists but holds no `.feature` file yet is
+ * the legitimate not-written-them-yet case and stays passing — absence of the
+ * directory is what separates misconfiguration from an empty corpus.
+ *
+ * @param {Array<{ name: string, featureRoots: string[] }>} scopes
+ * @param {string} root
+ * @returns {string | null} the operator-facing message, or null when clean
+ */
+function findMissingFeatureRoots(scopes, root) {
+  for (const scope of scopes) {
+    const missing = scope.featureRoots.filter(
+      (r) => !fs.existsSync(path.resolve(root, r)),
+    );
+    if (missing.length === 0) continue;
+    return (
+      `scope "${scope.name}" names featureRoots that do not exist: ${missing.join(', ')} — ` +
+      'every feature in this scope would go unchecked, which is a blackout, ' +
+      "not a clean run. Point featureRoots at the directory holding this scope's .feature files."
+    );
+  }
+  return null;
+}
+
 /** Render one finding as a single operator-readable line. */
 export function renderFinding(finding) {
   if (finding.kind === 'parse-error') {
@@ -355,6 +438,12 @@ export async function runCli({
       `${TAG} not configured — add a \`qa.gherkinLint\` block to .agentrc.json to enable this gate.\n`,
     );
     return 0;
+  }
+
+  const blackout = findMissingFeatureRoots(contract.scopes, root);
+  if (blackout) {
+    stderr.write(`${TAG} ❌ ${blackout}\n`);
+    return 1;
   }
 
   const corpusSize = contract.scopes.reduce(

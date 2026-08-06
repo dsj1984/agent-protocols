@@ -33,10 +33,12 @@
  * being added here, so a green `verify` still hid both. Like their neighbours
  * they are pure-Node and cost milliseconds.
  *
- * Still NOT mirrored: `check-workflow-citations.js`, `check-baseline-scope.js`
- * and `prune-baseline-orphans.js --check` run in CI's `baselines` job only —
+ * Still NOT mirrored: `check-workflow-citations.js` and
+ * `check-baseline-scope.js` run in CI's `baselines` job only —
  * `.agents/rules/known-tooling-behavior.md` entry 2 carries the current
- * coverage table. Nor are the CI gates this command structurally cannot
+ * coverage table. (`prune-baseline-orphans.js --check` used to sit in that
+ * list; it no longer runs in CI at all — the un-attributed duplicate of the
+ * scope gate's `extra` direction reds every open PR on inherited rows.) Nor are the CI gates this command structurally cannot
  * reproduce (action pinning, TruffleHog secret scan) — those are catalogued
  * in docs/ci-contract.md. The nightly full-scope re-score
  * (.github/workflows/baseline-drift.yml) is deliberately outside this

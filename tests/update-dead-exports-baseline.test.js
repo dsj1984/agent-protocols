@@ -262,6 +262,38 @@ test('runCli: the default pass writes the envelope the checker reads', async () 
   assert.deepEqual(fs.readFileSync(productionBaseline), productionBefore);
 });
 
+test('runCli: writes through a temp file and renames, never in place', async () => {
+  const { cwd, defaultBaseline, reportPath } = makeRepo();
+  const writes = [];
+  const renames = [];
+
+  const { code } = await run({
+    argv: ['--knip-output', path.relative(cwd, reportPath)],
+    cwd,
+    writeFileImpl: (target, body, enc) => {
+      writes.push(target);
+      fs.writeFileSync(target, body, enc);
+    },
+    renameImpl: (from, to) => {
+      renames.push([from, to]);
+      fs.renameSync(from, to);
+    },
+  });
+
+  assert.equal(code, 0);
+  // A crash between the write and the rename must leave the committed
+  // baseline untouched: an unparseable one reads as empty to
+  // check-dead-exports.js, which then reports every existing row as added.
+  assert.deepEqual(writes, [`${defaultBaseline}.tmp`]);
+  assert.deepEqual(renames, [[`${defaultBaseline}.tmp`, defaultBaseline]]);
+  assert.equal(fs.existsSync(`${defaultBaseline}.tmp`), false);
+  assert.deepEqual(JSON.parse(fs.readFileSync(defaultBaseline, 'utf-8')).rows, [
+    { file: 'lib/a.js', symbol: '*' },
+    { file: 'lib/b.js', symbol: 'alpha' },
+    { file: 'lib/b.js', symbol: 'beta' },
+  ]);
+});
+
 test('runCli: the production pass self-labels and leaves its sibling alone', async () => {
   const { cwd, defaultBaseline, productionBaseline, reportPath } = makeRepo();
   const defaultBefore = fs.readFileSync(defaultBaseline);

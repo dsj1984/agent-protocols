@@ -222,6 +222,7 @@ export function describeUnusableReport(envelope) {
  *   readKnipOutputImpl?: typeof readKnipOutput,
  *   readFileImpl?: typeof fs.readFileSync,
  *   writeFileImpl?: typeof fs.writeFileSync,
+ *   renameImpl?: typeof fs.renameSync,
  *   now?: () => string,
  * }} [opts]
  * @returns {Promise<number>} 0 on a written baseline; 1 on any fail-closed path.
@@ -235,6 +236,7 @@ export async function runCli({
   readKnipOutputImpl = readKnipOutput,
   readFileImpl = fs.readFileSync,
   writeFileImpl = fs.writeFileSync,
+  renameImpl = fs.renameSync,
   now = () => new Date().toISOString(),
 } = {}) {
   const { baselinePath, knipOutputPath, production } = parseArgv(argv);
@@ -273,7 +275,13 @@ export async function runCli({
     rows,
     generatedAt: now(),
   });
-  writeFileImpl(target, `${JSON.stringify(envelope, null, 2)}\n`, 'utf-8');
+  // Write-then-rename, matching `lib/baselines/writer.js`: a crash or a full
+  // disk mid-write must not leave a truncated envelope behind. An unparseable
+  // baseline reads as empty to `check-dead-exports.js`, which would report
+  // every pre-existing row as newly added.
+  const tmpTarget = `${target}.tmp`;
+  writeFileImpl(tmpTarget, `${JSON.stringify(envelope, null, 2)}\n`, 'utf-8');
+  renameImpl(tmpTarget, target);
   stdout.write(
     `[${label}] ✅ wrote ${rows.length} row(s) to ${target} (kernelVersion=${kernelVersion}).\n`,
   );

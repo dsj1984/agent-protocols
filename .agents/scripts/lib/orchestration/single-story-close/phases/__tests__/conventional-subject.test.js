@@ -173,6 +173,38 @@ test('collectBreakingNotes: prose describing a break is not a declaration', () =
   assert.deepEqual(result.notes, []);
 });
 
+test('collectBreakingNotes: a footer quoted inside a code fence is not a declaration', () => {
+  // A Story whose Spec documents this very contract quotes the footer in a
+  // fence. Reading that as a declaration ships a `<type>!:` subject and a
+  // release note for a break nobody made.
+  const result = collectBreakingNotes({
+    storyBody:
+      '## Spec\n\nDeclare the break like this:\n\n```\nBREAKING CHANGE: example only\n```\n\nThat is all.\n',
+  });
+  assert.equal(result.breaking, false);
+  assert.deepEqual(result.notes, []);
+});
+
+test('collectBreakingNotes: a fenced example does not mask a real footer beside it', () => {
+  const result = collectBreakingNotes({
+    commitMessages: [
+      'feat: x\n\n```\nBREAKING CHANGE: example only\n```\n\nBREAKING CHANGE: the flag is gone.\n',
+    ],
+  });
+  assert.equal(result.breaking, true);
+  assert.deepEqual(result.notes, ['the flag is gone.']);
+});
+
+test('collectBreakingNotes: a real footer stops at a fence rather than eating it', () => {
+  const result = collectBreakingNotes({
+    commitMessages: [
+      'feat: x\n\nBREAKING CHANGE: the flag is gone.\n```\nsample\n```\n',
+    ],
+  });
+  assert.equal(result.breaking, true);
+  assert.deepEqual(result.notes, ['the flag is gone.']);
+});
+
 test('collectBreakingNotes: a lowercase footer keyword does not fire', () => {
   // `conventional-commits-parser` matches the uppercase token only; announcing
   // a break release-please will not see would be worse than staying quiet.

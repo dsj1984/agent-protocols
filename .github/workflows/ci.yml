@@ -264,17 +264,25 @@ jobs:
         # baseline: the answer is always zero, and a deliberate exception is
         # declared in the schema's own `x-mandrel-uncompiled` block.
         #
-        # Story #5012: the baseline honesty surface joins the slot as two
-        # instruments rather than one. `check-baseline-scope.js` asserts that
-        # each committed baseline's ROW SET still describes the tree — an
-        # in-scope file with no row, a row whose file is gone or has left the
-        # gate's scope — because every gate above can be green while measuring
-        # almost nothing, and nothing checked that. `prune-baseline-orphans.js
-        # --check` is its companion: the gate's hard failure is only defensible
-        # while the remedy is a command rather than a full re-score, and
-        # `--check` keeps `main` honest about there being nothing left to prune.
-        # Both are measurement-free — no scorer, no coverage artifact — so they
-        # cost milliseconds and need no test run to have happened.
+        # Story #5012: the baseline honesty surface. `check-baseline-scope.js`
+        # asserts that each committed baseline's ROW SET still describes the
+        # tree — an in-scope file with no row, a row whose file is gone or has
+        # left the gate's scope — because every gate above can be green while
+        # measuring almost nothing, and nothing checked that. It is
+        # measurement-free — no scorer, no coverage artifact — so it costs
+        # milliseconds and needs no test run to have happened.
+        #
+        # `prune-baseline-orphans.js --check` deliberately does NOT run here.
+        # It reports the same `extra` direction (absent / out-of-scope rows)
+        # that `check-baseline-scope.js` covers, but with no merge-base
+        # attribution: it exits 1 on any stale row whatever landed it. That is
+        # exactly the whole-tree equality the scope gate refuses, and pairing
+        # them made the attribution unreachable — one PR deleting a file while
+        # another re-adds its row via a baseline refresh leaves `main` carrying
+        # a stale row, and every open PR then reds on divergence its author did
+        # not create and cannot fix from their branch. The scope gate already
+        # surfaces that row as an inherited warning; the pruner stays the
+        # operator's remedy for clearing it.
         #
         # `check-knip-entries.js` runs ahead of the dead-exports pair it exists
         # to protect. #5001 made knip's entry list explicit (so an uninvoked CLI
@@ -297,7 +305,6 @@ jobs:
           node .agents/scripts/check-cyclomatic.js
           node .agents/scripts/check-schema-references.js
           node .agents/scripts/check-baseline-scope.js
-          node .agents/scripts/prune-baseline-orphans.js --check
 
   windows-smoke:
     # Story #3389 — advisory Windows leg. Exercises bootstrap, command sync,
