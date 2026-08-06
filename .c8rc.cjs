@@ -68,8 +68,6 @@ module.exports = {
     '.agents/scripts/diagnose-friction.js',
     // Git-manipulation CLI (branch sweeper) — integration-shaped.
     '.agents/scripts/git-cleanup.js',
-    // Lint gate shell over `run-lint.js` / the lint baseline kind.
-    '.agents/scripts/lint-baseline.js',
     // Desktop/terminal notification glue — pure side effect.
     '.agents/scripts/notify.js',
     // Structured-comment CLI shell over the ticketing provider.

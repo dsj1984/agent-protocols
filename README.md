@@ -87,7 +87,7 @@ time to confirm the install is healthy.
 > Prefer a surgical alternative? Replace `shamefully-hoist` with a scoped
 > `public-hoist-pattern[]=` line per package listed in
 > `.agents/runtime-deps.json` (`ajv`, `ajv-formats`, `js-yaml`, `minimatch`,
-> `picomatch`, `string-argv`, `typhonjs-escomplex`). If `mandrel doctor`
+> `picomatch`, `typhonjs-escomplex`). If `mandrel doctor`
 > reports `runtime-deps missing: …`, this is the fix.
 
 `bootstrap.js` is interactive on a TTY and auto-accepts the

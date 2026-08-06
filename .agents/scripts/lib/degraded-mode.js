@@ -3,8 +3,8 @@
  *
  * Tech Spec #819 §"Degraded-mode contract (Story 3)" — three soft-fail sites
  * (audit-suite selector diff-timeout, lint-baseline JSON-parse, baseline-refresh
- * guardrail git-diff) historically returned a silent zero/empty result. The
- * new contract is:
+ * guardrail git-diff) historically returned a silent zero/empty result. Two
+ * remain; the lint-baseline site left with its CLI. The contract is:
  *
  *   { ok: false, degraded: true, reason: <code>, detail: <human> }
  *

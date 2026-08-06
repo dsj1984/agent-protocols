@@ -5,8 +5,10 @@
 #
 # Before opening a PR or when you want CI-parity confidence locally, run:
 #   npm run verify
-# That runs lint (biome + docs:check) → npm test → unified check-baselines.
-# CI (.github/workflows/ci.yml) remains the authoritative full gate on every PR.
+# That runs audit → lint (biome + docs:check) → npm test → unified
+# check-baselines → the standalone ratchets. CI (.github/workflows/ci.yml)
+# remains the authoritative full gate on every PR; `.agents/rules/
+# known-tooling-behavior.md` entry 2 carries the current coverage table.
 #
 # Optional: PREPUSH_AUDIT=1 re-enables npm audit (CI still audits on PR/push).
 
@@ -21,3 +23,11 @@ fi
 
 node .agents/scripts/coverage-capture.js --skip-when-no-crap-files --ref origin/main
 npm run crap:check
+
+# Story #5004 — the context-budget ratchet is zero-tolerance in BOTH
+# directions: a byte-reducing change reds it just as a growing one does, and
+# the remedy is a committed baseline refresh. It was reachable locally only
+# through `npm run verify` (full suite, minutes), so shrink-reds were routinely
+# discovered by CI after the push. It is a pure-Node, sub-second read of the
+# always-loaded doc closure, so it belongs on the fast diff-scoped surface too.
+node .agents/scripts/check-context-budget.js

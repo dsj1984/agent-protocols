@@ -7,7 +7,6 @@
       "tempRoot": "temp"
     },
     "commands": {
-      "lintBaseline": "npm run lint",
       "typecheck": "node --version"
     }
   },

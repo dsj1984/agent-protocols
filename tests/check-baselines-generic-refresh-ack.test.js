@@ -52,7 +52,7 @@ function setupTmpRepo({ floors } = {}) {
       baseBranch: 'main',
       paths: { agentRoot: '.agents', docsRoot: 'docs', tempRoot: 'temp' },
       docsContextFiles: [],
-      commands: { lintBaseline: 'echo', test: 'echo', typecheck: 'echo' },
+      commands: { test: 'echo', typecheck: 'echo' },
     },
     github: { owner: 'x', repo: 'y', operatorHandle: '@ci' },
     delivery: {
@@ -238,7 +238,7 @@ describe('check-baselines — generic refresh acknowledgment (#4802)', () => {
         baseBranch: 'main',
         paths: { agentRoot: '.agents', docsRoot: 'docs', tempRoot: 'temp' },
         docsContextFiles: [],
-        commands: { lintBaseline: 'echo', test: 'echo', typecheck: 'echo' },
+        commands: { test: 'echo', typecheck: 'echo' },
       },
       github: { owner: 'x', repo: 'y', operatorHandle: '@ci' },
       delivery: {

@@ -1,7 +1,7 @@
 {
   "$schema": ".agents/schemas/baselines/maintainability.schema.json",
   "kernelVersion": "0.1.0",
-  "generatedAt": "2026-08-06T03:06:28.774Z",
+  "generatedAt": "2026-08-06T03:33:55.993Z",
   "rollup": {
     "*": {
       "min": 74.146,
@@ -77,10 +77,6 @@
     {
       "path": ".agents/scripts/check-doc-links.js",
       "mi": 89.461
-    },
-    {
-      "path": ".agents/scripts/check-gherkin-placeholders.js",
-      "mi": 88.348
     },
     {
       "path": ".agents/scripts/check-lifecycle-doc-drift.js",
@@ -551,10 +547,6 @@
       "mi": 104.057
     },
     {
-      "path": ".agents/scripts/lib/checks/baseline-drift-main-checkout.js",
-      "mi": 99.115
-    },
-    {
       "path": ".agents/scripts/lib/checks/core-bare-clean.js",
       "mi": 97.089
     },
@@ -567,10 +559,6 @@
       "mi": 84.905
     },
     {
-      "path": ".agents/scripts/lib/checks/push-hook-parity.js",
-      "mi": 108.85
-    },
-    {
       "path": ".agents/scripts/lib/checks/state.js",
       "mi": 104.464
     },
@@ -581,18 +569,6 @@
     {
       "path": ".agents/scripts/lib/checks/subagent-agent-tool-required.js",
       "mi": 92.389
-    },
-    {
-      "path": ".agents/scripts/lib/checks/windows-coverage-noise-floor.js",
-      "mi": 76.464
-    },
-    {
-      "path": ".agents/scripts/lib/checks/worktree-bootstrap-env.js",
-      "mi": 104.089
-    },
-    {
-      "path": ".agents/scripts/lib/checks/worktree-residue-biome.js",
-      "mi": 109.499
     },
     {
       "path": ".agents/scripts/lib/cli-args.js",
@@ -1269,10 +1245,6 @@
     {
       "path": ".agents/scripts/lib/orchestration/light-suitability.js",
       "mi": 90.505
-    },
-    {
-      "path": ".agents/scripts/lib/orchestration/lint-baseline-service.js",
-      "mi": 96.762
     },
     {
       "path": ".agents/scripts/lib/orchestration/merge-block-class.js",
@@ -1975,10 +1947,6 @@
       "mi": 86.803
     },
     {
-      "path": ".agents/scripts/lint-baseline.js",
-      "mi": 91.025
-    },
-    {
       "path": ".agents/scripts/lint-issue-body.js",
       "mi": 98.874
     },
@@ -2152,7 +2120,7 @@
     },
     {
       "path": ".agents/scripts/run-verify.js",
-      "mi": 96.338
+      "mi": 93.708
     },
     {
       "path": ".agents/scripts/single-story-close.js",

@@ -4,9 +4,9 @@
   "generatedAt": "2026-08-06T02:31:32.393Z",
   "rollup": {
     "*": {
-      "lines": 95.86,
-      "branches": 86.28,
-      "functions": 88.9
+      "lines": 95.83,
+      "branches": 86.29,
+      "functions": 88.77
     }
   },
   "rows": [
@@ -105,12 +105,6 @@
       "lines": 95.61,
       "branches": 89.77,
       "functions": 86.67
-    },
-    {
-      "path": ".agents/scripts/check-gherkin-placeholders.js",
-      "lines": 91.86,
-      "branches": 75,
-      "functions": 91.3
     },
     {
       "path": ".agents/scripts/check-lifecycle-doc-drift.js",
@@ -803,12 +797,6 @@
       "functions": 100
     },
     {
-      "path": ".agents/scripts/lib/checks/baseline-drift-main-checkout.js",
-      "lines": 98.08,
-      "branches": 70,
-      "functions": 100
-    },
-    {
       "path": ".agents/scripts/lib/checks/core-bare-clean.js",
       "lines": 100,
       "branches": 80,
@@ -827,12 +815,6 @@
       "functions": 100
     },
     {
-      "path": ".agents/scripts/lib/checks/push-hook-parity.js",
-      "lines": 100,
-      "branches": 86.36,
-      "functions": 100
-    },
-    {
       "path": ".agents/scripts/lib/checks/state.js",
       "lines": 100,
       "branches": 95.16,
@@ -848,24 +830,6 @@
       "path": ".agents/scripts/lib/checks/subagent-agent-tool-required.js",
       "lines": 95.35,
       "branches": 81.4,
-      "functions": 100
-    },
-    {
-      "path": ".agents/scripts/lib/checks/windows-coverage-noise-floor.js",
-      "lines": 100,
-      "branches": 100,
-      "functions": 100
-    },
-    {
-      "path": ".agents/scripts/lib/checks/worktree-bootstrap-env.js",
-      "lines": 100,
-      "branches": 87.5,
-      "functions": 100
-    },
-    {
-      "path": ".agents/scripts/lib/checks/worktree-residue-biome.js",
-      "lines": 100,
-      "branches": 80,
       "functions": 100
     },
     {
@@ -1940,12 +1904,6 @@
       "path": ".agents/scripts/lib/orchestration/light-suitability.js",
       "lines": 99.29,
       "branches": 91.3,
-      "functions": 100
-    },
-    {
-      "path": ".agents/scripts/lib/orchestration/lint-baseline-service.js",
-      "lines": 100,
-      "branches": 100,
       "functions": 100
     },
     {

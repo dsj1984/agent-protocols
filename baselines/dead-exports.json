@@ -1,7 +1,7 @@
 {
   "$schema": "https://mandrel.dev/baselines/dead-exports.schema.json",
   "kernelVersion": "6.17.1",
-  "generatedAt": "2026-08-06T03:08:48.898Z",
+  "generatedAt": "2026-08-06T03:33:08.945Z",
   "rows": [
     {
       "file": ".agents/scripts/check-baseline-drift.js",
@@ -406,34 +406,6 @@
     {
       "file": ".agents/scripts/lib/worktree/node-modules-strategy.js",
       "symbol": "primePnpmStore"
-    },
-    {
-      "file": ".agents/scripts/lint-baseline.js",
-      "symbol": "captureBaseline"
-    },
-    {
-      "file": ".agents/scripts/lint-baseline.js",
-      "symbol": "checkBaseline"
-    },
-    {
-      "file": ".agents/scripts/lint-baseline.js",
-      "symbol": "diffBaseline"
-    },
-    {
-      "file": ".agents/scripts/lint-baseline.js",
-      "symbol": "hasDegraded"
-    },
-    {
-      "file": ".agents/scripts/lint-baseline.js",
-      "symbol": "hasImproved"
-    },
-    {
-      "file": ".agents/scripts/lint-baseline.js",
-      "symbol": "loadBaselineWithFallback"
-    },
-    {
-      "file": ".agents/scripts/lint-baseline.js",
-      "symbol": "main"
     },
     {
       "file": ".agents/scripts/post-structured-comment.js",

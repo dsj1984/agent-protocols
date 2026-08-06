@@ -42,9 +42,10 @@ dependency trip-wires live in the appendix, not here.
    authors N>1 Stories, a parallel-draft + adversarial-consolidation pass
    could improve seam quality. Hold to the same measured-delta discipline as
    the audit gate.
-4. **Dynamic spec / Gherkin mutation engine** — aspirational; static
-   placeholder lint (`check-gherkin-placeholders.js`) is the supported
-   surface. **Trip-wire (both):** consumer demand on the BDD tier *and* a
+4. **Dynamic spec / Gherkin mutation engine** — aspirational; there is no
+   supported spec-mutation surface today (the static placeholder lint that
+   used to be named here was retired — it scanned a directory that never
+   existed). **Trip-wire (both):** consumer demand on the BDD tier *and* a
    dogfood fixture.
 5. **Productize-or-stay-internal** 🚪 — aspirational/external; the one
    product decision gating the entire readiness backlog (runtime/ticketing

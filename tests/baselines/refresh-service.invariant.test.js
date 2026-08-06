@@ -75,7 +75,6 @@ const MIGRATION_ALLOWLIST = Object.freeze(
     // kind-internal write to that CLI.
     // Story #3658 migrated update-crap-baseline.js and update-coverage-baseline.js;
     // both are intentionally absent — the invariant catches any regression.
-    '.agents/scripts/lint-baseline.js',
     '.agents/scripts/lib/coverage-baseline.js',
     '.agents/scripts/lib/mutation/baseline-snapshot.js',
     // Story #3995 relocated `saveBaseline` from `maintainability-utils.js`

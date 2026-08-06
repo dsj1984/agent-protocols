@@ -1031,8 +1031,8 @@ service that may have drifted).
 
 ## Honest degraded modes: structured envelope, non-zero exit
 
-When a soft-failing gate (`select-audits.js`, `lint-baseline.js`) cannot
-fully execute — diff timeout,
+When a soft-failing gate (`select-audits.js`,
+`baseline-refresh-guardrail.js`) cannot fully execute — diff timeout,
 JSON parse failure, missing ref — the previous behaviour was a permissive
 zero-error fallback that read identically to a clean run. The current
 contract is:

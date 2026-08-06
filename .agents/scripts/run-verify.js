@@ -6,8 +6,8 @@
  * locally, without epic-scoped MI projection or push semantics.
  *
  * Order: audit (SCA) → lint (includes docs:check + the arch-cycles ratchet) →
- * full test suite → unified baselines → the dead-exports and context-budget
- * ratchets.
+ * full test suite → unified baselines → the standalone ratchets
+ * (dead-exports ×2, context-budget, cyclomatic, schema-references).
  *
  * The `audit` step runs `npm audit --audit-level=high`, matching CI's
  * "Dependency Vulnerability Audit (SCA)" gate so a local green no longer hides
@@ -27,9 +27,19 @@
  * full-tree scan in check-dead-exports.js) to a command that already carries
  * the full test suite.
  *
- * A handful of CI gates cannot be reproduced by this command (action pinning,
- * TruffleHog secret scan, the BASELINE_SCOPE=full push-scoped maintainability
- * run) — those are catalogued in docs/ci-contract.md.
+ * Story #5004 closed the last two mirror gaps that were pure omission.
+ * `check-cyclomatic.js` (#4923) and `check-schema-references.js` (#4938) were
+ * each added to the `baselines` job's standalone-ratchet slot without ever
+ * being added here, so a green `verify` still hid both. Like their neighbours
+ * they are pure-Node and cost milliseconds.
+ *
+ * Still NOT mirrored: `check-workflow-citations.js`, `check-baseline-scope.js`
+ * and `prune-baseline-orphans.js --check` run in CI's `baselines` job only —
+ * `.agents/rules/known-tooling-behavior.md` entry 2 carries the current
+ * coverage table. Nor are the CI gates this command structurally cannot
+ * reproduce (action pinning, TruffleHog secret scan, the BASELINE_SCOPE=full
+ * push-scoped maintainability run) — those are catalogued in
+ * docs/ci-contract.md.
  */
 
 import { spawnSync } from 'node:child_process';
@@ -62,6 +72,16 @@ const STEPS = [
     label: 'context-budget',
     cmd: 'node',
     args: ['.agents/scripts/check-context-budget.js'],
+  },
+  {
+    label: 'cyclomatic',
+    cmd: 'node',
+    args: ['.agents/scripts/check-cyclomatic.js'],
+  },
+  {
+    label: 'schema-references',
+    cmd: 'node',
+    args: ['.agents/scripts/check-schema-references.js'],
   },
 ];
 
