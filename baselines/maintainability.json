@@ -1,11 +1,11 @@
 {
   "$schema": ".agents/schemas/baselines/maintainability.schema.json",
   "kernelVersion": "0.1.0",
-  "generatedAt": "2026-08-06T09:55:25.735Z",
+  "generatedAt": "2026-08-06T10:13:07.638Z",
   "rollup": {
     "*": {
       "min": 76.058,
-      "p50": 98.344,
+      "p50": 98.358,
       "p95": 122.913
     }
   },
