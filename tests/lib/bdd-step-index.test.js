@@ -18,12 +18,13 @@ import path from 'node:path';
 import { describe, it } from 'node:test';
 
 import {
+  __testing,
   buildStepIndex,
-  expressionToRegExp,
   listStepFiles,
   matchStep,
-  parseStepDefinitions,
 } from '../../.agents/scripts/lib/bdd-step-index.js';
+
+const { expressionToRegExp, parseStepDefinitions } = __testing;
 
 const makeTmpDir = () =>
   mkdtempSync(path.join(tmpdir(), 'mandrel-bdd-step-index-'));

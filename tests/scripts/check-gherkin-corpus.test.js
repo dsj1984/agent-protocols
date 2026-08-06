@@ -126,7 +126,10 @@ describe('escapes for a false unbound', () => {
   it('exempts a tagged scenario and honours a step waiver', async () => {
     const { code, stdout } = await run('escapes');
     assert.equal(code, 0, 'the escapes corpus should report clean');
-    assert.match(stdout, /✅ 1 feature file\(s\) compile and bind/);
+    // Two files: the exemption/waiver feature, and a comment-only file that
+    // compiles to no Feature node at all — which must be counted and skipped,
+    // never crashed on.
+    assert.match(stdout, /✅ 2 feature file\(s\) compile and bind/);
   });
 
   it('does not let an exemption tag escape must-compile', async () => {

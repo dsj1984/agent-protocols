@@ -168,7 +168,7 @@ function splitAlternation(word) {
  * @param {string} expression
  * @returns {RegExp}
  */
-export function expressionToRegExp(expression) {
+function expressionToRegExp(expression) {
   const tokens = String(expression).split(/(\s+)/);
   const body = tokens
     .map((token) => {
@@ -234,7 +234,7 @@ function isDirAt(target) {
  * @param {string} file absolute path, recorded on each entry
  * @returns {Array<{ file: string, line: number, source: string, regex: RegExp }>}
  */
-export function parseStepDefinitions(source, file) {
+function parseStepDefinitions(source, file) {
   const entries = [];
   STEP_CALL_PATTERN.lastIndex = 0;
   let match = STEP_CALL_PATTERN.exec(source);
@@ -305,3 +305,15 @@ export function matchStep(index, text) {
   }
   return null;
 }
+
+/**
+ * Module-private helpers the suite drives directly. Bundled rather than
+ * exported individually — the same seam `knip-entry-sync.js` and
+ * `source-classifier.js` use — so test-only symbols cost one production
+ * dead-export row instead of one each, and so private helpers do not read as
+ * API.
+ */
+export const __testing = Object.freeze({
+  expressionToRegExp,
+  parseStepDefinitions,
+});

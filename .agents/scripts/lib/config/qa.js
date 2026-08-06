@@ -27,7 +27,7 @@
  * default exemption; the waiver list starts empty because every entry is a
  * project-specific admission that the step index guessed wrong.
  */
-export const GHERKIN_LINT_DEFAULTS = Object.freeze({
+const GHERKIN_LINT_DEFAULTS = Object.freeze({
   exemptionTags: Object.freeze(['@skip']),
   stepWaivers: Object.freeze([]),
 });
@@ -63,7 +63,7 @@ function normalizeScope(name, raw) {
  *   stepWaivers: string[],
  * } | null} `null` when the block is absent or not an object
  */
-export function resolveGherkinLint(raw) {
+function resolveGherkinLint(raw) {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
   const scopesRaw =
     raw.scopes && typeof raw.scopes === 'object' && !Array.isArray(raw.scopes)
@@ -93,3 +93,13 @@ export function resolveGherkinLint(raw) {
 export function getGherkinLint(config) {
   return resolveGherkinLint(config?.qa?.gherkinLint);
 }
+
+/**
+ * Module-private surface the suite drives directly, bundled behind one export
+ * for the same reason as `bdd-step-index.js`: `getGherkinLint` is the whole
+ * public API, and the normalizer and its defaults are how it is built.
+ */
+export const __testing = Object.freeze({
+  GHERKIN_LINT_DEFAULTS,
+  resolveGherkinLint,
+});

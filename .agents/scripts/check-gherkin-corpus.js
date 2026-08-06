@@ -392,7 +392,7 @@ export async function runCli({
     });
     if (result.featureCount > 0 && result.stepDefinitionCount === 0) {
       stderr.write(
-        `${TAG} ❌ scope "${scope.name}" resolved 0 step definitions from stepRoots: ${scope.stepRoots.join(', ') || '(none configured)'} — every step would report unbound, which is a blackout, not a finding. Point stepRoots at the directory holding this scope's step definitions.\n`,
+        `${TAG} ❌ scope "${scope.name}" resolved 0 step definitions from stepRoots: ${scope.stepRoots.join(', ')} — every step would report unbound, which is a blackout, not a finding. Point stepRoots at the directory holding this scope's step definitions.\n`,
       );
       return 1;
     }
