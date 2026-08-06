@@ -152,6 +152,7 @@ const FRAMEWORK_SCRIPT_BASENAMES = Object.freeze([
   'test-wrapper.js',
   'update-coverage-baseline.js',
   'update-crap-baseline.js',
+  'update-dead-exports-baseline.js',
   'update-duplication-baseline.js',
   'update-maintainability-baseline.js',
   'update-ticket-state.js',

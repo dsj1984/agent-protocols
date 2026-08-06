@@ -277,6 +277,21 @@ test('runCli: the production pass self-labels and leaves its sibling alone', asy
   assert.deepEqual(fs.readFileSync(defaultBaseline), defaultBefore);
 });
 
+test('runCli: the default clock stamps a real ISO instant', async () => {
+  const { cwd, defaultBaseline, reportPath } = makeRepo();
+
+  const code = await runCli({
+    argv: ['--knip-output', path.relative(cwd, reportPath)],
+    cwd,
+    stdout: sink,
+    stderr: sink,
+  });
+
+  assert.equal(code, 0);
+  const { generatedAt } = JSON.parse(fs.readFileSync(defaultBaseline, 'utf-8'));
+  assert.equal(new Date(generatedAt).toISOString(), generatedAt);
+});
+
 test('runCli: --baseline redirects the write off the mode default', async () => {
   const { cwd, defaultBaseline, reportPath } = makeRepo();
   const before = fs.readFileSync(defaultBaseline);
