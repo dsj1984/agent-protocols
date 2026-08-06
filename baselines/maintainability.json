@@ -5,7 +5,7 @@
   "rollup": {
     "*": {
       "min": 76.058,
-      "p50": 98.358,
+      "p50": 98.344,
       "p95": 122.913
     }
   },
@@ -2101,10 +2101,6 @@
     {
       "path": ".agents/scripts/update-ticket-state.js",
       "mi": 91.705
-    },
-    {
-      "path": ".agents/scripts/validate-docs-freshness.js",
-      "mi": 103.244
     },
     {
       "path": ".agents/scripts/validate-skills.js",
