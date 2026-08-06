@@ -125,33 +125,6 @@ different hazards:
   (`git -C <main-repo> checkout -- <files>`), then re-run `/deliver <storyId>`.
   Never `git reset --hard` or `git checkout --force` to clear the way.
 
-## Documentation Freshness Gate
-
-The `validate-docs-freshness.js` gate (run during `/deliver`) asks a
-falsifiable question of every doc in `delivery.docsFreshness.paths` +
-`project.docsContextFiles`: **was this doc actually updated for the Epic?**
-A doc passes on either of two conditions, but they are not
-interchangeable:
-
-- **Living docs are satisfied by being rewritten, not annotated.** For
-  any non-changelog doc (architecture, decisions, README, guides, …) the
-  gate passes **only** when an Epic-referencing commit touched the file —
-  a commit whose message references `#<epicId>` and changes the doc.
-  Rewrite the doc as part of the Epic's work; do not sprinkle `#<epicId>`
-  into its prose to satisfy the check. An appended `#<epicId>` annotation
-  alone **fails** the gate for these files, and the failure message names
-  the file and the rewrite-not-append contract.
-- **`#<epicId>` body annotations pass only for changelog files.** A
-  changelog-class file (basename matches `/changelog/i`, e.g.
-  `docs/CHANGELOG.md`) may pass on a body annotation, because an appended
-  release note keyed to the Epic is the legitimate, expected update there.
-  This is the single sanctioned annotation path; every other doc must use
-  the rewrite path above.
-
-This restriction exists to remove the perverse incentive by which the
-gate would otherwise reward manufacturing fake provenance — appending
-Epic-ID history into living docs purely to clear the check.
-
 ## Meta Labels (Retrospective Signal Routing)
 
 Two `meta::*` labels route retrospective signals into durable substrates so

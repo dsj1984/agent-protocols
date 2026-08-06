@@ -201,9 +201,9 @@ export function resolveAlwaysLoadedClosure(root, { fs = nodeFs } = {}) {
 
 /**
  * Read the resolved `project.docsContextFiles` list from a config object,
- * prefixed by `project.paths.docsRoot`. Mirrors the `contextDocs` half of
- * `resolveDocList` in `validate-docs-freshness.js` (new-shape first, legacy
- * top-level fallback).
+ * prefixed by `project.paths.docsRoot`. Resolves new-shape
+ * `project.docsContextFiles` first and falls back to the legacy top-level
+ * key, so a config written against either shape yields the same list.
  *
  * @param {object} config resolved config (`resolveConfig()` output)
  * @returns {string[]} repo-relative posix doc paths (existence not yet checked)

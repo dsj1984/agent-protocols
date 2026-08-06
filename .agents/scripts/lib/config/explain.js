@@ -143,7 +143,7 @@ const KEY_MEANINGS = Object.freeze({
   'delivery.ci.autoMerge':
     'Merge posture: trust-ci merges on green checks; strict also requires a clean review gate.',
   'delivery.docsFreshness.paths':
-    'Docs whose freshness is checked at delivery time.',
+    'Docs the audit-documentation lens folds into its target set.',
   'delivery.deliverRunner.concurrencyCap':
     'Maximum Stories dispatched in parallel within one wave. Default 3 — conservative by design to keep host-quota consumption predictable. Operators running wide waves with adequate parallel-agent quota should raise this to reduce wall-clock time proportionally.',
   'delivery.worktreeIsolation.enabled':

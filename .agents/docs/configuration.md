@@ -144,8 +144,8 @@ Everything `/deliver` and `single-story-close` consume: execution timeouts, work
 | --- | --- | --- | --- | --- |
 | `execution` | No | `object` | — | Wall-clock bounds on the subprocesses delivery spawns. |
 | `execution.timeoutMs` | No | `integer` | `600000` | Per-command timeout (ms) for the long-running spawns delivery drives — the close-validation chain and the gate CLIs. |
-| `docsFreshness` | No | `object` | — | Documentation-freshness gate scope: the files a change of consequence is expected to touch. |
-| `docsFreshness.paths` | No | `array<string>` | `["README.md"]` | Repo-relative documentation paths the freshness gate watches. |
+| `docsFreshness` | No | `object` | — | Documentation-freshness scope: the files a change of consequence is expected to touch. Read by the audit-documentation lens to seed its target set; no delivery gate enforces it. |
+| `docsFreshness.paths` | No | `array<string>` | `["README.md"]` | Repo-relative documentation paths the audit-documentation lens adds to its target set. |
 | `tempRetention` | No | `object` | — | Story #4794. Auto-purge of spent temp artifacts once their Story lands. Classification is an allowlist: only the declared classes below are ever deleted, so operator scratch files under tempRoot are reported with their size and left alone. signals.ndjson is never purged by any path. |
 | `tempRetention.enabled` | No | `boolean` | `true` | Master switch. Default true — reclaiming a landed Story's gate transcripts and validation evidence is the behaviour, and this knob turns it off. When false every purge path is a reported no-op. |
 | `tempRetention.staleDays` | No | `integer` | `7` | Age floor (days, default 7) for the families no Story id can be recovered from — roster-level audit reports and abandoned plan-<slug>/ dirs. Story-keyed artifacts do not wait for it: they are purged as soon as their merge is confirmed. |

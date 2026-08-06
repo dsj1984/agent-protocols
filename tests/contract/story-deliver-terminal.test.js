@@ -644,7 +644,8 @@ describe('emitTerminalEnvelope — the contract payload is not level-gated', () 
 
   it('still emits under AGENT_LOG_LEVEL=silent', () => {
     // The regression: the envelope used to go out via Logger.info, which is
-    // a no-op at `silent` — a documented level (instructions.md § 1.H). A
+    // a no-op at `silent` — a documented level (execution-reference.md
+    // § Log-level control). A
     // headless caller got an exit code and no envelope: the "none at all"
     // outcome the envelope exists to remove. A verbosity knob must not be
     // able to suppress a machine contract.

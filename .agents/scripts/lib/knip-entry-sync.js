@@ -40,11 +40,10 @@
  *
  * Deliberately NOT conferred by documentation prose. `.agents/docs/**` and
  * `docs/**` describe operator-run commands; a paragraph naming a CLI is not a
- * caller. Four CLIs are named only in prose today
+ * caller. Three CLIs are named only in prose today
  * (`check-baseline-drift.js`, `post-structured-comment.js`,
- * `provision-git-hooks.js`, `validate-docs-freshness.js`) and #5001 recorded
- * all four as whole-file dead rows on purpose. Counting prose would silently
- * resurrect them.
+ * `provision-git-hooks.js`) and #5001 recorded all of them as whole-file dead
+ * rows on purpose. Counting prose would silently resurrect them.
  *
  * A CLI that is only *imported* by another script (`cleanup-repo-test-temp.js`,
  * imported by `run-tests.js` and `run-coverage.js`) is correctly neither: it is

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-05T00:59:17.768Z",
+  "generatedAt": "2026-08-06T10:26:18.702Z",
   "generator": "generate-skills-index.js@1",
   "skills": [
     {
@@ -40,16 +40,6 @@
       "description": "Guides systematic root-cause debugging. Use when tests fail, builds break, behavior doesn't match expectations, or you encounter any unexpected error. Use when you need a systematic approach to finding and fixing the root cause rather than guessing.",
       "policyCapsuleBullets": 9,
       "allowedTools": null,
-      "vendor": null
-    },
-    {
-      "name": "diagnose-friction",
-      "tier": "core",
-      "category": "core",
-      "path": ".agents/skills/core/diagnose-friction/SKILL.md",
-      "description": "Wrap a shell command with diagnostic capture. On failure, print static suggestions and append a structured `friction` record to the per-Story signals.ndjson stream. Use whenever a script in the orchestration loop invokes a tool whose failure shape we want the analyzer to attribute.",
-      "policyCapsuleBullets": 9,
-      "allowedTools": ["Bash", "Read"],
       "vendor": null
     },
     {

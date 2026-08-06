@@ -1391,11 +1391,12 @@ conventions to follow.
   `IExecutionAdapter` abstraction as a hard cutover.
 - **Config resolution:** `.agents/scripts/lib/config-resolver.js` +
   `config-schema.js` (shell-metacharacter injection guards built in)
-- **Operator scripts catalog:**
-  [`.agents/scripts/README.md`](../.agents/scripts/README.md) documents the
-  optional operator-only CLIs not wired into `npm` / Husky / CI — today just
-  `validate-docs-freshness.js` (`loc-delta.js` and
-  `update-mutation-baseline.js` no longer exist).
+- **Scripts catalog:**
+  [`.agents/scripts/README.md`](../.agents/scripts/README.md) is the
+  directory's orientation pointer; the caller set is derived mechanically by
+  `check-knip-entries.js`, so there is no operator-only tier a CLI can hide
+  in (`loc-delta.js`, `update-mutation-baseline.js`, and
+  `validate-docs-freshness.js` no longer exist).
 
 ### Ticketing & CI
 

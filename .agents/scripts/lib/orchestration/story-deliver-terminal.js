@@ -425,7 +425,8 @@ export function persistTerminalEnvelope(
  * machine-readable contract — every invocation emits exactly ONE, and a
  * headless caller parses it out of stdout to decide what happened.
  * `Logger.info` is level-gated, so under the documented
- * `AGENT_LOG_LEVEL=silent` (§ 1.H) the envelope silently vanished and the
+ * `AGENT_LOG_LEVEL=silent` (execution-reference § Log-level control) the
+ * envelope silently vanished and the
  * caller got a bare exit code: precisely the "no envelope at all" outcome
  * Story #4543 exists to remove. A contract payload must not be suppressible
  * by a verbosity knob.

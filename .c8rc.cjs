@@ -84,8 +84,6 @@ module.exports = {
     '.agents/scripts/single-story-init.js',
     // Test harness wrapper — spawns the runner, no logic of its own.
     '.agents/scripts/test-wrapper.js',
-    // Docs-freshness gate shell over `lib/docs-freshness.js`.
-    '.agents/scripts/validate-docs-freshness.js',
 
     // --- Story #1702 lib/* carve-outs: data-as-code and process glue ----
     // Data-as-code JSON Schema literals — no branches to cover.

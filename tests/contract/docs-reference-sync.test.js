@@ -240,6 +240,8 @@ const UNRESOLVED_BY_DESIGN = Object.freeze({
   'loc-delta.js': 'operator CLI removed; the scripts README no longer lists it',
   'update-mutation-baseline.js':
     'operator CLI removed; the scripts README no longer lists it',
+  'validate-docs-freshness.js':
+    'Epic-keyed docs-freshness gate with zero invokers, deleted (Story #5010)',
   // --- Gitignored local overrides / runtime artifacts ----------------------
   '.agentrc.local.json': 'gitignored local config override',
   '.mcp.json': 'gitignored local MCP config',

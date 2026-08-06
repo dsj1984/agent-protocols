@@ -155,7 +155,6 @@ const FRAMEWORK_SCRIPT_BASENAMES = Object.freeze([
   'update-duplication-baseline.js',
   'update-maintainability-baseline.js',
   'update-ticket-state.js',
-  'validate-docs-freshness.js',
   'validate-skills.js',
 ]);
 

@@ -46,13 +46,13 @@ const EXECUTION_SCHEMA = {
 const DOCS_FRESHNESS_SCHEMA = {
   type: 'object',
   description:
-    'Documentation-freshness gate scope: the files a change of consequence is expected to touch.',
+    'Documentation-freshness scope: the files a change of consequence is expected to touch. Read by the audit-documentation lens to seed its target set; no delivery gate enforces it.',
   properties: {
     paths: {
       type: 'array',
       items: { ...SAFE_STRING, minLength: 1 },
       description:
-        'Repo-relative documentation paths the freshness gate watches.',
+        'Repo-relative documentation paths the audit-documentation lens adds to its target set.',
       default: ['README.md'],
     },
   },

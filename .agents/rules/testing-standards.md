@@ -111,16 +111,10 @@ load-bearing one.
 
 ## Test Structure (Arrange, Act, Assert)
 
-Every test at every tier follows the same three-block structure:
-
-1. **Arrange.** Set up state, fixtures, mocks, seeded data, or page
-   navigation.
-2. **Act.** Call the function, hit the endpoint, or drive the user
-   interaction.
-3. **Assert.** Validate the outputs or side effects appropriate to the tier.
-
-Do not interleave arrange/act/assert. Do not chain multiple unrelated
-assertions into a single "kitchen sink" test — split them.
+Every test at every tier arranges its state, acts once, and asserts the
+outputs or side effects appropriate to its tier — in that order, uninterleaved.
+Do not chain unrelated assertions into a single "kitchen sink" test; split
+them.
 
 ## Mocking & Isolation
 
@@ -166,55 +160,31 @@ reads it as a deliberate decision rather than gaming.
 ## Applying the Standards {#applying-the-standards}
 
 The tiers, assertion placement, and mocking rules above are the **what**. This
-section is the **how**: drive development test-first, and write tests that read
-like a specification.
+section is the **how**.
 
-### The TDD cycle — RED → GREEN → REFACTOR
-
-Write a failing test first (RED — a test that passes immediately proves
-nothing), write the minimum code to make it pass (GREEN — don't over-engineer),
-then refactor with the suite green (REFACTOR — extract shared logic, improve
-naming, remove duplication, re-running tests after each step). Apply this to any
-new logic, behaviour change, or edge case. Skip it only for pure configuration,
+**Drive development test-first — RED → GREEN → REFACTOR.** A failing test
+first (one that passes immediately proves nothing), then the minimum code that
+makes it pass, then refactoring with the suite green. This applies to any new
+logic, behaviour change, or edge case; skip it only for pure configuration,
 documentation, or static-content changes with no behavioural impact.
 
-### The Prove-It Pattern (bug fixes)
+**The Prove-It Pattern (bug fixes).** For every bug fix, **do not start by
+fixing it.** Write the reproduction test first and watch it fail, *then*
+implement the fix and watch it pass, *then* run the full suite for regressions.
+A bug fix without a failing-then-passing reproduction test is not done — the
+Beyoncé Rule: if you liked it, you should have put a test on it.
 
-For every bug fix, **do not start by fixing it.** Write a test that reproduces
-the bug first and watch it fail (confirming the bug exists), *then* implement
-the fix and watch it pass, *then* run the full suite for regressions. A bug fix
-without a failing-then-passing reproduction test is not done. The Beyoncé Rule:
-if you liked it, you should have put a test on it — infrastructure changes and
-refactors are not responsible for catching your bugs, your tests are.
-
-### Good-test style
-
-- **Test state, not interactions.** Assert on the outcome of an operation, not
-  on which internal methods were called. Interaction-based tests break on
-  refactor even when behaviour is unchanged.
-- **DAMP over DRY.** In tests, Descriptive And Meaningful Phrases beat
-  Don't-Repeat-Yourself: each test reads as a self-contained story without
-  tracing shared helpers. Duplication is acceptable when it makes a test
-  independently understandable.
-- **Prefer real implementations** (highest confidence) **> fakes > stubs >
-  mocks** (interaction verification — use sparingly), within the mocking MUSTs
-  in [§ Mocking & Isolation](#mocking--isolation). Over-mocking creates tests
-  that pass while production breaks.
-- **One assertion per concept**, and **name tests descriptively** so the name
-  reads like a specification (`sets status to completed and records timestamp`,
-  not `works`).
-
-### Anti-patterns
-
-| Anti-pattern                          | Fix                                                          |
-| ------------------------------------- | ----------------------------------------------------------- |
-| Testing implementation details        | Test inputs and outputs, not internal structure             |
-| Flaky (timing / order-dependent) tests| Deterministic assertions, fake timers, isolate test state   |
-| Testing framework/third-party code    | Only test your code                                         |
-| Snapshot abuse                        | Use sparingly; review every snapshot change                 |
-| No test isolation                     | Each test sets up and tears down its own state              |
-| Mocking everything                    | Prefer real > fake > stub > mock; mock only at boundaries   |
-| Writing code with no test / skipping tests to go green | Every new behaviour has a test; never `.skip` to pass |
+**Write tests that read like a specification.** Assert on the outcome of an
+operation, not on which internal methods were called. Prefer real
+implementations **> fakes > stubs > mocks**, within the mocking MUSTs in
+[§ Mocking & Isolation](#mocking--isolation) — over-mocking produces tests that
+pass while production breaks. Favour DAMP over DRY so each test reads as a
+self-contained story, keep one assertion per concept, and name the test after
+the behaviour (`sets status to completed and records timestamp`, not `works`).
+The recurring failure modes are the inverse of each of those: testing
+implementation details or third-party code, timing- and order-dependent flakes,
+snapshot abuse, state that leaks because a test never tore it down, and
+reaching green by skipping or deleting a test instead of writing one.
 
 ### Diagnosing test-pollution cascades
 
@@ -246,21 +216,15 @@ as an invariant over many inputs than as a handful of hand-picked examples
 business-rule examples ("a gold member gets 15% off"), UI flows, or a single
 hand-specified output, an example-based test is clearer and cheaper.
 
-### Finding properties
-
-| Pattern       | Question to ask                                            |
-| ------------- | --------------------------------------------------------- |
-| Round-trip    | Is there an inverse? Does `parse(print(x))` recover `x`?  |
-| Idempotence   | Does applying it twice equal applying it once?           |
-| Invariant     | What is always true of the output regardless of input?   |
-| Oracle        | Is there a simpler (slower) implementation to compare to? |
-| Metamorphic   | If I change the input *this* way, how must the output move?|
-
-Assert the **law**, not a recomputed expected value (that is just an example
-test wearing a generator). Constrain generators to the valid domain with the
-library's `filter` / `assume` / `map` combinators without discarding most
-inputs (over-filtering starves the search), and keep generative tests in the
-fast unit lane (bounded example counts, no unbounded I/O).
+Find the property by asking for a round-trip (does `parse(print(x))` recover
+`x`?), idempotence, an invariant true of the output regardless of input, a
+simpler oracle implementation to compare against, or a metamorphic relation
+between a change to the input and the required move in the output. Assert the
+**law**, not a recomputed expected value (that is just an example test wearing
+a generator). Constrain generators to the valid domain with the library's
+`filter` / `assume` / `map` combinators without discarding most inputs
+(over-filtering starves the search), and keep generative tests in the fast unit
+lane (bounded example counts, no unbounded I/O).
 
 ### Per-stack library and reproducibility
 
