@@ -22,12 +22,15 @@
  *     resolution fails towards strict whenever the diff can no longer explain
  *     the divergence.
  *
- * The module is pure, so everything here runs on hand-built inputs: no
- * fixture repository, no git, no filesystem.
+ * The module under test is pure, so the first three suites run on hand-built
+ * inputs — no fixture repository, no git, no filesystem. The last two spawn
+ * `check-baseline-scope.js`, because the exit code is what a required CI check
+ * consumes and attribution only becomes observable once real git history sits
+ * underneath it.
  */
 
 import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import test, { after, describe } from 'node:test';
@@ -318,6 +321,26 @@ describe('attributeDivergence — a PR is blocked only for what it created (AC-5
     assert.equal(split.warningCount, 0);
   });
 
+  test('a rename is fatal at both ends, because a rename strands a row', () => {
+    // A rename reaches this function pre-decomposed: the old path in `removed`,
+    // the new path in `added`. Both ends matter — the old row is now stale and
+    // the new file is now unmeasured — and a report that caught only one would
+    // leave the branch half-honest.
+    const split = attributeDivergence({
+      missing: ['src/new-name.js'],
+      extra: [{ path: 'src/old-name.js', reason: EXTRA_REASONS.ABSENT }],
+      added: ['src/new-name.js'],
+      removed: ['src/old-name.js'],
+    });
+
+    assert.deepEqual(split.fatal.missing, ['src/new-name.js']);
+    assert.deepEqual(
+      split.fatal.extra.map((row) => row.path),
+      ['src/old-name.js'],
+    );
+    assert.equal(split.warningCount, 0);
+  });
+
   test('called with nothing at all, it reports nothing', () => {
     assert.deepEqual(attributeDivergence(), {
       fatal: { missing: [], extra: [] },
@@ -488,5 +511,188 @@ describe('check-baseline-scope CLI — exit codes are the contract', () => {
 
     assert.equal(run.status, 2);
     assert.match(JSON.parse(run.stdout).error, /unknown flag "--strictt"/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Attribution end to end. The cases above all take the fail-towards-strict
+// path, which never exercises the decomposition that makes attribution work:
+// resolving a merge base, and reading `git diff --name-status -M` into the
+// added / removed sets. A rename is the one change shape that lands in BOTH,
+// and it is precisely the shape that strands a row — so it is proved here
+// against real git rather than asserted about a hand-built change set.
+// ---------------------------------------------------------------------------
+
+/**
+ * Env with every `GIT_*` variable dropped. Under a husky pre-push from a linked
+ * worktree, git exports `GIT_DIR` pointing at the shared main gitdir, and a
+ * fixture `git init` under that env writes into the MAIN checkout's config
+ * (#4580).
+ */
+const CLEAN_ENV = Object.fromEntries(
+  Object.entries(process.env).filter(([k]) => !k.startsWith('GIT_')),
+);
+
+/**
+ * A fixture repo with real history: `origin/main` carries `src/kept.js`,
+ * `src/old-name.js` and a maintainability baseline with a row for each, plus
+ * whichever pre-existing stale row the case wants. HEAD then applies `mutate`
+ * and commits it, WITHOUT touching the baseline — so the run stays in
+ * attributed mode rather than falling through to strict.
+ *
+ * @param {{ rows: Array<{ path: string, mi: number }>, mutate: (root: string) => void }} spec
+ * @returns {string} Absolute fixture root.
+ */
+function gitFixture({ rows, mutate }) {
+  cliFixtureSeq += 1;
+  const root = path.join(TMP, `git-repo-${cliFixtureSeq}`);
+  fs.mkdirSync(path.join(root, 'src'), { recursive: true });
+  fs.mkdirSync(path.join(root, 'baselines'), { recursive: true });
+  fs.writeFileSync(path.join(root, 'src/kept.js'), 'export const a = 1;\n');
+  fs.writeFileSync(path.join(root, 'src/old-name.js'), 'export const b = 2;\n');
+  fs.writeFileSync(
+    path.join(root, 'baselines/maintainability.json'),
+    `${JSON.stringify(
+      {
+        $schema: '.agents/schemas/baselines/maintainability.schema.json',
+        kernelVersion: currentKernelVersion('maintainability'),
+        generatedAt: '2026-01-01T00:00:00.000Z',
+        rollup: { '*': { min: 90, p50: 90, p95: 90 } },
+        rows,
+      },
+      null,
+      2,
+    )}\n`,
+  );
+  fs.cpSync(
+    path.join(cliFixture([]), '.agentrc.json'),
+    path.join(root, '.agentrc.json'),
+  );
+
+  const git = (...args) =>
+    execFileSync(
+      'git',
+      [
+        '-c',
+        'user.email=test@example.com',
+        '-c',
+        'user.name=Test',
+        '-c',
+        'commit.gpgsign=false',
+        ...args,
+      ],
+      { cwd: root, stdio: ['pipe', 'pipe', 'pipe'], env: CLEAN_ENV },
+    );
+
+  git('init', '-q', '-b', 'main');
+  git('add', '-A');
+  git('commit', '-q', '-m', 'seed');
+  git('update-ref', 'refs/remotes/origin/main', 'main');
+  mutate(root);
+  git('add', '-A');
+  git('commit', '-q', '-m', 'change');
+  return root;
+}
+
+describe('check-baseline-scope CLI — merge-base attribution end to end (AC-5)', () => {
+  test('a rename this branch made is fatal at both ends', () => {
+    const root = gitFixture({
+      rows: [
+        { path: 'src/kept.js', mi: 90 },
+        { path: 'src/old-name.js', mi: 90 },
+      ],
+      mutate: (dir) =>
+        fs.renameSync(
+          path.join(dir, 'src/old-name.js'),
+          path.join(dir, 'src/new-name.js'),
+        ),
+    });
+
+    const run = runCli(['--cwd', root, '--json']);
+
+    assert.equal(run.status, 1, run.stdout + run.stderr);
+    const report = JSON.parse(run.stdout);
+    // Attributed, not strict: the branch touched no baseline and no scope
+    // config, so the merge base is trusted to explain the divergence.
+    assert.equal(report.strict, false, JSON.stringify(report, null, 2));
+    assert.equal(report.strictReason, STRICT_REASONS.ATTRIBUTABLE);
+
+    const mi = report.kinds.find((entry) => entry.kind === 'maintainability');
+    assert.deepEqual(mi.fatal.missing, ['src/new-name.js']);
+    assert.deepEqual(
+      mi.fatal.extra.map((row) => row.path),
+      ['src/old-name.js'],
+    );
+    assert.equal(mi.warningCount, 0);
+  });
+
+  test('divergence this branch inherited is a warning, and the run still exits 0', () => {
+    // The stale row predates the merge base and no in-scope file moved.
+    // Blocking on it would red every open PR the moment anyone lands an
+    // in-scope file, which is the failure attribution exists to prevent.
+    const root = gitFixture({
+      rows: [
+        { path: 'src/kept.js', mi: 90 },
+        { path: 'src/old-name.js', mi: 90 },
+        { path: 'src/inherited-ghost.js', mi: 90 },
+      ],
+      mutate: (dir) =>
+        fs.writeFileSync(path.join(dir, 'README.md'), '# unrelated\n'),
+    });
+
+    const run = runCli(['--cwd', root, '--json']);
+
+    assert.equal(run.status, 0, run.stdout + run.stderr);
+    const report = JSON.parse(run.stdout);
+    assert.equal(report.strict, false);
+    const mi = report.kinds.find((entry) => entry.kind === 'maintainability');
+    assert.deepEqual(mi.fatal.extra, []);
+    assert.deepEqual(
+      mi.warning.extra.map((row) => row.path),
+      ['src/inherited-ghost.js'],
+    );
+  });
+
+  test('--strict promotes that same inherited divergence to fatal', () => {
+    const root = gitFixture({
+      rows: [
+        { path: 'src/kept.js', mi: 90 },
+        { path: 'src/old-name.js', mi: 90 },
+        { path: 'src/inherited-ghost.js', mi: 90 },
+      ],
+      mutate: (dir) =>
+        fs.writeFileSync(path.join(dir, 'README.md'), '# unrelated\n'),
+    });
+
+    const run = runCli(['--cwd', root, '--strict']);
+
+    assert.equal(run.status, 1);
+    assert.match(run.stdout, /strict: operator requested --strict/);
+    assert.match(run.stdout, /stale row \(absent\): src\/inherited-ghost\.js/);
+  });
+
+  test('editing a baseline fails the run towards strict', () => {
+    const root = gitFixture({
+      rows: [
+        { path: 'src/kept.js', mi: 90 },
+        { path: 'src/old-name.js', mi: 90 },
+        { path: 'src/inherited-ghost.js', mi: 90 },
+      ],
+      mutate: (dir) => {
+        // Any edit to the baseline: once the branch has rewritten the row set,
+        // the diff can no longer say which side introduced a divergence.
+        const file = path.join(dir, 'baselines/maintainability.json');
+        const parsed = JSON.parse(fs.readFileSync(file, 'utf8'));
+        parsed.rows[0].mi = 91;
+        fs.writeFileSync(file, `${JSON.stringify(parsed, null, 2)}\n`);
+      },
+    });
+
+    const run = runCli(['--cwd', root, '--json']);
+
+    assert.equal(run.status, 1);
+    const report = JSON.parse(run.stdout);
+    assert.equal(report.strict, true);
+    assert.equal(report.strictReason, STRICT_REASONS.BASELINE_EDITED);
   });
 });
