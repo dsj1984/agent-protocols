@@ -1,12 +1,12 @@
 {
   "$schema": ".agents/schemas/baselines/coverage.schema.json",
   "kernelVersion": "1.0.0",
-  "generatedAt": "2026-08-03T19:39:12.838Z",
+  "generatedAt": "2026-08-06T01:49:19.232Z",
   "rollup": {
     "*": {
-      "lines": 95.84,
+      "lines": 95.86,
       "branches": 86.23,
-      "functions": 88.82
+      "functions": 88.91
     }
   },
   "rows": [
@@ -69,6 +69,12 @@
       "lines": 91.3,
       "branches": 100,
       "functions": 66.67
+    },
+    {
+      "path": ".agents/scripts/check-baseline-scope.js",
+      "lines": 92.82,
+      "branches": 79.1,
+      "functions": 100
     },
     {
       "path": ".agents/scripts/check-baselines.js",
@@ -593,6 +599,12 @@
       "functions": 100
     },
     {
+      "path": ".agents/scripts/lib/baselines/orphan-pruner.js",
+      "lines": 100,
+      "branches": 90.48,
+      "functions": 100
+    },
+    {
       "path": ".agents/scripts/lib/baselines/path-canon.js",
       "lines": 98.47,
       "branches": 96,
@@ -615,6 +627,18 @@
       "lines": 89.69,
       "branches": 76.67,
       "functions": 82.35
+    },
+    {
+      "path": ".agents/scripts/lib/baselines/scope-assert.js",
+      "lines": 100,
+      "branches": 93.33,
+      "functions": 100
+    },
+    {
+      "path": ".agents/scripts/lib/baselines/scope-inventory.js",
+      "lines": 100,
+      "branches": 89.36,
+      "functions": 100
     },
     {
       "path": ".agents/scripts/lib/baselines/scope.js",
@@ -3212,6 +3236,12 @@
       "path": ".agents/scripts/provision-git-hooks.js",
       "lines": 88.24,
       "branches": 60,
+      "functions": 100
+    },
+    {
+      "path": ".agents/scripts/prune-baseline-orphans.js",
+      "lines": 95.58,
+      "branches": 81.4,
       "functions": 100
     },
     {

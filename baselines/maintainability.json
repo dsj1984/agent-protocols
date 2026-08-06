@@ -1,11 +1,11 @@
 {
   "$schema": ".agents/schemas/baselines/maintainability.schema.json",
   "kernelVersion": "0.1.0",
-  "generatedAt": "2026-08-03T19:38:29.432Z",
+  "generatedAt": "2026-08-06T01:47:45.193Z",
   "rollup": {
     "*": {
       "min": 74.146,
-      "p50": 98.282,
+      "p50": 98.173,
       "p95": 125.857
     }
   },
@@ -53,6 +53,10 @@
     {
       "path": ".agents/scripts/check-baseline-drift.js",
       "mi": 90.226
+    },
+    {
+      "path": ".agents/scripts/check-baseline-scope.js",
+      "mi": 90.044
     },
     {
       "path": ".agents/scripts/check-baselines.js",
@@ -411,6 +415,10 @@
       "mi": 114.194
     },
     {
+      "path": ".agents/scripts/lib/baselines/orphan-pruner.js",
+      "mi": 96.982
+    },
+    {
       "path": ".agents/scripts/lib/baselines/path-canon.js",
       "mi": 96.667
     },
@@ -425,6 +433,14 @@
     {
       "path": ".agents/scripts/lib/baselines/refresh-service.js",
       "mi": 95.359
+    },
+    {
+      "path": ".agents/scripts/lib/baselines/scope-assert.js",
+      "mi": 102.204
+    },
+    {
+      "path": ".agents/scripts/lib/baselines/scope-inventory.js",
+      "mi": 90.034
     },
     {
       "path": ".agents/scripts/lib/baselines/scope.js",
@@ -2133,6 +2149,10 @@
     {
       "path": ".agents/scripts/provision-git-hooks.js",
       "mi": 99.801
+    },
+    {
+      "path": ".agents/scripts/prune-baseline-orphans.js",
+      "mi": 94.372
     },
     {
       "path": ".agents/scripts/quality-preview.js",
