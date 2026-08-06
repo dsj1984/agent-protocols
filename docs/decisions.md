@@ -461,7 +461,7 @@ hallucinations):**
   the **PR open/locate** probes — coordination/idempotence primitives with no
   LLM-judgment substitute.
 - **`duplicate-search` token-Jaccard ranking** (`lib/duplicate-search.js`,
-  consumed by `/epic-plan` Phase 2 and `story-plan.js`) — **explicitly kept**
+  consumed by `/plan` duplicate triage) — **explicitly kept**
   (omitted from the original sweep table; added by Story #4021). It is a
   pre-creation triage signal over the open-Epic/Story corpus the model does
   not otherwise see in context; the scoring is pure and cheap, the result is

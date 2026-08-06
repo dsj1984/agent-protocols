@@ -74,7 +74,7 @@ export const MAX_LEDGER_BYTES = 1024 * 1024;
 
 /**
  * Resolve the ledger path for an Epic (or the standalone stream when
- * `epicId` is `null` — the `story-plan.js` / Epic-less healthcheck case).
+ * `epicId` is `null` — the v2 Epic-less plan/healthcheck case).
  *
  * @param {number|null} epicId
  * @param {object} [config] Resolved config (threads `project.paths.tempRoot`).

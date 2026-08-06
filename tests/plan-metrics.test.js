@@ -260,7 +260,7 @@ describe('recordPlanInvocation', () => {
   it('stamps ok:false and re-throws the original error on failure', async () => {
     await assert.rejects(
       recordPlanInvocation(
-        { cli: 'story-plan', mode: 'emit-context', epicId: null, config },
+        { cli: 'plan-context', mode: 'emit-context', epicId: null, config },
         async () => {
           throw new Error('authoring exploded');
         },
@@ -450,7 +450,7 @@ describe('summarizePlanMetrics', () => {
     const summary = summarizePlanMetrics({
       entries: [
         {
-          cli: 'story-plan',
+          cli: 'plan-context',
           mode: 'emit-context',
           startedAt: '2026-07-12T10:00:00.000Z',
           endedAt: '2026-07-12T10:00:45.000Z',
@@ -461,7 +461,7 @@ describe('summarizePlanMetrics', () => {
     });
     assert.equal(
       renderPlanMetricsSummaryLine(summary),
-      'plan-metrics: 1 invocation(s) across story-plan ×1 — span 45s',
+      'plan-metrics: 1 invocation(s) across plan-context ×1 — span 45s',
     );
   });
 });

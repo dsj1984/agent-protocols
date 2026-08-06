@@ -81,8 +81,7 @@ from the evidence.
 You are handed **one cluster** of acceptance criteria to score. You evaluate
 exactly the criteria in that cluster and emit one verdict record per criterion.
 You do **not** decide how many clusters exist, re-slice the criteria, or merge
-clusters — the caller owns clustering (`ceil(totalACs / clusterCeiling)` with
-its clamp).
+clusters — the caller owns clustering.
 
 ## Per-criterion evaluation
 

@@ -6,9 +6,8 @@
  * the current 12-phase baseline is captured on disk. Each record is one
  * newline-terminated JSON line appended to
  * `temp/run-<id>/plan-metrics.json` (per-Epic plan CLIs) or
- * `temp/standalone/plan-metrics.json` (the standalone `story-plan.js` path
- * and Epic-less healthcheck runs — same standalone routing the friction
- * ledger uses).
+ * `temp/standalone/plan-metrics.json` (Epic-less plan and healthcheck runs —
+ * same standalone routing the friction ledger uses).
  *
  * Record shape (v1):
  *

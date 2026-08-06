@@ -16,7 +16,6 @@
 import assert from 'node:assert/strict';
 import test, { describe } from 'node:test';
 
-import { expectedClusterCount } from '../../../.agents/scripts/lib/orchestration/acceptance-clusters.js';
 import {
   resolveCeremonyForRisk,
   sampledFresh,
@@ -139,7 +138,7 @@ describe('single verdict-owner per cluster (Story #4723)', () => {
   });
 
   test('M4-B floor preserved: one owner per cluster at every level, count untouched', () => {
-    const count = expectedClusterCount(14, 4); // 4 clusters
+    const count = clusterCount(14, 4); // 4 clusters
     for (const derivedLevel of ['low', 'high', undefined]) {
       const owners = Array.from(
         { length: count },
@@ -190,17 +189,30 @@ describe('sampledFresh — the maker-checker sampling floor', () => {
   });
 });
 
+/**
+ * The caller-owned fan-out width the router is handed. Computed locally so the
+ * invariant below stays pinned to arithmetic this test controls rather than to
+ * a production module — routing must be independent of however the caller
+ * arrives at its cluster count.
+ *
+ * @param {number} totalAcs
+ * @param {number} ceiling
+ * @returns {number}
+ */
+function clusterCount(totalAcs, ceiling) {
+  return Math.ceil(totalAcs / ceiling);
+}
+
 describe('HARD INVARIANT — level routing NEVER changes the cluster count', () => {
   // The M4-B acceptance floor: the per-cluster fresh-vs-inline decision is
-  // orthogonal to the cluster COUNT, which is owned solely by
-  // acceptance-clusters.js (ceil(totalACs / clusterCeiling), clamp [1,8]).
+  // orthogonal to the cluster COUNT, which the caller owns.
   // resolveCeremonyForRisk takes clusterIndex as an INPUT and cannot add,
   // remove, merge, or re-slice clusters. This test proves the count is
   // IDENTICAL across every derived level for the same AC set.
   for (const totalAcs of [1, 4, 7, 14, 30]) {
-    for (const clusterCeiling of [1, 4, 8]) {
-      test(`count invariant: ${totalAcs} ACs / ceiling ${clusterCeiling} identical across derived levels`, () => {
-        const count = expectedClusterCount(totalAcs, clusterCeiling);
+    for (const ceiling of [1, 4, 8]) {
+      test(`count invariant: ${totalAcs} ACs / ceiling ${ceiling} identical across derived levels`, () => {
+        const count = clusterCount(totalAcs, ceiling);
 
         // Drive the ceremony router over EVERY cluster at each level and
         // assert the number of clusters routed is identical — routing only
@@ -229,7 +241,7 @@ describe('HARD INVARIANT — level routing NEVER changes the cluster count', () 
   }
 
   test('high vs low over 14 ACs both produce one decision per cluster', () => {
-    const count = expectedClusterCount(14, 4); // ceil(14/4) = 4
+    const count = clusterCount(14, 4); // ceil(14/4) = 4
     assert.equal(count, 4);
     const low = Array.from({ length: count }, (_v, i) =>
       resolveCeremonyForRisk({
