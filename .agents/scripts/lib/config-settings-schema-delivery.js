@@ -30,22 +30,6 @@ const EXECUTION_SCHEMA = {
   additionalProperties: false,
 };
 
-/**
- * `delivery.lease` — assignee-as-lease primitive (Story #3480). `ttlMs` is
- * the staleness window: a ticket claim whose owner's last heartbeat is older
- * than this many milliseconds is reclaimable by another operator. Defaults to
- * 900000 (15 min) in `lib/config/limits.js`. Note the shipped guards fail
- * closed (no live heartbeat source since A22 removed the inert emitter), so
- * a stranded claim is cleared with `--steal` rather than by TTL expiry.
- */
-const LEASE_SCHEMA = {
-  type: 'object',
-  properties: {
-    ttlMs: { type: 'integer', minimum: 1 },
-  },
-  additionalProperties: false,
-};
-
 const DOCS_FRESHNESS_SCHEMA = {
   type: 'object',
   properties: {
@@ -431,7 +415,6 @@ export const DELIVERY_SCHEMA = {
   type: 'object',
   properties: {
     execution: EXECUTION_SCHEMA,
-    lease: LEASE_SCHEMA,
     docsFreshness: DOCS_FRESHNESS_SCHEMA,
     tempRetention: TEMP_RETENTION_SCHEMA,
     deliverRunner: DELIVER_RUNNER_SCHEMA,

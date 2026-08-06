@@ -115,8 +115,6 @@ top-level keys are validation errors.
 | --- | --- | --- | --- | --- |
 | `execution` | No | `object` | — | Nested configuration block. |
 | `execution.timeoutMs` | No | `integer` | — | — |
-| `lease` | No | `object` | — | Story #3480 (Epic #3457). Assignee-as-lease primitive. ttlMs is the staleness window — a ticket claim whose owner's last heartbeat is older than this many milliseconds is reclaimable by another operator. Defaults to 900000 (15 min) in lib/config/limits.js. Note the shipped guards fail closed (there is no live heartbeat source), so a stranded claim is cleared with --steal rather than by TTL expiry. |
-| `lease.ttlMs` | No | `integer` | — | — |
 | `docsFreshness` | No | `object` | — | Nested configuration block. |
 | `docsFreshness.paths` | No | `array` | — | — |
 | `tempRetention` | No | `object` | — | Story #4794. Auto-purge of spent temp artifacts once their Story lands. Classification is an allowlist: only the declared classes below are ever deleted, so operator scratch files under tempRoot are reported with their size and left alone. signals.ndjson is never purged by any path. |

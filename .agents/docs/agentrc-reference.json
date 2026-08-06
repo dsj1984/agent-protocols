@@ -92,9 +92,6 @@
     "execution": {
       "timeoutMs": 600000
     },
-    "lease": {
-      "ttlMs": 900000
-    },
     "ci": {
       "watch": {
         "pollIntervalMs": 10000,

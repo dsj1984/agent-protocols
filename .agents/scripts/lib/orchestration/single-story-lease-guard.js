@@ -24,18 +24,17 @@
  * operator handle from config and delegates assignee mutation to the pure
  * `ticket-lease.js` primitive.
  *
- * **Fail-closed liveness (audit #3513).** The standalone path has no
- * Epic-scoped lifecycle ledger to read a per-owner `story.heartbeat` from, so
- * there is no live-heartbeat source to feed the lease primitive's liveness
- * check. Defaulting `heartbeatAt` to `null` made *every* foreign claim look
- * stale (`isClaimLive(null) === false`), so the guard silently reclaimed any
- * foreign assignee — leaving it inert as a concurrency guard. We therefore
- * **fail closed**: a foreign assignee is treated as a *live* claim by default
- * and refuses the take (naming the current owner), unless the operator passes
- * `--steal` to forcibly transfer it. This is the safer choice for a guard
- * whose whole job is to stop two operators clobbering the same Story; a
- * genuinely abandoned claim is cleared by hand (or `--steal`) rather than
- * raced into automatically. Unclaimed and self-held tickets still proceed.
+ * **Fail-closed (audit #3513, hard-wired by Story #5006).** The lease
+ * primitive used to reclaim a foreign claim whose heartbeat was older than a
+ * TTL — and with no heartbeat source, *every* foreign claim looked stale, so
+ * the guard silently reclaimed any foreign assignee and was inert as a
+ * concurrency guard. The guard worked around that by anchoring the heartbeat
+ * to `now`; Story #5006 deleted the TTL outright, so the fail-closed
+ * behaviour is now the primitive's own: a foreign assignee refuses the take
+ * (naming the current owner) unless the operator passes `--steal` to forcibly
+ * transfer it. A genuinely abandoned claim is cleared by hand (or `--steal`)
+ * rather than raced into automatically. Unclaimed and self-held tickets still
+ * proceed.
  */
 
 import {
@@ -75,21 +74,19 @@ export function resolveOperator(config) {
 }
 
 /**
- * Acquire (or re-affirm / reclaim) the Story lease for the standalone path.
+ * Acquire (or re-affirm) the Story lease for the standalone path.
  *
- * **Fail-closed:** because the standalone path has no Epic ledger to source a
- * live heartbeat from, a foreign assignee is treated as a live claim and
- * refuses the take by default — the guard throws naming the current owner so
- * the operator can coordinate. Pass `steal: true` (`--steal`) to forcibly
- * transfer it. Unclaimed and self-held tickets proceed without a write.
+ * **Fail-closed:** a foreign assignee refuses the take — the guard throws
+ * naming the current owner so the operator can coordinate. Pass
+ * `steal: true` (`--steal`) to forcibly transfer it. Unclaimed and self-held
+ * tickets proceed without a write.
  *
  * @param {object} opts
  * @param {object} opts.provider           Ticketing provider (getTicket/updateTicket).
  * @param {number} opts.storyId            Story ticket to claim.
- * @param {object} opts.config             Resolved config (operator handle + TTL default).
+ * @param {object} opts.config             Resolved config (operator handle).
  * @param {string} [opts.operator]         Override the resolved operator (tests).
  * @param {boolean} [opts.steal=false]     Forcibly transfer a foreign claim.
- * @param {number} [opts.now]              Injectable clock (epoch ms) for tests.
  * @returns {Promise<{ acquired: boolean, owner: string, previousOwner: string|null, reason: string }>}
  * @throws {Error} When a foreign claim refuses the acquire (no `steal`).
  */
@@ -99,27 +96,19 @@ export async function acquireStoryLease({
   config,
   operator,
   steal = false,
-  now,
 }) {
   const owner = operator ?? resolveOperator(config);
-  // Fail closed: with no live-heartbeat source on the standalone path, the
-  // shared kernel anchors `heartbeatAt` to the same `now` the primitive
-  // evaluates against, so `isClaimLive` returns true for any foreign owner
-  // and `acquireLease` refuses unless `steal` is set.
   return acquireLeaseFailClosed({
     provider,
     ticketId: storyId,
     operator: owner,
     steal,
-    config,
-    now,
-    anchorHeartbeatToNow: true,
     renderRefusal: (result) =>
       `single-story lease: Story #${storyId} is currently held by @${result.owner}. ` +
       'Another /deliver run owns this Story. Coordinate with that ' +
       'operator, or re-run with --steal to forcibly transfer the claim once you ' +
-      'have confirmed the other run is dead. (The standalone path has no Epic ' +
-      'heartbeat ledger, so a foreign assignee always blocks unless stolen.)',
+      'have confirmed the other run is dead. (A foreign assignee always ' +
+      'blocks unless stolen.)',
   });
 }
 
@@ -142,5 +131,5 @@ export async function releaseStoryLease({
   operator,
 }) {
   const owner = operator ?? resolveOperator(config);
-  return releaseLease({ provider, ticketId: storyId, operator: owner, config });
+  return releaseLease({ provider, ticketId: storyId, operator: owner });
 }
