@@ -4,10 +4,6 @@
   "generatedAt": "2026-08-06T09:27:43.712789Z",
   "rows": [
     {
-      "file": ".agents/scripts/check-baseline-drift.js",
-      "symbol": "HELP_TEXT"
-    },
-    {
       "file": ".agents/scripts/lib/Logger.js",
       "symbol": "STDERR_LOGGER"
     },
