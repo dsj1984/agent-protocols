@@ -1,7 +1,7 @@
 {
   "$schema": ".agents/schemas/baselines/maintainability.schema.json",
   "kernelVersion": "0.1.0",
-  "generatedAt": "2026-08-06T09:25:46.413Z",
+  "generatedAt": "2026-08-06T09:58:52.595Z",
   "rollup": {
     "*": {
       "min": 76.058,
@@ -77,6 +77,10 @@
     {
       "path": ".agents/scripts/check-doc-links.js",
       "mi": 89.461
+    },
+    {
+      "path": ".agents/scripts/check-knip-entries.js",
+      "mi": 92.67
     },
     {
       "path": ".agents/scripts/check-lifecycle-doc-drift.js",
@@ -941,6 +945,10 @@
     {
       "path": ".agents/scripts/lib/json-utils.js",
       "mi": 95.486
+    },
+    {
+      "path": ".agents/scripts/lib/knip-entry-sync.js",
+      "mi": 91.321
     },
     {
       "path": ".agents/scripts/lib/label-constants.js",
@@ -2032,7 +2040,7 @@
     },
     {
       "path": ".agents/scripts/run-verify.js",
-      "mi": 93.708
+      "mi": 101.048
     },
     {
       "path": ".agents/scripts/single-story-close.js",
