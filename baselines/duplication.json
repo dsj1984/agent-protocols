@@ -1,13 +1,13 @@
 {
   "$schema": ".agents/schemas/baselines/duplication.schema.json",
   "kernelVersion": "1.0.0",
-  "generatedAt": "2026-08-02T15:40:21.518Z",
+  "generatedAt": "2026-08-06T02:31:35.899Z",
   "rollup": {
     "*": {
-      "percentage": 8.3,
-      "duplicatedLines": 1945,
-      "totalLines": 23423,
-      "filesWithDuplication": 82
+      "percentage": 8.12,
+      "duplicatedLines": 1839,
+      "totalLines": 22637,
+      "filesWithDuplication": 81
     }
   },
   "rows": [
@@ -210,10 +210,10 @@
       "percentage": 12.82
     },
     {
-      "path": ".agents/scripts/lib/crap-utils.js",
-      "duplicatedLines": 100,
-      "totalLines": 881,
-      "percentage": 11.35
+      "path": ".agents/scripts/lib/crap-baseline-join.js",
+      "duplicatedLines": 13,
+      "totalLines": 270,
+      "percentage": 4.81
     },
     {
       "path": ".agents/scripts/lib/findings/semantic-issue-search.js",
@@ -322,12 +322,6 @@
       "duplicatedLines": 14,
       "totalLines": 333,
       "percentage": 4.2
-    },
-    {
-      "path": ".agents/scripts/lib/workers/combined-mi-crap-worker.js",
-      "duplicatedLines": 19,
-      "totalLines": 175,
-      "percentage": 10.86
     },
     {
       "path": ".agents/scripts/lib/workers/crap-worker.js",

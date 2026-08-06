@@ -1,7 +1,7 @@
 {
   "$schema": ".agents/schemas/baselines/maintainability.schema.json",
   "kernelVersion": "0.1.0",
-  "generatedAt": "2026-08-06T01:47:45.193Z",
+  "generatedAt": "2026-08-06T02:31:32.681Z",
   "rollup": {
     "*": {
       "min": 74.146,
@@ -352,7 +352,7 @@
     },
     {
       "path": ".agents/scripts/lib/baselines/envelope.js",
-      "mi": 101.924
+      "mi": 106.456
     },
     {
       "path": ".agents/scripts/lib/baselines/exit-codes.js",
@@ -365,6 +365,14 @@
     {
       "path": ".agents/scripts/lib/baselines/kernel.js",
       "mi": 91.495
+    },
+    {
+      "path": ".agents/scripts/lib/baselines/kinds/_crap-new-method-gate.js",
+      "mi": 111.405
+    },
+    {
+      "path": ".agents/scripts/lib/baselines/kinds/_crap-read.js",
+      "mi": 95.332
     },
     {
       "path": ".agents/scripts/lib/baselines/kinds/_shared-metric.js",
@@ -767,12 +775,8 @@
       "mi": 102.695
     },
     {
-      "path": ".agents/scripts/lib/crap-baseline-index.js",
-      "mi": 117.111
-    },
-    {
       "path": ".agents/scripts/lib/crap-baseline-join.js",
-      "mi": 89.357
+      "mi": 99.477
     },
     {
       "path": ".agents/scripts/lib/crap-coordinates.js",
@@ -787,12 +791,8 @@
       "mi": 95.294
     },
     {
-      "path": ".agents/scripts/lib/crap-utils-incremental.js",
-      "mi": 121.112
-    },
-    {
       "path": ".agents/scripts/lib/crap-utils.js",
-      "mi": 87.082
+      "mi": 92.655
     },
     {
       "path": ".agents/scripts/lib/cyclomatic-ceiling.js",
@@ -1921,10 +1921,6 @@
     {
       "path": ".agents/scripts/lib/wave-runner/ready-set.js",
       "mi": 94.812
-    },
-    {
-      "path": ".agents/scripts/lib/workers/combined-mi-crap-worker.js",
-      "mi": 88.102
     },
     {
       "path": ".agents/scripts/lib/workers/crap-worker.js",
