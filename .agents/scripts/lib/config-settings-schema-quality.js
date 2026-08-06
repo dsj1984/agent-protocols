@@ -7,12 +7,17 @@
 // resolved QUALITY_SCHEMA is byte-for-byte equivalent in effect.
 // ---------------------------------------------------------------------------
 
+import { GATES_SCHEMA } from './config/gates/index.js';
 // `delivery.quality.gates.<tier>` sub-schemas live in their own module
 // (Story #1737); see `config/gates/index.js` for the seven gate shapes
 // and the shared { kind, value } tolerance + workspace-keyed floors
 // fragments. Story #2987 split the former `config-gates-schema.js`
 // aggregate into per-gate files under `config/gates/`.
-import { GATES_SCHEMA } from './config/gates/index.js';
+import {
+  BASELINE_EPSILON_DEFAULTS,
+  CODING_GUARDRAILS_DEFAULTS,
+} from './config/quality.js';
+import { DEFAULT_CODE_REVIEW } from './config/runners.js';
 
 // Story #4531: miDropMustRefactor (here) and autoRefresh.miDropCap (below)
 // were retired. Both were schema-validated, defaulted, and resolved, but
@@ -25,20 +30,58 @@ import { GATES_SCHEMA } from './config/gates/index.js';
 // below means a leftover key is a hard AJV failure, not a silent no-op).
 const CODING_GUARDRAILS_SCHEMA = {
   type: 'object',
+  description:
+    'Authoring-time cyclomatic-complexity advisories surfaced by the quality-preview pre-commit gate.',
   properties: {
-    cyclomaticFlag: { type: 'integer', minimum: 1 },
-    cyclomaticMustFix: { type: 'integer', minimum: 1 },
-    requireSiblingTest: { type: 'boolean' },
+    cyclomaticFlag: {
+      type: 'integer',
+      minimum: 1,
+      description:
+        'Cyclomatic complexity at which a new or changed method is flagged for a refactor look.',
+      default: CODING_GUARDRAILS_DEFAULTS.cyclomaticFlag,
+    },
+    cyclomaticMustFix: {
+      type: 'integer',
+      minimum: 1,
+      description:
+        'Cyclomatic complexity at which a new or changed method must be decomposed before the diff closes.',
+      default: CODING_GUARDRAILS_DEFAULTS.cyclomaticMustFix,
+    },
+    requireSiblingTest: {
+      type: 'boolean',
+      description:
+        'When true, a new source file with no colocated sibling test is reported by the guardrails pass.',
+      default: CODING_GUARDRAILS_DEFAULTS.requireSiblingTest,
+    },
   },
   additionalProperties: false,
 };
 
 const AUTO_REFRESH_SCHEMA = {
   type: 'object',
+  description:
+    'Baseline-attribution auto-refresh: when a gate can prove a regression is a legitimate consequence of the diff, it rewrites the baseline instead of blocking.',
   properties: {
-    enabled: { type: 'boolean' },
-    crapJumpCap: { type: 'number', minimum: 0 },
-    scope: { type: 'string', enum: ['diff', 'full'] },
+    enabled: {
+      type: 'boolean',
+      description:
+        'Master switch for the auto-refresh path. When false, every baseline refresh is a deliberate operator action.',
+      default: true,
+    },
+    crapJumpCap: {
+      type: 'number',
+      minimum: 0,
+      description:
+        'Largest single-row CRAP jump the auto-refresh will absorb. A larger jump is reported as a regression rather than rewritten.',
+      default: 5,
+    },
+    scope: {
+      type: 'string',
+      enum: ['diff', 'full'],
+      description:
+        'Whether an auto-refresh rescores only the changed files (`diff`) or every file in the target dirs (`full`).',
+      default: 'diff',
+    },
   },
   additionalProperties: false,
 };
@@ -50,15 +93,49 @@ const AUTO_REFRESH_SCHEMA = {
  */
 const BASELINE_EPSILON_SCHEMA = {
   type: 'object',
+  description:
+    'Per-kind epsilon for s-stability-epsilon (Story #1964). Sub-epsilon row deltas resolve to prior bytes so env variance does not rewrite the on-disk baseline.',
   properties: {
-    maintainability: { type: 'number', minimum: 0 },
-    crap: { type: 'number', minimum: 0 },
-    coverage: { type: 'number', minimum: 0 },
-    mutation: { type: 'number', minimum: 0 },
-    lint: { type: 'number', minimum: 0 },
-    lighthouse: { type: 'number', minimum: 0 },
-    'bundle-size': { type: 'number', minimum: 0 },
-    duplication: { type: 'number', minimum: 0 },
+    maintainability: {
+      type: 'number',
+      minimum: 0,
+      default: BASELINE_EPSILON_DEFAULTS.maintainability,
+    },
+    crap: {
+      type: 'number',
+      minimum: 0,
+      default: BASELINE_EPSILON_DEFAULTS.crap,
+    },
+    coverage: {
+      type: 'number',
+      minimum: 0,
+      default: BASELINE_EPSILON_DEFAULTS.coverage,
+    },
+    mutation: {
+      type: 'number',
+      minimum: 0,
+      default: BASELINE_EPSILON_DEFAULTS.mutation,
+    },
+    lint: {
+      type: 'number',
+      minimum: 0,
+      default: BASELINE_EPSILON_DEFAULTS.lint,
+    },
+    lighthouse: {
+      type: 'number',
+      minimum: 0,
+      default: BASELINE_EPSILON_DEFAULTS.lighthouse,
+    },
+    'bundle-size': {
+      type: 'number',
+      minimum: 0,
+      default: BASELINE_EPSILON_DEFAULTS['bundle-size'],
+    },
+    duplication: {
+      type: 'number',
+      minimum: 0,
+      default: BASELINE_EPSILON_DEFAULTS.duplication,
+    },
   },
   additionalProperties: false,
 };
@@ -72,8 +149,15 @@ const BASELINE_EPSILON_SCHEMA = {
  */
 const FORMAT_AUTOFIX_SCHEMA = {
   type: 'object',
+  description:
+    'Bounded-timeout knob for the close-time `npx biome format --write` spawn (Story #2165). A SIGKILL fired at the budget boundary maps to exit 124 so the close orchestrator can flip the Story to `agent::blocked` with a friction comment.',
   properties: {
-    timeoutMs: { type: 'integer', minimum: 1 },
+    timeoutMs: {
+      type: 'integer',
+      minimum: 1,
+      description: 'Timeout (ms) for the format-write spawn.',
+      default: 60000,
+    },
   },
   additionalProperties: false,
 };
@@ -89,12 +173,27 @@ const FORMAT_AUTOFIX_SCHEMA = {
  */
 export const QUALITY_SCHEMA = {
   type: 'object',
+  description:
+    'Quality-gate configuration. Every gate lives under `gates.<tier>` and shares the same `{ enabled, baselinePath, tolerance, floors, components }` base; shared scoping lives at this block root.',
   properties: {
     gateScoping: {
       type: 'object',
+      description:
+        'Shared scope applied to every gate that supports one, unless the gate overrides it.',
       properties: {
-        scope: { type: 'string', enum: ['diff', 'full'] },
-        diffRef: { type: 'string', minLength: 1 },
+        scope: {
+          type: 'string',
+          enum: ['diff', 'full'],
+          description:
+            'Score only the files changed against `diffRef` (`diff`) or every file in the gate target dirs (`full`).',
+          default: 'diff',
+        },
+        diffRef: {
+          type: 'string',
+          minLength: 1,
+          description: 'Git ref the `diff` scope is computed against.',
+          default: 'main',
+        },
       },
       additionalProperties: false,
     },
@@ -111,17 +210,40 @@ export const QUALITY_SCHEMA = {
     // registered so an absent baseline artifact fails close-validation with a
     // preflight hint (the fail-closed posture, analogous to
     // delivery.ci.requireChecks).
-    requireBaselines: { type: 'boolean' },
+    requireBaselines: {
+      type: 'boolean',
+      description:
+        'Story #4495. Fail-closed baseline-enforcement policy for the unified check-baselines close-validation gate. When false (default), a consumer that enables baseline gates (crap/maintainability/…) but has not committed the corresponding baseline artifacts under baselines/ gets a clean skip-with-reason instead of a deterministic first-try close failure. Set true to keep the gate registered so an absent baseline artifact fails close-validation with a preflight hint naming the fix (the fail-closed posture).',
+      default: false,
+    },
     // Navigability lens + post-wave integration gate config (Epic #4131,
     // F2/F3/F1/F4). Read by audit-suite/selector.js (route globs) and the
     // deliver-epic.md Phase 6.5 gate (journey suite). Opt-in: absent or empty
     // routeGlobs degrades to a silent no-op.
     navigability: {
       type: 'object',
+      description:
+        "Navigability lens + journey-suite config (Epic #4131, F2/F3/F1/F4). Read by audit-suite/selector.js (route globs) and /deliver's per-Story ceremony (journey suite). Opt-in: absent or empty routeGlobs degrades to a silent no-op.",
       properties: {
-        routeGlobs: { type: 'array', items: { type: 'string' } },
-        navRegistry: { type: 'array', items: { type: 'string' } },
-        journeySuite: { type: 'string' },
+        routeGlobs: {
+          type: 'array',
+          items: { type: 'string' },
+          description:
+            'Glob patterns (pages/**, app/**/route.ts) marking paths that add a user-facing route — the route-tree SSOT the navigability lens enumerates and the route-added routing predicate matches against.',
+          default: [],
+        },
+        navRegistry: {
+          type: 'array',
+          items: { type: 'string' },
+          description:
+            'Tokens identifying the nav-registry SSOT the navigability lens checks every route resolves a nav door against.',
+          default: [],
+        },
+        journeySuite: {
+          type: 'string',
+          description:
+            "Path or command for the per-persona journey suite /deliver's per-Story ceremony runs.",
+        },
       },
       additionalProperties: false,
     },
@@ -140,6 +262,8 @@ export const QUALITY_SCHEMA = {
  */
 export const CODE_REVIEW_SCHEMA = {
   type: 'object',
+  description:
+    'Review-provider chain plus bounded-retry knobs for the /deliver code-review ceremony.',
   properties: {
     // Story #2825 (Epic #2815) seeded the pluggable review backend
     // with `native`; Story #2830 added `codex` (the
@@ -163,21 +287,42 @@ export const CODE_REVIEW_SCHEMA = {
           name: {
             type: 'string',
             enum: ['native', 'codex', 'security-review', 'ultrareview'],
+            description:
+              'Registered provider key. Inline: native, codex, security-review. Manual-prompt: ultrareview.',
           },
           scopes: {
             type: 'array',
             items: { type: 'string', enum: ['story', 'epic'] },
+            description:
+              'Invocation scopes this entry fires on. Default (omitted) is both.',
           },
-          optional: { type: 'boolean', default: false },
-          manualPrompt: { type: 'boolean', default: false },
+          optional: {
+            type: 'boolean',
+            default: false,
+            description:
+              'When true, construction failure (host missing CLI/plugin) is logged and the entry is skipped instead of hard-failing the chain. Use for cross-runtime portability.',
+          },
+          manualPrompt: {
+            type: 'boolean',
+            default: false,
+            description:
+              'When true, the entry is loaded from the manual-prompt registry: contributes a one-line operator suggestion via `renderPrompt()` instead of running a review via `runReview()`. Does not affect severity counts or `halted`.',
+          },
           when: {
             type: 'object',
+            description:
+              "Optional label-gated invocation predicate. Evaluated against the ticket's current labels at invocation time; when false, the entry is silently skipped for this run.",
             properties: {
-              label: { type: 'string', minLength: 1 },
+              label: {
+                type: 'string',
+                minLength: 1,
+                description: 'Single label that MUST be present on the ticket.',
+              },
               labelAny: {
                 type: 'array',
                 items: { type: 'string', minLength: 1 },
                 minItems: 1,
+                description: 'Run when ANY of the listed labels is present.',
               },
             },
             additionalProperties: false,
@@ -185,11 +330,46 @@ export const CODE_REVIEW_SCHEMA = {
         },
         additionalProperties: false,
       },
+      description:
+        'Review-provider chain (Story #2871). When unset or empty, defaults to [{ name: "native" }]. The orchestrator iterates inline entries in declaration order and merges their Finding[] before posting one structured comment; manual-prompt entries (e.g. ultrareview) contribute a trailing \'Manual review suggestions\' section. Selecting an adapter whose probe fails hard-fails at factory construction unless declared `optional: true` in the chain.',
+      default: [
+        { name: 'native' },
+        { name: 'security-review', scopes: ['story'], optional: true },
+        {
+          name: 'ultrareview',
+          scopes: ['story'],
+          manualPrompt: true,
+          when: { label: 'risk::high' },
+        },
+      ],
     },
-    providerConfig: { type: 'object', additionalProperties: true },
-    maxFixAttempts: { type: 'integer', minimum: 0 },
-    maxFixScopeFiles: { type: 'integer', minimum: 1 },
-    autoFixSeverity: { type: 'string', enum: ['high', 'medium'] },
+    providerConfig: {
+      type: 'object',
+      additionalProperties: true,
+      description:
+        'Optional escape hatch for adapter-specific configuration. No documented keys in Epic #2815; reserved so future adapters can be configured without another schema migration.',
+    },
+    maxFixAttempts: {
+      type: 'integer',
+      minimum: 0,
+      description:
+        'Maximum auto-fix retry attempts per finding in /deliver Phase 5 (code-review). 0 disables auto-fix. Default 3.',
+      default: DEFAULT_CODE_REVIEW.maxFixAttempts,
+    },
+    maxFixScopeFiles: {
+      type: 'integer',
+      minimum: 1,
+      description:
+        'Maximum file count a single auto-fix may modify before escalating to agent::blocked. Default 5.',
+      default: DEFAULT_CODE_REVIEW.maxFixScopeFiles,
+    },
+    autoFixSeverity: {
+      type: 'string',
+      enum: ['high', 'medium'],
+      description:
+        'Severity threshold for on-branch remediation in /deliver Phase 5 (code-review). `medium` (default) routes 🔴/🟠/🟡 findings into the host-LLM focused-fix routing (Mediums batched per lens: one commit per lens, a single validation + rescan at the end) while 🟢 suggestions still graduate to follow-up issues; `high` reproduces the pre-4399 Critical/High-only routing. Hard cutover — no back-compat flag.',
+      default: DEFAULT_CODE_REVIEW.autoFixSeverity,
+    },
   },
   additionalProperties: false,
 };

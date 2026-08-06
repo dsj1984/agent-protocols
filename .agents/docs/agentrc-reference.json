@@ -75,14 +75,14 @@
     ],
     "failOnSharedEditors": false,
     "requireExplicitCrossStoryDeps": false,
-    "failOnRegistryConflicts": false,
-    "failOnLargeFanOut": false,
-    "largeFanOutThreshold": 10,
     "crossCuttingRegistries": [
       "lib/orchestration/lifecycle/listeners/index.js",
       "**/listeners/index.js",
       "**/handlers/index.js"
     ],
+    "failOnRegistryConflicts": false,
+    "failOnLargeFanOut": false,
+    "largeFanOutThreshold": 10,
     "navigation": {
       "routeGlobs": [],
       "navRegistry": []
@@ -91,15 +91,6 @@
   "delivery": {
     "execution": {
       "timeoutMs": 600000
-    },
-    "ci": {
-      "watch": {
-        "pollIntervalMs": 10000,
-        "maxPolls": 180,
-        "maxResumes": 3,
-        "attachWindowMs": 1200000
-      },
-      "autoMerge": "trust-ci"
     },
     "docsFreshness": {
       "paths": ["README.md"]
@@ -138,43 +129,6 @@
       "retry": {
         "repeatCount": 3
       }
-    },
-    "mergeWatch": {
-      "intervalSeconds": 30,
-      "maxBudgetSeconds": 3600
-    },
-    "codeReview": {
-      "providers": [
-        {
-          "name": "native"
-        },
-        {
-          "name": "security-review",
-          "scopes": ["story"],
-          "optional": true
-        },
-        {
-          "name": "ultrareview",
-          "scopes": ["story"],
-          "manualPrompt": true,
-          "when": {
-            "label": "risk::high"
-          }
-        }
-      ],
-      "maxFixAttempts": 3,
-      "maxFixScopeFiles": 5,
-      "autoFixSeverity": "medium"
-    },
-    "routing": {
-      "roleScopedAgents": true,
-      "freshCriticSampleRate": 0.2,
-      "ceremonyProfile": "standard",
-      "closeAndLand": true
-    },
-    "feedbackLoop": {
-      "auditResultsAutoFile": true,
-      "retroProposals": true
     },
     "quality": {
       "gateScoping": {
@@ -342,11 +296,57 @@
         "navRegistry": []
       }
     },
+    "mergeWatch": {
+      "intervalSeconds": 30,
+      "maxBudgetSeconds": 3600
+    },
+    "codeReview": {
+      "providers": [
+        {
+          "name": "native"
+        },
+        {
+          "name": "security-review",
+          "scopes": ["story"],
+          "optional": true
+        },
+        {
+          "name": "ultrareview",
+          "scopes": ["story"],
+          "manualPrompt": true,
+          "when": {
+            "label": "risk::high"
+          }
+        }
+      ],
+      "maxFixAttempts": 3,
+      "maxFixScopeFiles": 5,
+      "autoFixSeverity": "medium"
+    },
     "refactorStage": {
       "enabled": false
     },
     "acceptanceEval": {
       "maxRounds": 2
+    },
+    "feedbackLoop": {
+      "auditResultsAutoFile": true,
+      "retroProposals": true
+    },
+    "ci": {
+      "watch": {
+        "pollIntervalMs": 10000,
+        "maxPolls": 180,
+        "maxResumes": 3,
+        "attachWindowMs": 1200000
+      },
+      "autoMerge": "trust-ci"
+    },
+    "routing": {
+      "roleScopedAgents": true,
+      "freshCriticSampleRate": 0.2,
+      "ceremonyProfile": "standard",
+      "closeAndLand": true
     }
   },
   "qa": {

@@ -4,9 +4,9 @@
   "generatedAt": "2026-08-06T04:55:30.691Z",
   "rollup": {
     "*": {
-      "lines": 95.82,
+      "lines": 95.8,
       "branches": 86.37,
-      "functions": 88.74
+      "functions": 88.7
     }
   },
   "rows": [
@@ -677,21 +677,9 @@
       "functions": 100
     },
     {
-      "path": ".agents/scripts/lib/bootstrap/baselines-layout-migration.js",
-      "lines": 100,
-      "branches": 87.5,
-      "functions": 100
-    },
-    {
       "path": ".agents/scripts/lib/bootstrap/branch-protection.js",
       "lines": 98.2,
       "branches": 91.78,
-      "functions": 100
-    },
-    {
-      "path": ".agents/scripts/lib/bootstrap/ci-workflow-template.js",
-      "lines": 100,
-      "branches": 85.71,
       "functions": 100
     },
     {

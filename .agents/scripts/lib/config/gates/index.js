@@ -14,14 +14,17 @@ import { MUTATION_GATE } from './mutation.schema.js';
  *
  * Split from the former `lib/config-gates-schema.js` aggregate
  * (Story #2987) into per-gate sub-schema files under
- * `lib/config/gates/`. Shared fragments (`GATE_BASE`, `SAFE_STRING`,
+ * `lib/config/gates/`. Shared fragments (`gateBase()`, `SAFE_STRING`,
  * `TOLERANCE_SCHEMA`, `FLOORS_SCHEMA`, `COMPONENTS_SCHEMA`,
  * `LIST_OR_EXTENDER_OF_STRINGS`, `NULLABLE_NONEMPTY_SAFE_STRING`) live
  * in `./shared.js`. Each per-gate file exports one sub-schema literal
- * with the gate-specific extras layered on top of `GATE_BASE`.
+ * with the gate-specific extras layered on top of `gateBase()`, passing
+ * that gate's own base-field defaults (Story #5007).
  */
 export const GATES_SCHEMA = {
   type: 'object',
+  description:
+    'The eight quality gates, each sharing the `{ enabled, baselinePath, tolerance, floors, components }` base.',
   properties: {
     lint: LINT_GATE,
     coverage: COVERAGE_GATE,

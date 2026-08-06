@@ -29,7 +29,6 @@ import { afterEach, beforeEach, describe, it } from 'node:test';
 
 import {
   applyQualityBootstrap,
-  LEGACY_EPIC_BASELINES_RELPATH,
   PRE_COMMIT_MARKER,
   pruneLegacyEpicBaselines,
   QUALITY_NPM_SCRIPTS,
@@ -206,7 +205,7 @@ describe('mandrel-update — legacy baselines/epic prune (Story #5007)', () => {
           '--quiet',
           '--ignore-unmatch',
           '--',
-          LEGACY_EPIC_BASELINES_RELPATH,
+          'baselines/epic',
         ],
       },
     ]);

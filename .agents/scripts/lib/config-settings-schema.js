@@ -2,11 +2,43 @@
 
 import Ajv from 'ajv';
 
+import { COMMANDS_DEFAULTS } from './config/commands.js';
+import {
+  BRANCH_PROTECTION_DEFAULTS,
+  DEFAULT_REQUIRED_CHECKS,
+  MERGE_METHODS_DEFAULTS,
+  NOTIFICATIONS_DEFAULTS,
+} from './config/github.js';
+import { PATHS_DEFAULTS } from './config/paths.js';
 import { SHELL_INJECTION_PATTERN_STRING } from './config-schema-shared.js';
 // `delivery.*` sub-schemas were extracted to a sibling module (refs #3457)
 // to keep this aggregate module above the maintainability floor. The
 // resolved AGENTRC_SCHEMA is unchanged.
 import { DELIVERY_SCHEMA } from './config-settings-schema-delivery.js';
+
+/**
+ * Annotation contract (Story #5007). These schema literals are the SINGLE
+ * annotated source for the whole `.agentrc.json` surface:
+ *
+ *   - `description` — the operator-facing gloss. `generate-config-docs.js`
+ *     serializes it into the shipped JSON-Schema mirror
+ *     (`.agents/schemas/agentrc.schema.json`, which every consumer config
+ *     points `$schema` at) and into the `configuration.md` key table.
+ *   - `default`     — the value that appears in the generated defaults
+ *     inventory `.agents/docs/agentrc-reference.json` (the SSOT
+ *     `lib/config/defaults.js` reads for `mandrel explain` and the
+ *     sync-agentrc redundancy advisory). Import the matching runtime
+ *     `*_DEFAULTS` constant rather than restating a literal wherever one
+ *     exists, so the annotation and the resolver cannot drift.
+ *
+ * A key with a runtime default but no `default` annotation is deliberately
+ * out of the inventory — annotating it would change what `mandrel explain`
+ * reports and what sync-agentrc flags redundant, which is a behaviour
+ * change, not a representation one.
+ *
+ * Nothing here is hand-mirrored any more: run `npm run docs:gen` after
+ * editing, and `npm run docs:check` fails closed on drift.
+ */
 
 const SAFE_STRING = {
   type: 'string',
@@ -65,11 +97,31 @@ export const AGENT_SETTINGS_STRING_FIELDS = Object.freeze([]);
  */
 const PATHS_SCHEMA = {
   type: 'object',
+  description:
+    'The three required filesystem roots. Every `${dir}Root` the framework needs is derived at runtime as `${agentRoot}/<dir>`, and the audit output dir as `${tempRoot}/audits`.',
   required: ['agentRoot', 'docsRoot', 'tempRoot'],
   properties: {
-    agentRoot: { ...SAFE_STRING, minLength: 1 },
-    docsRoot: { ...SAFE_STRING, minLength: 1 },
-    tempRoot: { ...SAFE_STRING, minLength: 1 },
+    agentRoot: {
+      ...SAFE_STRING,
+      minLength: 1,
+      description:
+        'Repo-relative root of the materialized framework tree (`mandrel sync` writes here).',
+      default: PATHS_DEFAULTS.agentRoot,
+    },
+    docsRoot: {
+      ...SAFE_STRING,
+      minLength: 1,
+      description:
+        'Repo-relative root of the project documentation the planner reads for context.',
+      default: PATHS_DEFAULTS.docsRoot,
+    },
+    tempRoot: {
+      ...SAFE_STRING,
+      minLength: 1,
+      description:
+        'Repo-relative gitignored scratch root. Every temporary artifact — gate transcripts, audit reports, plan authoring dirs — lands under it.',
+      default: PATHS_DEFAULTS.tempRoot,
+    },
   },
   additionalProperties: false,
 };
@@ -81,22 +133,64 @@ const PATHS_SCHEMA = {
  */
 const COMMANDS_SCHEMA = {
   type: 'object',
+  description:
+    'Shell commands the close-validation chain spawns. Each is run from the repo root.',
   properties: {
-    test: { ...SAFE_STRING, minLength: 1 },
-    typecheck: NULLABLE_NONEMPTY_SAFE_STRING,
-    formatCheck: { ...SAFE_STRING, minLength: 1 },
-    formatWrite: { ...SAFE_STRING, minLength: 1 },
+    test: {
+      ...SAFE_STRING,
+      minLength: 1,
+      description: 'Full test-suite command run by the close-validation chain.',
+      default: COMMANDS_DEFAULTS.test,
+    },
+    typecheck: {
+      ...NULLABLE_NONEMPTY_SAFE_STRING,
+      description:
+        'Static type-check command. `null` disables the gate for projects with no type layer; the empty string is rejected so a typo cannot silently disable it.',
+      default: COMMANDS_DEFAULTS.typecheck,
+    },
+    formatCheck: {
+      ...SAFE_STRING,
+      minLength: 1,
+      description:
+        'Non-mutating format verification run as a close-validation gate.',
+      default: COMMANDS_DEFAULTS.formatCheck,
+    },
+    formatWrite: {
+      ...SAFE_STRING,
+      minLength: 1,
+      description:
+        'Mutating format command the close-time format-autofix step spawns.',
+      default: COMMANDS_DEFAULTS.formatWrite,
+    },
   },
   additionalProperties: false,
 };
 
 const PROJECT_SCHEMA = {
   type: 'object',
+  description:
+    'Project identity, filesystem roots, planner docs context, and the commands the close-validation chain spawns.',
   required: ['paths'],
   properties: {
-    baseBranch: SAFE_STRING,
+    baseBranch: {
+      ...SAFE_STRING,
+      description:
+        'Branch every `story-<id>` branch is seeded from and every Story PR targets.',
+      default: 'main',
+    },
     paths: PATHS_SCHEMA,
-    docsContextFiles: { type: 'array', items: { type: 'string' } },
+    docsContextFiles: {
+      type: 'array',
+      items: { type: 'string' },
+      description:
+        'Files under `paths.docsRoot` the planner treats as standing context. Read digest-first — the docs digest names the file and the line range, and only the named section is pulled.',
+      default: [
+        'architecture.md',
+        'data-dictionary.md',
+        'decisions.md',
+        'patterns.md',
+      ],
+    },
     commands: COMMANDS_SCHEMA,
   },
   additionalProperties: false,
@@ -164,17 +258,30 @@ export const COMMENT_EVENT_NAMES = Object.freeze([
 
 const NOTIFICATIONS_SCHEMA = {
   type: 'object',
+  description:
+    "Allowlist-gated notification channels. An event fires on a channel only when it is named in that channel's array.",
   properties: {
-    mentionOperator: { type: 'boolean' },
+    mentionOperator: {
+      type: 'boolean',
+      description:
+        'When true, `github.operatorHandle` is @-mentioned in the comments the notifier posts.',
+      default: NOTIFICATIONS_DEFAULTS.mentionOperator,
+    },
     commentEvents: {
       type: 'array',
       items: { type: 'string', enum: [...COMMENT_EVENT_NAMES] },
       uniqueItems: true,
+      description:
+        'Events mirrored onto the Story issue as a comment. Deliberately narrower than `webhookEvents`: only Story-scoped events whose message reads as narrative an operator wants durably on the ticket belong here.',
+      default: [...NOTIFICATIONS_DEFAULTS.commentEvents],
     },
     webhookEvents: {
       type: 'array',
       items: { type: 'string', enum: [...WEBHOOK_EVENT_NAMES] },
       uniqueItems: true,
+      description:
+        'Events dispatched to the configured webhook. The vocabulary is exactly the set the v2 runtime can emit through `notify()`.',
+      default: [...NOTIFICATIONS_DEFAULTS.webhookEvents],
     },
   },
   additionalProperties: false,
@@ -182,13 +289,21 @@ const NOTIFICATIONS_SCHEMA = {
 
 const BRANCH_PROTECTION_CHECK_SCHEMA = {
   type: 'object',
+  description:
+    'One required status check: the context name GitHub gates the merge on, plus the argv the framework runs locally to reproduce it.',
   required: ['name', 'cmd'],
   properties: {
-    name: { type: 'string', minLength: 1 },
+    name: {
+      type: 'string',
+      minLength: 1,
+      description: 'Required status-check context name as GitHub reports it.',
+    },
     cmd: {
       type: 'array',
       minItems: 1,
       items: { type: 'string', minLength: 1 },
+      description:
+        'argv array (never a shell string) the local pre-push validation runs to reproduce the check.',
     },
   },
   additionalProperties: false,
@@ -196,11 +311,24 @@ const BRANCH_PROTECTION_CHECK_SCHEMA = {
 
 const BRANCH_PROTECTION_SCHEMA = {
   type: 'object',
+  description:
+    'Branch-protection stance applied to `project.baseBranch` by the GitHub bootstrap, and reproduced locally before every push.',
   properties: {
-    enforce: { type: 'boolean' },
+    enforce: {
+      type: 'boolean',
+      description:
+        'When true, the GitHub bootstrap writes the required-check ruleset. False leaves the remote stance alone.',
+      default: BRANCH_PROTECTION_DEFAULTS.enforce,
+    },
     requiredChecks: {
       type: 'array',
       items: BRANCH_PROTECTION_CHECK_SCHEMA,
+      description:
+        'Checks that must pass before a Story PR merges. Each entry carries both the remote context name and the local argv.',
+      default: DEFAULT_REQUIRED_CHECKS.map((c) => ({
+        name: c.name,
+        cmd: [...c.cmd],
+      })),
     },
   },
   additionalProperties: false,
@@ -208,26 +336,79 @@ const BRANCH_PROTECTION_SCHEMA = {
 
 const MERGE_METHODS_SCHEMA = {
   type: 'object',
+  description:
+    'Repository merge-method stance the GitHub bootstrap enforces. The framework ships squash-only with auto-merge on, which is what the one-PR-per-Story model needs for release-please to parse each landed subject.',
   properties: {
-    allow_squash_merge: { type: 'boolean' },
-    allow_rebase_merge: { type: 'boolean' },
-    allow_merge_commit: { type: 'boolean' },
-    allow_auto_merge: { type: 'boolean' },
-    delete_branch_on_merge: { type: 'boolean' },
+    allow_squash_merge: {
+      type: 'boolean',
+      default: MERGE_METHODS_DEFAULTS.allow_squash_merge,
+    },
+    allow_rebase_merge: {
+      type: 'boolean',
+      default: MERGE_METHODS_DEFAULTS.allow_rebase_merge,
+    },
+    allow_merge_commit: {
+      type: 'boolean',
+      default: MERGE_METHODS_DEFAULTS.allow_merge_commit,
+    },
+    allow_auto_merge: {
+      type: 'boolean',
+      default: MERGE_METHODS_DEFAULTS.allow_auto_merge,
+    },
+    delete_branch_on_merge: {
+      type: 'boolean',
+      default: MERGE_METHODS_DEFAULTS.delete_branch_on_merge,
+    },
   },
   additionalProperties: false,
 };
 
 const GITHUB_SCHEMA = {
   type: 'object',
+  description:
+    'GitHub provider identity plus the remote stance the bootstrap enforces. `owner`, `repo`, and `operatorHandle` are operator identity — the shipped values are placeholders, not usable defaults.',
   required: ['owner', 'repo', 'operatorHandle'],
   properties: {
-    owner: { type: 'string', minLength: 1 },
-    repo: { type: 'string', minLength: 1 },
-    projectNumber: { type: ['integer', 'null'], minimum: 1 },
-    projectOwner: { type: ['string', 'null'], minLength: 1 },
-    operatorHandle: { type: 'string', pattern: '^@.+' },
-    defaultTimeoutMs: { type: 'integer', minimum: 1000 },
+    owner: {
+      type: 'string',
+      minLength: 1,
+      description: 'GitHub owner (user or org) that hosts the repository.',
+      default: '[OWNER]',
+    },
+    repo: {
+      type: 'string',
+      minLength: 1,
+      description: 'Repository name under `owner`.',
+      default: '[REPO]',
+    },
+    projectNumber: {
+      type: ['integer', 'null'],
+      minimum: 1,
+      description:
+        'Projects V2 board number the orchestrator syncs Story status onto. `null` disables board sync.',
+      default: null,
+    },
+    projectOwner: {
+      type: ['string', 'null'],
+      minLength: 1,
+      description:
+        'Owner of the Projects V2 board when it lives outside `owner` (an org board fed by a user repo). `null` means the board shares `owner`.',
+      default: null,
+    },
+    operatorHandle: {
+      type: 'string',
+      pattern: '^@.+',
+      description:
+        'The human the framework escalates to, `@`-prefixed. Used for HITL @-mentions on `agent::blocked`.',
+      default: '@[USERNAME]',
+    },
+    defaultTimeoutMs: {
+      type: 'integer',
+      minimum: 1000,
+      description:
+        'Default `timeoutMs` applied to every `gh` subprocess the provider facade spawns, so a stalled socket or long-poll cannot hang an orchestration indefinitely. A `GhExecTimeoutError` from a hit ceiling is classified `transient` and retried by `withTransientRetry`. Story #2860.',
+      default: 60000,
+    },
     branchProtection: BRANCH_PROTECTION_SCHEMA,
     mergeMethods: MERGE_METHODS_SCHEMA,
     notifications: NOTIFICATIONS_SCHEMA,
@@ -259,8 +440,21 @@ const GITHUB_SCHEMA = {
 
 const PLANNING_SCHEMA = {
   type: 'object',
+  description:
+    'Inputs to `/plan`: risk escalation heuristics, ceremony-lite routing, and the cross-Story conflict-finding severity gates.',
   properties: {
-    riskHeuristics: LIST_OR_EXTENDER_OF_STRINGS,
+    riskHeuristics: {
+      ...LIST_OR_EXTENDER_OF_STRINGS,
+      description:
+        'Prose heuristics the planner escalates a Story against. A plain array replaces the framework list; the `{ append, prepend }` extender form deep-merges with it.',
+      default: [
+        'Destructive or irreversible data mutations (dropping tables, deleting rows without soft-delete or backup, truncating production state).',
+        'Modifications to shared security or auth infrastructure (IAM policies, auth middleware, session or token handling, secret rotation).',
+        'Changes to CI/CD, deployment pipelines, or release gating that could disable safety checks or ship unverified code to production.',
+        'Monorepo-wide AST or text replacements touching overlapping files in parallel (catastrophic merge-conflict risk across concurrent agents).',
+        'Schema migrations that rewrite existing rows or drop columns without a backfill or rollback plan.',
+      ],
+    },
     // Story #4722 (superseding #4683's word-count gate) — shape-derived
     // ceremony-lite routing. Complexity routes on the objective shape of the
     // authored work (changes[] count, acceptance count, creates-vs-refactors
@@ -302,11 +496,13 @@ const PLANNING_SCHEMA = {
       type: 'boolean',
       description:
         'When true, upgrade shared-editor conflict findings to hard errors (default false — advisory soft findings only).',
+      default: false,
     },
     requireExplicitCrossStoryDeps: {
       type: 'boolean',
       description:
         'When true, upgrade implicit cross-Story dependency findings to hard errors (default false — advisory soft findings only).',
+      default: false,
     },
     // Cross-cutting registry conflict knobs consumed by
     // `ticket-validator-conflicts.js` (wired through
@@ -320,22 +516,35 @@ const PLANNING_SCHEMA = {
       ...LIST_OR_EXTENDER_OF_STRINGS,
       description:
         'Registry path patterns whose concurrent edits across Stories are flagged as conflicts. Defaults to the framework listener/handler index patterns when omitted.',
+      // Mirrors DEFAULT_REGISTRY_PATTERNS in
+      // `lib/orchestration/ticket-validator-conflicts.js`. Restated rather
+      // than imported: that module pulls in the story-body parser and the
+      // reachability walker, which have no business loading behind a schema
+      // declaration. The rewritten parity suite asserts the two agree.
+      default: [
+        'lib/orchestration/lifecycle/listeners/index.js',
+        '**/listeners/index.js',
+        '**/handlers/index.js',
+      ],
     },
     failOnRegistryConflicts: {
       type: 'boolean',
       description:
         'When true, upgrade cross-cutting registry conflict findings to hard errors (default false).',
+      default: false,
     },
     failOnLargeFanOut: {
       type: 'boolean',
       description:
         'When true, upgrade fan-out-warning findings (delete blast radius) to hard errors (default false — soft advisory).',
+      default: false,
     },
     largeFanOutThreshold: {
       type: 'integer',
       minimum: 0,
       description:
         'Call-site count above which a Story that deletes a module emits a fan-out-warning. Counts base-branch references to the deleted path basename. Soft by default; does not size or reject Stories. Default 10.',
+      default: 10,
     },
     // Navigability-reachability config consumed by the plan-persist draft
     // reachability gate (Epic #4131 F7; demoted into persist by #4474 PR6).
@@ -350,12 +559,14 @@ const PLANNING_SCHEMA = {
           items: { type: 'string' },
           description:
             'Glob patterns (e.g. pages/**, app/**/route.ts) marking paths that add a user-facing route.',
+          default: [],
         },
         navRegistry: {
           type: 'array',
           items: { type: 'string' },
           description:
             'Tokens identifying the nav-registry SSOT a route-adding Story is expected to reference.',
+          default: [],
         },
       },
       additionalProperties: false,
@@ -425,6 +636,13 @@ const QA_SIGN_IN_SEAM_SCHEMA = {
 // for `skill`/credential seams where per-persona material is genuinely
 // consulted. The resolver normalizes both to one canonical internal form.
 const QA_PERSONAS_SCHEMA = {
+  description:
+    'Personas the QA-harness sign-in seam accepts. Two accepted shapes: (1) a plain array of persona names — the honest shape for a `urlTemplate` dev-impersonation seam, where the persona name is the sole input the workflow consumes; (2) the object-map form keyed by persona name, where each entry carries per-persona auth material (`credentialRef` or `signInSkill`) consulted only under a skill-based or credential-based seam.',
+  // Inventory value: an illustrative map showing both per-persona shapes.
+  default: {
+    admin: { credentialRef: 'QA_ADMIN_CREDENTIAL' },
+    member: { signInSkill: 'stack/qa/sign-in-member' },
+  },
   oneOf: [
     {
       type: 'array',
@@ -469,6 +687,23 @@ const QA_PERSONAS_SCHEMA = {
 // `.agents/rules/git-conventions.md` § Contract Cutovers).
 const QA_ENVIRONMENTS_SCHEMA = {
   type: 'object',
+  description:
+    'Deployment targets the QA harness can run against (Epic #4326). A map keyed by environment name (e.g. `local`, `staging`), each carrying its own `baseUrl`, its own per-environment sign-in seam (the same url-template/skill union as the top-level seam), and an optional `allowWrites` gate. resolveQaEnvironment selects one environment per invocation by name or by raw-URL origin match against `baseUrl`; `allowWrites` defaults to true only for the `local` environment. Replaces the retired top-level single `signInSeam`.',
+  // Inventory value: an illustrative two-environment map, not a resolvable
+  // default. The QA harness is opt-in and every value here is
+  // project-specific; the entry exists so `mandrel explain` can show the
+  // expected shape.
+  default: {
+    local: {
+      baseUrl: 'http://localhost:3000',
+      signInSeam: { urlTemplate: '/dev/sign-in-as/{persona}' },
+    },
+    staging: {
+      baseUrl: 'https://staging.example.test',
+      signInSeam: { skill: 'stack/qa/sign-in' },
+      allowWrites: false,
+    },
+  },
   minProperties: 1,
   additionalProperties: {
     type: 'object',
@@ -484,16 +719,39 @@ const QA_ENVIRONMENTS_SCHEMA = {
 
 export const QA_SCHEMA = {
   type: 'object',
+  description:
+    'Agent-driven QA harness contract (Epic #3214; environment-keyed by Epic #4326). Optional top-level block. All filesystem-pointer fields (featureRoot, fixturesManifest, designTokens) carry safeString guards rejecting shell-injection metacharacters. environments is a map of named deployment targets (each with a baseUrl, a per-environment url-template/skill sign-in seam, and an optional allowWrites gate); personas resolve to a stored credential reference or a sign-in skill, never an inline secret.',
   properties: {
-    featureRoot: { ...SAFE_STRING, minLength: 1 },
-    fixturesManifest: { ...SAFE_STRING, minLength: 1 },
+    featureRoot: {
+      ...SAFE_STRING,
+      minLength: 1,
+      description:
+        'Directory holding the Gherkin feature files the QA sweep drives.',
+      default: 'tests/features',
+    },
+    fixturesManifest: {
+      ...SAFE_STRING,
+      minLength: 1,
+      description:
+        'Path to the persona/fixture manifest the harness seeds from.',
+      default: 'tests/fixtures/personas.json',
+    },
     environments: QA_ENVIRONMENTS_SCHEMA,
     personas: QA_PERSONAS_SCHEMA,
     consoleAllowlist: {
       type: 'array',
       items: { ...SAFE_STRING, minLength: 1 },
+      description:
+        'Console-message substrings the QA run tolerates instead of reporting as a finding (framework dev-mode chatter).',
+      default: ['Download the React DevTools', '[HMR]'],
     },
-    designTokens: { ...SAFE_STRING, minLength: 1 },
+    designTokens: {
+      ...SAFE_STRING,
+      minLength: 1,
+      description:
+        'Path to the design-token SSOT the UX/UI lens checks rendered styles against.',
+      default: 'src/styles/tokens.css',
+    },
   },
   additionalProperties: false,
 };
@@ -502,7 +760,11 @@ export const AGENTRC_SCHEMA = {
   type: 'object',
   required: ['project'],
   properties: {
-    $schema: { type: 'string' },
+    $schema: {
+      type: 'string',
+      description:
+        'Editor pointer at the shipped JSON-Schema mirror. Not read by the runtime.',
+    },
     project: PROJECT_SCHEMA,
     github: GITHUB_SCHEMA,
     planning: PLANNING_SCHEMA,

@@ -61,11 +61,15 @@ sub-blocks read through dedicated accessors:
 1. **Authoritative AJV schemas at runtime.** Validate the loaded config at
    resolver entry. A missing required field is a validation error with a
    clear `instancePath`, never a silent fallback.
-2. **Static JSON Schema mirror for editors.** Mirror the AJV schemas to a
-   `.json` file the config declares via `"$schema": "..."`. A drift test
-   prevents the mirror from going stale. Editors and operators get
-   autocomplete and inline validation; the runtime keeps a single source of
-   truth.
+2. **Generated JSON Schema mirror for editors.** Serialize the runtime AJV
+   schema to a `.json` file the config declares via `"$schema": "..."`, and
+   annotate the schema literals with `description` / `default` so the
+   serialization carries them. Generate, never hand-mirror: a hand-kept
+   mirror needs a drift test, and the failure it guards — a key documented in
+   the mirror but absent from the runtime validator, making a consumer's
+   whole config dead on arrival — exists only because the two were authored
+   separately. Editors and operators get autocomplete and inline validation
+   off the same object the runtime validates with.
 3. **Grouped sub-blocks with typed accessors.** Reorganise the namespace
    into a small number of sub-blocks (e.g. `paths`, `commands`, `quality`,
    `limits`) and read each through a single getter (`getPaths(config)`,

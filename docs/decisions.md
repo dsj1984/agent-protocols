@@ -1425,11 +1425,15 @@ Concretely:
   required `owner` and `repo`) is schema-required at the top level
   post-reshape; pre-reshape this was a conditional under the legacy
   `orchestration` umbrella, gated by a `provider` selector.
-- **Static JSON Schema mirror.** Both shipped configs declare
+- **Generated JSON Schema mirror.** Both shipped configs declare
   `"$schema": "./.agents/schemas/agentrc.schema.json"`. The runtime AJV
-  schemas in `lib/config-schema.js` and `lib/config-settings-schema.js`
-  remain authoritative; the static mirror exists for editor tooling and
-  human readers, kept in sync by a drift test.
+  schema in `lib/config-settings-schema.js` is authoritative; the mirror
+  exists for editor tooling and human readers. Story #5007 made it a
+  serialization of that schema rather than a hand-kept copy reconciled by a
+  drift test — along with the defaults inventory
+  `.agents/docs/agentrc-reference.json` and the `configuration.md` key
+  table, all three emitted by `generate-config-docs.js` from `description` /
+  `default` annotations on the schema literals.
 - **Schema-driven sync helper.** `mandrel-sync-config` now validates the
   project config against the schema, adds template-introduced keys, and
   preserves every project-side key that validates — including optional keys

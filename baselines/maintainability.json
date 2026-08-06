@@ -1,11 +1,11 @@
 {
   "$schema": ".agents/schemas/baselines/maintainability.schema.json",
   "kernelVersion": "0.1.0",
-  "generatedAt": "2026-08-06T05:26:01.131Z",
+  "generatedAt": "2026-08-06T05:45:54.826Z",
   "rollup": {
     "*": {
-      "min": 74.146,
-      "p50": 98.296,
+      "min": 75.55,
+      "p50": 98.322,
       "p95": 122.913
     }
   },
@@ -144,7 +144,7 @@
     },
     {
       "path": ".agents/scripts/generate-config-docs.js",
-      "mi": 95.569
+      "mi": 98.92
     },
     {
       "path": ".agents/scripts/generate-lens-checklists.js",
@@ -668,11 +668,11 @@
     },
     {
       "path": ".agents/scripts/lib/config/gates/index.js",
-      "mi": 110.732
+      "mi": 109.091
     },
     {
       "path": ".agents/scripts/lib/config/gates/shared.js",
-      "mi": 74.146
+      "mi": 79.924
     },
     {
       "path": ".agents/scripts/lib/config/github.js",

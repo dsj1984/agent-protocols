@@ -356,8 +356,10 @@ export function ensureQualityConfigDefaults(ctx) {
 
 /**
  * Repo-root-relative path of the retired committed per-Epic snapshot tree.
+ * Module-private: exporting it would add a production-dead row to the
+ * dead-exports ratchet for a two-word constant.
  */
-export const LEGACY_EPIC_BASELINES_RELPATH = 'baselines/epic';
+const LEGACY_EPIC_BASELINES_RELPATH = 'baselines/epic';
 
 /**
  * Step 5 — Prune a committed pre-v2 `baselines/epic/` tree (Story #5007).
