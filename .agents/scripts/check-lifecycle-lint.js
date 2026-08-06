@@ -152,7 +152,7 @@ export function findPromiseAllViolations(
         violations.push({
           file,
           line: i + 1,
-          hint: 'Promise.all over listener arrays breaks bus repeatability. Listeners must run sequentially with await.',
+          hint: 'Promise.all on the lifecycle surface interleaves ledger writes. The ledger is append-only; writes must stay sequential.',
         });
       }
     }
@@ -306,8 +306,12 @@ async function main() {
     return 0;
   }
   for (const v of all) {
-    const loc = v.line ? `${v.file}:${v.line}` : v.file;
-    process.stderr.write(`[lifecycle-lint][${v.rule}] ${loc}\n  ${v.hint}\n`);
+    // Both finders always stamp a 1-based `line`, so there is no file-only
+    // fallback to render — the ternary that used to guard this was an
+    // unreachable branch (Story #5024).
+    process.stderr.write(
+      `[lifecycle-lint][${v.rule}] ${v.file}:${v.line}\n  ${v.hint}\n`,
+    );
   }
   return 1;
 }
