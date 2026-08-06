@@ -32,7 +32,6 @@
  * an unrecognized check state.
  */
 
-import { spawnSync } from 'node:child_process';
 import {
   existsSync,
   mkdirSync,
@@ -41,6 +40,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import path from 'node:path';
+import { spawnChild } from '../child-exec.js';
 import { resolveConfig } from '../config-resolver.js';
 import { Logger } from '../Logger.js';
 import { createProvider } from '../provider-factory.js';
@@ -119,14 +119,13 @@ function ciDigestPaths({ storyId = null, tempRoot, cwd }) {
  * returns an empty tail when the run id is unknown or `gh` errors.
  * Injected into `writeCiDigest` so tests never shell out.
  */
-function ghRunLogTail({ runId, cwd, spawnFn = spawnSync, maxLines = 40 }) {
+function ghRunLogTail({ runId, cwd, spawnFn, maxLines = 40 }) {
   if (!runId) return '';
-  const result = spawnFn('gh', ['run', 'view', String(runId), '--log-failed'], {
-    cwd,
-    encoding: 'utf-8',
-    shell: false,
-    maxBuffer: 10 * 1024 * 1024,
-  });
+  const result = spawnChild(
+    'gh',
+    ['run', 'view', String(runId), '--log-failed'],
+    { run: spawnFn, cwd },
+  );
   const out = (result.stdout ?? '').trim();
   if (out.length === 0) return '';
   const lines = out.split('\n');
@@ -142,17 +141,12 @@ function ghRunLogTail({ runId, cwd, spawnFn = spawnSync, maxLines = 40 }) {
  *
  * @returns {{ runId: string|null, url: string|null }}
  */
-function resolveFailingCheckRun({
-  prRef,
-  checkName,
-  cwd,
-  spawnFn = spawnSync,
-}) {
-  const result = spawnFn('gh', ['pr', 'checks', prRef, '--json', 'name,link'], {
-    cwd,
-    encoding: 'utf-8',
-    shell: false,
-  });
+function resolveFailingCheckRun({ prRef, checkName, cwd, spawnFn }) {
+  const result = spawnChild(
+    'gh',
+    ['pr', 'checks', prRef, '--json', 'name,link'],
+    { run: spawnFn, cwd },
+  );
   try {
     const parsed = JSON.parse((result.stdout ?? '').trim() || '[]');
     const entry = Array.isArray(parsed)
@@ -172,15 +166,18 @@ function resolveFailingCheckRun({
  * `null` when `gh` fails or the payload is unparseable; callers treat an
  * unresolvable head as unverifiable, never as "changed".
  *
- * @param {{ prRef: string, cwd: string, spawnFn?: typeof spawnSync }} opts
+ * @param {{ prRef: string, cwd: string, spawnFn?: Function }} opts
  * @returns {string|null}
  */
-export function resolvePrHeadSha({ prRef, cwd, spawnFn = spawnSync }) {
-  const result = spawnFn('gh', ['pr', 'view', prRef, '--json', 'headRefOid'], {
-    cwd,
-    encoding: 'utf-8',
-    shell: false,
-  });
+export function resolvePrHeadSha({ prRef, cwd, spawnFn }) {
+  const result = spawnChild(
+    'gh',
+    ['pr', 'view', prRef, '--json', 'headRefOid'],
+    {
+      run: spawnFn,
+      cwd,
+    },
+  );
   if ((result?.status ?? 1) !== 0) return null;
   try {
     const parsed = JSON.parse((result.stdout ?? '').trim() || '{}');
@@ -204,18 +201,17 @@ const NOT_ARMED = /not enabled|isn't enabled|is not set|no auto-?merge/i;
  * Disarm GitHub native auto-merge for the PR — the race-free response to the
  * first red. Never throws.
  *
- * @param {{ prRef: string, cwd: string, spawnFn?: typeof spawnSync }} opts
+ * @param {{ prRef: string, cwd: string, spawnFn?: Function }} opts
  * @returns {{ disarmed: boolean, alreadyUnarmed: boolean, detail: string }}
  *   `disarmed` is true when the PR is (now) un-armed; `alreadyUnarmed`
  *   distinguishes "there was nothing armed" from an executed disarm.
  */
-export function disarmAutoMerge({ prRef, cwd, spawnFn = spawnSync }) {
+export function disarmAutoMerge({ prRef, cwd, spawnFn }) {
   let result;
   try {
-    result = spawnFn('gh', ['pr', 'merge', prRef, '--disable-auto'], {
+    result = spawnChild('gh', ['pr', 'merge', prRef, '--disable-auto'], {
+      run: spawnFn,
       cwd,
-      encoding: 'utf-8',
-      shell: false,
     });
   } catch (err) {
     return {
@@ -362,6 +358,9 @@ function renderDigestMarkdown(digest, failures) {
  * @param {string} opts.prRef
  * @param {Function} [opts.checkRunFn]
  * @param {Function} [opts.logTailFn]
+ * @param {Function} [opts.spawnFn] Child runner handed to the two default
+ *   `gh` probes, so their real bodies can be exercised without shelling out.
+ *   Ignored when `checkRunFn` / `logTailFn` are replaced outright.
  * @returns {{ jsonPath: string, mdPath: string } | null}
  */
 export function writeCiDigest({
@@ -374,12 +373,14 @@ export function writeCiDigest({
   prRef,
   checkRunFn = resolveFailingCheckRun,
   logTailFn = ghRunLogTail,
+  spawnFn,
 }) {
   const paths = ciDigestPaths({ storyId, tempRoot, cwd });
   if (!paths) return null;
   const primary = failures[0] ?? { name: 'unknown', outcome: 'failure' };
-  const checkRun = checkRunFn({ prRef, checkName: primary.name, cwd }) ?? {};
-  const logTail = logTailFn({ runId: checkRun.runId, cwd });
+  const checkRun =
+    checkRunFn({ prRef, checkName: primary.name, cwd, spawnFn }) ?? {};
+  const logTail = logTailFn({ runId: checkRun.runId, cwd, spawnFn });
   const previous = readCiDigest({ storyId, tempRoot, cwd });
   const digest = {
     storyId: paths.scope.id,

@@ -28,6 +28,7 @@
  */
 
 import { execFileSync, spawnSync } from 'node:child_process';
+import { execFileCapture, spawnCapture } from './child-exec.js';
 
 /**
  * Result of a `gitSpawn` invocation. Field semantics match `child_process.spawnSync`
@@ -39,23 +40,6 @@ import { execFileSync, spawnSync } from 'node:child_process';
  * @property {string} stdout - Trimmed stdout.
  * @property {string} stderr - Trimmed stderr.
  */
-
-/**
- * Explicit stdout ceiling for every git invocation in this module.
- *
- * Both child-process runners default `maxBuffer` to 1 MB, at which point the
- * child is killed and the call fails with `ENOBUFS` for a reason unrelated to
- * git. The push path is the sharp edge: `git push` relays the whole `pre-push`
- * hook output, which is unbounded by design — this repo's hook emits a full
- * `check-baselines` envelope, measured at 2,166,643 bytes, so every Story
- * close failed at `phase: push` once hooks became reachable inside worktrees.
- *
- * 64 MB is the bound Story #4914 already set on `baselines/git-base.js` for
- * the identical failure, matching `run-test-profile.js`,
- * `audit-baselines/trend.js` and `audit-baselines/weights.js`. This module was
- * missed by that sweep.
- */
-const MAX_BUFFER_BYTES = 64 * 1024 * 1024;
 
 let _execFileSync = execFileSync;
 let _spawnSync = spawnSync;
@@ -129,26 +113,30 @@ export function __setGitRunners(exec, spawn) {
  * the interface returned by {@link createGitInterface} route through this —
  * they differ only in which `execFileSync` they hand it.
  *
+ * Buffer, shell and encoding policy belong to
+ * [`child-exec.js`](child-exec.js); this function contributes only the git
+ * specifics (argv prefix, cwd, scrubbed env).
+ *
  * @param {typeof execFileSync} exec
  * @param {string} cwd
  * @param {string[]} args
  * @returns {string} Trimmed stdout text.
  */
 function runGitSync(exec, cwd, args) {
-  return exec('git', args, {
-    cwd,
-    encoding: 'utf8',
-    stdio: ['pipe', 'pipe', 'pipe'],
-    shell: false,
-    env: cleanGitEnv(),
-    maxBuffer: MAX_BUFFER_BYTES,
-  }).trim();
+  return String(
+    execFileCapture('git', args, {
+      run: exec,
+      cwd,
+      stdio: ['pipe', 'pipe', 'pipe'],
+      env: cleanGitEnv(),
+    }),
+  ).trim();
 }
 
 /**
  * The **single** non-throwing git runner — the `spawnSync` counterpart of
  * {@link runGitSync}, normalising `status`/stdout/stderr into a
- * {@link GitResult}.
+ * {@link GitResult} via the shared exec surface.
  *
  * @param {typeof spawnSync} spawn
  * @param {string} cwd
@@ -156,19 +144,11 @@ function runGitSync(exec, cwd, args) {
  * @returns {GitResult}
  */
 function runGitSpawn(spawn, cwd, args) {
-  const result = spawn('git', args, {
+  return spawnCapture('git', args, {
+    run: spawn,
     cwd,
-    stdio: 'pipe',
-    encoding: 'utf-8',
-    shell: false,
     env: cleanGitEnv(),
-    maxBuffer: MAX_BUFFER_BYTES,
   });
-  return {
-    status: result.status ?? 1,
-    stdout: (result.stdout ?? '').trim(),
-    stderr: (result.stderr ?? '').trim(),
-  };
 }
 
 /**

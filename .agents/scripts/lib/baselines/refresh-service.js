@@ -76,11 +76,10 @@
  * @module .agents/scripts/lib/baselines/refresh-service
  */
 
-import { execFile as nodeExecFile } from 'node:child_process';
 import nodeFs from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
-import { promisify } from 'node:util';
+import { execFileCaptureAsync } from '../child-exec.js';
 import { getQuality, resolveConfig } from '../config-resolver.js';
 import {
   buildScopePredicate,
@@ -106,8 +105,6 @@ import {
 } from './writer.js';
 
 const nodeRequire = createRequire(import.meta.url);
-
-const execFileAsync = promisify(nodeExecFile);
 
 /**
  * Kinds the refresh service knows how to dispatch. Stays in lockstep with
@@ -574,8 +571,9 @@ function assertRequiredScopeRows({
 }
 
 /**
- * Default git-diff derivation for the diff-scope path. Uses `execFile`
- * (no shell) and only the canonical two-dot range `baseRef..headRef` —
+ * Default git-diff derivation for the diff-scope path. Runs through the shared
+ * child-process surface ([`child-exec.js`](../child-exec.js)) — `execFile`,
+ * never a shell — and only the canonical two-dot range `baseRef..headRef`:
  * triple-dot is intentionally avoided so the result reflects exactly the
  * files that differ between the two refs at the time of the call.
  *
@@ -585,10 +583,10 @@ function assertRequiredScopeRows({
 async function defaultGitDiff({ baseRef, headRef, cwd }) {
   const range = `${baseRef}..${headRef}`;
   try {
-    const { stdout } = await execFileAsync(
+    const { stdout } = await execFileCaptureAsync(
       'git',
       ['diff', '--name-only', range],
-      { cwd, maxBuffer: 16 * 1024 * 1024 },
+      { cwd },
     );
     return stdout
       .split(/\r?\n/)

@@ -1,13 +1,13 @@
 {
   "$schema": ".agents/schemas/baselines/duplication.schema.json",
   "kernelVersion": "1.0.0",
-  "generatedAt": "2026-08-06T02:31:35.899Z",
+  "generatedAt": "2026-08-06T09:56:22.975Z",
   "rollup": {
     "*": {
-      "percentage": 8.02,
-      "duplicatedLines": 1781,
-      "totalLines": 22217,
-      "filesWithDuplication": 79
+      "percentage": 7.9,
+      "duplicatedLines": 1726,
+      "totalLines": 21840,
+      "filesWithDuplication": 78
     }
   },
   "rows": [
@@ -220,12 +220,6 @@
       "duplicatedLines": 10,
       "totalLines": 217,
       "percentage": 4.61
-    },
-    {
-      "path": ".agents/scripts/lib/git-utils.js",
-      "duplicatedLines": 55,
-      "totalLines": 377,
-      "percentage": 14.59
     },
     {
       "path": ".agents/scripts/lib/import-graph.js",

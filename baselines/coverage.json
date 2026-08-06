@@ -1,12 +1,12 @@
 {
   "$schema": ".agents/schemas/baselines/coverage.schema.json",
   "kernelVersion": "1.0.0",
-  "generatedAt": "2026-08-06T10:09:22.971Z",
+  "generatedAt": "2026-08-06T10:16:31.302Z",
   "rollup": {
     "*": {
-      "lines": 95.75,
-      "branches": 86.36,
-      "functions": 88.43
+      "lines": 95.77,
+      "branches": 86.4,
+      "functions": 88.47
     }
   },
   "rows": [
@@ -294,14 +294,14 @@
     },
     {
       "path": ".agents/scripts/lib/audit-baselines/trend.js",
-      "lines": 96.8,
-      "branches": 83.33,
+      "lines": 98.39,
+      "branches": 90.48,
       "functions": 100
     },
     {
       "path": ".agents/scripts/lib/audit-baselines/weights.js",
       "lines": 98.96,
-      "branches": 90.74,
+      "branches": 90.91,
       "functions": 100
     },
     {
@@ -510,8 +510,8 @@
     },
     {
       "path": ".agents/scripts/lib/baselines/git-base.js",
-      "lines": 97.85,
-      "branches": 85,
+      "lines": 97.79,
+      "branches": 84.21,
       "functions": 100
     },
     {
@@ -630,9 +630,9 @@
     },
     {
       "path": ".agents/scripts/lib/baselines/refresh-service.js",
-      "lines": 89.69,
+      "lines": 88.29,
       "branches": 76.67,
-      "functions": 82.35
+      "functions": 73.68
     },
     {
       "path": ".agents/scripts/lib/baselines/scope-assert.js",
@@ -818,6 +818,12 @@
       "path": ".agents/scripts/lib/checks/subagent-agent-tool-required.js",
       "lines": 95.35,
       "branches": 81.4,
+      "functions": 100
+    },
+    {
+      "path": ".agents/scripts/lib/child-exec.js",
+      "lines": 100,
+      "branches": 100,
       "functions": 100
     },
     {
@@ -1398,9 +1404,9 @@
     },
     {
       "path": ".agents/scripts/lib/git-utils.js",
-      "lines": 97.35,
-      "branches": 91.53,
-      "functions": 85.71
+      "lines": 96.85,
+      "branches": 91.49,
+      "functions": 90.91
     },
     {
       "path": ".agents/scripts/lib/git/cached-fetch.js",
@@ -1638,9 +1644,9 @@
     },
     {
       "path": ".agents/scripts/lib/orchestration/ci-rerun-guard.js",
-      "lines": 85.4,
-      "branches": 71.3,
-      "functions": 82.35
+      "lines": 91.99,
+      "branches": 76.56,
+      "functions": 94.12
     },
     {
       "path": ".agents/scripts/lib/orchestration/code-review.js",

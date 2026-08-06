@@ -189,3 +189,138 @@ describe('writeCiDigest', () => {
     });
   });
 });
+
+/**
+ * Story #5009 — the two default `gh` probes are the digest's own spawn sites,
+ * migrated onto the shared `child-exec` surface. Every test above replaces
+ * them wholesale with `checkRunFn` / `logTailFn`, so their real bodies had
+ * never been executed: they entered the CRAP baseline at 0% coverage the
+ * moment the file was rescored. These drive them through an injected child
+ * runner instead — no `gh`, no network, and the argv is asserted.
+ */
+describe('the default gh probes (Story #5009)', () => {
+  /** A `spawnSync`-shaped runner returning canned stdout per subcommand. */
+  function ghRunner(byArgv) {
+    const calls = [];
+    const run = (file, args, opts) => {
+      calls.push({ file, args, opts });
+      const key = args.slice(0, 2).join(' ');
+      return { status: 0, stdout: byArgv[key] ?? '', stderr: '' };
+    };
+    return { calls, run };
+  }
+
+  it('parses the run id out of the check link and tails the failed log', () => {
+    withTempRoot((tempRoot) => {
+      const { calls, run } = ghRunner({
+        'pr checks': JSON.stringify([
+          { name: 'lint', link: 'https://github.com/o/r/actions/runs/111' },
+          { name: 'test', link: 'https://github.com/o/r/actions/runs/222' },
+        ]),
+        'run view': ['line one', 'line two', 'AssertionError: boom'].join('\n'),
+      });
+      const out = writeCiDigest({
+        storyId: 5009,
+        prNumber: 42,
+        headSha: 'deadbee',
+        failures: [{ name: 'test', outcome: 'failure' }],
+        tempRoot,
+        cwd: tempRoot,
+        prRef: '42',
+        spawnFn: run,
+      });
+      const digest = JSON.parse(readFileSync(out.jsonPath, 'utf8'));
+      assert.equal(
+        digest.runId,
+        '222',
+        'the run id comes from the matching check',
+      );
+      assert.equal(digest.runUrl, 'https://github.com/o/r/actions/runs/222');
+      assert.match(digest.logTail, /AssertionError: boom/);
+
+      assert.deepEqual(calls[0].args, [
+        'pr',
+        'checks',
+        '42',
+        '--json',
+        'name,link',
+      ]);
+      assert.deepEqual(calls[1].args, ['run', 'view', '222', '--log-failed']);
+      // The shared surface's policy reaches the real spawn site.
+      assert.equal(calls[0].opts.shell, false);
+      assert.equal(calls[0].opts.maxBuffer, 64 * 1024 * 1024);
+    });
+  });
+
+  it('degrades to nulls when gh prints nothing parseable, and skips the log tail', () => {
+    withTempRoot((tempRoot) => {
+      const { calls, run } = ghRunner({ 'pr checks': 'not json' });
+      const out = writeCiDigest({
+        storyId: 5009,
+        prNumber: 42,
+        headSha: 'deadbee',
+        failures: [{ name: 'test', outcome: 'failure' }],
+        tempRoot,
+        cwd: tempRoot,
+        prRef: '42',
+        spawnFn: run,
+      });
+      const digest = JSON.parse(readFileSync(out.jsonPath, 'utf8'));
+      assert.equal(digest.runId, null);
+      assert.equal(digest.runUrl, null);
+      assert.equal(digest.logTail, '');
+      assert.equal(
+        calls.length,
+        1,
+        'an unknown run id must not spawn `gh run view` at all',
+      );
+    });
+  });
+
+  it('records no link when the failing check is absent from the payload', () => {
+    withTempRoot((tempRoot) => {
+      const { run } = ghRunner({
+        'pr checks': JSON.stringify([{ name: 'other', link: null }]),
+      });
+      const out = writeCiDigest({
+        storyId: 5009,
+        prNumber: 42,
+        headSha: 'deadbee',
+        failures: [{ name: 'test', outcome: 'failure' }],
+        tempRoot,
+        cwd: tempRoot,
+        prRef: '42',
+        spawnFn: run,
+      });
+      const digest = JSON.parse(readFileSync(out.jsonPath, 'utf8'));
+      assert.equal(digest.runId, null);
+      assert.equal(digest.runUrl, null);
+    });
+  });
+
+  it('drops all but the last 40 lines of the failed-job log', () => {
+    withTempRoot((tempRoot) => {
+      const { run } = ghRunner({
+        'pr checks': JSON.stringify([
+          { name: 'test', link: 'https://github.com/o/r/actions/runs/9' },
+        ]),
+        'run view': Array.from({ length: 60 }, (_, i) => `l${i}`).join('\n'),
+      });
+      const out = writeCiDigest({
+        storyId: 5009,
+        prNumber: 42,
+        headSha: 'deadbee',
+        failures: [{ name: 'test', outcome: 'failure' }],
+        tempRoot,
+        cwd: tempRoot,
+        prRef: '42',
+        spawnFn: run,
+      });
+      const digest = JSON.parse(readFileSync(out.jsonPath, 'utf8'));
+      const lines = digest.logTail.split('\n');
+      assert.equal(lines.length, 40);
+      assert.equal(lines[0], 'l20');
+      assert.equal(lines.at(-1), 'l59');
+    });
+  });
+});

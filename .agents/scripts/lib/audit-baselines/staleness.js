@@ -16,25 +16,25 @@
  * @module lib/audit-baselines/staleness
  */
 
-import { execFileSync } from 'node:child_process';
+import { execFileCapture } from '../child-exec.js';
 import { KIND_SPECS } from './kinds.js';
 import { ageInDays } from './read.js';
 
 /**
  * Run a git command under `cwd`, returning trimmed stdout, or `null` on any
- * failure or empty result.
+ * failure or empty result. Buffer and shell policy come from the shared
+ * child-process surface ([`child-exec.js`](../child-exec.js)).
  *
  * @param {string[]} args
  * @param {{ cwd: string, run?: Function }} io
  * @returns {string | null}
  */
-function git(args, { cwd, run = execFileSync }) {
+function git(args, { cwd, run }) {
   try {
     const stdout = String(
-      run('git', args, {
+      execFileCapture('git', args, {
+        run,
         cwd,
-        encoding: 'utf8',
-        maxBuffer: 16 * 1024 * 1024,
         stdio: ['ignore', 'pipe', 'ignore'],
       }),
     ).trim();
