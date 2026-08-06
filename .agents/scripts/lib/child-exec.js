@@ -44,8 +44,13 @@ const MIB = 1024 * 1024;
 
 /**
  * The stdout ceiling every child in this framework runs under — the single
- * definition of the constant, imported (or applied by default) everywhere it
- * applies.
+ * definition of the constant.
+ *
+ * Deliberately **not** exported. Every wrapper below applies it as its
+ * default, so a call site gets the ceiling by importing the wrapper rather
+ * than by importing (and possibly forgetting) a number. The only bound a
+ * caller ever names explicitly is one that is deliberately *different* —
+ * today that is {@link INTERCEPTOR_MAX_BUFFER_BYTES} and nothing else.
  *
  * 64 MiB is not a fresh guess: it is the bound Stories #4914 and #4948 already
  * settled on independently for the git read and git push paths, and the value
@@ -56,7 +61,7 @@ const MIB = 1024 * 1024;
  *
  * @type {number}
  */
-export const MAX_BUFFER_BYTES = 64 * MIB;
+const MAX_BUFFER_BYTES = 64 * MIB;
 
 /**
  * The deliberately *lower* ceiling the friction interceptor spawns arbitrary

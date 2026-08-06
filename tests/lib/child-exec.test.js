@@ -16,10 +16,17 @@ import {
   execFileCaptureAsync,
   formatChildFailure,
   INTERCEPTOR_MAX_BUFFER_BYTES,
-  MAX_BUFFER_BYTES,
   spawnCapture,
   spawnChild,
 } from '../../.agents/scripts/lib/child-exec.js';
+
+/**
+ * The ceiling the wrapper must apply. Held here as an expectation rather than
+ * imported: the constant is deliberately module-private, so a call site
+ * cannot get the ceiling wrong by naming it, and the assertions below read it
+ * off the runner's recorded options — behaviour, not syntax.
+ */
+const MAX_BUFFER_BYTES = 64 * 1024 * 1024;
 
 /** Records what the wrapper handed the runner, and returns `value`. */
 function recorder(value) {
@@ -32,9 +39,11 @@ function recorder(value) {
 }
 
 describe('the ceilings', () => {
-  it('MAX_BUFFER_BYTES is 64 MiB', () => {
-    assert.equal(MAX_BUFFER_BYTES, 67108864);
-    assert.equal(MAX_BUFFER_BYTES, 64 * 1024 * 1024);
+  it('the default ceiling reaching the runner is 64 MiB', () => {
+    const { calls, run } = recorder('');
+    execFileCapture('git', ['status'], { run });
+    assert.equal(calls[0].opts.maxBuffer, 67108864);
+    assert.equal(calls[0].opts.maxBuffer, MAX_BUFFER_BYTES);
   });
 
   it('the interceptor bound stays at the 10 MiB it reports', () => {

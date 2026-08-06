@@ -1,7 +1,7 @@
 {
   "$schema": ".agents/schemas/baselines/maintainability.schema.json",
   "kernelVersion": "0.1.0",
-  "generatedAt": "2026-08-06T09:25:46.413Z",
+  "generatedAt": "2026-08-06T09:55:25.735Z",
   "rollup": {
     "*": {
       "min": 76.058,
@@ -352,7 +352,7 @@
     },
     {
       "path": ".agents/scripts/lib/baselines/git-base.js",
-      "mi": 103.379
+      "mi": 104.797
     },
     {
       "path": ".agents/scripts/lib/baselines/kernel.js",
@@ -432,7 +432,7 @@
     },
     {
       "path": ".agents/scripts/lib/baselines/refresh-service.js",
-      "mi": 95.359
+      "mi": 95.979
     },
     {
       "path": ".agents/scripts/lib/baselines/scope-assert.js",
@@ -557,6 +557,10 @@
     {
       "path": ".agents/scripts/lib/checks/subagent-agent-tool-required.js",
       "mi": 92.389
+    },
+    {
+      "path": ".agents/scripts/lib/child-exec.js",
+      "mi": 109.336
     },
     {
       "path": ".agents/scripts/lib/cli-args.js",
@@ -904,7 +908,7 @@
     },
     {
       "path": ".agents/scripts/lib/git-utils.js",
-      "mi": 107.26
+      "mi": 113.583
     },
     {
       "path": ".agents/scripts/lib/git/cached-fetch.js",

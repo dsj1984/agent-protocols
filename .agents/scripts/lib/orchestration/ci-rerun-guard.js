@@ -358,6 +358,9 @@ function renderDigestMarkdown(digest, failures) {
  * @param {string} opts.prRef
  * @param {Function} [opts.checkRunFn]
  * @param {Function} [opts.logTailFn]
+ * @param {Function} [opts.spawnFn] Child runner handed to the two default
+ *   `gh` probes, so their real bodies can be exercised without shelling out.
+ *   Ignored when `checkRunFn` / `logTailFn` are replaced outright.
  * @returns {{ jsonPath: string, mdPath: string } | null}
  */
 export function writeCiDigest({
@@ -370,12 +373,14 @@ export function writeCiDigest({
   prRef,
   checkRunFn = resolveFailingCheckRun,
   logTailFn = ghRunLogTail,
+  spawnFn,
 }) {
   const paths = ciDigestPaths({ storyId, tempRoot, cwd });
   if (!paths) return null;
   const primary = failures[0] ?? { name: 'unknown', outcome: 'failure' };
-  const checkRun = checkRunFn({ prRef, checkName: primary.name, cwd }) ?? {};
-  const logTail = logTailFn({ runId: checkRun.runId, cwd });
+  const checkRun =
+    checkRunFn({ prRef, checkName: primary.name, cwd, spawnFn }) ?? {};
+  const logTail = logTailFn({ runId: checkRun.runId, cwd, spawnFn });
   const previous = readCiDigest({ storyId, tempRoot, cwd });
   const digest = {
     storyId: paths.scope.id,
