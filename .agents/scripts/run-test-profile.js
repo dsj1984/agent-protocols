@@ -8,10 +8,10 @@
  * runner only — set SKIP_PREFLIGHT=0 to include preflight if desired.
  */
 
-import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { spawnChild } from './lib/child-exec.js';
 import { runAsCli } from './lib/cli-utils.js';
 import { buildWebhookSafeTestEnv } from './lib/test-env.js';
 import { parseTapOutput } from './lib/test-profile/parse-tap.js';
@@ -56,13 +56,14 @@ export function parseProfileArgv(argv) {
  * @param {object} [opts]
  * @param {string[]} [opts.argv]
  * @param {string} [opts.cwd]
- * @param {typeof spawnSync} [opts.spawn]
+ * @param {Function} [opts.spawn] - Injected child runner; defaults to the
+ *   shared surface's real `spawnSync`.
  * @param {typeof fs} [opts.fs]
  */
 export function runTestProfile({
   argv = process.argv.slice(2),
   cwd = ROOT,
-  spawn = spawnSync,
+  spawn,
   fs: fsLike = fs,
 } = {}) {
   const { outDir, topN, testArgv } = parseProfileArgv(argv);
@@ -75,7 +76,8 @@ export function runTestProfile({
   ];
 
   const started = Date.now();
-  const result = spawn(process.execPath, nodeArgs, {
+  const result = spawnChild(process.execPath, nodeArgs, {
+    run: spawn,
     cwd,
     encoding: 'utf8',
     env: {
@@ -84,8 +86,6 @@ export function runTestProfile({
       FORCE_COLOR: '0',
       NO_COLOR: '1',
     },
-    maxBuffer: 64 * 1024 * 1024,
-    shell: false,
   });
   const wallDurationMs = Date.now() - started;
 

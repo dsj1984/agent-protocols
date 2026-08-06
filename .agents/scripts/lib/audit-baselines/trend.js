@@ -16,7 +16,7 @@
  * @module lib/audit-baselines/trend
  */
 
-import { execFileSync } from 'node:child_process';
+import { execFileCapture } from '../child-exec.js';
 import { trendRollupOf } from './kinds.js';
 
 /**
@@ -25,13 +25,13 @@ import { trendRollupOf } from './kinds.js';
  * @param {{ cwd: string, relPath: string, limit: number, run?: Function }} args
  * @returns {Array<{ sha: string, committedAt: string }>}
  */
-function listCommits({ cwd, relPath, limit, run = execFileSync }) {
+function listCommits({ cwd, relPath, limit, run }) {
   let stdout;
   try {
-    stdout = run(
+    stdout = execFileCapture(
       'git',
       ['log', `-n${limit}`, '--format=%H %cI', '--', relPath],
-      { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] },
+      { run, cwd, stdio: ['ignore', 'pipe', 'ignore'] },
     );
   } catch {
     return [];
@@ -52,13 +52,12 @@ function listCommits({ cwd, relPath, limit, run = execFileSync }) {
  * @param {{ cwd: string, kind: string, sha: string, relPath: string, run?: Function }} args
  * @returns {object | null}
  */
-function rollupAt({ cwd, kind, sha, relPath, run = execFileSync }) {
+function rollupAt({ cwd, kind, sha, relPath, run }) {
   let stdout;
   try {
-    stdout = run('git', ['show', `${sha}:${relPath}`], {
+    stdout = execFileCapture('git', ['show', `${sha}:${relPath}`], {
+      run,
       cwd,
-      encoding: 'utf8',
-      maxBuffer: 64 * 1024 * 1024,
       stdio: ['ignore', 'pipe', 'ignore'],
     });
   } catch {

@@ -16,9 +16,9 @@
  * @module lib/audit-baselines/weights
  */
 
-import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
+import { execFileCapture } from '../child-exec.js';
 import { computeInDegree, resolveRepoGraph } from '../import-graph.js';
 
 /** Neutral multiplier every degraded weight collapses to. */
@@ -47,10 +47,10 @@ function saturate(count, half) {
  *   `degraded` is true when git could not answer at all — not a git work
  *   tree, no commits yet, or the binary is unavailable.
  */
-export function readChurn({ cwd, windowDays = 180, run = execFileSync }) {
+export function readChurn({ cwd, windowDays = 180, run }) {
   let stdout;
   try {
-    stdout = run(
+    stdout = execFileCapture(
       'git',
       [
         'log',
@@ -60,9 +60,8 @@ export function readChurn({ cwd, windowDays = 180, run = execFileSync }) {
         '--no-renames',
       ],
       {
+        run,
         cwd,
-        encoding: 'utf8',
-        maxBuffer: 64 * 1024 * 1024,
         // git narrates "not a git repository" on stderr; the degradation is
         // reported in the envelope, not shouted at the operator.
         stdio: ['ignore', 'pipe', 'ignore'],

@@ -36,6 +36,7 @@
 import { spawnSync } from 'node:child_process';
 import crypto from 'node:crypto';
 import { constants as osConstants } from 'node:os';
+import { INTERCEPTOR_MAX_BUFFER_BYTES } from './lib/child-exec.js';
 import { getLimits, resolveConfig } from './lib/config-resolver.js';
 import { Logger } from './lib/Logger.js';
 import { appendSignal } from './lib/observability/signals-writer.js';
@@ -291,10 +292,12 @@ export async function main(args = process.argv.slice(2)) {
   const config = resolveConfig();
   const limits = getLimits(config);
   const executionTimeoutMs = limits.executionTimeoutMs;
-  // Hardcoded post-reshape (Epic #1720 Story #1739). Node `spawnSync`
-  // buffer ceiling — 10 MiB is the framework-wide value used by every
-  // child-process spawn site. An OOM symptom, not a domain knob.
-  const executionMaxBuffer = 10485760;
+  // The interceptor's bound is deliberately *below* the framework-wide
+  // `MAX_BUFFER_BYTES` ceiling: it is a reported policy bound whose value the
+  // emitted friction row carries (`details.executionMaxBuffer`), not an
+  // overflow guard. Story #5009 moved its definition to the shared
+  // child-process surface so it is no longer a hand-copied literal here.
+  const executionMaxBuffer = INTERCEPTOR_MAX_BUFFER_BYTES;
 
   const commandStr = cmdArgs.join(' ');
   Logger.error(`[Diagnostic Interceptor] Executing: ${commandStr}`);

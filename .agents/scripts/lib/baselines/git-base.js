@@ -22,6 +22,13 @@
 //     `ref` and `file` are passed as separate argv tokens, never
 //     interpolated into a shell command.
 //
+// Story #5009 moved the spawn itself, the stdout ceiling and the
+// failure-message shape out to `lib/child-exec.js` — the one child-process
+// surface — so this module now owns only what is genuinely its own: the
+// `(ref, file)` LRU, the exit-code semantics below, and the test seam. The
+// `__setSpawnRunner` seam still injects a mock runner; it is threaded through
+// the shared wrapper as `run` rather than calling `spawnSync` directly.
+//
 // Exit semantics are intentionally narrow:
 //
 //   - Exit 0: stdout is the file contents, returned as a UTF-8 string.
@@ -39,7 +46,7 @@
 // means "path absent at ref". Callers may therefore treat a throw as a
 // hard failure without having to re-diagnose it.
 
-import { spawnSync } from 'node:child_process';
+import { formatChildFailure, spawnChild } from '../child-exec.js';
 
 // ---------------------------------------------------------------------------
 // LRU cache. Small footprint — even a fan-out across all seven baseline
@@ -53,21 +60,13 @@ import { spawnSync } from 'node:child_process';
 const DEFAULT_MAX_ENTRIES = 64;
 
 /**
- * Story #4914 — explicit stdout ceiling for every git read in this module.
+ * Injected spawn runner, or `undefined` to use the shared surface's real one.
+ * Story #4914's explicit 64 MB ceiling still applies to both git reads below —
+ * it is now `child-exec.js`'s `MAX_BUFFER_BYTES`, applied by `spawnChild`.
  *
- * `child_process.spawnSync` defaults `maxBuffer` to 1 MB. A committed
- * baseline legitimately grows past that (a real consumer's crap baseline
- * measured 1,178,910 bytes), at which point the child is killed —
- * `status: null`, `signal: 'SIGTERM'`, `error.code: 'ENOBUFS'` — and the
- * read fails for a reason that has nothing to do with the repository.
- *
- * 64 MB is not a new number: it is the bound already used at
- * `run-test-profile.js:87`, `audit-baselines/trend.js:61` and
- * `audit-baselines/weights.js:65`. This module was the outlier.
+ * @type {Function | undefined}
  */
-const MAX_BUFFER_BYTES = 64 * 1024 * 1024;
-
-let _spawnSync = spawnSync;
+let _spawnRunner;
 let _cache = new Map();
 let _maxEntries = DEFAULT_MAX_ENTRIES;
 
@@ -80,12 +79,12 @@ let _maxEntries = DEFAULT_MAX_ENTRIES;
  * the contract.
  *
  * @param {object} [opts]
- * @param {typeof spawnSync} [opts.spawn] - Mock spawnSync.
- * @param {number} [opts.maxEntries]      - Override LRU capacity.
+ * @param {Function} [opts.spawn]    - Mock spawnSync.
+ * @param {number} [opts.maxEntries] - Override LRU capacity.
  */
 export function __setSpawnRunner(opts = {}) {
   if (opts.spawn) {
-    _spawnSync = opts.spawn;
+    _spawnRunner = opts.spawn;
   }
   if (typeof opts.maxEntries === 'number') {
     _maxEntries = opts.maxEntries;
@@ -98,7 +97,7 @@ export function __setSpawnRunner(opts = {}) {
  * to keep state from leaking across files.
  */
 export function __resetForTests() {
-  _spawnSync = spawnSync;
+  _spawnRunner = undefined;
   _maxEntries = DEFAULT_MAX_ENTRIES;
   _cache = new Map();
 }
@@ -179,13 +178,10 @@ export function readBaseFromGit(ref, file, opts = {}) {
 
   const cwd = opts.cwd ?? process.cwd();
   const spec = `${ref}:${file}`;
-  const result = _spawnSync('git', ['show', spec], {
+  const result = spawnChild('git', ['show', spec], {
+    run: _spawnRunner,
     cwd,
-    stdio: 'pipe',
-    encoding: 'utf-8',
-    shell: false,
     env: cleanGitEnv(),
-    maxBuffer: MAX_BUFFER_BYTES,
   });
 
   // `child_process.spawnSync` returns `status: null` when the child died
@@ -206,9 +202,12 @@ export function readBaseFromGit(ref, file, opts = {}) {
     return null;
   }
 
-  const stderr = (result.stderr || '').toString().trim();
   throw new Error(
-    `readBaseFromGit: git show ${spec} failed (status=${status}): ${stderr}`,
+    formatChildFailure({
+      label: `readBaseFromGit: git show ${spec}`,
+      status,
+      stderr: result.stderr,
+    }),
   );
 }
 
@@ -222,9 +221,10 @@ export function readBaseFromGit(ref, file, opts = {}) {
  * Restricting the log to `-- <file>` means the returned subjects already
  * satisfy the "commit whose diff touches the baseline file" half of the
  * predicate; the caller only has to match the tag substring against each
- * subject. Runs through the same `spawnSync` seam as `readBaseFromGit`, so
- * it inherits the identical env scrubbing (drop inherited `GIT_*`) and the
- * spawn-not-exec security posture (argv tokens, `shell: false`).
+ * subject. Runs through the same shared `spawnChild` surface and injected
+ * runner as `readBaseFromGit`, so it inherits the identical env scrubbing
+ * (drop inherited `GIT_*`), the same stdout ceiling, and the spawn-not-exec
+ * security posture (argv tokens, `shell: false`).
  *
  * Returns an empty array whenever the range cannot be walked (missing base
  * ref, git failure, empty range) — the acknowledgment path treats "no
@@ -244,17 +244,10 @@ export function readRangeSubjectsTouchingFile(baseRef, file, opts = {}) {
   const cwd = opts.cwd ?? process.cwd();
   let result;
   try {
-    result = _spawnSync(
+    result = spawnChild(
       'git',
       ['log', `${baseRef}..HEAD`, '--format=%s', '--', file],
-      {
-        cwd,
-        stdio: 'pipe',
-        encoding: 'utf-8',
-        shell: false,
-        env: cleanGitEnv(),
-        maxBuffer: MAX_BUFFER_BYTES,
-      },
+      { run: _spawnRunner, cwd, env: cleanGitEnv() },
     );
   } catch {
     return [];
