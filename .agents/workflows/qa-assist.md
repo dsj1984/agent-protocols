@@ -172,27 +172,21 @@ every decision to the shared helpers; never re-derive them in prose.
      surfaces it touches, the **options**, and a brief **recommendation** with
      trade-offs. Still pin the relevant `file:line` anchor(s) where the change
      would land.
-3. **Hydrate the QA context** to locate code precisely, via
-   [`qa-context-hydrator.js`](../scripts/lib/qa/qa-context-hydrator.js) — it
-   resolves the source ticket body, the feature-file set, the surface map, and
-   recent git log:
-
-   ```js
-   import { hydrateQaContext } from '../scripts/lib/qa/qa-context-hydrator.js';
-   const context = await hydrateQaContext({ ticketNumber, githubPort, gitPort, surfaceMap });
-   ```
-
+3. **Locate the code.** Read the source ticket with
+   `gh issue view <ticketNumber> --json title,body,labels`, and verify each
+   surface-map path resolves with `git cat-file -e HEAD:<path>` — flag every
+   miss rather than citing a path that does not exist.
 4. **Compute the coverage verdict** for the surface the observation points at,
    via [`coverage-verdict.js`](../scripts/lib/qa/coverage-verdict.js) — the
    deterministic seam behind the
    [`core/qa-coverage-mapping`](../skills/core/qa-coverage-mapping/SKILL.md)
    skill. Read that skill for how to assemble the `surface` input and read the
-   per-tier `{present|absent}` verdict. Optionally render a human-readable
-   summary via [`coverage-report.js`](../scripts/lib/qa/coverage-report.js).
-5. **Propose the missing test** (if any) from that verdict, via
-   [`propose-missing-test.js`](../scripts/lib/qa/propose-missing-test.js) — it
-   names the lowest absent tier, or returns `null` when every tier is covered.
-   Record its `description` as the ledger item's `missingTest`.
+   per-tier `{present|absent}` verdict.
+5. **Name the missing test** (if any) from that verdict: take the lowest tier
+   the verdict marks `absent` (unit → contract → acceptance) and write one
+   concrete sentence describing the test that would close it. Every tier
+   `present` means no missing test. Record that sentence as the ledger item's
+   `missingTest`.
 6. **Classify** the finding via
    [`classify-finding.js`](../scripts/lib/findings/classify-finding.js) so the
    tentative `class` resolves to the correct focus/meta label set. The helper
@@ -273,10 +267,11 @@ the `/qa-assist`-specific deltas are:
 - **Persistent, resumable rolling session** — `/qa-assist` defaults to resuming
   the same session and appending; a reused session carries the untriaged backlog
   forward and never overwrites a prior ledger.
-- **Enrichment helpers are deterministic** — context hydration
-  ([`qa-context-hydrator.js`](../scripts/lib/qa/qa-context-hydrator.js)),
-  coverage verdict/report, missing-test, and classification are never re-derived
-  in prose.
+- **Enrichment delegates where a helper exists** — the coverage verdict and
+  the finding classification come from their deterministic helpers, never from
+  prose. Context lookup and the missing-test sentence are the model's own work:
+  they are judgments, not computations, and routing them through a module only
+  bought a round-trip.
 
 ## See also
 

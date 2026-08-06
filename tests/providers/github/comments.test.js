@@ -59,22 +59,6 @@ function makeFakeGh(routes) {
 }
 
 describe('providers/github/comments.js — CommentGateway', () => {
-  it('getRecentComments: GETs the repo comments feed', async () => {
-    const gh = makeFakeGh({
-      'GET /issues/comments': {
-        status: 200,
-        json: [
-          { id: 1, body: 'hello' },
-          { id: 2, body: 'world' },
-        ],
-      },
-    });
-    const gw = new CommentGateway({ gh, owner: 'o', repo: 'r' });
-    const out = await gw.getRecentComments(50);
-    assert.equal(out.length, 2);
-    assert.equal(out[0].id, 1);
-  });
-
   it('getTicketComments: paginates the per-ticket comments endpoint', async () => {
     const gh = makeFakeGh({
       'GET /issues/42/comments': {

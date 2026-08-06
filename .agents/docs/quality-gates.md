@@ -733,10 +733,13 @@ Cross-references:
   configuration surface that backs the gates.
 - [`.agents/README.md`](../README.md) — consumer onboarding.
 
-> The `mutation` gate ships **dormant** (built-but-unwired, intentionally
-> opt-in). The former `update-mutation-baseline.js` refresh CLI was retired
-> with the rest of the zero-consumer script surface (#4482); the
-> `lib/mutation/` snapshot machinery remains for a future activation.
+> `mutation` is a **registered baseline kind with no shipped runner**. The
+> envelope, schema, and floor config below describe a `baselines/mutation.json`
+> the framework can read and ratchet, but nothing in Mandrel invokes Stryker or
+> writes that file: the `update-mutation-baseline.js` refresh CLI was retired
+> in #4482 and the `lib/mutation/` snapshot machinery in #5008. Activating the
+> gate means shipping a runner first — treat the kind as a reserved slot, not a
+> dormant feature.
 
 ### Envelope
 

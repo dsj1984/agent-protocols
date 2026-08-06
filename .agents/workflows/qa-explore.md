@@ -176,10 +176,11 @@ For each observation the agent makes while driving:
    [`core/qa-coverage-mapping`](../skills/core/qa-coverage-mapping/SKILL.md)
    skill. Read that skill for how to assemble the `surface` input and read the
    per-tier `{present|absent}` verdict.
-3. **Propose the missing test** (if any) from that verdict, via
-   [`propose-missing-test.js`](../scripts/lib/qa/propose-missing-test.js) — it
-   names the lowest absent tier, or returns `null` when every tier is covered.
-   Record its `description` as the ledger item's `missingTest` (or `null`).
+3. **Name the missing test** (if any) from that verdict: take the lowest tier
+   the verdict marks `absent` (unit → contract → acceptance) and write one
+   concrete sentence describing the test that would close it. Every tier
+   `present` means no missing test. Record that sentence as the ledger item's
+   `missingTest` (or `null`).
 4. **Append a `QaLedgerItem`** to the ledger (shape per
    [`helpers/qa-core.md`](helpers/qa-core.md)): a stable `id`, the redacted
    `evidence`, the `coverage` label (the `surface`, or `unknown`), a tentative
@@ -230,10 +231,10 @@ the `/qa-explore`-specific deltas are:
   and fall back to static.
 - **Broken navigation is a finding, not a workaround** — never URL-jump around a
   missing affordance, a nav 404, or a guard redirect loop.
-- **Delegate coverage decisions to the helpers.** Coverage verdict
-  ([`coverage-verdict.js`](../scripts/lib/qa/coverage-verdict.js)) and
-  missing-test ([`propose-missing-test.js`](../scripts/lib/qa/propose-missing-test.js))
-  are deterministic — never re-derive them in prose.
+- **Delegate the coverage verdict to the helper.** Tier placement comes from
+  [`coverage-verdict.js`](../scripts/lib/qa/coverage-verdict.js) — deterministic,
+  never re-derived in prose. The missing-test sentence is yours to write from
+  that verdict's lowest `absent` tier.
 
 ## See also
 

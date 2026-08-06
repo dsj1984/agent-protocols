@@ -4,7 +4,7 @@
  *
  * Replaces the per-CLI hand-rolled flag dispatch with a single
  * declarative entrypoint that the refactored scripts (story-close,
- * epic-deliver, check-baselines, audit-suite/cli) all call. The helper
+ * epic-deliver, check-baselines) all call. The helper
  * covers the flags every dispatcher CLI shares (`--epic`, `--story`,
  * `--changed-since`, `--json`, `--full-scope`, `--dry-run`)
  * and — via the `extras` schema entry — caller-defined extras (e.g.

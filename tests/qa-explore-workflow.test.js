@@ -24,9 +24,9 @@
  *      operator-gated (HITL).
  *   6. No human-driven flow remains — it points to `/qa-assist` for that.
  *   7. It references the qa-explore-driving skill plus the route-finding,
- *      classify-finding, coverage-verdict, propose-missing-test,
- *      redact-evidence, qa-session, and resolve-qa-contract helpers, the
- *      ledger schema, and the core/qa-coverage-mapping skill by path.
+ *      classify-finding, coverage-verdict, redact-evidence, qa-session, and
+ *      resolve-qa-contract helpers, the ledger schema, and the
+ *      core/qa-coverage-mapping skill by path.
  *   8. It writes its ledger under temp/qa/.
  *   9. Plan resolves the target environment via resolveQaEnvironment
  *      (prompting when ambiguous) and records the environment name on the
@@ -303,7 +303,6 @@ describe('qa-explore workflow contract', () => {
       '.agents/scripts/lib/findings/route-finding.js',
       '.agents/scripts/lib/findings/classify-finding.js',
       '.agents/scripts/lib/qa/coverage-verdict.js',
-      '.agents/scripts/lib/qa/propose-missing-test.js',
       '.agents/scripts/lib/qa/redact-evidence.js',
       '.agents/scripts/lib/qa/qa-session.js',
       '.agents/scripts/lib/qa/resolve-qa-contract.js',

@@ -2,12 +2,13 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import {
-  acceptanceMatrix,
   classifyTest,
   coverageVerdict,
   isSkipped,
-  TIERS,
 } from '../../../.agents/scripts/lib/qa/coverage-verdict.js';
+
+/** Mirrors the module-private tier list (Story #5008 un-exported it). */
+const TIERS = ['unit', 'contract', 'acceptance'];
 
 /**
  * Unit tests for `lib/qa/coverage-verdict.js` — the deterministic per-tier
@@ -220,73 +221,5 @@ describe('skip / pending awareness', () => {
       tests: [{ path: 'a.test.js', skipped: true }],
     });
     assert.equal(verdict.unit.status, 'absent');
-  });
-});
-
-describe('acceptanceMatrix', () => {
-  it('maps each criterion to its per-tier verdict (array input)', () => {
-    // Arrange
-    const criteria = [
-      {
-        id: 'AC-1',
-        label: 'parses the row',
-        symbol: 'parseRow',
-        tests: ['src/parse-row.test.js'],
-      },
-      {
-        id: 'AC-2',
-        label: 'renders the report',
-        surface: {
-          symbol: 'renderReport',
-          tests: [
-            'src/render.test.js',
-            'tests/contract/render.test.js',
-            'tests/features/render.feature',
-          ],
-        },
-      },
-    ];
-
-    // Act
-    const matrix = acceptanceMatrix(criteria);
-
-    // Assert
-    assert.deepEqual(matrix.tiers, TIERS);
-    assert.equal(matrix.rows.length, 2);
-    assert.equal(matrix.rows[0].id, 'AC-1');
-    assert.equal(matrix.rows[0].label, 'parses the row');
-    assert.equal(matrix.rows[0].verdict.unit.status, 'present');
-    assert.equal(matrix.rows[0].verdict.contract.status, 'absent');
-    assert.equal(matrix.rows[1].verdict.acceptance.status, 'present');
-  });
-
-  it('treats a skipped acceptance test as absent in the matrix', () => {
-    const matrix = acceptanceMatrix([
-      {
-        id: 'AC-1',
-        tests: [{ path: 'tests/features/x.feature', tags: ['@skip'] }],
-      },
-    ]);
-    assert.equal(matrix.rows[0].verdict.acceptance.status, 'absent');
-  });
-
-  it('accepts an object keyed by criterion id', () => {
-    const matrix = acceptanceMatrix({
-      'AC-1': { symbol: 'foo', tests: ['src/foo.test.js'] },
-    });
-    assert.equal(matrix.rows.length, 1);
-    assert.equal(matrix.rows[0].id, 'AC-1');
-    assert.equal(matrix.rows[0].verdict.unit.status, 'present');
-  });
-
-  it('synthesizes an id when a descriptor omits one', () => {
-    const matrix = acceptanceMatrix([{ tests: [] }]);
-    assert.equal(matrix.rows[0].id, 'AC-1');
-    assert.equal(matrix.rows[0].verdict.unit.status, 'absent');
-  });
-
-  it('throws a TypeError for a non-array, non-object input', () => {
-    assert.throws(() => acceptanceMatrix('nope'), TypeError);
-    assert.throws(() => acceptanceMatrix(null), TypeError);
   });
 });

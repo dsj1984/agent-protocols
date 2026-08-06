@@ -43,9 +43,8 @@ const REPO_ROOT = path.resolve(__dirname, '..', '..');
 // not in an allowlisted file.
 // ---------------------------------------------------------------------------
 const FORBIDDEN_PATTERNS = Object.freeze([
-  // Coverage / lint / mutation legacy savers — wrappers around
-  // fs.writeFileSync that produce baseline JSON. Stories 3/4/5 migrate
-  // these to refreshBaseline().
+  // Coverage / lint legacy savers — wrappers around fs.writeFileSync that
+  // produce baseline JSON. Stories 3/4/5 migrate these to refreshBaseline().
   /\bwriteBaseline\s*\(/,
   /\bsaveBaseline\s*\(/,
 
@@ -76,7 +75,8 @@ const MIGRATION_ALLOWLIST = Object.freeze(
     // Story #3658 migrated update-crap-baseline.js and update-coverage-baseline.js;
     // both are intentionally absent — the invariant catches any regression.
     '.agents/scripts/lib/coverage-baseline.js',
-    '.agents/scripts/lib/mutation/baseline-snapshot.js',
+    // `lib/mutation/baseline-snapshot.js` was deleted in Story #5008 with the
+    // rest of the never-wired Stryker machinery; the entry goes with it.
     // Story #3995 relocated `saveBaseline` from `maintainability-utils.js`
     // into the `lib/baselines/` package to break the baselines import
     // cycle; the pre-migration allowlist entry is re-attributed to the new

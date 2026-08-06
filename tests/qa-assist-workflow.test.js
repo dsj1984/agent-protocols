@@ -179,10 +179,9 @@ describe('qa-assist workflow contract', () => {
     );
   });
 
-  it('consumes the shared core helpers by path (qa-session, context-hydrator, coverage, classify, route, promote)', () => {
+  it('consumes the shared core helpers by path (qa-session, coverage, classify, route, promote)', () => {
     const referencedPaths = [
       '.agents/scripts/lib/qa/qa-session.js',
-      '.agents/scripts/lib/qa/qa-context-hydrator.js',
       '.agents/scripts/lib/qa/coverage-verdict.js',
       '.agents/scripts/lib/qa/redact-evidence.js',
       '.agents/scripts/lib/qa/resolve-qa-contract.js',

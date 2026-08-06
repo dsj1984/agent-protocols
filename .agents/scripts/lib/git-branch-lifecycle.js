@@ -129,8 +129,8 @@ export function classifyBranchSeed({ localHas, remoteHas }) {
  *     throws (the v2 standalone path has no concurrent creator to race).
  *
  * The asymmetric surrounding wrappers (merged-sweep, fast-forward,
- * donor-prime, workspace-verify, phase-timer) are deliberately NOT folded
- * in — they stay in their respective callers.
+ * donor-prime, workspace-verify) are deliberately NOT folded in — they stay
+ * in their respective callers.
  *
  * Caller-specific log lines and error text are passed in as the `messages`
  * data bag so behaviour stays byte-identical to the pre-extraction switches.

@@ -46,12 +46,8 @@ function buildProvider() {
   };
   provider.subIssues = {
     getNativeSubIssues: async () => 'subIssues.getNativeSubIssues',
-    addSubIssue: async () => 'subIssues.addSubIssue',
-    removeSubIssue: async () => 'subIssues.removeSubIssue',
-    reconcileSubIssueLinks: async () => 'subIssues.reconcileSubIssueLinks',
   };
   provider.comments = {
-    getRecentComments: async () => 'comments.getRecentComments',
     getTicketComments: async () => 'comments.getTicketComments',
     deleteComment: async () => 'comments.deleteComment',
     postComment: async () => 'comments.postComment',
@@ -68,9 +64,6 @@ function buildProvider() {
   provider.mergeMethods = {
     getMergeMethods: async () => 'mergeMethods.getMergeMethods',
     setMergeMethods: async () => 'mergeMethods.setMergeMethods',
-  };
-  provider.pullRequests = {
-    createPullRequest: async () => 'pullRequests.createPullRequest',
   };
   provider.projectBoard = {
     resolveOrCreateProject: async () => 'projectBoard.resolveOrCreateProject',
@@ -128,11 +121,7 @@ describe('providers/github.js — surface parity (Story #2462 / Task #2481)', ()
       ['_applyLabelMutations', [1, {}, false], 'tickets._applyLabelMutations'],
       // sub-issues
       ['_getNativeSubIssues', ['NODE', 1], 'subIssues.getNativeSubIssues'],
-      ['addSubIssue', [1, 'NODE'], 'subIssues.addSubIssue'],
-      ['removeSubIssue', [1, 2], 'subIssues.removeSubIssue'],
-      ['reconcileSubIssueLinks', [1], 'subIssues.reconcileSubIssueLinks'],
       // comments
-      ['getRecentComments', [], 'comments.getRecentComments'],
       ['getTicketComments', [1], 'comments.getTicketComments'],
       ['deleteComment', [1], 'comments.deleteComment'],
       ['postComment', [1, {}], 'comments.postComment'],
@@ -149,12 +138,6 @@ describe('providers/github.js — surface parity (Story #2462 / Task #2481)', ()
       // merge-methods
       ['getMergeMethods', [], 'mergeMethods.getMergeMethods'],
       ['setMergeMethods', [{}], 'mergeMethods.setMergeMethods'],
-      // pull-requests
-      [
-        'createPullRequest',
-        ['feat/x', 1, 'main'],
-        'pullRequests.createPullRequest',
-      ],
       // project-board
       ['resolveOrCreateProject', [{}], 'projectBoard.resolveOrCreateProject'],
       ['ensureStatusField', [[]], 'projectBoard.ensureStatusField'],

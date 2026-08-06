@@ -10,9 +10,9 @@
  *
  * Scope:
  *   - `.agents/scripts/**\/*.js` — every file under the orchestrator script
- *     tree, including subdirectories (`lib/audit-suite/cli.js` was one of the
- *     migrated sites). The lone allowed exception is `lib/cli-args.js`
- *     itself, which mentions `parseCliArgs` only in its docstring.
+ *     tree, including subdirectories. The lone allowed exception is
+ *     `lib/cli-args.js` itself, which mentions `parseCliArgs` only in its
+ *     docstring.
  *
  * What is forbidden:
  *   - `export function parseCliArgs(...)` (named function export)

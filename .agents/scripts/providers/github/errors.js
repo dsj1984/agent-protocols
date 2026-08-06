@@ -1,16 +1,16 @@
 /**
- * GitHub Provider — error classifier + sub-issues GraphQL shapes.
+ * GitHub Provider — error classifier + sub-issues GraphQL shape.
  *
  * `classifyGithubError` buckets `gh-exec`-thrown errors into 4 categories
  * (`feature-disabled` / `permission` / `transient` / `permanent`) so the
- * sub-issues fallback and the addSubIssue retry loop have a deterministic
+ * sub-issues fallback and the shared retry loop have a deterministic
  * switch. Rate-limit detection wins over the 401/403 → permission rule
  * because GitHub's secondary rate limit is delivered as HTTP 403 with a
  * known message; if we bucketed it as 'permission' it would never be
  * retried.
  *
- * `SUB_ISSUES_QUERY` / `ADD_SUB_ISSUE_MUTATION` / `REMOVE_SUB_ISSUE_MUTATION`
- * are the three GraphQL shapes the sub-issues feature reads/writes.
+ * `SUB_ISSUES_QUERY` is the GraphQL shape the sub-issues read path uses.
+ * Story #5008 removed the add/remove mutations with the write surface.
  *
  * Extracted from `../github.js` in Story #1846 / Task #1857.
  */
@@ -153,11 +153,11 @@ export function classifyGithubError(err) {
 // transient network/connectivity errors — so every former consumer of either
 // module keeps (or gains) its prior retry coverage with no shim.
 //
-// Mirrors the addSubIssue retry contract in `sub-issues.js` so read-path
-// callers (paginateRest, getTicket, getNativeSubIssues, …) absorb the same
-// jittered exponential backoff on transient GitHub errors instead of
-// bubbling a one-shot 502/429/ECONNRESET that kills a longer pipeline
-// (e.g. the /deliver Phase E retro). The network consumers repointed here
+// Read-path callers (paginateRest, getTicket, getNativeSubIssues, …) all
+// absorb the same jittered exponential backoff on transient GitHub errors
+// through this one primitive, instead of bubbling a one-shot
+// 502/429/ECONNRESET that kills a longer pipeline (e.g. the /deliver
+// Phase E retro). The network consumers repointed here
 // (branch-protection, labels, projects-v2-graphql) call with no opts, so
 // they adopt these defaults; their retry *classes* (the network blips) are
 // preserved via the unified classifier above.
@@ -174,8 +174,7 @@ export const TRANSIENT_RETRY_DEFAULTS = Object.freeze({
  * `classify` (defaults to `classifyGithubError`) decides whether each
  * failure is retry-eligible: only `'transient'` retries; every other
  * bucket (`feature-disabled` / `permission` / `permanent`) bubbles on the
- * first failure. The retry shape matches `addSubIssue` in
- * `sub-issues.js:119-167`.
+ * first failure.
  *
  * `sleep` and `random` are injectable so tests can drive deterministic
  * retry paths without real-world timing.
@@ -256,19 +255,3 @@ export const SUB_ISSUES_QUERY = `query($id: ID!, $cursor: String) {
     }
   }
 }`;
-
-export const ADD_SUB_ISSUE_MUTATION = `
-  mutation($parentId: ID!, $subIssueId: ID!, $replaceParent: Boolean) {
-    addSubIssue(input: { issueId: $parentId, subIssueId: $subIssueId, replaceParent: $replaceParent }) {
-      issue { number }
-      subIssue { number }
-    }
-  }`;
-
-export const REMOVE_SUB_ISSUE_MUTATION = `
-  mutation($parentId: ID!, $subIssueId: ID!) {
-    removeSubIssue(input: { issueId: $parentId, subIssueId: $subIssueId }) {
-      issue { number }
-      subIssue { number }
-    }
-  }`;

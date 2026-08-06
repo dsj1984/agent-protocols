@@ -229,18 +229,17 @@ which path produced it.
 > stage before synthesising the report. It derives its per-dimension prompts
 > from the *lens* markdown at run time — the lens stays the single source of
 > truth. This is a performance optimization over path 1, **not** a separate
-> contract: strategy selection lives in
-> [`../../scripts/lib/dynamic-workflow/capability.js`](../../scripts/lib/dynamic-workflow/capability.js)
-> (`selectAuditStrategy`), and it is not covered by the No-Shim / hard-cutover
-> rule in [`../../rules/git-conventions.md`](../../rules/git-conventions.md)
-> because there is one report contract and only the execution strategy varies —
-> the same capability-degradation pattern the protocol endorses for live-docs
-> fallback. Force a path for testing with `MANDREL_AUDIT_STRATEGY=sequential`
-> or `MANDREL_AUDIT_STRATEGY=orchestrated`; exercise the real disable signals
-> with `CLAUDE_CODE_DISABLE_WORKFLOWS=1` or `disableWorkflows: true` in
-> `.claude/settings.json`. On the orchestrated path the analysis subagents are
-> granted only read/search tools (`Read`, `Grep`, `Glob`) — the single write is
-> the final report artifact.
+> contract, and it is not covered by the No-Shim / hard-cutover rule in
+> [`../../rules/git-conventions.md`](../../rules/git-conventions.md) because
+> there is one report contract and only the execution strategy varies — the
+> same capability-degradation pattern the protocol endorses for live-docs
+> fallback. **The host owns the choice.** Mandrel ships no in-repo strategy
+> selector and no force-override env var: Claude Code launches the saved
+> workflow when it can, and you get path 1 or 2 above when it cannot.
+> Suppress the orchestrated path with `CLAUDE_CODE_DISABLE_WORKFLOWS=1`
+> or `disableWorkflows: true` in `.claude/settings.json`. On the orchestrated
+> path the analysis subagents are granted only read/search tools (`Read`,
+> `Grep`, `Glob`) — the single write is the final report artifact.
 
 ## Parallel tooling {#parallel-tooling}
 
