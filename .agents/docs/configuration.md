@@ -24,6 +24,16 @@ hand-mirrored, so a key cannot exist in one artifact and not another.
 > `.agents/docs/agentrc-reference.json` all declare
 > `"$schema": "./.agents/schemas/agentrc.schema.json"`, so any editor with
 > JSON Schema support gets autocomplete and inline validation.
+>
+> **Upgrading — the shipped mirror no longer has a `$defs` block.** Story
+> #5007 replaced the hand-kept mirror with a serialization of the runtime
+> schema, which inlines every sub-schema at its point of use. Validation is
+> unchanged (2020-12, same keywords, same accept/reject set on every
+> document) and every key survives, but the named definitions and the
+> `#/$defs/<name>` pointers into them are gone. A `$ref` from your own schema
+> into one of them — e.g.
+> `.agents/schemas/agentrc.schema.json#/$defs/crapGate` — no longer resolves;
+> inline the shape you needed, or point at the containing property path.
 
 ## Top-level shape
 
