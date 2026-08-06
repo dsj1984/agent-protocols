@@ -259,8 +259,21 @@ jobs:
         # `--check` keeps `main` honest about there being nothing left to prune.
         # Both are measurement-free — no scorer, no coverage artifact — so they
         # cost milliseconds and need no test run to have happened.
+        #
+        # `check-knip-entries.js` runs ahead of the dead-exports pair it exists
+        # to protect. #5001 made knip's entry list explicit (so an uninvoked CLI
+        # surfaces as dead) and its `files` rule fatal (so whole-file death
+        # produces rows) — but left the list hand-maintained. A CLI added after
+        # #5001 is therefore unreachable to knip by default and emits a false
+        # whole-file row, dragging its private lib modules along; #5012 produced
+        # 5 such rows and was one accepted ratchet diff away from recording live
+        # operator CLIs as expected-dead. This gate derives the invoked set from
+        # the executable surfaces #5001's own AC-2 named and asserts it matches
+        # the list, so the failure names its cause instead of arriving disguised
+        # as debt.
         run: |
           node .agents/scripts/check-arch-cycles.js --format text
+          node .agents/scripts/check-knip-entries.js
           node .agents/scripts/check-dead-exports.js
           node .agents/scripts/check-dead-exports.js --production
           node .agents/scripts/check-context-budget.js
