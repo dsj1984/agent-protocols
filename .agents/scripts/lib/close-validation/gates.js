@@ -327,8 +327,8 @@ export function buildDefaultGates({
     ...buildTestGateEntry(coverageCaptureActive),
     {
       // Gate name kept generic ("format") so the close-orchestrator log line
-      // and the per-gate phase-timer key don't shift when a repo swaps biome
-      // for Prettier / dprint via `project.commands.formatCheck`. The
+      // doesn't shift when a repo swaps biome for Prettier / dprint via
+      // `project.commands.formatCheck`. The
       // actual command and the remediation hint resolve from config.
       name: 'format',
       cmd: formatCmd,

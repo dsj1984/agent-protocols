@@ -238,10 +238,11 @@ is the only merge surface.
   `lib/util/concurrent-map.js` (bounded fan-out), `lib/util/poll-loop.js`
   (bounded waits), the atomic tmp+rename write, and the lifecycle bus. Their
   originating ADRs are superseded on the Epic-runner axis only, and each says so.
-- `lib/util/phase-timer.js` survived the collapse without its consumer: no
-  producer posts the `phase-timings` structured comment any more, even though
-  the kind is still registered in `ticketing/reads.js`. Recorded here so the
-  next reader does not mistake a registered kind for a produced one.
+- `lib/util/phase-timer.js` survived the collapse without its consumer and was
+  deleted in Story #5008: no producer posts the `phase-timings` structured
+  comment any more, even though the kind is still registered in
+  `ticketing/reads.js`. Recorded here so the next reader does not mistake a
+  registered kind for a produced one.
 
 ### Alternatives considered
 
@@ -2059,7 +2060,7 @@ Bounded the Epic-runner fan-out with a concurrency cap and a TTL cache over prov
 **Date:** 2026-04-24
 **Full text:** `git show mandrel-v2.16.0:docs/decisions.md`
 
-Made per-phase timing a first-class Epic-runner surface, posting a `phase-timings` structured comment on Story close. The Epic runner is gone and no producer posts that comment any more; `lib/util/phase-timer.js` survives as an internal span recorder for the close-validation runner.
+Made per-phase timing a first-class Epic-runner surface, posting a `phase-timings` structured comment on Story close. The Epic runner is gone and no producer posts that comment any more; `lib/util/phase-timer.js` was deleted in Story #5008 after surviving for two years with no production importer.
 
 ---
 

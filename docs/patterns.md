@@ -26,9 +26,10 @@ code. Each is a rule, not a history note.
   for why the old stratum was removed wholesale rather than shimmed.
 - **`phase-timings` has no producer.** `phase-timings` is still a registered
   structured-comment kind in `lib/orchestration/ticketing/reads.js`, but nothing
-  writes it and `lib/util/phase-timer.js` has no production importer. A
-  registered kind is not a produced one — do not build a consumer, a dashboard,
-  or a perf argument on it without shipping the writer first.
+  writes it — and Story #5008 deleted the `lib/util/phase-timer.js` recorder
+  that never had a production importer. A registered kind is not a produced one
+  — do not build a consumer, a dashboard, or a perf argument on it without
+  shipping the writer first.
 - **Compact paths need a common case.** A predicate-plus-short-body
   short-circuit is worth it only when (a) the short path genuinely produces less
   work, not less signal, and (b) the short path is the common case. If the short

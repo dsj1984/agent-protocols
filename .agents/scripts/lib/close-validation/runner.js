@@ -87,9 +87,9 @@ function applyChangedFileScope({ gate, spawnCwd, log }) {
  * `<tempRoot>/standalone/stories/story-<id>/validation-evidence.json`
  * keyspace. v2.0.0 removed the Epic tier and its Epic-keyed keyspace.
  *
- * `onGateStart` is invoked immediately before each gate's runner spawn.
- * story-close uses it to drive `phaseTimer.mark(...)` for per-gate
- * wall-clock telemetry. Errors thrown from the hook propagate.
+ * `onGateStart` is invoked immediately before each gate's runner spawn, so a
+ * caller can record per-gate wall-clock telemetry. Errors thrown from the
+ * hook propagate.
  *
  * Projection advisories (Story #4776): when `baseBranch` and `storyBranch`
  * are both supplied and every gate passed, the maintainability and CRAP
