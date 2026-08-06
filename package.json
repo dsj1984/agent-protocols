@@ -28,6 +28,8 @@
     "coverage:update": "node .agents/scripts/update-coverage-baseline.js",
     "coverage:reanchor": "node .agents/scripts/update-coverage-baseline.js --full-scope",
     "baseline:agents-loc": "node baselines/agents-loc-baseline.mjs",
+    "baselines:scope": "node .agents/scripts/check-baseline-scope.js",
+    "baselines:prune": "node .agents/scripts/prune-baseline-orphans.js",
     "lint:md": "markdownlint-cli2 \".agents/**/*.md\" \"*.md\" \"!node_modules/**\" \"!.worktrees/**\"",
     "lint": "node .agents/scripts/run-lint.js && npm run docs:check",
     "docs:gen": "node .agents/scripts/generate-config-docs.js && node .agents/scripts/generate-lifecycle-docs.js && node .agents/scripts/generate-workflows-doc.js && node .agents/scripts/generate-lens-checklists.js",

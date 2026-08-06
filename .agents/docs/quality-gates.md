@@ -560,6 +560,77 @@ check could not run. It is designed to be wired as a scheduled CI job;
 scheduling it is deliberately consumer-side work, and nothing in this
 repository runs it automatically.
 
+### `check-baseline-scope.js` — is this baseline still measuring the tree?
+
+Drift detection assumes the row set is right and asks whether its numbers
+moved. The prior question went unasked: **does this baseline still describe
+the tree at all?** A ratchet is perfectly capable of being green while
+measuring almost nothing — a row can point at a file deleted months ago, and
+an in-scope file can carry no row whatsoever, and every gate above stays
+green.
+
+The scope gate asserts the row set in **both directions**, recomputing each
+kind's in-scope file set from the gate's own configuration —
+`.c8rc.cjs` `include`/`exclude` for coverage,
+`delivery.quality.gates.<kind>.{targetDirs,ignoreGlobs}` for the rest —
+through the same helpers the refresh scorers use, so the gate and the
+producers cannot disagree about scope:
+
+```bash
+npm run baselines:scope                                  # every kind
+node .agents/scripts/check-baseline-scope.js --kind coverage --json
+node .agents/scripts/check-baseline-scope.js --strict     # skip attribution
+```
+
+Two design constraints are worth knowing before reading a report:
+
+- **Only dense kinds assert `missing`.** `coverage` and `maintainability`
+  emit one row per in-scope file, so a file with no row is a real hole. `crap`
+  (per-method, coverage-gated), `duplication` (rows only where clones exist),
+  `lint` and `mutation` are sparse by construction — asserting `missing`
+  against them yields hundreds of phantom findings on a healthy tree, so they
+  assert `extra` only. `lighthouse` (`route`) and `bundle-size` (`bundle`) are
+  not file-keyed and are excluded from both.
+- **A PR is blocked only for divergence it created.** Whole-tree equality
+  would red every open PR the moment anyone lands an in-scope file, so the
+  gate blocks on divergence attributable to `merge-base(base, HEAD)..HEAD` and
+  warns about the inherited remainder. It fails towards **strict** — every
+  finding fatal — when no base resolves, when HEAD is not ahead of it, or when
+  the change set edits a baseline or the config defining its scope.
+
+Exit codes: `0` no fatal divergence, `1` fatal divergence, `2` the check could
+not run. It runs in the required `baselines` CI job.
+
+### `prune-baseline-orphans.js` — the cheap remedy that makes the gate fair
+
+A hard gate is only defensible while clearing it costs a command. Re-deriving
+a whole baseline to express a *deletion* spends a coverage run or a full-tree
+MI pass, which is exactly why stale rows accumulate. The pruner is that
+deletion, done as arithmetic:
+
+```bash
+npm run baselines:prune                                   # write the prune
+node .agents/scripts/prune-baseline-orphans.js --check     # report only, exit 1
+```
+
+It removes exactly two provably-inert row classes across every file-keyed
+baseline — a row whose file is **absent** from disk, and a row for a file now
+**out-of-scope** under the gate's own `targetDirs`/`ignoreGlobs` — and it is
+**measurement-free by contract**: it never adds a row, never restamps
+`generatedAt` (a fresh stamp over rows nobody re-measured is the precise
+failure an age check exists to catch), and recomputes `rollup` through the
+kind's own arithmetic so the pruned envelope still validates against its
+schema. An unreadable scope config degrades to orphan-only pruning rather than
+reading unknown scope as empty scope, which would hand it the whole baseline.
+
+A **missing** row is the one thing the pruner will not fix: a file added
+without being measured needs its producer (`npm run coverage:update`,
+`npm run maintainability:update`), because inventing a row would be claiming a
+measurement nobody took.
+
+CI runs `--check` only. Writing is always an operator (or agent) decision made
+with the branch in hand.
+
 ---
 
 ## Bundle-size ratchet — one-shot refresh/acknowledge (Story #151)
