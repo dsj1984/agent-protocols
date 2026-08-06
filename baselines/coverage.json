@@ -1,12 +1,12 @@
 {
   "$schema": ".agents/schemas/baselines/coverage.schema.json",
   "kernelVersion": "1.0.0",
-  "generatedAt": "2026-08-06T02:31:32.393Z",
+  "generatedAt": "2026-08-06T04:12:38.251Z",
   "rollup": {
     "*": {
-      "lines": 95.83,
-      "branches": 86.29,
-      "functions": 88.77
+      "lines": 95.81,
+      "branches": 86.27,
+      "functions": 88.69
     }
   },
   "rows": [
@@ -1601,12 +1601,6 @@
       "functions": 100
     },
     {
-      "path": ".agents/scripts/lib/orchestration/acceptance-clusters.js",
-      "lines": 100,
-      "branches": 95.83,
-      "functions": 100
-    },
-    {
       "path": ".agents/scripts/lib/orchestration/acceptance-eval-decision.js",
       "lines": 99.73,
       "branches": 80,
@@ -1621,7 +1615,7 @@
     {
       "path": ".agents/scripts/lib/orchestration/ceremony-routing.js",
       "lines": 100,
-      "branches": 86.49,
+      "branches": 85.71,
       "functions": 100
     },
     {
@@ -1700,12 +1694,6 @@
       "path": ".agents/scripts/lib/orchestration/consolidation-precondition.js",
       "lines": 99.1,
       "branches": 87.5,
-      "functions": 100
-    },
-    {
-      "path": ".agents/scripts/lib/orchestration/context-envelope.js",
-      "lines": 98.57,
-      "branches": 74.42,
       "functions": 100
     },
     {
@@ -2297,15 +2285,9 @@
       "functions": 100
     },
     {
-      "path": ".agents/scripts/lib/orchestration/spec-section-validator.js",
-      "lines": 100,
-      "branches": 100,
-      "functions": 100
-    },
-    {
       "path": ".agents/scripts/lib/orchestration/spec-spill.js",
       "lines": 100,
-      "branches": 75,
+      "branches": 80,
       "functions": 100
     },
     {
@@ -2453,6 +2435,12 @@
       "functions": 100
     },
     {
+      "path": ".agents/scripts/lib/orchestration/verify-tier-repair.js",
+      "lines": 96.26,
+      "branches": 87.1,
+      "functions": 100
+    },
+    {
       "path": ".agents/scripts/lib/path-security.js",
       "lines": 100,
       "branches": 100,
@@ -2462,12 +2450,6 @@
       "path": ".agents/scripts/lib/plan-phase-cleanup.js",
       "lines": 97.83,
       "branches": 66.67,
-      "functions": 100
-    },
-    {
-      "path": ".agents/scripts/lib/planning-corpus.js",
-      "lines": 100,
-      "branches": 100,
       "functions": 100
     },
     {
@@ -2672,12 +2654,6 @@
       "path": ".agents/scripts/lib/story-lifecycle.js",
       "lines": 97.94,
       "branches": 80,
-      "functions": 100
-    },
-    {
-      "path": ".agents/scripts/lib/story-plan.js",
-      "lines": 97.63,
-      "branches": 89.04,
       "functions": 100
     },
     {
@@ -3207,12 +3183,6 @@
       "lines": 98.44,
       "branches": 93.75,
       "functions": 100
-    },
-    {
-      "path": ".agents/scripts/story-plan.js",
-      "lines": 88.38,
-      "branches": 75.51,
-      "functions": 90
     },
     {
       "path": ".agents/scripts/sync-agentrc.js",

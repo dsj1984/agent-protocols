@@ -53,11 +53,10 @@ export const TICKET_BODY_SECTIONS = Object.freeze({
 export const ACCEPTANCE_TABLE_HEADING = '## Acceptance Table';
 
 /**
- * Regex matching the Tech Spec's required opening heading (same variants
- * `spec-section-validator.js` accepts). Exported so it is the single
- * source of truth for this pattern — `spec-section-validator.js`,
- * `consolidation-precondition.js` all import
- * it rather than each carrying their own copy.
+ * Regex matching the Tech Spec's `## Delivery Slicing` heading, tolerating
+ * the `Delivery ` qualifier and casing variants. Exported so it is the single
+ * source of truth for this pattern — `consolidation-precondition.js` imports
+ * it rather than carrying its own copy.
  */
 export const DELIVERY_SLICING_RE = /^##\s+(?:Delivery\s+)?Slicing\s*$/im;
 

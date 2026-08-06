@@ -614,11 +614,8 @@ the default `standard` routes by the same `deriveChangeLevel` signal that
 sets review depth — sensitive-path (`high`) clusters go fresh, `low`
 clusters stay inline except for a deterministic sampling floor
 (`freshCriticSampleRate`, default 0.2), and an unknown level fails safe
-to fresh. Cluster count is `ceil(totalACs / clusterCeiling)`
-(`acceptance-clusters.js`); routing never changes it. The `[1, 8]` clamp is
-on **cluster size** — `clusterCeiling` (config
-`delivery.acceptanceEval.clusterCeiling`, default 4) is hard-clamped into
-that range before the division, and the clamp is undisableable.
+to fresh. The cluster count is owned by the dispatching caller and handed
+to the router as an input; routing never changes it.
 
 **Evidence share.** A fresh critic re-runs the Story's `verify[]`
 commands itself as required evidence; its byte-identical `lint` /
@@ -1291,8 +1288,7 @@ schema is `additionalProperties: false`, so writing either now fails AJV
 validation. The surviving ceilings are **fixed framework constants**:
 
 - **Estimator:** `estimateTokens` (≈4 chars/token) in
-  `lib/orchestration/context-envelope.js`, shared by everything below (its
-  sibling `elideEnvelope` is exported but has no live caller).
+  `lib/orchestration/spec-spill.js`, shared by everything below.
 - **`PLAN_CONTEXT_ENVELOPE_BYTE_CEILING`** (`lib/orchestration/plan-context.js`,
   256,000 bytes) — the `/plan` authoring envelope bound; fails closed.
 - **`DEFAULT_MODEL_CAPACITY`** (`lib/orchestration/ticket-validator-sizing.js`)

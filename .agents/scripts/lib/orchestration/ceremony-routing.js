@@ -28,12 +28,11 @@
  * ## The load-bearing invariant (M4-B acceptance floor — DO NOT VIOLATE)
  *
  * Risk-routing chooses fresh-vs-inline **PER CLUSTER**. It NEVER changes the
- * cluster COUNT. The cluster count is `ceil(totalACs / clusterCeiling)` with
- * the non-disableable `[1, 8]` clamp, owned entirely by
- * `acceptance-clusters.js` and untouched here. A low-risk Story still gets one
- * verdict per cluster — just possibly authored inline instead of by a fresh
- * sub-agent. This module takes the cluster index as an INPUT and returns a
- * decision for that one cluster; it has no way to add or remove clusters.
+ * cluster COUNT — the caller owns clustering and hands this module a cluster
+ * index. A low-risk Story still gets one verdict per cluster — just possibly
+ * authored inline instead of by a fresh sub-agent. This module takes the
+ * cluster index as an INPUT and returns a decision for that one cluster; it
+ * has no way to add or remove clusters.
  *
  * ## One verdict-owner per cluster (Story #4723)
  *
@@ -127,8 +126,8 @@ function normalizeCeremonyProfile(value) {
  * 2·stride, …) is forced fresh, yielding ≈`r` of clusters fresh. `r <= 0`
  * disables the floor (no cluster forced); `r >= 1` forces every cluster.
  *
- * @param {number} clusterIndex  Zero-based cluster position (from the fixed
- *   `ceil(totalACs / clusterCeiling)` fan-out — an INPUT, never mutated here).
+ * @param {number} clusterIndex  Zero-based cluster position (from the
+ *   caller-owned fan-out — an INPUT, never mutated here).
  * @param {number} rate          Sampling rate, already clamped into [0, 1] by
  *   `getDeliveryRouting`.
  * @returns {boolean} `true` when the floor forces this cluster fresh.

@@ -45,7 +45,10 @@
  * `body.verify` entries must either name a testing tier in parentheses
  * drawn from `VERIFY_TIER_VALUES` (e.g. `npm run test (unit)`) or be the
  * literal `manual:<reason>` escape hatch when the Story is genuinely
- * unverifiable in isolation.
+ * unverifiable in isolation. `verify-tier-repair.js#normalizeVerifyTiers` runs
+ * first on the persist path (Story #5005) and **repairs** the entries whose
+ * tier `suggestVerifyFix` can infer, so the hard error below is reserved for
+ * the entries only the author can resolve.
  *
  * The errors are batched and surfaced as a single thrown Error so the
  * planner can see every offending slug in one pass instead of fixing one

@@ -200,8 +200,8 @@ critic (the redundant pre-pass buys no measurable quality and roughly
 triples the acceptance-block cost). `acceptance-eval.js` is the
 deterministic **scorer** of that one authored verdict — schema validation,
 round cap, proceed / redraft / block — not an independent additional pass
-over the criteria. The M4-B floor holds: one verdict per cluster, the
-cluster count owned by `acceptance-clusters.js` alone.
+over the criteria. The M4-B floor holds: one verdict per cluster, with the
+cluster count owned by the dispatching caller and never by routing.
 
 **One round = N cluster critics → ONE merged verdict → ONE gate call.** The
 clusters are how a round is _authored_; they are not how it is _scored_.

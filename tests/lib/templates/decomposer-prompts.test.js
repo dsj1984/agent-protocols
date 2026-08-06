@@ -74,6 +74,51 @@ describe('story-author prompt — one-shot authoring surface (AC-5)', () => {
   });
 });
 
+describe('story-author prompt — orders only output the parser accepts (#5005)', () => {
+  const prompt = renderDecomposerSystemPrompt();
+
+  // The prompt used to order the UI/testid contract into `changes[]` as a
+  // prose bullet — a shape `parsePathEntry` / `collectChangesErrors` reject
+  // outright, so an obedient author produced a body persist refused. The rule
+  // now targets the two sections that carry prose: `acceptance[]` and
+  // `## Non-Goals`.
+  test('the testid-invariance rule targets acceptance[] / Non-Goals, never changes[]', () => {
+    const section = prompt.slice(
+      prompt.indexOf('#### UI / TESTID INVARIANCE'),
+      prompt.indexOf('#### BRAND / COPY / STYLE WORK'),
+    );
+    assert.ok(section.length > 0, 'the invariance section must still exist');
+    assert.match(section, /top-level `acceptance\[\]` item/);
+    assert.match(section, /`## Non-Goals` prose/);
+    // No surviving instruction to end / append the contract into changes[].
+    assert.doesNotMatch(section, /MUST end `changes`/);
+    assert.match(
+      section,
+      /Every `changes\[\]` entry is a `\{ path, assumption \}` object/,
+    );
+  });
+
+  // The BDD scaffold rule keyed off an Epic "Acceptance Spec" AC table with
+  // `Disposition` rows — an artifact the Story-only v2 model never produces.
+  // It now keys off `bddScenarios`, the live plan-context envelope field.
+  test('the BDD scaffold rule keys off bddScenarios, not a retired Epic AC table', () => {
+    const section = prompt.slice(
+      prompt.indexOf('### WAVE-0 BDD SCAFFOLD STORY'),
+      prompt.indexOf('### SCOPE-OVERLAP FLAGGING'),
+    );
+    assert.ok(section.length > 0, 'the scaffold section must still exist');
+    assert.match(section, /`bddScenarios`/);
+    assert.doesNotMatch(section, /Acceptance Spec/i);
+    assert.doesNotMatch(section, /Disposition/i);
+    assert.doesNotMatch(section, /Epic/i);
+  });
+
+  test('no Epic Acceptance Table reference survives anywhere in the prompt', () => {
+    assert.doesNotMatch(prompt, /Acceptance Table/i);
+    assert.doesNotMatch(prompt, /Epic body/i);
+  });
+});
+
 describe('renderStoriesTemplate — ready-to-fill authoring skeleton (AC-5)', () => {
   test('renders valid JSON: one Story with the machine-contract fields', () => {
     const parsed = JSON.parse(renderStoriesTemplate());

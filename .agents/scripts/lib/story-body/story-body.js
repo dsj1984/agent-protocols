@@ -21,7 +21,6 @@
  *   wide:                { reason } | null,// declared-wide footprint (optional)
  *   reason_to_exist:     string | null,    // one-sentence cohesion reason (optional)
  *   depends_on:          string[],         // blocker story slugs or #ids
- *   estimated_test_files: number | null,   // absent → null (informational)
  * }
  * ```
  *
@@ -79,7 +78,6 @@ import { suggestPathEntryFix } from './body-format-lints.js';
  * @property {{ reason: string }|null} wide      - Declared-wide footprint (reason), or null.
  * @property {string|null}   reason_to_exist     - One-sentence cohesion reason ("why this Story exists"), or null.
  * @property {string[]}      depends_on          - Blocking story slugs / issue refs.
- * @property {number|null}   estimated_test_files - Test surface count or null.
  * @property {string|null}   mandrel_version     - Framework version stamped at authoring, or null.
  * @property {string|null}   authored_at         - Authoring date (YYYY-MM-DD) stamped at authoring, or null.
  */
@@ -334,7 +332,7 @@ const META_BLOCK_RE = /<!--\s*meta:\s*([\s\S]*?)\s*-->/;
 const META_OBJECT_RE = /<!--\s*meta:\s*(\{[\s\S]*?\})\s*-->/;
 
 /**
- * Extract the `wide` / `estimated_test_files` fields from the trailing
+ * Extract the `wide` / `reason_to_exist` fields from the trailing
  * `<!-- meta: {...} -->` comment block written by {@link serialize}. Returns
  * canonical-shaped values (null when absent or malformed) so the parser
  * round-trips the meta block faithfully.
@@ -350,13 +348,12 @@ const META_OBJECT_RE = /<!--\s*meta:\s*(\{[\s\S]*?\})\s*-->/;
  * rather than dropping or re-deriving it.
  *
  * @param {string} markdown
- * @returns {{ wide: { reason: string }|null, reason_to_exist: string|null, estimated_test_files: number|null, mandrel_version: string|null, authored_at: string|null }}
+ * @returns {{ wide: { reason: string }|null, reason_to_exist: string|null, mandrel_version: string|null, authored_at: string|null }}
  */
 function extractMeta(markdown) {
   const result = {
     wide: null,
     reason_to_exist: null,
-    estimated_test_files: null,
     mandrel_version: null,
     authored_at: null,
   };
@@ -377,9 +374,6 @@ function extractMeta(markdown) {
 
   result.wide = normalizeWide(parsed.wide);
   result.reason_to_exist = normalizeReasonToExist(parsed.reason_to_exist);
-  if (typeof parsed.estimated_test_files === 'number') {
-    result.estimated_test_files = parsed.estimated_test_files;
-  }
   if (
     typeof parsed.mandrel_version === 'string' &&
     parsed.mandrel_version.trim()
@@ -579,7 +573,6 @@ function isMachineMarkerLine(line) {
 function parseUnstructuredBody(input, preamble, footer) {
   const warnings = [
     'unstructured-body: no structured sections found; returning minimal body from preamble text.',
-    'test-surface-unestimated: estimated_test_files not present.',
   ];
   const body = {
     goal: preamble || input.trim(),
@@ -593,7 +586,6 @@ function parseUnstructuredBody(input, preamble, footer) {
     wide: null,
     reason_to_exist: null,
     depends_on: extractBlockedBy(footer),
-    estimated_test_files: null,
     mandrel_version: null,
     authored_at: null,
   };
@@ -688,11 +680,6 @@ function parseTextListSection(lines) {
  * `result.warnings` to detect legacy path entries that should be
  * migrated.
  *
- * Informational finding emitted on `result.warnings`:
- * - `test-surface-unestimated` — when `estimated_test_files` is absent
- *   from both a structured body and the markdown. Callers that care about
- *   test-surface coverage SHOULD surface this to the operator.
- *
  * @param {string|object} input - Markdown string or already-structured body object.
  * @returns {ParseResult}
  * @throws {StoryBodyParseError} When the body is structurally unrecoverable.
@@ -765,20 +752,16 @@ export function parse(input) {
   const non_goals = parseTextListSection(sections.get('non_goals') ?? []);
   const dependsOn = extractBlockedBy(footer);
 
-  // --- Recover wide / estimated_test_files from the meta block ---
+  // --- Recover wide / reason_to_exist / provenance from the meta block ---
   // serialize() writes these into a trailing `<!-- meta: {...} -->` comment
   // so round-trips preserve them. Absent meta block → canonical null defaults.
+  // Unknown keys are ignored, so a body carrying a retired meta field parses
+  // clean and simply drops it.
   const meta = extractMeta(input);
-  const estimated_test_files = meta.estimated_test_files;
   const wide = meta.wide;
   const reason_to_exist = meta.reason_to_exist;
   const mandrel_version = meta.mandrel_version;
   const authored_at = meta.authored_at;
-  if (estimated_test_files === null) {
-    warnings.push(
-      'test-surface-unestimated: estimated_test_files not present.',
-    );
-  }
 
   const body = {
     goal,
@@ -792,7 +775,6 @@ export function parse(input) {
     wide,
     reason_to_exist,
     depends_on: dependsOn,
-    estimated_test_files,
     mandrel_version,
     authored_at,
   };
@@ -833,13 +815,6 @@ function parseStructuredObject(obj) {
   for (const { name, kind } of STRUCTURED_FIELD_SPECS) {
     body[name] = STRUCTURED_FIELD_NORMALIZERS[kind](obj[name], warnings);
   }
-
-  // estimated_test_files is the one warning-coupled scalar: absent (== null)
-  // warns; a non-number, non-null value stays null silently.
-  body.estimated_test_files = normalizeEstimatedTestFiles(
-    obj.estimated_test_files,
-    warnings,
-  );
 
   // Provenance stamp (preserved verbatim; never re-derived here).
   body.mandrel_version = normalizeProvenanceString(obj.mandrel_version);
@@ -916,25 +891,6 @@ const STRUCTURED_FIELD_NORMALIZERS = {
   wide: (raw) => normalizeWide(raw),
   reasonToExist: (raw) => normalizeReasonToExist(raw),
 };
-
-/**
- * Normalize `estimated_test_files`: a number passes through; an absent
- * (`null`/`undefined`) value warns `test-surface-unestimated`; any other
- * value stays `null` silently.
- *
- * @param {unknown} raw
- * @param {string[]} warnings
- * @returns {number|null}
- */
-function normalizeEstimatedTestFiles(raw, warnings) {
-  if (typeof raw === 'number') return raw;
-  if (raw == null) {
-    warnings.push(
-      'test-surface-unestimated: estimated_test_files not present.',
-    );
-  }
-  return null;
-}
 
 /**
  * Normalize a provenance stamp field (`mandrel_version` / `authored_at`) to
@@ -1066,11 +1022,11 @@ const SERIALIZE_SECTIONS = [
 
 /**
  * Build the trailing `<!-- meta: {...} -->` block carrying the fields that
- * have no human-readable section (`wide`, `reason_to_exist`,
- * `estimated_test_files`). Returns the empty string when no meta field is
- * present so {@link serialize} appends nothing.
+ * have no human-readable section (`wide`, `reason_to_exist`). Returns the
+ * empty string when no meta field is present so {@link serialize} appends
+ * nothing.
  *
- * Key insertion order (`wide` → `reason_to_exist` → `estimated_test_files` →
+ * Key insertion order (`wide` → `reason_to_exist` →
  * `mandrel_version` → `authored_at`) is load-bearing: it fixes the serialized
  * JSON byte sequence the parser's meta round-trip and the unit suite assert
  * against. The provenance stamp keys are appended **last** so every
@@ -1088,9 +1044,6 @@ function serializeMetaBlock(body) {
   const reasonToExist = normalizeReasonToExist(body.reason_to_exist);
   if (reasonToExist !== null) {
     metaFields.reason_to_exist = reasonToExist;
-  }
-  if (typeof body.estimated_test_files === 'number') {
-    metaFields.estimated_test_files = body.estimated_test_files;
   }
   if (typeof body.mandrel_version === 'string' && body.mandrel_version.trim()) {
     metaFields.mandrel_version = body.mandrel_version.trim();
@@ -1153,9 +1106,9 @@ function serializeFooter(body, opts) {
  * `## Goal`, `## Slicing`, `## Spec`, `## Changes`, `## Acceptance`,
  * `## Verify`, `## References`, `## Non-Goals` (each omitted when empty).
  *
- * `wide`, `reason_to_exist`, and `estimated_test_files` are emitted as a
- * fenced `<!-- meta -->` comment block so round-trips preserve them without
- * polluting the human-readable body.
+ * `wide` and `reason_to_exist` are emitted as a fenced `<!-- meta -->`
+ * comment block so round-trips preserve them without polluting the
+ * human-readable body.
  *
  * @param {StoryBody} body
  * @param {SerializeOptions} [opts]

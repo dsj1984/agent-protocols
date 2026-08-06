@@ -349,8 +349,7 @@
       "enabled": false
     },
     "acceptanceEval": {
-      "maxRounds": 2,
-      "clusterCeiling": 4
+      "maxRounds": 2
     }
   },
   "qa": {

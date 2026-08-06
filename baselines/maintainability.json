@@ -1,12 +1,12 @@
 {
   "$schema": ".agents/schemas/baselines/maintainability.schema.json",
   "kernelVersion": "0.1.0",
-  "generatedAt": "2026-08-06T03:33:55.993Z",
+  "generatedAt": "2026-08-06T04:12:38.508Z",
   "rollup": {
     "*": {
       "min": 74.146,
-      "p50": 98.322,
-      "p95": 125.857
+      "p50": 98.341,
+      "p95": 122.913
     }
   },
   "rows": [
@@ -648,7 +648,7 @@
     },
     {
       "path": ".agents/scripts/lib/config/acceptance-eval.js",
-      "mi": 107.384
+      "mi": 114.063
     },
     {
       "path": ".agents/scripts/lib/config/baselines.js",
@@ -672,7 +672,7 @@
     },
     {
       "path": ".agents/scripts/lib/config/explain.js",
-      "mi": 89.053
+      "mi": 89.807
     },
     {
       "path": ".agents/scripts/lib/config/gates/index.js",
@@ -1043,10 +1043,6 @@
       "mi": 93.901
     },
     {
-      "path": ".agents/scripts/lib/orchestration/acceptance-clusters.js",
-      "mi": 104.262
-    },
-    {
       "path": ".agents/scripts/lib/orchestration/acceptance-eval-decision.js",
       "mi": 94.435
     },
@@ -1109,10 +1105,6 @@
     {
       "path": ".agents/scripts/lib/orchestration/consolidation-precondition.js",
       "mi": 93.294
-    },
-    {
-      "path": ".agents/scripts/lib/orchestration/context-envelope.js",
-      "mi": 97.886
     },
     {
       "path": ".agents/scripts/lib/orchestration/deliver-recover.js",
@@ -1507,12 +1499,8 @@
       "mi": 100.661
     },
     {
-      "path": ".agents/scripts/lib/orchestration/spec-section-validator.js",
-      "mi": 113.644
-    },
-    {
       "path": ".agents/scripts/lib/orchestration/spec-spill.js",
-      "mi": 107.592
+      "mi": 111.238
     },
     {
       "path": ".agents/scripts/lib/orchestration/split-policy-validator.js",
@@ -1611,16 +1599,16 @@
       "mi": 99.072
     },
     {
+      "path": ".agents/scripts/lib/orchestration/verify-tier-repair.js",
+      "mi": 100.405
+    },
+    {
       "path": ".agents/scripts/lib/path-security.js",
       "mi": 117.206
     },
     {
       "path": ".agents/scripts/lib/plan-phase-cleanup.js",
       "mi": 97.185
-    },
-    {
-      "path": ".agents/scripts/lib/planning-corpus.js",
-      "mi": 128.657
     },
     {
       "path": ".agents/scripts/lib/preflight-runner.js",
@@ -1757,10 +1745,6 @@
     {
       "path": ".agents/scripts/lib/story-lifecycle.js",
       "mi": 93.77
-    },
-    {
-      "path": ".agents/scripts/lib/story-plan.js",
-      "mi": 93.949
     },
     {
       "path": ".agents/scripts/lib/temp-retention.js",
@@ -2137,10 +2121,6 @@
     {
       "path": ".agents/scripts/stories-wave-tick.js",
       "mi": 89.91
-    },
-    {
-      "path": ".agents/scripts/story-plan.js",
-      "mi": 89.121
     },
     {
       "path": ".agents/scripts/sync-agentrc.js",

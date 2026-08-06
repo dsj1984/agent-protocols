@@ -2,7 +2,7 @@
 /**
  * Round-trip tests for the Story-body meta comment block (Story #3487).
  *
- * serialize() writes `wide` and `estimated_test_files` into a trailing
+ * serialize() writes `wide` and `reason_to_exist` into a trailing
  * `<!-- meta: {...} -->` comment so the values survive a serialize → parse
  * round-trip. Before Story #3487, parse()'s markdown branch hardcoded both
  * fields to null and a `## References` section immediately followed by the
@@ -10,7 +10,7 @@
  * corrected behaviour:
  *
  *   - parse() recovers `wide` from the meta block.
- *   - parse() recovers estimated_test_files from the meta block.
+ *   - parse() ignores an unknown (retired) meta key on an old body.
  *   - A References section followed by a meta block does not list the
  *     comment as a references entry.
  *   - serialize(parse(serialize(body)).body) === serialize(body) for a
@@ -44,7 +44,7 @@ const BODY_WITH_META = {
       assumption: 'refactors-existing',
     },
   ],
-  acceptance: ['parse recovers wide', 'parse recovers test count'],
+  acceptance: ['parse recovers wide', 'parse recovers the cohesion reason'],
   verify: [
     'node --test tests/lib/story-body/story-body-meta-round-trip.test.js (unit)',
   ],
@@ -52,7 +52,6 @@ const BODY_WITH_META = {
   wide: { reason: WIDE_REASON },
   reason_to_exist: REASON_TO_EXIST,
   depends_on: [],
-  estimated_test_files: 3,
 };
 
 // ---------------------------------------------------------------------------
@@ -66,45 +65,33 @@ describe('parse() — meta block recovery', () => {
     assert.deepEqual(body.wide, { reason: WIDE_REASON });
   });
 
-  it('recovers estimated_test_files from a serialized meta block', () => {
-    const md = serialize(BODY_WITH_META);
-    const { body } = parse(md);
-    assert.equal(body.estimated_test_files, 3);
-  });
-
-  it('does not emit test-surface-unestimated when the meta block carries a count', () => {
-    const md = serialize(BODY_WITH_META);
-    const { warnings } = parse(md);
-    assert.ok(
-      !warnings.some((w) => w.startsWith('test-surface-unestimated')),
-      `expected no test-surface-unestimated warning, got: ${JSON.stringify(warnings)}`,
-    );
-  });
-
-  it('still defaults both meta fields to null when no meta block is present', () => {
+  it('defaults wide to null when no meta block is present', () => {
     const md = serialize({
       ...BODY_WITH_META,
       wide: null,
-      estimated_test_files: null,
+      reason_to_exist: null,
     });
-    const { body, warnings } = parse(md);
+    const { body } = parse(md);
     assert.equal(body.wide, null);
-    assert.equal(body.estimated_test_files, null);
-    assert.ok(warnings.some((w) => w.startsWith('test-surface-unestimated')));
+    assert.ok(!md.includes('<!-- meta:'));
   });
 
-  it('recovers wide alone when estimated_test_files is absent', () => {
-    const md = serialize({ ...BODY_WITH_META, estimated_test_files: null });
+  it('recovers wide alone when reason_to_exist is absent', () => {
+    const md = serialize({ ...BODY_WITH_META, reason_to_exist: null });
     const { body } = parse(md);
     assert.deepEqual(body.wide, { reason: WIDE_REASON });
-    assert.equal(body.estimated_test_files, null);
+    assert.equal(body.reason_to_exist, null);
   });
 
-  it('recovers estimated_test_files alone when wide is absent', () => {
-    const md = serialize({ ...BODY_WITH_META, wide: null });
-    const { body } = parse(md);
-    assert.equal(body.wide, null);
-    assert.equal(body.estimated_test_files, 3);
+  // A body authored before Story #5005 still carries the retired
+  // `estimated_test_files` meta key. extractMeta ignores unknown keys, so the
+  // body parses clean, drops the key, and emits no warning about it.
+  it('silently drops a retired meta key from an old body', () => {
+    const md = `${serialize({ ...BODY_WITH_META, wide: null, reason_to_exist: null })}\n\n<!-- meta: {"estimated_test_files":3} -->`;
+    const { body, warnings } = parse(md);
+    assert.equal(body.goal, BODY_WITH_META.goal);
+    assert.ok(!('estimated_test_files' in body));
+    assert.deepEqual(warnings, []);
   });
 });
 
@@ -172,7 +159,7 @@ describe('parse() — malformed / non-object meta block degrades safely', () => 
     const base = serialize({
       ...BODY_WITH_META,
       wide: null,
-      estimated_test_files: null,
+      reason_to_exist: null,
     });
     return `${base}\n\n<!-- meta: ${rawMeta} -->`;
   }
@@ -185,7 +172,7 @@ describe('parse() — malformed / non-object meta block degrades safely', () => 
       result = parse(md);
     });
     assert.equal(result.body.wide, null);
-    assert.equal(result.body.estimated_test_files, null);
+    assert.equal(result.body.reason_to_exist, null);
     // The body itself still parses — Goal survived the corrupt meta comment.
     assert.equal(result.body.goal, BODY_WITH_META.goal);
   });
@@ -197,7 +184,7 @@ describe('parse() — malformed / non-object meta block degrades safely', () => 
         result = parse(bodyWithRawMeta(raw));
       }, `expected no throw for meta payload ${raw}`);
       assert.equal(result.body.wide, null);
-      assert.equal(result.body.estimated_test_files, null);
+      assert.equal(result.body.reason_to_exist, null);
     }
   });
 });
@@ -222,7 +209,7 @@ describe('parse() — References immediately followed by meta block', () => {
       '',
       '## References',
       `- ${JSON.stringify({ path: 'docs/architecture.md', assumption: 'exists' })}`,
-      '<!-- meta: {"wide":{"reason":"broad cutover"},"estimated_test_files":2} -->',
+      '<!-- meta: {"wide":{"reason":"broad cutover"}} -->',
     ].join('\n');
     const { body } = parse(md);
     assert.equal(body.references.length, 1);
@@ -231,7 +218,6 @@ describe('parse() — References immediately followed by meta block', () => {
       assumption: 'exists',
     });
     assert.deepEqual(body.wide, { reason: 'broad cutover' });
-    assert.equal(body.estimated_test_files, 2);
   });
 });
 
@@ -248,13 +234,13 @@ describe('round-trip: serialize → parse → serialize', () => {
   });
 
   it('round-trips a body carrying only wide', () => {
-    const body = { ...BODY_WITH_META, estimated_test_files: null };
+    const body = { ...BODY_WITH_META, reason_to_exist: null };
     const once = serialize(body);
     const twice = serialize(parse(once).body);
     assert.equal(twice, once);
   });
 
-  it('round-trips a body carrying only estimated_test_files', () => {
+  it('round-trips a body carrying only reason_to_exist', () => {
     const body = { ...BODY_WITH_META, wide: null };
     const once = serialize(body);
     const twice = serialize(parse(once).body);
@@ -266,7 +252,7 @@ describe('round-trip: serialize → parse → serialize', () => {
     const twice = serialize(parse(once).body);
     assert.ok(twice.includes('<!-- meta:'));
     assert.ok(twice.includes(`"wide":{"reason":"${WIDE_REASON}"}`));
-    assert.ok(twice.includes('"estimated_test_files":3'));
+    assert.ok(twice.includes('"reason_to_exist":'));
   });
 });
 
@@ -298,7 +284,7 @@ describe('parse()/serialize() — framework-version stamp round-trip', () => {
     const md = serialize(STAMPED_BODY);
     assert.match(
       md,
-      /"estimated_test_files":3,"mandrel_version":"1\.2\.3","authored_at":"2026-07-07"\}/,
+      /"mandrel_version":"1\.2\.3","authored_at":"2026-07-07"\}/,
     );
   });
 

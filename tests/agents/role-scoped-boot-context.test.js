@@ -332,7 +332,7 @@ describe('acceptance-critic boot context produces a valid maker-blind verdict (d
   test('scores a cluster it is handed — never decides the cluster count', () => {
     const { body } = bootContext('acceptance-critic.md');
     assert.match(body, /cluster/i);
-    assert.match(body, /ceil\(totalACs \/ clusterCeiling\)/);
+    assert.match(body, /the caller owns clustering/i);
     assert.match(body, /never|not.*re-slice|do not.*re-slice/i);
   });
 
