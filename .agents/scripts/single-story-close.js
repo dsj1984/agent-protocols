@@ -44,6 +44,18 @@
  *                              [--no-auto-merge]
  *                              [--wait-merge | --no-wait-merge]
  *                              [--merge-watch-mode <sync|async>]
+ *                              [--override-review-block <reason>]
+ *
+ * `--override-review-block <reason>` is the one sanctioned way
+ * past a code-review CRITICAL blocker. A critical finding halts this script
+ * before auto-merge, and until this flag existed there was no override at all —
+ * so an operator who had read a finding and judged it wrong could only land by
+ * running `gh pr merge` themselves, bypassing the gate with nothing written
+ * down. The flag does not weaken the gate; it moves that escape hatch into a
+ * mandatory-reason audit trail (Story comment + PR comment + a
+ * `review-block-overridden` friction signal) and reports
+ * `gates.codeReview: "overridden"` on the terminal envelope. A bare or
+ * too-short reason fails during option parsing, before any phase runs.
  *
  * `--merge-watch-mode` (Story #4949) overrides `delivery.mergeWatch.mode` for
  * one invocation, on the same explicit-wins-over-config precedence
@@ -216,6 +228,14 @@ runAsCli(import.meta.url, main, {
       [
         '--merge-watch-mode <sync|async>',
         'Override delivery.mergeWatch.mode for this invocation only. `async` caps the merge wait to a short probe window and returns the resumable `pending` terminal instead of holding the foreground slot — pass it on every close of a multi-Story run. An invalid value exits non-zero before any phase runs.',
+      ],
+      [
+        '--override-review-block <reason>',
+        // Deliberately does not spell the merge CLI invocation: the
+        // merge-lockout rule in `check-lifecycle-lint.js` forbids that literal
+        // in any string outside `phases/auto-merge.js`, and it is right to —
+        // the point of this flag is that arming stays on the one code path.
+        'Land despite a Story-scope code-review CRITICAL blocker you have reviewed and judged wrong. The reason is mandatory (≥12 chars) and is recorded on the Story, on the PR, and as a `review-block-overridden` friction signal; the terminal envelope reports `gates.codeReview: "overridden"`. Use this instead of merging the PR by hand with the GitHub CLI — a hand-merge bypasses the gate with no record at all.',
       ],
       ['--no-evidence', 'Do not reuse or write gate evidence stamps.'],
       ['--dry-run', 'Report the plan; mutate nothing.'],

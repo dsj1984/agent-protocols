@@ -73,10 +73,10 @@
     },
     "gates": {
       "type": "object",
-      "description": "Outcome of each close gate this invocation was responsible for. A gate the run skipped (--skip-validation, or a phase it never reached) reports \"skipped\" rather than being omitted, so a missing gate is never mistaken for a passing one.",
+      "description": "Outcome of each close gate this invocation was responsible for. A gate the run skipped (--skip-validation, or a phase it never reached) reports \"skipped\" rather than being omitted, so a missing gate is never mistaken for a passing one. \"overridden\" is distinct from both: the gate ran, it FAILED, and an operator authorized delivery anyway via --override-review-block with a recorded reason. Reporting that as \"passed\" would erase the one fact a reader of this envelope most needs, and reporting it as \"skipped\" would claim the gate never ran.",
       "additionalProperties": {
         "type": "string",
-        "enum": ["passed", "failed", "skipped"]
+        "enum": ["passed", "failed", "skipped", "overridden"]
       }
     },
     "tail": {

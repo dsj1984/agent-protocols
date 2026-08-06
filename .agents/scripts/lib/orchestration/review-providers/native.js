@@ -7,9 +7,20 @@
  *
  *   1. Diffs `headRef` against `baseRef` to enumerate changed files.
  *   2. Runs scoped lint (biome + markdownlint) over the changed surface.
- *   3. Computes per-file maintainability reports for changed JS files.
+ *   3. Computes per-file maintainability reports for changed JS files, minus
+ *      the files the maintainability gate exempts (see below).
  *   4. Maps each signal to a `Finding` with a `severity` ∈ {critical, high,
  *      medium, suggestion}.
+ *
+ * **The maintainability dimension honours the gate's exemption list**, read via
+ * [`mi-exemptions.js`](mi-exemptions.js) — see that module for why this
+ * provider disagreeing with the ratchet was a live delivery blocker. Exempted
+ * files are named on the log rather than silently dropped.
+ *
+ * The lint dimension is deliberately NOT filtered through the same list:
+ * lint carries its own exclusion surface (biome's `files.includes`,
+ * `.markdownlintignore`), and a quality-gate ignore glob makes no claim about
+ * whether a file should parse or format cleanly.
  *
  * The adapter does NOT post to GitHub, does NOT render a markdown body,
  * and does NOT consult the lifecycle bus. Those concerns belong to
@@ -53,6 +64,10 @@ import {
 } from '../../observability/runtime-friction.js';
 import { PROJECT_ROOT } from '../../project-root.js';
 import { transpileIfNeeded } from '../../transpile.js';
+import {
+  resolveMaintainabilityIgnoreGlobs,
+  scopeMaintainabilityFiles,
+} from './mi-exemptions.js';
 import {
   parseLintOutput,
   partitionFilesForLint,
@@ -389,16 +404,6 @@ export function buildLintFindings(lintSummary) {
   return findings;
 }
 
-function _emptyResults() {
-  return {
-    totalFiles: 0,
-    jsFiles: 0,
-    maintainability: [],
-    criticalFindings: [],
-    mediumFindings: [],
-  };
-}
-
 async function runLintPhase({
   scopeLint,
   changedFiles,
@@ -467,6 +472,7 @@ function buildLintDegradations(lintSummary) {
  *   analyzeChangedFilesFn?: typeof analyzeChangedFiles,
  *   buildLintFindingsFn?: typeof buildLintFindings,
  *   emitToolDegradationFn?: typeof emitRuntimeFriction,
+ *   resolveIgnoreGlobsFn?: typeof resolveMaintainabilityIgnoreGlobs,
  *   logger?: { info?: Function, warn?: Function, error?: Function },
  *   scopeLint?: 'changed-only'|'off',
  * }} [deps]
@@ -479,6 +485,10 @@ export function createNativeProvider(deps = {}) {
     analyzeChangedFilesFn = analyzeChangedFiles,
     buildLintFindingsFn = buildLintFindings,
     emitToolDegradationFn = emitRuntimeFriction,
+    // The maintainability-gate exemption seam. The resolution itself — gate-key
+    // read and fail-open — is unit-tested in `mi-exemptions.js`; this dep is
+    // here so a provider test can pin the WIRING without a config on disk.
+    resolveIgnoreGlobsFn = resolveMaintainabilityIgnoreGlobs,
     logger,
     scopeLint = 'changed-only',
   } = deps;
@@ -551,7 +561,12 @@ export function createNativeProvider(deps = {}) {
       logger?.info?.(
         `[native-review] Analyzing ${changedFiles.length} changed file(s)...`,
       );
-      const results = await analyzeChangedFilesFn(changedFiles, {
+      const mi = scopeMaintainabilityFiles(changedFiles, {
+        cwd: PROJECT_ROOT,
+        resolveIgnoreGlobsFn,
+      });
+      if (mi.notice) logger?.info?.(mi.notice);
+      const results = await analyzeChangedFilesFn(mi.scored, {
         headRef,
         gitSpawnFn,
       });

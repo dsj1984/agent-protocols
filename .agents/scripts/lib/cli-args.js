@@ -110,6 +110,59 @@ function tolerantMergeWatchMode(value) {
 }
 
 /**
+ * Shortest override reason that can plausibly name a rejected finding. Below
+ * this, the flag is being used to silence the gate rather than to record a
+ * judgement, which is the failure mode the reason requirement exists to stop.
+ */
+const MIN_OVERRIDE_REASON_LENGTH = 12;
+
+/**
+ * Parse `--override-review-block <reason>` — the sanctioned,
+ * logged override of a Story-scope code-review critical blocker.
+ *
+ * The reason is **mandatory and validated**, because the alternative it
+ * replaces is not "no override" but `gh pr merge` run by hand: before this
+ * flag, a review blocker the operator had reviewed and rejected left bypassing
+ * the gate entirely as the only way to land, and that bypass wrote nothing
+ * down anywhere. An override that records why is strictly more auditable than
+ * the hand-merge it displaces; an override that records nothing is not, so a
+ * bare or blank `--override-review-block` fails closed here — before any phase
+ * runs, at no mutation cost — rather than arming a silent one.
+ *
+ * @param {unknown} value
+ * @returns {string|undefined} the trimmed reason, or `undefined` when absent.
+ */
+export function parseOverrideReviewBlock(value) {
+  if (value == null) return undefined;
+  // `parseArgs` with `strict: false` yields `true` for a bare string flag.
+  const reason = typeof value === 'string' ? value.trim() : '';
+  if (reason.length >= MIN_OVERRIDE_REASON_LENGTH) return reason;
+  throw new Error(
+    '--override-review-block requires a reason of at least ' +
+      `${MIN_OVERRIDE_REASON_LENGTH} characters naming the finding you reviewed ` +
+      `and rejected (got ${JSON.stringify(value)}). The reason is posted to the ` +
+      'PR and the Story and recorded as friction telemetry.',
+  );
+}
+
+/**
+ * {@link parseOverrideReviewBlock} degraded to absent instead of throwing, for
+ * the tolerant reporting parse. Same contract as
+ * {@link tolerantMergeWatchMode}: safe only because a tolerant parse runs no
+ * phase.
+ *
+ * @param {unknown} value
+ * @returns {string|undefined}
+ */
+function tolerantOverrideReviewBlock(value) {
+  try {
+    return parseOverrideReviewBlock(value);
+  } catch {
+    return undefined;
+  }
+}
+
+/**
  * Standardized CLI argument parser for sprint scripts.
  * Supports options like --epic, --story, --dry-run, --skip-dashboard.
  *
@@ -147,6 +200,11 @@ export function parseSprintArgs(
       // Absent means "use the config"; see `parseMergeWatchMode` for why an
       // unrecognized value fails closed instead of degrading to absent.
       'merge-watch-mode': { type: 'string' },
+      // Sanctioned override of a code-review critical blocker.
+      // Absent means "the blocker blocks"; see `parseOverrideReviewBlock` for
+      // why a bare or too-short reason fails closed instead of arming a silent
+      // override.
+      'override-review-block': { type: 'string' },
       executor: { type: 'string' },
       cwd: { type: 'string' },
       'recut-of': { type: 'string' },
@@ -183,6 +241,12 @@ export function parseSprintArgs(
     mergeWatchMode: tolerant
       ? tolerantMergeWatchMode(values['merge-watch-mode'])
       : parseMergeWatchMode(values['merge-watch-mode']),
+    // The operator's recorded reason for overriding a review
+    // blocker. `undefined` when the flag is absent, which is what keeps the
+    // blocker blocking by default.
+    overrideReviewBlock: tolerant
+      ? tolerantOverrideReviewBlock(values['override-review-block'])
+      : parseOverrideReviewBlock(values['override-review-block']),
     executor: values.executor ?? null,
     // Resolve worktree cwd from flag or env. Empty string/whitespace → null.
     cwd:

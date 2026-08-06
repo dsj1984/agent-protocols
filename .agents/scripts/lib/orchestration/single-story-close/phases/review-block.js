@@ -20,6 +20,11 @@ export async function handleCriticalReviewBlock({
     '',
     `The Story-scope review reported **${criticalCount} critical blocker(s)** on ${prUrl}.`,
     'Remediate the posted findings, then re-run `/deliver`.',
+    '',
+    'If you have reviewed a finding and judged it wrong, re-run close with',
+    '`--override-review-block "<reason>"` rather than merging by hand — see',
+    '`phases/review-override.js`. The override is recorded on the Story, on the',
+    'PR, and as friction telemetry.',
   ].join('\n');
   try {
     await upsertStructuredComment(provider, storyId, 'friction', body);
