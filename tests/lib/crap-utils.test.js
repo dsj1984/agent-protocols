@@ -5,17 +5,11 @@ import { test } from 'node:test';
 import Ajv from 'ajv';
 import {
   buildBaselineEnvelope,
-  getCrapBaseline,
   KERNEL_VERSION,
   resolveEscomplexVersion,
   scanAndScore,
 } from '../../.agents/scripts/lib/crap-utils.js';
 import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
-
-// Tests now pass `baselinePath` explicitly — Epic #730 Story 5.5 removed the
-// silent `DEFAULT_BASELINE_PATH = 'crap-baseline.json'` default in favour of
-// resolver-driven paths (`agentSettings.quality.baselines.crap.path`).
-const TEST_BASELINE_PATH = 'baselines/crap.json';
 
 const SCHEMA_PATH = path.resolve('.agents/schemas/crap-baseline.schema.json');
 
@@ -83,81 +77,6 @@ test('resolveEscomplexVersion — returns 0.0.0 when module is absent', () => {
   const cwd = mkTmpCwd();
   try {
     assert.strictEqual(resolveEscomplexVersion(cwd), '0.0.0');
-  } finally {
-    rmTmp(cwd);
-  }
-});
-
-test('getCrapBaseline — returns null when baseline file is missing', () => {
-  const cwd = mkTmpCwd();
-  try {
-    assert.strictEqual(
-      getCrapBaseline({ cwd, baselinePath: TEST_BASELINE_PATH }),
-      null,
-    );
-  } finally {
-    rmTmp(cwd);
-  }
-});
-
-test('getCrapBaseline — returns null on malformed JSON', () => {
-  const cwd = mkTmpCwd();
-  try {
-    fs.mkdirSync(path.dirname(path.join(cwd, TEST_BASELINE_PATH)), {
-      recursive: true,
-    });
-    fs.writeFileSync(path.join(cwd, TEST_BASELINE_PATH), '{not json');
-    assert.strictEqual(
-      getCrapBaseline({ cwd, baselinePath: TEST_BASELINE_PATH }),
-      null,
-    );
-  } finally {
-    rmTmp(cwd);
-  }
-});
-
-test('getCrapBaseline — returns null when required fields are missing', () => {
-  const cwd = mkTmpCwd();
-  try {
-    fs.mkdirSync(path.dirname(path.join(cwd, TEST_BASELINE_PATH)), {
-      recursive: true,
-    });
-    fs.writeFileSync(
-      path.join(cwd, TEST_BASELINE_PATH),
-      JSON.stringify({ rows: [] }),
-    );
-    assert.strictEqual(
-      getCrapBaseline({ cwd, baselinePath: TEST_BASELINE_PATH }),
-      null,
-    );
-  } finally {
-    rmTmp(cwd);
-  }
-});
-
-test('getCrapBaseline — surfaces kernel-version mismatch without silent rescore', () => {
-  const cwd = mkTmpCwd();
-  try {
-    const envelope = {
-      $schema: '.agents/schemas/crap-baseline.schema.json',
-      kernelVersion: '9.9.9',
-      escomplexVersion: '1.2.3',
-      tsTranspilerVersion: '0.0.0',
-      rows: [{ file: 'a.js', method: 'foo', startLine: 1, crap: 2 }],
-    };
-    fs.mkdirSync(path.dirname(path.join(cwd, TEST_BASELINE_PATH)), {
-      recursive: true,
-    });
-    fs.writeFileSync(
-      path.join(cwd, TEST_BASELINE_PATH),
-      `${JSON.stringify(envelope, null, 2)}\n`,
-    );
-    const loaded = getCrapBaseline({ cwd, baselinePath: TEST_BASELINE_PATH });
-    assert.ok(loaded);
-    assert.strictEqual(loaded.kernelVersion, '9.9.9');
-    assert.notStrictEqual(loaded.kernelVersion, KERNEL_VERSION);
-    // Rows are returned verbatim — no re-scoring, no stripping.
-    assert.deepStrictEqual(loaded.rows, envelope.rows);
   } finally {
     rmTmp(cwd);
   }

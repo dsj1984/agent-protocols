@@ -1,12 +1,12 @@
 {
   "$schema": ".agents/schemas/baselines/coverage.schema.json",
   "kernelVersion": "1.0.0",
-  "generatedAt": "2026-08-06T01:55:54.613Z",
+  "generatedAt": "2026-08-06T02:31:32.393Z",
   "rollup": {
     "*": {
-      "lines": 95.87,
-      "branches": 86.24,
-      "functions": 88.91
+      "lines": 95.86,
+      "branches": 86.18,
+      "functions": 88.85
     }
   },
   "rows": [
@@ -504,8 +504,8 @@
     },
     {
       "path": ".agents/scripts/lib/baselines/envelope.js",
-      "lines": 97.33,
-      "branches": 95.31,
+      "lines": 97.19,
+      "branches": 95,
       "functions": 100
     },
     {
@@ -524,6 +524,18 @@
       "path": ".agents/scripts/lib/baselines/kernel.js",
       "lines": 99.39,
       "branches": 91.67,
+      "functions": 100
+    },
+    {
+      "path": ".agents/scripts/lib/baselines/kinds/_crap-new-method-gate.js",
+      "lines": 97.09,
+      "branches": 88.89,
+      "functions": 75
+    },
+    {
+      "path": ".agents/scripts/lib/baselines/kinds/_crap-read.js",
+      "lines": 98.67,
+      "branches": 73.33,
       "functions": 100
     },
     {
@@ -546,9 +558,9 @@
     },
     {
       "path": ".agents/scripts/lib/baselines/kinds/crap.js",
-      "lines": 95.76,
-      "branches": 82.39,
-      "functions": 90.63
+      "lines": 95.79,
+      "branches": 83.03,
+      "functions": 90.32
     },
     {
       "path": ".agents/scripts/lib/baselines/kinds/duplication.js",
@@ -1187,15 +1199,9 @@
       "functions": 100
     },
     {
-      "path": ".agents/scripts/lib/crap-baseline-index.js",
-      "lines": 100,
-      "branches": 100,
-      "functions": 100
-    },
-    {
       "path": ".agents/scripts/lib/crap-baseline-join.js",
       "lines": 100,
-      "branches": 93.1,
+      "branches": 96.61,
       "functions": 100
     },
     {
@@ -1217,15 +1223,9 @@
       "functions": 100
     },
     {
-      "path": ".agents/scripts/lib/crap-utils-incremental.js",
-      "lines": 100,
-      "branches": 96,
-      "functions": 100
-    },
-    {
       "path": ".agents/scripts/lib/crap-utils.js",
-      "lines": 92.22,
-      "branches": 75,
+      "lines": 95.91,
+      "branches": 78.85,
       "functions": 100
     },
     {
@@ -2918,12 +2918,6 @@
       "path": ".agents/scripts/lib/wave-runner/ready-set.js",
       "lines": 100,
       "branches": 95.05,
-      "functions": 100
-    },
-    {
-      "path": ".agents/scripts/lib/workers/combined-mi-crap-worker.js",
-      "lines": 100,
-      "branches": 100,
       "functions": 100
     },
     {

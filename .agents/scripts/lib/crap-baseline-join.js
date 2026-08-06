@@ -1,20 +1,137 @@
 /**
- * crap-baseline-join.js — the incremental-coverage CRAP join (Story #4981).
+ * crap-baseline-join.js — the incremental-coverage CRAP join (Story #4981),
+ * end to end: the method-identity key, the per-file baseline index, the
+ * per-file queue wiring, and the join itself.
  *
- * Split out of `crap-engine.js` into its own file (rather than added inline)
- * so the Story's join logic lands as new code, not a same-file expansion of
- * the pre-existing scoring kernel. Imports its coordinate/formula
- * primitives from `crap-coordinates.js` (not `crap-engine.js`) and its
- * identity key from `crap-baseline-index.js` — both leaf modules — so this
- * file stays a one-directional consumer with no edge back into
- * `crap-engine.js`.
+ * Story #4981 landed those four concerns as three files
+ * (`crap-baseline-index.js`, `crap-utils-incremental.js`, and this one) so
+ * the work would land as new code rather than same-file expansions. Story
+ * #5002 folded them back together: they were one cohesive unit split only
+ * for that scoring reason, and the split cost two import hops and two
+ * modules whose whole content was five short pure functions.
+ *
+ * Imports its coordinate/formula primitives from `crap-coordinates.js` (not
+ * `crap-engine.js`) so this file stays a one-directional consumer with no
+ * edge back into the scoring kernel — `crap-engine.js` imports FROM here.
  */
-import { methodIdentityKey } from './crap-baseline-index.js';
 import {
   COORDINATE_ORIGINAL,
   COORDINATE_TRANSPILED,
   crapFormula,
 } from './crap-coordinates.js';
+
+/**
+ * Per-file half of the method-identity key `baselines/kinds/crap.js`'s
+ * `crapRowKey` composes with the file path (`${path}::${method}@${startLine}`).
+ * The path component is redundant once a row set is already narrowed to one
+ * file, which is exactly what `indexBaselineRowsByFile` does below.
+ *
+ * @param {{method: string, startLine: number}} row
+ * @returns {string}
+ */
+function methodIdentityKey(row) {
+  return `${row.method}@${row.startLine}`;
+}
+
+/**
+ * Index baseline rows (accepts either the `{file, method, startLine, crap}`
+ * legacy shape `compareCrap`/`scanAndScore` use, or the on-disk `{path, ...}`
+ * shape) by file, then by `methodIdentityKey`, for O(1) per-method lookup —
+ * exactly the shape `finalizeMethodRowsWithBaseline`'s `baselineByKey`
+ * expects.
+ *
+ * @param {Array<{file?: string, path?: string, method: string, startLine: number, crap: number}>} baselineRows
+ * @returns {Map<string, Map<string, {crap: number}>>} file → (method@startLine → row)
+ */
+function indexBaselineRowsByFile(baselineRows) {
+  const byFile = new Map();
+  for (const row of baselineRows ?? []) {
+    const file = row?.file ?? row?.path;
+    if (typeof file !== 'string' || file.length === 0) continue;
+    if (!byFile.has(file)) byFile.set(file, new Map());
+    byFile.get(file).set(methodIdentityKey(row), row);
+  }
+  return byFile;
+}
+
+/**
+ * Resolve `crap-utils.js#scanAndScore`'s `incremental` option into the two
+ * lookup structures the per-file queue build needs. Both are `null` when
+ * `incremental` is absent (full-scope, the default) — every downstream
+ * consumer treats a `null` context as "not incremental".
+ *
+ * @param {{ touchedFiles?: Set<string>|string[], baselineRows?: Array<object> } | null} incremental
+ * @returns {{ touchedFiles: Set<string>|null, baselineByFile: Map<string, Map<string, object>>|null }}
+ */
+export function resolveIncrementalContext(incremental) {
+  const touchedFiles = incremental?.touchedFiles
+    ? incremental.touchedFiles instanceof Set
+      ? incremental.touchedFiles
+      : new Set(incremental.touchedFiles)
+    : null;
+  const baselineByFile = incremental
+    ? indexBaselineRowsByFile(incremental.baselineRows)
+    : null;
+  return { touchedFiles, baselineByFile };
+}
+
+/**
+ * Merge one queued file's `touched` flag and per-file `baselineByKey` map
+ * (resolved from the `resolveIncrementalContext` output) onto its base queue
+ * item. `touched` defaults to `true` (every file is "touched" outside
+ * incremental mode, matching `finalizeMethodRowsWithBaseline`'s own default).
+ *
+ * @param {object} item Base queue item (`{ abs, relPath, requireCoverage, coverageAvailable }`).
+ * @param {{ touchedFiles: Set<string>|null, baselineByFile: Map<string, Map<string, object>>|null }} ctx
+ * @returns {object} `item` plus `{ touched, baselineByKey }`.
+ */
+export function resolveQueueIncrementalFields(
+  item,
+  { touchedFiles, baselineByFile },
+) {
+  const touched = touchedFiles ? touchedFiles.has(item.relPath) : true;
+  const baselineByKey = baselineByFile
+    ? (baselineByFile.get(item.relPath) ?? new Map())
+    : null;
+  return { ...item, touched, baselineByKey };
+}
+
+/**
+ * True when a file's methods should resolve from the baseline rather than
+ * from a fresh coverage entry — an untouched file with at least one indexed
+ * baseline row.
+ *
+ * @param {boolean} touched
+ * @param {Map<string, object>|null} baselineByKey
+ * @returns {boolean}
+ */
+function isIncrementalJoinActive(touched, baselineByKey) {
+  return !touched && baselineByKey != null && baselineByKey.size > 0;
+}
+
+/**
+ * `crap-utils.js#scoreFileSerial`'s file-level skip decision, factored out
+ * whole so the incremental exception lives with the rest of the join rather
+ * than inflating the cyclomatic complexity of the pre-#4981 caller.
+ *
+ * @param {boolean} requireCoverage
+ * @param {object|null} entry Istanbul coverage entry for this file.
+ * @param {boolean} touched
+ * @param {Map<string, object>|null} baselineByKey
+ * @returns {boolean}
+ */
+export function shouldSkipFileForNoCoverage(
+  requireCoverage,
+  entry,
+  touched,
+  baselineByKey,
+) {
+  return (
+    requireCoverage &&
+    entry === null &&
+    !isIncrementalJoinActive(touched, baselineByKey)
+  );
+}
 
 /**
  * Apply the standard `requireCoverage` policy to a single raw method row.

@@ -1,7 +1,7 @@
 {
   "$schema": "https://mandrel.dev/baselines/dead-exports.schema.json",
   "kernelVersion": "6.17.1",
-  "generatedAt": "2026-08-06T01:35:29.184Z",
+  "generatedAt": "2026-08-06T02:32:48.311Z",
   "rows": [
     {
       "file": ".agents/scripts/check-baseline-drift.js",

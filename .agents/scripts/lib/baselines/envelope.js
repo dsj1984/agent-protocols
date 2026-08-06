@@ -40,45 +40,25 @@
  * @module lib/baselines/envelope
  */
 
-import fs from 'node:fs';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-import Ajv from 'ajv';
-import addFormats from 'ajv-formats';
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+import {
+  BASELINE_KIND_SCHEMA_FILES,
+  buildBaselineSchemaAjv,
+} from '../baseline-schema-registry.js';
 
 /**
- * Repo-relative `.agents/schemas/baselines/` directory. Resolved off the
- * module URL so the envelope works the same in the main checkout, in a
- * worktree, and inside CI's bare clone — none of those have a stable
- * `process.cwd()` relative to the schemas.
+ * Canonical list of kinds the shared envelope supports, **derived** from the
+ * schema registry rather than restated (Story #5002).
+ *
+ * It used to be a hand-kept literal that happened to mirror
+ * `BASELINE_KIND_SCHEMA_FILES` name for name. Deriving it makes
+ * "`kind` is known" and "`kind`'s schema is registered" the same fact, so
+ * `getValidator` below cannot be handed a kind the AJV instance never
+ * compiled — the not-registered branch is gone because the state is
+ * unreachable, not because it was hidden.
  */
-const SCHEMAS_DIR = path.resolve(
-  __dirname,
-  '..',
-  '..',
-  '..',
-  'schemas',
-  'baselines',
+export const KNOWN_KINDS = Object.freeze(
+  BASELINE_KIND_SCHEMA_FILES.map((file) => file.replace(/\.schema\.json$/, '')),
 );
-
-/**
- * Canonical list of kinds the shared envelope supports. The writer's
- * per-kind module list lives in `kinds/index.js`; this constant is the
- * envelope's view of the same set, kept here to break the import cycle
- * (`kinds/<kind>` imports envelope; envelope only needs the names).
- */
-export const KNOWN_KINDS = Object.freeze([
-  'lint',
-  'coverage',
-  'crap',
-  'maintainability',
-  'mutation',
-  'lighthouse',
-  'bundle-size',
-  'duplication',
-]);
 
 function schemaRefFor(kind) {
   return `.agents/schemas/baselines/${kind}.schema.json`;
@@ -193,36 +173,37 @@ export function buildEnvelope({
 }
 
 /**
- * Lazy AJV instance — compiled schemas are memoised so successive writes
- * during a single Node process don't re-compile the seven schemas.
+ * Lazy AJV instance, built by the canonical
+ * [`baseline-schema-registry`](../baseline-schema-registry.js) — the ONE
+ * place a baselines-directory schema is read off disk and compiled
+ * (Story #5002). This module used to keep its own `SCHEMAS_DIR` + AJV +
+ * per-kind compile cache alongside the registry's, so the writer and
+ * `baselines/reader.js` validated the same envelope through two independently
+ * configured instances; a registration added to one was invisible to the
+ * other. One builder means the writer and the reader cannot disagree about
+ * what a valid envelope is.
+ *
+ * Memoised: building it reads eleven schema files, and a single baseline
+ * regeneration calls `assertEnvelope` once per write plus once per re-read.
  */
 let _ajv = null;
-const _validators = new Map();
-
-function getAjv() {
-  if (_ajv) return _ajv;
-  const ajv = new Ajv({ allErrors: true, strict: false });
-  addFormats(ajv);
-  const envelopeSchema = JSON.parse(
-    fs.readFileSync(
-      path.join(SCHEMAS_DIR, 'baseline-envelope.schema.json'),
-      'utf8',
-    ),
-  );
-  ajv.addSchema(envelopeSchema, 'baseline-envelope.schema.json');
-  _ajv = ajv;
-  return ajv;
+function ajv() {
+  if (_ajv === null) {
+    _ajv = buildBaselineSchemaAjv();
+  }
+  return _ajv;
 }
 
+/**
+ * Look up the pre-registered validator for a per-kind schema. Total over
+ * `KNOWN_KINDS` — that list is derived from the registry's own filenames, so
+ * every kind reaching here has a compiled schema.
+ *
+ * @param {string} kind
+ * @returns {import('ajv').ValidateFunction}
+ */
 function getValidator(kind) {
-  if (_validators.has(kind)) return _validators.get(kind);
-  const ajv = getAjv();
-  const schema = JSON.parse(
-    fs.readFileSync(path.join(SCHEMAS_DIR, `${kind}.schema.json`), 'utf8'),
-  );
-  const validate = ajv.compile(schema);
-  _validators.set(kind, validate);
-  return validate;
+  return ajv().getSchema(`${kind}.schema.json`);
 }
 
 /**

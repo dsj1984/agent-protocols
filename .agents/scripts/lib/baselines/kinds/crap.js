@@ -13,15 +13,12 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { readBaselineAtRef } from '../../baseline-loader.js';
 import {
   COORDINATE_ORIGINAL,
   COORDINATE_TRANSPILED,
   deriveFixGuidance,
 } from '../../crap-engine.js';
 import { isAnonymousMethodLabel } from '../../crap-method-identity.js';
-import { getCrapBaseline } from '../../crap-utils.js';
-import { loadBaseline } from '../../gates/baseline-store.js';
 import { Logger } from '../../Logger.js';
 import { resolveTsTranspilerVersion } from '../../transpile.js';
 import {
@@ -32,6 +29,12 @@ import {
 import { canonicalise } from '../path-canon.js';
 import { mergeRowsByScope } from '../scope.js';
 import {
+  buildNewViolation,
+  deriveUncoveredFiles,
+  formatNewViolationMeasure,
+  newMethodGateScore,
+} from './_crap-new-method-gate.js';
+import {
   makeAggregate,
   makeCompare,
   makeEpsilon,
@@ -41,6 +44,11 @@ import {
 
 export const name = 'crap';
 export const keyField = 'path';
+
+// The CRAP baseline read path (Story #5002) lives in `_crap-read.js` — the ONE
+// door, re-exported here so `preview-gates.js` and every existing importer keep
+// reaching it through this module.
+export { loadCrapBaseline } from './_crap-read.js';
 
 const __filename = fileURLToPath(import.meta.url);
 
@@ -245,18 +253,12 @@ function crapRowKey(row) {
   return `${row.path}::${row.method}@${row.startLine}`;
 }
 
-// `methodIdentityKey` / `indexBaselineRowsByFile` (Story #4981) live in
-// crap-baseline-index.js, not here — `crap-utils.js#scanAndScore` needs them
-// to build the incremental join's per-file baseline lookup, and crap-utils.js
-// already imports `getCrapBaseline` FROM this module. Defining them here and
-// importing them into crap-utils.js would close that edge into a cycle
-// (kinds/crap.js → crap-utils.js → kinds/crap.js). Re-exported here so
-// existing importers of this module keep a single door to the identity key
-// `crapRowKey` composes with the file path.
-export {
-  indexBaselineRowsByFile,
-  methodIdentityKey,
-} from '../../crap-baseline-index.js';
+// `methodIdentityKey` / `indexBaselineRowsByFile` (Story #4981) are now
+// module-local to `crap-baseline-join.js` (Story #5002): after that module
+// absorbed the per-file queue wiring, both callers are inside it, so the
+// exports — and the re-export that used to live here — were reachable from
+// tests alone. `resolveIncrementalContext` is the production door to the
+// index; `crapRowKey` above is the composite key it halves.
 
 /**
  * Pure stabilizer for s-stability-epsilon (Story #1964). CRAP rows match
@@ -395,6 +397,9 @@ export function checkCrapRegression(row, baseline, tolerance, kind) {
  * (`crap: null` / `coverage: null`, or an explicit `unscorable: true`) carries
  * no measurement to compare. It is bucketed and counted, and it is excluded
  * from `comparable` so it cannot dilute any ratio derived from this result.
+ *
+ * **A new method in a wholly-uncovered file is gated on complexity alone**
+ * (Story #5002) — see `newMethodGateScore`.
  */
 export function compareCrap({
   currentRows,
@@ -402,6 +407,7 @@ export function compareCrap({
   newMethodCeiling,
   tolerance,
 }) {
+  const uncoveredFiles = deriveUncoveredFiles(currentRows);
   const exactIndex = new Map();
   const methodIndex = new Map();
   for (const b of baselineRows ?? []) {
@@ -475,14 +481,10 @@ export function compareCrap({
       continue;
     }
 
-    if (row.crap > newMethodCeiling + tolerance) {
+    const gateScore = newMethodGateScore(row, uncoveredFiles);
+    if (gateScore > newMethodCeiling + tolerance) {
       newViolations += 1;
-      violations.push({
-        ...row,
-        kind: 'new',
-        baseline: null,
-        ceiling: newMethodCeiling,
-      });
+      violations.push(buildNewViolation(row, newMethodCeiling, gateScore));
     }
   }
 
@@ -893,48 +895,6 @@ export function assertBaselineCompatible(baseline, ctx = {}) {
 }
 
 /**
- * Pure helper: resolve the CRAP baseline either from the working tree
- * (via `getCrapBaseline`) or, when `epicRef` is supplied, from
- * `git show <epicRef>:<baselinePath>` via `readBaselineAtRef`.
- *
- * Story #1120 threads `epic/<id>` into close-validation so the
- * comparison runs against the Epic-branch HEAD's committed baseline.
- * This helper delegates the read to baseline-store and applies the CRAP
- * shape-check + `tsTranspilerVersion` back-fill on top.
- */
-export function loadCrapBaseline({
-  baselinePath,
-  epicRef,
-  readAtRef = readBaselineAtRef,
-  readFromTree = getCrapBaseline,
-  logger = console,
-}) {
-  const parsed = loadBaseline({
-    baselinePath,
-    epicRef,
-    readAtRef,
-    readFromTree,
-    logger,
-    label: 'CRAP',
-  });
-  // No-epicRef path delegates to readFromTree which already applies the
-  // shape-check + tsTranspilerVersion back-fill, so a tree read returns
-  // either a valid envelope or null. Epic-ref path bypasses that helper
-  // — shape-check + back-fill happens here.
-  if (!epicRef) return parsed;
-  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-    return null;
-  }
-  if (typeof parsed.kernelVersion !== 'string') return null;
-  if (typeof parsed.escomplexVersion !== 'string') return null;
-  if (!Array.isArray(parsed.rows)) return null;
-  if (typeof parsed.tsTranspilerVersion !== 'string') {
-    parsed.tsTranspilerVersion = '0.0.0';
-  }
-  return parsed;
-}
-
-/**
  * Build the structured `--json` report envelope.
  *
  * Violations carry the same fields the stdout printer emits plus a
@@ -1061,7 +1021,7 @@ export function printViolation(v) {
       `[CRAP] ❌ NEW-METHOD over ceiling: ${v.file}::${v.method} (line ${v.startLine})`,
     );
     Logger.error(
-      `       crap=${v.crap.toFixed(2)} > ceiling=${v.ceiling} (c=${v.cyclomatic}, cov=${v.coverage.toFixed(2)})`,
+      `       ${formatNewViolationMeasure(v)} > ceiling=${v.ceiling} (c=${v.cyclomatic}, cov=${v.coverage.toFixed(2)})`,
     );
     return;
   }

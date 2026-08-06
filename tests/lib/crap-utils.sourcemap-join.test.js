@@ -11,10 +11,10 @@ import { coverageForMethodInEntry } from '../../.agents/scripts/lib/coverage-uti
 import {
   COORDINATE_ORIGINAL,
   COORDINATE_TRANSPILED,
+  calculateCrapForSource,
   finalizeMethodRows,
 } from '../../.agents/scripts/lib/crap-engine.js';
 import {
-  analyzeOnce,
   checkResolutionFloor,
   scanAndScore,
 } from '../../.agents/scripts/lib/crap-utils.js';
@@ -829,7 +829,7 @@ test('a REAL TS source whose map resolves one method and not the other never mix
     line === generatedRetry ? null : prepared.mapLine(line);
 
   const entry = coverageEntry('/abs/mod.ts')['/abs/mod.ts'];
-  const { crapRows } = analyzeOnce(prepared.code, entry, partialMap);
+  const crapRows = calculateCrapForSource(prepared.code, entry, partialMap);
   const byMethod = Object.fromEntries(crapRows.map((r) => [r.method, r]));
 
   // The resolved method reports an ORIGINAL coordinate and joins coverage.
