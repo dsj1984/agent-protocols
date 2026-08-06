@@ -1,11 +1,11 @@
 {
   "$schema": ".agents/schemas/baselines/maintainability.schema.json",
   "kernelVersion": "0.1.0",
-  "generatedAt": "2026-08-06T10:13:07.638Z",
+  "generatedAt": "2026-08-06T09:58:52.595Z",
   "rollup": {
     "*": {
       "min": 76.058,
-      "p50": 98.358,
+      "p50": 98.344,
       "p95": 122.913
     }
   },
@@ -77,6 +77,10 @@
     {
       "path": ".agents/scripts/check-doc-links.js",
       "mi": 89.461
+    },
+    {
+      "path": ".agents/scripts/check-knip-entries.js",
+      "mi": 92.67
     },
     {
       "path": ".agents/scripts/check-lifecycle-doc-drift.js",
@@ -352,7 +356,7 @@
     },
     {
       "path": ".agents/scripts/lib/baselines/git-base.js",
-      "mi": 104.797
+      "mi": 103.379
     },
     {
       "path": ".agents/scripts/lib/baselines/kernel.js",
@@ -432,7 +436,7 @@
     },
     {
       "path": ".agents/scripts/lib/baselines/refresh-service.js",
-      "mi": 95.979
+      "mi": 95.359
     },
     {
       "path": ".agents/scripts/lib/baselines/scope-assert.js",
@@ -557,10 +561,6 @@
     {
       "path": ".agents/scripts/lib/checks/subagent-agent-tool-required.js",
       "mi": 92.389
-    },
-    {
-      "path": ".agents/scripts/lib/child-exec.js",
-      "mi": 109.336
     },
     {
       "path": ".agents/scripts/lib/cli-args.js",
@@ -908,7 +908,7 @@
     },
     {
       "path": ".agents/scripts/lib/git-utils.js",
-      "mi": 113.583
+      "mi": 107.26
     },
     {
       "path": ".agents/scripts/lib/git/cached-fetch.js",
@@ -945,6 +945,10 @@
     {
       "path": ".agents/scripts/lib/json-utils.js",
       "mi": 95.486
+    },
+    {
+      "path": ".agents/scripts/lib/knip-entry-sync.js",
+      "mi": 91.321
     },
     {
       "path": ".agents/scripts/lib/label-constants.js",
@@ -2036,7 +2040,7 @@
     },
     {
       "path": ".agents/scripts/run-verify.js",
-      "mi": 93.708
+      "mi": 101.048
     },
     {
       "path": ".agents/scripts/single-story-close.js",

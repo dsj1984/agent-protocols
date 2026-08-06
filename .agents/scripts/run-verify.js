@@ -45,44 +45,38 @@
 import { spawnSync } from 'node:child_process';
 import { runAsCli } from './lib/cli-utils.js';
 
+/**
+ * A gate step: `node .agents/scripts/<script>` plus any extra args. Seven of
+ * the ten steps share exactly that shape, so spelling it once leaves the list
+ * below readable as what it actually is — a gate *order* — instead of a wall
+ * of spawn tuples.
+ *
+ * @param {string} label reported as `failedStep` when the gate exits non-zero
+ * @param {string} script basename under `.agents/scripts/`
+ * @param {...string} args extra CLI args
+ * @returns {{ label: string, cmd: string, args: string[] }}
+ */
+const gate = (label, script, ...args) => ({
+  label,
+  cmd: 'node',
+  args: [`.agents/scripts/${script}`, ...args],
+});
+
 const STEPS = [
-  {
-    label: 'audit',
-    cmd: 'npm',
-    args: ['audit', '--audit-level=high'],
-  },
+  { label: 'audit', cmd: 'npm', args: ['audit', '--audit-level=high'] },
   { label: 'lint', cmd: 'npm', args: ['run', 'lint'] },
   { label: 'test', cmd: 'npm', args: ['test'] },
-  {
-    label: 'baselines',
-    cmd: 'node',
-    args: ['.agents/scripts/check-baselines.js'],
-  },
-  {
-    label: 'dead-exports',
-    cmd: 'node',
-    args: ['.agents/scripts/check-dead-exports.js'],
-  },
-  {
-    label: 'dead-exports-production',
-    cmd: 'node',
-    args: ['.agents/scripts/check-dead-exports.js', '--production'],
-  },
-  {
-    label: 'context-budget',
-    cmd: 'node',
-    args: ['.agents/scripts/check-context-budget.js'],
-  },
-  {
-    label: 'cyclomatic',
-    cmd: 'node',
-    args: ['.agents/scripts/check-cyclomatic.js'],
-  },
-  {
-    label: 'schema-references',
-    cmd: 'node',
-    args: ['.agents/scripts/check-schema-references.js'],
-  },
+  gate('baselines', 'check-baselines.js'),
+  // Ordered ahead of the dead-exports pair deliberately. When a new CLI is
+  // missing from knip.json's entry list, both gates fail — but only this one
+  // names the cause. Seeing the ratchet's whole-file diff first is what made
+  // "accept the diff" look like the fix during Story #5012.
+  gate('knip-entries', 'check-knip-entries.js'),
+  gate('dead-exports', 'check-dead-exports.js'),
+  gate('dead-exports-production', 'check-dead-exports.js', '--production'),
+  gate('context-budget', 'check-context-budget.js'),
+  gate('cyclomatic', 'check-cyclomatic.js'),
+  gate('schema-references', 'check-schema-references.js'),
 ];
 
 export function runVerifySteps({

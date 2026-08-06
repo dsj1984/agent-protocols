@@ -1,7 +1,7 @@
 {
   "$schema": "https://mandrel.dev/baselines/dead-exports.schema.json",
   "kernelVersion": "6.17.1",
-  "generatedAt": "2026-08-06T09:44:09.996Z",
+  "generatedAt": "2026-08-06T10:08:43.175Z",
   "mode": "production",
   "rows": [
     {
@@ -623,6 +623,10 @@
     {
       "file": ".agents/scripts/lib/cli/standard-args.js",
       "symbol": "SUPPORTED_FLAGS"
+    },
+    {
+      "file": ".agents/scripts/lib/knip-entry-sync.js",
+      "symbol": "__testing"
     },
     {
       "file": ".agents/scripts/lib/config/temp-paths.js",

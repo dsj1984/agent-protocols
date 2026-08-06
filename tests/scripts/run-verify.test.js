@@ -45,6 +45,11 @@ test('runVerifySteps runs audit, lint, test, baselines, then the ratchets in ord
     ['npm', 'run', 'lint'],
     ['npm', 'test'],
     ['node', '.agents/scripts/check-baselines.js'],
+    // Ahead of the dead-exports pair on purpose: when a new CLI is missing from
+    // knip.json's entry list both gates fail, but only this one names the cause
+    // (Story #5012 read the ratchet's diff first and nearly recorded live CLIs
+    // as expected-dead).
+    ['node', '.agents/scripts/check-knip-entries.js'],
     ['node', '.agents/scripts/check-dead-exports.js'],
     ['node', '.agents/scripts/check-dead-exports.js', '--production'],
     ['node', '.agents/scripts/check-context-budget.js'],
