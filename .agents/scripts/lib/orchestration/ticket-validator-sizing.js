@@ -29,7 +29,7 @@
  */
 
 import { parse as parseStoryBody } from '../story-body/story-body.js';
-import { estimateTokens } from './context-envelope.js';
+import { estimateTokens } from './spec-spill.js';
 
 /**
  * Normalize a Story's `body` to the structured object the sizing layers

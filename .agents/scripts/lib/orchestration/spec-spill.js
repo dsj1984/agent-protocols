@@ -6,13 +6,27 @@
  * Spec is treated as a sizing smell (the Story should be split or the Spec
  * tightened), not as a reason to write temporary product docs.
  *
- * The budget reuses the §2 FinOps estimator ({@link estimateTokens}, ~4
- * chars/token) so the threshold speaks the same units as hydration budgets.
+ * This module also **owns** the §2 FinOps token estimator
+ * ({@link estimateTokens}, ~4 chars/token) — the one shared approximation every
+ * fixed framework ceiling speaks in (the Spec budget below, the plan-time
+ * sizing ceilings in `ticket-validator-sizing.js`, and the audit checklist
+ * threading budget). It used to live in a `context-envelope.js` SDK whose
+ * remaining surface had no live caller; the estimator is all that survived.
  *
  * @module lib/orchestration/spec-spill
  */
 
-import { estimateTokens } from './context-envelope.js';
+/**
+ * Rough token estimate: ~4 characters per token. Deliberately cheap and
+ * deterministic — every ceiling that quotes "tokens" is quoting this number,
+ * so the approximation matters far less than every caller sharing one.
+ *
+ * @param {string} text
+ * @returns {number}
+ */
+export function estimateTokens(text) {
+  return Math.ceil(String(text ?? '').length / 4);
+}
 
 /**
  * Soft budget (estimated tokens) for an inline `## Spec`. ~1500 tokens ≈ 6KB —

@@ -1288,8 +1288,7 @@ schema is `additionalProperties: false`, so writing either now fails AJV
 validation. The surviving ceilings are **fixed framework constants**:
 
 - **Estimator:** `estimateTokens` (≈4 chars/token) in
-  `lib/orchestration/context-envelope.js`, shared by everything below (its
-  sibling `elideEnvelope` is exported but has no live caller).
+  `lib/orchestration/spec-spill.js`, shared by everything below.
 - **`PLAN_CONTEXT_ENVELOPE_BYTE_CEILING`** (`lib/orchestration/plan-context.js`,
   256,000 bytes) — the `/plan` authoring envelope bound; fails closed.
 - **`DEFAULT_MODEL_CAPACITY`** (`lib/orchestration/ticket-validator-sizing.js`)

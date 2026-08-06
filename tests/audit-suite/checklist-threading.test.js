@@ -30,7 +30,7 @@ import {
   matchLocalLenses,
   readAuditRules,
 } from '../../.agents/scripts/lib/audit-suite/index.js';
-import { estimateTokens } from '../../.agents/scripts/lib/orchestration/context-envelope.js';
+import { estimateTokens } from '../../.agents/scripts/lib/orchestration/spec-spill.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const MODULE_PATH = path.join(

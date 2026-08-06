@@ -85,11 +85,10 @@ over-ceiling envelope or an over-budget Story count.
 > before shipping the raw seed anyway. The schema now **rejects**
 > `planning.context`, so a config carrying it fails loudly rather than silently
 > capping nothing. The ceiling below is the replacement and the only live bound
-> on planner-context size. Separately, `elideEnvelope` in
-> `lib/orchestration/context-envelope.js` — which this section used to credit
-> with limiting hydrated prompt size — has no production caller either (it is
-> carried in `baselines/dead-exports-production.json`). Only `estimateTokens`
-> from that module is live.
+> on planner-context size. Separately, the `ContextEnvelope` SDK this section
+> used to credit with limiting hydrated prompt size had no production caller
+> and was deleted in Story #5005; only its `estimateTokens` helper survived,
+> re-homed in `lib/orchestration/spec-spill.js`.
 
 ### Planner-context envelope (`/plan`)
 

@@ -41,7 +41,7 @@ import path from 'node:path';
 import { AUDIT_LENSES } from '../audit-to-stories/audit-lenses.js';
 import { getPaths, PROJECT_ROOT, resolveConfig } from '../config-resolver.js';
 import { Logger } from '../Logger.js';
-import { estimateTokens } from '../orchestration/context-envelope.js';
+import { estimateTokens } from '../orchestration/spec-spill.js';
 import {
   changeSetLacksSiblingTest,
   matchesAnyFilePattern,
