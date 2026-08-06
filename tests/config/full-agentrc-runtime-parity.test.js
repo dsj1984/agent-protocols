@@ -127,13 +127,17 @@ describe('full-agentrc-runtime-parity', () => {
     assert.equal('maxTokenBudget' in LIMITS_DEFAULTS, false);
   });
 
-  it('delivery execution/lease/signals match LIMITS_DEFAULTS', () => {
+  it('delivery execution/signals match LIMITS_DEFAULTS', () => {
     assert.equal(
       ref.delivery.execution.timeoutMs,
       LIMITS_DEFAULTS.executionTimeoutMs,
     );
-    assert.equal(ref.delivery.lease.ttlMs, LIMITS_DEFAULTS.leaseTtlMs);
     assert.deepEqual(ref.delivery.signals, { ...LIMITS_DEFAULTS.signals });
+  });
+
+  it('omits delivery.lease (retired lease TTL — Story #5006)', () => {
+    assert.equal(ref.delivery.lease, undefined);
+    assert.equal('leaseTtlMs' in LIMITS_DEFAULTS, false);
   });
 
   it('delivery.ci.autoMerge matches CI_DELIVERY_DEFAULTS', () => {

@@ -11,9 +11,10 @@
  *     a diff matching no local lens yields an empty roster (no lens work).
  *   - `runLocalLensReview` materializes the matched roster at `light` depth and
  *     is best-effort (git / materialization failure degrades to skipped).
- *   - The lens pass runs inside `runStoryReviewCore`, and BOTH close entry
- *     points (`runStoryCodeReview` epic-attached, `runStoryScopeReview`
- *     standalone) reach it through that single shared spine.
+ *   - The lens pass runs inside `runStoryReviewCore`, and the close entry
+ *     point (`runStoryScopeReview`) reaches it through that shared spine.
+ *     Story #5006 retired the Epic-attached entry point, so the standalone
+ *     path is the only one left to pin.
  */
 
 import assert from 'node:assert/strict';
@@ -21,7 +22,6 @@ import test from 'node:test';
 
 import { selectLocalLenses } from '../../.agents/scripts/lib/audit-suite/index.js';
 import { runStoryScopeReview } from '../../.agents/scripts/lib/orchestration/single-story-close/phases/code-review.js';
-import { runStoryCodeReview } from '../../.agents/scripts/lib/orchestration/story-close/phases/code-review.js';
 import { runLocalLensReview } from '../../.agents/scripts/lib/orchestration/story-close/phases/local-lens-review.js';
 import { runStoryReviewCore } from '../../.agents/scripts/lib/orchestration/story-close/phases/review-core.js';
 
@@ -554,30 +554,6 @@ test('runStoryReviewCore invokes the lens pass and attaches localLensReview', as
   assert.equal(lensSpy.calls[0].baseRef, 'epic/4405');
   assert.equal(lensSpy.calls[0].headRef, 'story-4409');
   assert.deepEqual(result.localLensReview, lensReview);
-});
-
-test('epic-attached close (runStoryCodeReview) reaches the lens pass through the spine', async () => {
-  const lensReview = {
-    depth: 'light',
-    lenses: ['audit-security'],
-    skipped: false,
-  };
-  const lensSpy = spy(lensReview);
-  const out = await runStoryCodeReview({
-    storyId: 4409,
-    baseBranch: 'epic/4405',
-    storyBranch: 'story-4409',
-    provider: {},
-    bus: { emit: async () => {} },
-    progress: noopProgress,
-    runCodeReviewFn: cleanReviewStub(),
-    runLocalLensReviewFn: lensSpy,
-  });
-  assert.equal(out.blocked, null);
-  assert.equal(lensSpy.calls.length, 1);
-  assert.equal(lensSpy.calls[0].baseRef, 'epic/4405');
-  assert.equal(lensSpy.calls[0].headRef, 'story-4409');
-  assert.deepEqual(out.localLensReview, lensReview);
 });
 
 test('standalone close (runStoryScopeReview) reaches the lens pass through the spine', async () => {

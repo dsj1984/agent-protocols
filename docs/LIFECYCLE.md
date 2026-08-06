@@ -197,9 +197,15 @@ Listeners live in
 Each listener does exactly one thing in response to its subscribed
 events.
 
-| Listener                     | Subscribes to                                                                                  | Side effect                                                          |
-| ---------------------------- | ---------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
-| `Watcher`                    | `pr.created`                                                                                   | `watchPrToTerminal` — CI watch used by `pr-watch-with-update.js`. |
+| Listener | Subscribes to | Side effect |
+| -------- | ------------- | ----------- |
+
+**v2 ships no helper listeners.** The table is empty on purpose, and
+[`check-lifecycle-doc-drift.js`](../.agents/scripts/check-lifecycle-doc-drift.js)
+keeps it honest: a listener added back under `listeners/` without a row here
+fails the `baselines` check. The two wildcard observers that do register —
+`LedgerWriter` and `TraceLogger` — ship outside `listeners/` and are exempt
+from that scan by allow-list.
 
 > **v2 note.** The Epic lifecycle listener chain (`AutomergeArmer`,
 > `AutomergePredicate`, `Finalizer`, `Cleaner`, …) was removed. Story
@@ -208,6 +214,12 @@ events.
 > Story #4545 — the listener had no production caller, and the poll defaults
 > and `deriveChecksStatus` the close path did reuse from it now live in
 > [`lib/orchestration/merge-poll.js`](../.agents/scripts/lib/orchestration/merge-poll.js).
+> `Watcher` was the last one, deleted in Story #5006: the `epic.watch.*`
+> events it existed to serve were already gone, so nothing emitted
+> `pr.created` at it. Its CI-poll primitive `watchPrToTerminal` survives as a
+> plain module at
+> [`listeners/watcher.js`](../.agents/scripts/lib/orchestration/lifecycle/listeners/watcher.js),
+> driven directly by `pr-watch-with-update.js` with no bus.
 
 ### Side-effect firewall
 

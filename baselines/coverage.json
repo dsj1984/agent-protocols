@@ -1,12 +1,12 @@
 {
   "$schema": ".agents/schemas/baselines/coverage.schema.json",
   "kernelVersion": "1.0.0",
-  "generatedAt": "2026-08-06T04:12:38.251Z",
+  "generatedAt": "2026-08-06T04:55:30.691Z",
   "rollup": {
     "*": {
-      "lines": 95.81,
-      "branches": 86.27,
-      "functions": 88.69
+      "lines": 95.82,
+      "branches": 86.37,
+      "functions": 88.74
     }
   },
   "rows": [
@@ -108,8 +108,8 @@
     },
     {
       "path": ".agents/scripts/check-lifecycle-doc-drift.js",
-      "lines": 92.46,
-      "branches": 82.43,
+      "lines": 92.89,
+      "branches": 81.82,
       "functions": 100
     },
     {
@@ -1613,6 +1613,12 @@
       "functions": 100
     },
     {
+      "path": ".agents/scripts/lib/orchestration/behind-recovery.js",
+      "lines": 100,
+      "branches": 95.65,
+      "functions": 100
+    },
+    {
       "path": ".agents/scripts/lib/orchestration/ceremony-routing.js",
       "lines": 100,
       "branches": 85.71,
@@ -1686,8 +1692,8 @@
     },
     {
       "path": ".agents/scripts/lib/orchestration/complexity-gate.js",
-      "lines": 98.68,
-      "branches": 92.54,
+      "lines": 99.77,
+      "branches": 92.98,
       "functions": 100
     },
     {
@@ -1824,8 +1830,8 @@
     },
     {
       "path": ".agents/scripts/lib/orchestration/lease-guard-shared.js",
-      "lines": 99.31,
-      "branches": 72.73,
+      "lines": 99.16,
+      "branches": 80,
       "functions": 100
     },
     {
@@ -1866,9 +1872,9 @@
     },
     {
       "path": ".agents/scripts/lib/orchestration/lifecycle/listeners/watcher.js",
-      "lines": 94.65,
-      "branches": 83.22,
-      "functions": 84.21
+      "lines": 96.17,
+      "branches": 84.62,
+      "functions": 88.24
     },
     {
       "path": ".agents/scripts/lib/orchestration/lifecycle/trace-logger.js",
@@ -2075,12 +2081,6 @@
       "functions": 100
     },
     {
-      "path": ".agents/scripts/lib/orchestration/resolves-token.js",
-      "lines": 98.43,
-      "branches": 100,
-      "functions": 75
-    },
-    {
       "path": ".agents/scripts/lib/orchestration/retro-proposals.js",
       "lines": 100,
       "branches": 96.08,
@@ -2208,9 +2208,9 @@
     },
     {
       "path": ".agents/scripts/lib/orchestration/single-story-close/phases/confirm-merge.js",
-      "lines": 96.23,
-      "branches": 76.19,
-      "functions": 94.74
+      "lines": 96.36,
+      "branches": 76.42,
+      "functions": 95.65
     },
     {
       "path": ".agents/scripts/lib/orchestration/single-story-close/phases/normalize-pr-title.js",
@@ -2303,21 +2303,9 @@
       "functions": 100
     },
     {
-      "path": ".agents/scripts/lib/orchestration/story-close/emit-blocked.js",
-      "lines": 92.73,
-      "branches": 60,
-      "functions": 100
-    },
-    {
       "path": ".agents/scripts/lib/orchestration/story-close/format-autofix.js",
       "lines": 98.27,
       "branches": 79.69,
-      "functions": 100
-    },
-    {
-      "path": ".agents/scripts/lib/orchestration/story-close/phases/code-review.js",
-      "lines": 97.63,
-      "branches": 70.59,
       "functions": 100
     },
     {
@@ -2328,8 +2316,8 @@
     },
     {
       "path": ".agents/scripts/lib/orchestration/story-close/phases/review-core.js",
-      "lines": 97.42,
-      "branches": 93.55,
+      "lines": 97.44,
+      "branches": 93.1,
       "functions": 50
     },
     {
@@ -2383,7 +2371,7 @@
     {
       "path": ".agents/scripts/lib/orchestration/ticket-lease.js",
       "lines": 100,
-      "branches": 96.36,
+      "branches": 95,
       "functions": 100
     },
     {
@@ -3132,7 +3120,7 @@
     },
     {
       "path": ".agents/scripts/resolve-stories.js",
-      "lines": 81.99,
+      "lines": 81.85,
       "branches": 90.91,
       "functions": 63.64
     },
@@ -3189,12 +3177,6 @@
       "lines": 100,
       "branches": 88.24,
       "functions": 100
-    },
-    {
-      "path": ".agents/scripts/sync-branch-from-base.js",
-      "lines": 97.32,
-      "branches": 71.43,
-      "functions": 66.67
     },
     {
       "path": ".agents/scripts/sync-claude-agents.js",

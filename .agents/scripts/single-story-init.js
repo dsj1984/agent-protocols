@@ -553,13 +553,11 @@ export async function runSingleStoryInit({
   injectedConfig,
   injectedSweep,
   // Story #3483: lets tests drive the lease preflight deterministically.
-  // `injectedAcquireLease` swaps the guard; `leaseNow` injects the clock the
-  // fail-closed liveness check evaluates against (audit #3513). `steal`
-  // forcibly transfers a foreign claim — the standalone path has no Epic
-  // heartbeat ledger, so a foreign assignee blocks unless stolen.
+  // `injectedAcquireLease` swaps the guard. `steal` forcibly transfers a
+  // foreign claim — the lease fails closed (audit #3513), so a foreign
+  // assignee blocks unless stolen.
   injectedAcquireLease,
   steal = false,
-  leaseNow,
   injectedVerifyRemote,
   // Story #4620: swap the git-touching provisioning steps so the
   // early-flip-then-rollback ordering is unit-testable without a real worktree.
@@ -633,13 +631,12 @@ export async function runSingleStoryInit({
     `Standalone Story: "${story.title}" → branch ${storyBranch} from ${baseBranch}.`,
   );
 
-  // Story #3483 — lease preflight. Take an exclusive, time-bounded claim on
-  // the Story ticket before any git mutation so two concurrent standalone
-  // runs cannot both drive the same Story. The standalone path has no Epic
-  // heartbeat ledger, so the guard fails closed (audit #3513): a foreign
-  // assignee is treated as a live claim and aborts init (naming the current
-  // owner) unless --steal forcibly transfers it. Unclaimed / self-held claims
-  // proceed. Skipped under --dry-run (no assignee mutation).
+  // Story #3483 — lease preflight. Take an exclusive claim on the Story
+  // ticket before any git mutation so two concurrent standalone runs cannot
+  // both drive the same Story. The guard fails closed (audit #3513): a
+  // foreign assignee aborts init (naming the current owner) unless --steal
+  // forcibly transfers it. Unclaimed / self-held claims proceed. Skipped
+  // under --dry-run (no assignee mutation).
   let workCwd = cwd;
   let worktreeCreated = false;
   let installStatus = { status: 'skipped', reason: 'dry-run' };
@@ -651,7 +648,6 @@ export async function runSingleStoryInit({
       storyId,
       config,
       steal: stealRequested,
-      now: leaseNow,
     });
     progress(
       'LEASE',

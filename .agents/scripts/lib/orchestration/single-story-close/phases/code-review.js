@@ -21,7 +21,7 @@
  * the caller raises that to a thrown error so auto-merge is not enabled.
  *
  * Delegates the `runCodeReview` invocation to `runStoryReviewCore`
- * (exported from `story-close/phases/code-review.js`) so the close path
+ * (exported from `story-close/phases/review-core.js`) so the close path
  * shares a single invocation pattern (Story #3653). Review depth needs no
  * input here: it is derived from this Story's own diff inside `runCodeReview`
  * (Story #4542).

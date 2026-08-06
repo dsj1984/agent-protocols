@@ -296,11 +296,9 @@ async function releaseLease({
  * `runBaseSyncPhase`, and a critical-blocker review halt in
  * `openAndReviewPr`) throw before the clean-close lease release at the
  * tail of `runSingleStoryClose`, stranding the operator's lease
- * indefinitely. The standalone lease does **not** expire by TTL: it is
- * fail-closed by design (`lease-guard-shared.js` anchors `heartbeatAt` to
- * now, so `isClaimLive` is true for any foreign assignee regardless of the
- * configured TTL), so a stranded claim is cleared only by `--steal` or
- * de-assignment. That fail-closed-refuses a different operator who picks up
+ * indefinitely. The standalone lease has **no** TTL to expire by (Story
+ * #5006 deleted it): `acquireLease` refuses any foreign assignee outright,
+ * so a stranded claim is cleared only by `--steal` or de-assignment. That fail-closed-refuses a different operator who picks up
  * the blocked Story — exactly the hand-off case. Releasing here closes
  * that gap.
  *

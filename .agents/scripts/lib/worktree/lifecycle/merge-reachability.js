@@ -3,22 +3,24 @@
  *
  * The "is the worktree's work integrated upstream?" half of
  * `isSafeToRemove`. Runs the two-phase reachability gate the parent
- * documents: primary `merge-base --is-ancestor HEAD epicRef`, and a
- * fallback `git log --grep=resolves #<storyId>` against the Epic ref when
- * the ancestry check returns "not an ancestor".
+ * documents: primary `merge-base --is-ancestor HEAD baseRef`, and a
+ * `git cherry` patch-equivalence fallback when the ancestry check returns
+ * "not an ancestor".
  *
  * The fallback exists because a post-merge rebase or force-push can drop
- * the local branch ref off the merged tip — the `(resolves #N)` token on
- * the Epic's `--no-ff` merge commit (emitted by
- * `story-close/merge-runner.js`) is the durable proof the Story was
- * integrated.
+ * the local branch ref off the merged tip, so SHA reachability alone
+ * under-reports integration.
+ *
+ * A third phase used to sit between the two: a `git log --merges
+ * --grep=resolves #<storyId>` probe for the `(resolves #N)` token on the
+ * Epic's `--no-ff` merge commit. Story #5006 removed it — v2 lands every
+ * Story as a **squash** merge onto `main`, which never writes that token,
+ * and the `--no-ff` emitter (`story-close/merge-runner.js`) went with the
+ * Epic pipeline. The probe could only ever return `false`.
  *
  * Pure with respect to the supplied `ctx` bag; the only side effects are
  * the `gitSpawn` calls.
  */
-
-import { parseStoryBranch } from '../../git-utils.js';
-import { resolvesGrepArgs } from '../../orchestration/resolves-token.js';
 
 /**
  * Resolve a worktree's `HEAD` to a full commit SHA via
@@ -71,37 +73,6 @@ export function checkHeadAncestor(ctx, headSha, epicRef) {
 }
 
 /**
- * Predicate: did the Epic ref accumulate a `--no-ff` merge commit whose
- * subject names this Story (e.g. `... (resolves #1851)`)? Returns `true`
- * when the grep finds at least one matching merge commit, `false` when it
- * returns empty or fails.
- *
- * Returns `false` for branches that do not match the canonical
- * `story-<id>` shape — the merge-commit subject contract is only
- * guaranteed for story branches.
- *
- * @param {object} ctx
- * @param {string} branch Worktree branch (e.g. `story-1851`).
- * @param {string} epicRef Epic branch ref (e.g. `epic/1831`).
- * @returns {boolean}
- */
-export function hasMergeCommitForStory(ctx, branch, epicRef) {
-  const storyId = parseStoryBranch(branch);
-  if (storyId === null) return false;
-  const grep = ctx.git.gitSpawn(
-    ctx.repoRoot,
-    'log',
-    epicRef,
-    '--merges',
-    '-n',
-    '1',
-    '--pretty=%H',
-    ...resolvesGrepArgs(storyId),
-  );
-  return grep.status === 0 && grep.stdout.trim().length > 0;
-}
-
-/**
  * Predicate: are every commit on `branch` patch-equivalent to a commit
  * already on `epicRef`? Runs `git cherry <epicRef> <branch>` and returns
  * `true` when every output line starts with `- ` (already upstream by
@@ -140,7 +111,7 @@ export function hasRebasedEquivalents(ctx, branch, epicRef) {
 }
 
 /**
- * Run the full three-phase merge-reachability gate. Returns the same
+ * Run the full two-phase merge-reachability gate. Returns the same
  * `{ safe, reason }` envelope `isSafeToRemove` does, so callers can chain
  * the verdict directly into the parent return value.
  *
@@ -165,9 +136,6 @@ export async function checkMergeReachability(ctx, wtPath, branch, epicRef) {
     };
   }
 
-  if (hasMergeCommitForStory(ctx, branch, epicRef)) {
-    return { safe: true, reason: 'merge-commit-reachable' };
-  }
   if (hasRebasedEquivalents(ctx, branch, epicRef)) {
     return { safe: true, reason: 'rebased-equivalents' };
   }

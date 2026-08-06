@@ -478,7 +478,7 @@ readers, kept in sync by a drift test.
 | `project.paths`          | Required filesystem roots (`agentRoot`, `docsRoot`, `tempRoot`).        |
 | `project.commands`       | Validate / lint / test / typecheck / build commands; `null` disables.  |
 | `delivery.quality`       | Maintainability + CRAP + lint baselines and gate configuration.         |
-| `delivery.execution`, `delivery.lease` | Resource ceilings (per-process execution timeout, assignee-as-lease TTL). Planner-context size is bounded by the fixed `PLAN_CONTEXT_ENVELOPE_BYTE_CEILING`, not a config knob. |
+| `delivery.execution` | Resource ceilings (per-process execution timeout). Planner-context size is bounded by the fixed `PLAN_CONTEXT_ENVELOPE_BYTE_CEILING`, not a config knob; the assignee-as-lease TTL was deleted in Story #5006. |
 | `github` + `delivery`    | GitHub provider config, worktree isolation, deliver-runner tuning.      |
 
 Each grouped block is read through a typed accessor (`getPaths(config)`,

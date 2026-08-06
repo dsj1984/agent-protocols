@@ -139,19 +139,18 @@ and the `rules/security-baseline.md` MUSTs all run exactly as for a
 full-ceremony Story. The lite route's `preserves` field is the machine-readable
 record of those non-negotiables; there is no lite-specific gate bypass.
 
-**Deliver derives the route from the Story body's shape — and the
-dispatch mode from the run.** Persist stamps a lite cohort's Stories with the
-`route::lite` label as a _human-visible hint only_ (and ledgers the authored
-verdict — recorded reason plus per-Story shape evidence — on the
-`story-plan-state` checkpoint); the label is never the control signal.
-`/deliver` computes the route from the fetched Story body via
-`resolveStoryDispatchMode` (`lib/orchestration/complexity-gate.js`) — the same
-shape taxonomy `deriveChangeLevel` applies to the landed diff at close:
-`changes[]` count, acceptance count, creates-vs-refactors mix, sensitive-path
-classes. A footprint intersecting a sensitive-path class derives `full` —
-sensitivity wins, and the Story keeps its fresh acceptance critic.
+**Ceremony comes from the landed diff; the dispatch mode comes from the
+run.** Persist stamps a lite cohort's Stories with the `route::lite` label as a
+_human-visible hint only_ (and ledgers the authored verdict — recorded reason
+plus per-Story shape evidence — on the `story-plan-state` checkpoint); the
+label is never the control signal. Ceremony is resolved from the **derived
+change level** (`deriveChangeLevel` over the computed change set — digest § 3),
+not from a body-shape read: a footprint intersecting a sensitive-path class
+derives `high`, so the Story keeps its fresh acceptance critic. The light path
+is the one caller that reads the authored body's shape, through
+`deriveStoryShape` (`lib/orchestration/complexity-gate.js`).
 
-That derived route sets ceremony. It does **not** set the dispatch mode,
+That derived level sets ceremony. It does **not** set the dispatch mode,
 because `inline` names one indivisible resource — the router's own session —
 and only run topology can say whether it is free: a **single-Story run**
 executes inline, and every Story of a multi-Story run dispatches as a
@@ -279,7 +278,9 @@ floor forces `fresh`). Review depth reads the same derived level via
 `review-depth.js` inside close, so the two decisions cannot disagree.
 
 **Inline-dispatch override.** When the Story dispatches
-`inline` (`resolveStoryDispatchMode` → `inline`, i.e. a single-Story run), run
+`inline` (`resolveStoryDispatchMode` → `inline`, which is exactly a
+single-Story run — the function reads the resolved set size and nothing
+else), run
 every acceptance critic **inline** — do not spawn fresh-context critic
 sub-agents regardless of what the profile would otherwise resolve. The self-eval rigor
 (scoring each `acceptance[]` item against the one computed change set, with

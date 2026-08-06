@@ -134,8 +134,6 @@ const KEY_MEANINGS = Object.freeze({
   // delivery.*
   'delivery.execution.timeoutMs':
     'Per-execution timeout for orchestrated delivery steps.',
-  'delivery.lease.ttlMs':
-    'Time-to-live for the delivery lease before a stale claim is reclaimable.',
   'delivery.ci.watch.pollIntervalMs':
     'Poll cadence (ms) for the merge/CI watch loop.',
   'delivery.ci.watch.maxPolls':

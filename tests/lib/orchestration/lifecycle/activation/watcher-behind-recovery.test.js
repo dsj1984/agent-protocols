@@ -1,46 +1,49 @@
 // tests/lib/orchestration/lifecycle/activation/watcher-behind-recovery.test.js
 /**
  * BEHIND auto-recovery preservation test
- * — Story #2327 / Task #2334.
+ * — Story #2327 / Task #2334, re-pointed by Story #5006.
  *
- * The legacy `pr-watch-with-update.js` CLI used to perform a
- * fast-forward recovery when every required check went green AND the
- * PR's `mergeStateStatus` was `BEHIND`: it issued one `gh pr
- * update-branch` call to merge the base into the head, then re-polled
- * the freshly-rebased commit's CI cycle. Story #2327 collapsed that
- * CLI to a thin `pr.created` emit shim; this test pins that the
- * Watcher listener still performs the same recovery flow when it
- * observes `pr.created`.
+ * The `pr-watch-with-update.js` CLI performs a fast-forward recovery when
+ * every required check goes green AND the PR's `mergeStateStatus` is
+ * `BEHIND`: it issues one `gh pr update-branch` call to merge the base into
+ * the head, then re-polls the freshly-rebased commit's CI cycle. That flow
+ * lives in `watchPrToTerminal`, and the decision inside it is now the shared
+ * `applyBehindUpdate` (Story #5006) that the close-side merge wait also
+ * runs. This file pins the CLI-side call site of that shared helper.
  *
- * Acceptance contract (Task #2334):
+ * (Task #2334 originally drove the flow through the `Watcher` listener's
+ * classification log. Story #5006 deleted the listener — nothing emitted
+ * `pr.created` at it — so the assertions read `watchPrToTerminal`'s returned
+ * verdict, which is the surface the CLI has always consumed.)
+ *
+ * Acceptance contract:
  *   - Stubbed gh CLI returns `mergeStateStatus: BEHIND` on the first
  *     view probe and `mergeStateStatus: CLEAN` on the second.
  *   - The stubbed `gh pr update-branch` invocation is recorded exactly
  *     once between the two view probes.
- *   - The Watcher records a `watched` classification with the recovery
- *     update count after the loop completes. (The retired
- *     `epic.watch.start` / `.end` bus emits were deleted with their
- *     schemas — the classification log is the observable surface.)
+ *   - The verdict reports `updatesApplied: 1` and a terminal, green watch.
  */
 
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { Bus } from '../../../../../.agents/scripts/lib/orchestration/lifecycle/bus.js';
-import { Watcher } from '../../../../../.agents/scripts/lib/orchestration/lifecycle/listeners/watcher.js';
+import { watchPrToTerminal } from '../../../../../.agents/scripts/lib/orchestration/lifecycle/listeners/watcher.js';
 
 function quietLogger() {
   return { info: () => {}, warn: () => {}, debug: () => {} };
 }
 
+const PR_URL = 'https://github.com/owner/repo/pull/9';
+
 /**
- * Build a Watcher fixture wired against a deterministic stub gh CLI.
- * The fixture records every gh call in order so the test can assert
- * the canonical sequence: checks → view (BEHIND) → update-branch →
- * checks → view (CLEAN).
+ * Drive `watchPrToTerminal` against a deterministic stub gh CLI. Every gh
+ * call is recorded in order so the test can assert the canonical sequence:
+ * checks → view (BEHIND) → update-branch → checks → view (CLEAN).
+ *
+ * @param {string[]} mergeStates Ordered `mergeStateStatus` values the
+ *   stubbed `gh pr view` returns; the last one repeats once exhausted.
  */
-function buildBehindRecoveryFixture() {
-  const bus = new Bus();
+async function runWatch(mergeStates) {
   const calls = [];
   const checksResponse = {
     status: 0,
@@ -50,13 +53,9 @@ function buildBehindRecoveryFixture() {
     ]),
     stderr: '',
   };
-  const viewResponses = [
-    { status: 0, stdout: JSON.stringify({ mergeStateStatus: 'BEHIND' }) },
-    { status: 0, stdout: JSON.stringify({ mergeStateStatus: 'CLEAN' }) },
-  ];
   let viewIdx = 0;
-  const watcher = new Watcher({
-    bus,
+  const verdict = await watchPrToTerminal({
+    prUrl: PR_URL,
     cwd: '/tmp',
     pollIntervalMs: 0,
     maxPolls: 10,
@@ -68,7 +67,12 @@ function buildBehindRecoveryFixture() {
     },
     ghPrViewFn: () => {
       calls.push({ cmd: 'gh pr view' });
-      return viewResponses[Math.min(viewIdx++, viewResponses.length - 1)];
+      const state = mergeStates[Math.min(viewIdx++, mergeStates.length - 1)];
+      return {
+        status: 0,
+        stdout: JSON.stringify({ mergeStateStatus: state }),
+        stderr: '',
+      };
     },
     ghPrUpdateBranchFn: () => {
       calls.push({ cmd: 'gh pr update-branch' });
@@ -76,33 +80,22 @@ function buildBehindRecoveryFixture() {
     },
     logger: quietLogger(),
   });
-  watcher.register();
-  return { bus, calls, watcher };
+  return { calls, verdict };
 }
 
-describe('Watcher — mergeStateStatus BEHIND auto-recovery (Task #2334)', () => {
+describe('watchPrToTerminal — mergeStateStatus BEHIND auto-recovery (Task #2334)', () => {
   it('issues exactly one gh pr update-branch between two view probes when first probe is BEHIND and second is CLEAN', async () => {
-    const { bus, calls, watcher } = buildBehindRecoveryFixture();
-
-    await bus.emit('pr.created', {
-      prUrl: 'https://github.com/owner/repo/pull/9',
-      head: 'epic/2306',
-      base: 'main',
-    });
+    const { calls, verdict } = await runWatch(['BEHIND', 'CLEAN']);
 
     // Exactly one `gh pr update-branch` invocation, recorded between
     // the two `gh pr view` probes.
-    const updateBranchCalls = calls.filter(
-      (c) => c.cmd === 'gh pr update-branch',
-    );
     assert.equal(
-      updateBranchCalls.length,
+      calls.filter((c) => c.cmd === 'gh pr update-branch').length,
       1,
       'BEHIND recovery must call gh pr update-branch exactly once',
     );
-    const viewCalls = calls.filter((c) => c.cmd === 'gh pr view');
     assert.equal(
-      viewCalls.length,
+      calls.filter((c) => c.cmd === 'gh pr view').length,
       2,
       'mergeStateStatus must be probed twice (BEHIND then CLEAN)',
     );
@@ -119,45 +112,38 @@ describe('Watcher — mergeStateStatus BEHIND auto-recovery (Task #2334)', () =>
       `update-branch must be between the two view probes; observed: ${cmdOrder.join(' → ')}`,
     );
 
-    // The Watcher's classification log records the terminal outcome so
-    // downstream observers can see that the watch (with BEHIND recovery)
-    // completed — this is the same surface the legacy CLI exposed via its
-    // stdout JSON envelope.
-    const watched = watcher.classifications.find(
-      (c) => c.outcome === 'watched',
-    );
-    assert.ok(watched, 'expected a watched classification');
-    assert.equal(watched.requiredChecks, 2);
+    assert.equal(verdict.requiredChecks.length, 2);
+    assert.equal(verdict.terminal, true);
+    assert.equal(verdict.green, true);
   });
 
-  it('records updatesApplied=1 on the watched classification for the BEHIND→CLEAN recovery path', async () => {
-    const { bus, watcher } = buildBehindRecoveryFixture();
-
-    await bus.emit('pr.created', {
-      prUrl: 'https://github.com/owner/repo/pull/9',
-      head: 'epic/2306',
-      base: 'main',
-    });
-
-    const watched = watcher.classifications.find(
-      (c) => c.outcome === 'watched',
-    );
-    assert.ok(watched, 'expected a watched classification');
+  it('records updatesApplied=1 on the verdict for the BEHIND→CLEAN recovery path', async () => {
+    const { verdict } = await runWatch(['BEHIND', 'CLEAN']);
     assert.equal(
-      watched.updatesApplied,
+      verdict.updatesApplied,
       1,
-      'one update-branch call must be recorded on the classification',
+      'one update-branch call must be recorded on the verdict',
     );
   });
 
   it('does NOT call update-branch when mergeStateStatus is already CLEAN on the first probe', async () => {
-    const bus = new Bus();
+    const { calls, verdict } = await runWatch(['CLEAN']);
+    assert.equal(
+      calls.filter((c) => c.cmd === 'gh pr update-branch').length,
+      0,
+      'update-branch must not fire when mergeStateStatus is CLEAN',
+    );
+    assert.equal(verdict.updatesApplied, 0);
+  });
+
+  it('stops the arm without re-polling when the update-branch call fails', async () => {
     const calls = [];
-    const watcher = new Watcher({
-      bus,
+    const verdict = await watchPrToTerminal({
+      prUrl: PR_URL,
       cwd: '/tmp',
       pollIntervalMs: 0,
-      maxPolls: 5,
+      maxPolls: 10,
+      maxUpdates: 3,
       sleepFn: async () => {},
       ghPrChecksFn: () => {
         calls.push({ cmd: 'gh pr checks' });
@@ -173,33 +159,27 @@ describe('Watcher — mergeStateStatus BEHIND auto-recovery (Task #2334)', () =>
         calls.push({ cmd: 'gh pr view' });
         return {
           status: 0,
-          stdout: JSON.stringify({ mergeStateStatus: 'CLEAN' }),
+          stdout: JSON.stringify({ mergeStateStatus: 'BEHIND' }),
           stderr: '',
         };
       },
       ghPrUpdateBranchFn: () => {
         calls.push({ cmd: 'gh pr update-branch' });
-        return { status: 0, stdout: '', stderr: '' };
+        return { status: 1, stdout: '', stderr: 'merge conflict' };
       },
       logger: quietLogger(),
-    });
-    watcher.register();
-
-    await bus.emit('pr.created', {
-      prUrl: 'https://github.com/owner/repo/pull/1',
-      head: 'epic/2306',
-      base: 'main',
     });
 
     assert.equal(
       calls.filter((c) => c.cmd === 'gh pr update-branch').length,
-      0,
-      'update-branch must not fire when mergeStateStatus is CLEAN',
+      1,
+      'a failed update must not be retried inside the same arm',
     );
-    const watched = watcher.classifications.find(
-      (c) => c.outcome === 'watched',
-    );
-    assert.ok(watched, 'expected a watched classification');
-    assert.equal(watched.updatesApplied, 0);
+    // The terminal green outcomes stand: nothing invalidated them, so the
+    // arm reports what it last observed rather than re-polling a head that
+    // never moved.
+    assert.equal(verdict.updatesApplied, 0);
+    assert.equal(verdict.terminal, true);
+    assert.equal(verdict.green, true);
   });
 });

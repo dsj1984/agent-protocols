@@ -145,7 +145,6 @@ const FRAMEWORK_SCRIPT_BASENAMES = Object.freeze([
   'single-story-init.js',
   'stories-wave-tick.js',
   'sync-agentrc.js',
-  'sync-branch-from-base.js',
   'sync-claude-agents.js',
   'sync-claude-commands.js',
   'test-isolate.js',

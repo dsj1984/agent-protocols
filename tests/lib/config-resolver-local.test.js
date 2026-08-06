@@ -72,7 +72,7 @@ describe('config-resolver — .agentrc.local.json overlay (Story #3388)', () => 
         project: { ...REQ.project, baseBranch: 'develop' },
         delivery: {
           execution: { timeoutMs: 900000 },
-          lease: { ttlMs: 600000 },
+          docsFreshness: { paths: ['README.md'] },
         },
       },
       local: {
@@ -82,9 +82,9 @@ describe('config-resolver — .agentrc.local.json overlay (Story #3388)', () => 
 
     const config = resolveConfig({ bustCache: true, cwd: FIXTURE_ROOT });
     assert.equal(config.delivery.execution.timeoutMs, 120000);
-    // `delivery.lease` is a sibling of the overridden `delivery.execution`
-    // block — the deep merge must not clobber it.
-    assert.equal(config.delivery.lease.ttlMs, 600000);
+    // `delivery.docsFreshness` is a sibling of the overridden
+    // `delivery.execution` block — the deep merge must not clobber it.
+    assert.deepEqual(config.delivery.docsFreshness.paths, ['README.md']);
     assert.match(
       config.source,
       /\.agentrc\.local\.json.*overrides.*\.agentrc\.json/,

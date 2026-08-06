@@ -6,10 +6,11 @@
  *
  * Polls the PR's required checks to a terminal state and auto-recovers
  * from `mergeStateStatus: BEHIND` (via bounded `gh pr update-branch`
- * calls) by delegating to the shared `watchPrToTerminal` primitive in
- * the lifecycle `Watcher` — the SAME loop the listener runs, so the CLI
- * and the bus path are byte-for-byte equivalent. No lifecycle bus is
- * created; this is a direct, synchronous watch with a real exit code.
+ * calls) by delegating to the `watchPrToTerminal` primitive in
+ * `lifecycle/listeners/watcher.js`. That primitive was shared with the
+ * `Watcher` bus listener until Story #5006 deleted it (nothing emitted at
+ * it); this CLI is now its only caller. No lifecycle bus is created; this
+ * is a direct, synchronous watch with a real exit code.
  *
  * Slow-vs-failed semantics (Story #4358):
  *   - GREEN — every required check terminal + green → exit 0, unless the

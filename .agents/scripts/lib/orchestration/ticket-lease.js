@@ -1,56 +1,37 @@
 /**
  * ticket-lease.js — assignee-as-lease primitive (Story #3480, Epic #3457).
  *
- * The workflow-guards Feature (#3478) needs a way for one operator to take
- * an exclusive, time-bounded claim on a ticket so two concurrent runs do not
- * both drive the same Story. Rather than invent a new state column, the lease
- * rides the ticket's existing **assignees** surface: the single assignee *is*
- * the lease owner. Liveness is decided by the owner's last-heartbeat epoch-ms
- * compared against a configured TTL.
+ * The workflow-guards Feature (#3478) needs a way for one operator to take an
+ * exclusive claim on a ticket so two concurrent runs do not both drive the
+ * same Story. Rather than invent a new state column, the lease rides the
+ * ticket's existing **assignees** surface: the single assignee *is* the lease
+ * owner.
  *
- * **There is no live heartbeat source.** The `story.heartbeat` emitter this
- * module was designed against was structurally inert (it demanded an
- * `epicId >= 1` that v2, which has no Epics, never supplies) and has been
- * deleted. Every caller now reaches `acquireLease` through
- * `lease-guard-shared.acquireLeaseFailClosed` with `anchorHeartbeatToNow`,
- * which pins `heartbeatAt` to `now`: the lease **fails closed**, so any
- * foreign claim reads as live and refuses. A stranded claim is cleared with
- * `--steal`, never by TTL expiry. The TTL and the stale-reclaim branch below
- * are therefore reachable only via an explicit caller-supplied `heartbeatAt`
- * — the seam is kept, the automatic expiry is not real.
+ * **A foreign claim is a refusal, full stop (Story #5006).** The lease shipped
+ * with a TTL: a claim whose owner's last heartbeat was older than
+ * `delivery.lease.ttlMs` counted as stale and was silently reclaimed. The
+ * `story.heartbeat` emitter that would have fed it was structurally inert (it
+ * demanded an `epicId >= 1` that v2, which has no Epics, never supplies) and
+ * was deleted, after which every guard pinned `heartbeatAt` to `now` so the
+ * liveness test always answered "live" — the TTL, the heartbeat parameter and
+ * the reclaim branch were an elaborate way of writing `true`. They are gone.
+ * A stranded claim is cleared with `--steal`, which is now the only way past
+ * a foreign owner.
  *
- * The three exported operations are deliberately thin and provider-agnostic:
+ * The two exported operations are deliberately thin and provider-agnostic:
  *
  *   - `acquireLease`  — claim an unassigned ticket, re-affirm a self-held
- *                       claim, reclaim a ticket whose foreign claim has gone
- *                       stale (heartbeat older than TTL), or — with
- *                       `steal: true` — forcibly transfer a *live* foreign
- *                       claim.
+ *                       claim, or — with `steal: true` — forcibly transfer a
+ *                       foreign claim.
  *   - `releaseLease`  — clear the assignment, but only when the operator
  *                       still holds it (a no-op once the ticket was
  *                       reassigned elsewhere, so a late release never steals
  *                       a claim back from whoever took over).
- *   - `describeLease` — a read-only snapshot of the current claim and its
- *                       liveness, used by callers (and tests) to reason about
- *                       a ticket without mutating it.
  *
  * Provider contract (a subset of `ITicketingProvider`):
  *   - `getTicket(id)`            → `{ assignees: string[], ... }`
  *   - `updateTicket(id, { assignees })` writes the assignee list.
- *
- * Liveness seam: callers supply the owner's last-heartbeat epoch-ms via the
- * `heartbeatAt` option (a number, or `null`/`undefined` when no heartbeat has
- * ever been recorded for the current owner). Threading the timestamp in keeps
- * this module pure and trivially unit-testable — it does not read any ledger
- * itself. A claim with no heartbeat is treated as stale (reclaimable) by
- * `isClaimLive`; note the live guards never take that branch, per the
- * fail-closed anchoring described above.
- *
- * `now` is injectable (epoch ms) for deterministic tests; it defaults to
- * `Date.now()`.
  */
-
-import { resolveLeaseTtlMs } from '../config/limits.js';
 
 /**
  * The shipped, non-personal operator-identity placeholder (and its bare,
@@ -95,35 +76,6 @@ export function normalizeOperatorHandle(raw) {
 }
 
 /**
- * Decide whether a foreign claim is still "live" given the owner's last
- * heartbeat and the configured TTL. A claim is live when a heartbeat exists
- * and is no older than `ttlMs`. A missing heartbeat (`null`/`undefined`) or a
- * heartbeat older than the TTL is stale and therefore reclaimable.
- *
- * The `heartbeatAt` seam is retained, but there is no longer any in-repo
- * heartbeat *source*: the `story.heartbeat` emitter was structurally inert
- * (it required an `epicId >= 1` that v2 never sets) and was deleted along
- * with the ledger reader that scanned for it. Every live caller reaches this
- * through `lease-guard-shared.acquireLeaseFailClosed` with
- * `anchorHeartbeatToNow`, which pins `heartbeatAt` to `now` so ANY foreign
- * claim reads live and the guard fails closed — a stranded claim is cleared
- * with `--steal`, not by TTL expiry. The parameter stays because that
- * anchoring is expressed through it.
- *
- * @param {object} args
- * @param {number|null|undefined} args.heartbeatAt  Owner's last heartbeat (epoch ms).
- * @param {number} args.ttlMs                        Lease TTL in milliseconds.
- * @param {number} args.now                          Current time (epoch ms).
- * @returns {boolean}
- */
-export function isClaimLive({ heartbeatAt, ttlMs, now }) {
-  if (typeof heartbeatAt !== 'number' || !Number.isFinite(heartbeatAt)) {
-    return false;
-  }
-  return now - heartbeatAt <= ttlMs;
-}
-
-/**
  * Normalise the assignee list into a single current owner. The lease model is
  * single-holder: the first assignee is authoritative. Returns `null` for an
  * unassigned ticket.
@@ -141,10 +93,10 @@ export function currentOwner(assignees) {
  *
  * @param {string} op
  * @param {object} opts
- * @returns {{ provider: object, ticketId: number, operator: string, ttlMs: number, now: number }}
+ * @returns {{ provider: object, ticketId: number, operator: string }}
  */
 function normaliseOpts(op, opts) {
-  const { provider, ticketId, operator, config, now } = opts ?? {};
+  const { provider, ticketId, operator } = opts ?? {};
 
   if (!provider || typeof provider.getTicket !== 'function') {
     throw new Error(`${op}: provider with getTicket/updateTicket is required`);
@@ -156,45 +108,7 @@ function normaliseOpts(op, opts) {
     throw new Error(`${op}: operator must be a non-empty string`);
   }
 
-  const ttlMs = resolveLeaseTtlMs(config, opts.ttlMs);
-  const resolvedNow =
-    typeof now === 'number' && Number.isFinite(now) ? now : Date.now();
-
-  return { provider, ticketId, operator, ttlMs, now: resolvedNow };
-}
-
-/**
- * Read-only snapshot of the current lease on a ticket. Never mutates.
- *
- * @param {object} opts
- * @param {object} opts.provider              Ticketing provider (getTicket).
- * @param {number} opts.ticketId              Ticket to inspect.
- * @param {string} opts.operator              The operator asking.
- * @param {number|null} [opts.heartbeatAt]    Owner's last heartbeat (epoch ms).
- * @param {object} [opts.config]              Resolved config (for TTL default).
- * @param {number} [opts.ttlMs]               Explicit TTL override (epoch ms).
- * @param {number} [opts.now]                 Injectable clock (epoch ms).
- * @returns {Promise<{
- *   ticketId: number,
- *   owner: string|null,
- *   heldByOperator: boolean,
- *   live: boolean,
- *   ttlMs: number,
- * }>}
- */
-export async function describeLease(opts) {
-  const { provider, ticketId, operator, ttlMs, now } = normaliseOpts(
-    'describeLease',
-    opts,
-  );
-  const ticket = await provider.getTicket(ticketId);
-  const owner = currentOwner(ticket?.assignees);
-  const heldByOperator = owner === operator;
-  const live =
-    owner === null
-      ? false
-      : isClaimLive({ heartbeatAt: opts.heartbeatAt, ttlMs, now });
-  return { ticketId, owner, heldByOperator, live, ttlMs };
+  return { provider, ticketId, operator };
 }
 
 /**
@@ -205,10 +119,8 @@ export async function describeLease(opts) {
  *                                     `reason: 'unclaimed'`.
  *   - Operator already holds it    → no write, `acquired: true`,
  *                                     `reason: 'already-held'`.
- *   - Live foreign claim, no steal → no write, `acquired: false`,
+ *   - Foreign claim, no steal      → no write, `acquired: false`,
  *                                     `owner: <foreign>`, `reason: 'held'`.
- *   - Stale foreign claim          → reassign operator, `acquired: true`,
- *                                     `reason: 'reclaimed'`.
  *   - Foreign claim + `steal:true` → reassign operator, `acquired: true`,
  *                                     `reason: 'stolen'`.
  *   - Lost a write race            → a foreign login co-assigned between our
@@ -226,23 +138,16 @@ export async function describeLease(opts) {
  * @param {object} opts.provider              Ticketing provider.
  * @param {number} opts.ticketId              Ticket to claim.
  * @param {string} opts.operator              Operator acquiring the lease.
- * @param {number|null} [opts.heartbeatAt]    Current owner's last heartbeat (epoch ms).
- * @param {boolean} [opts.steal=false]        Transfer a live foreign claim.
- * @param {object} [opts.config]              Resolved config (TTL default).
- * @param {number} [opts.ttlMs]               Explicit TTL override.
- * @param {number} [opts.now]                 Injectable clock.
+ * @param {boolean} [opts.steal=false]        Transfer a foreign claim.
  * @returns {Promise<{
  *   acquired: boolean,
  *   owner: string,
  *   previousOwner: string|null,
- *   reason: 'unclaimed'|'already-held'|'reclaimed'|'stolen'|'held'|'lost-race',
+ *   reason: 'unclaimed'|'already-held'|'stolen'|'held'|'lost-race',
  * }>}
  */
 export async function acquireLease(opts) {
-  const { provider, ticketId, operator, ttlMs, now } = normaliseOpts(
-    'acquireLease',
-    opts,
-  );
+  const { provider, ticketId, operator } = normaliseOpts('acquireLease', opts);
   const steal = opts.steal === true;
 
   const ticket = await provider.getTicket(ticketId);
@@ -269,9 +174,8 @@ export async function acquireLease(opts) {
     };
   }
 
-  // Foreign claim — decide on liveness / steal.
-  const live = isClaimLive({ heartbeatAt: opts.heartbeatAt, ttlMs, now });
-  if (live && !steal) {
+  // Foreign claim — refuse unless the operator explicitly steals it.
+  if (!steal) {
     return {
       acquired: false,
       owner,
@@ -285,7 +189,7 @@ export async function acquireLease(opts) {
     ticketId,
     operator,
     previousOwner: owner,
-    reason: steal && live ? 'stolen' : 'reclaimed',
+    reason: 'stolen',
   });
 }
 
@@ -359,9 +263,6 @@ async function claimAndVerify({
  * @param {object} opts.provider   Ticketing provider.
  * @param {number} opts.ticketId   Ticket to release.
  * @param {string} opts.operator   Operator releasing the lease.
- * @param {object} [opts.config]   Resolved config (TTL default).
- * @param {number} [opts.ttlMs]    Explicit TTL override.
- * @param {number} [opts.now]      Injectable clock.
  * @returns {Promise<{
  *   released: boolean,
  *   owner: string|null,

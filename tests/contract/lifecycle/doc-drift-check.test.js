@@ -356,18 +356,34 @@ describe('check-lifecycle-doc-drift — fixture drift detection', () => {
 });
 
 describe('check-lifecycle-doc-drift — listener loader', () => {
-  it('skips index.js but loads every other listener file', () => {
+  it('skips index.js and any module in the directory that exports no class', () => {
     const listeners = loadCodeListeners(LISTENERS_DIR);
     const names = listeners.map((l) => l.pascalName).sort();
     assert.ok(
       !names.includes('Index'),
       `loader should skip index.js (got ${names.join(',')})`,
     );
-    // v2 keeps exactly one helper listener: the Story CI-watch Watcher.
-    // Story #4545 deleted MergeWatcher (its constants and deriveChecksStatus
-    // moved to merge-poll.js, which is not a listener), leaving watcher.js as
-    // the sole non-index listener file.
-    assert.deepEqual(names, ['Watcher']);
+    // v2 ships NO helper listener. Story #4545 deleted MergeWatcher (its
+    // constants and deriveChecksStatus moved to merge-poll.js), and Story
+    // #5006 deleted Watcher — nothing emitted `pr.created` at it. Its
+    // CI-poll primitive still lives at listeners/watcher.js for the CLI, so
+    // the loader must skip it on the exports-no-class rule rather than read
+    // it as a wildcard listener needing a `*` doc row.
+    assert.deepEqual(names, []);
+  });
+
+  it('does not read watcher.js as a listener even though it lives here', () => {
+    const src = readFileSync(path.join(LISTENERS_DIR, 'watcher.js'), 'utf8');
+    assert.doesNotMatch(
+      src,
+      /^export\s+class\s+/m,
+      'watcher.js must export no class — that is what keeps it out of the listener scan',
+    );
+    assert.match(
+      src,
+      /export async function watchPrToTerminal\(/,
+      'the CI-poll primitive must still ship from this path',
+    );
   });
 
   it('every listener with a literal subscription appears in the doc table', () => {

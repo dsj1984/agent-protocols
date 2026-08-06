@@ -197,7 +197,6 @@ export async function runResolveStories(
     stories,
     nativeEdges,
     warn: (m) => Logger.warn(m),
-    config,
   });
   const foreignDone = await resolveForeignDone({
     provider,
@@ -209,7 +208,6 @@ export async function runResolveStories(
     nativeEdges,
     foreignDone,
     warn: () => {},
-    config,
   });
 
   stdout.write(

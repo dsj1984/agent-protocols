@@ -1,11 +1,8 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { LEASE_TTL_MS_DEFAULT } from '../../../.agents/scripts/lib/config/limits.js';
 import {
   acquireLease,
   currentOwner,
-  describeLease,
-  isClaimLive,
   normalizeOperatorHandle,
   releaseLease,
 } from '../../../.agents/scripts/lib/orchestration/ticket-lease.js';
@@ -37,9 +34,10 @@ function makeProvider(initialAssignees = []) {
   };
 }
 
-const NOW = 1_000_000_000_000; // fixed clock
-const FRESH = NOW - 1000; // 1s ago — live
-const STALE = NOW - (LEASE_TTL_MS_DEFAULT + 1000); // older than TTL — stale
+// Fixed clock. Story #5006 deleted the lease's TTL/heartbeat surface, so the
+// only remaining use is building the retired-options fixture below (and the
+// #4620 race block, kept verbatim as the regression it pins).
+const NOW = 1_000_000_000_000;
 
 describe('ticket-lease — normalizeOperatorHandle', () => {
   it('strips a single leading @ and trims whitespace', () => {
@@ -67,48 +65,6 @@ describe('ticket-lease — currentOwner', () => {
   });
 });
 
-describe('ticket-lease — isClaimLive', () => {
-  it('treats a heartbeat within the TTL as live', () => {
-    assert.equal(
-      isClaimLive({ heartbeatAt: FRESH, ttlMs: 5000, now: NOW }),
-      true,
-    );
-  });
-
-  it('treats a heartbeat older than the TTL as stale', () => {
-    assert.equal(
-      isClaimLive({ heartbeatAt: STALE, ttlMs: 5000, now: NOW }),
-      false,
-    );
-  });
-
-  it('treats a missing heartbeat as stale (reclaimable)', () => {
-    assert.equal(
-      isClaimLive({ heartbeatAt: null, ttlMs: 5000, now: NOW }),
-      false,
-    );
-    assert.equal(
-      isClaimLive({ heartbeatAt: undefined, ttlMs: 5000, now: NOW }),
-      false,
-    );
-  });
-
-  // Story #3513 — the TTL boundary is inclusive: a heartbeat exactly `ttlMs`
-  // old (`now - heartbeatAt === ttlMs`) is still live (the comparison is `<=`,
-  // not `<`). A claim is only stale once it is strictly older than the TTL.
-  it('treats a heartbeat exactly at the TTL boundary as live (inclusive)', () => {
-    assert.equal(
-      isClaimLive({ heartbeatAt: NOW - 5000, ttlMs: 5000, now: NOW }),
-      true,
-    );
-    // One ms past the boundary flips to stale.
-    assert.equal(
-      isClaimLive({ heartbeatAt: NOW - 5001, ttlMs: 5000, now: NOW }),
-      false,
-    );
-  });
-});
-
 describe('ticket-lease — acquireLease', () => {
   // AC1: assigns an unassigned ticket to the operator and returns acquired:true
   it('claims an unassigned ticket and writes the operator to assignees', async () => {
@@ -118,8 +74,6 @@ describe('ticket-lease — acquireLease', () => {
       provider,
       ticketId: 42,
       operator: 'alice',
-      ttlMs: 5000,
-      now: NOW,
     });
 
     assert.equal(result.acquired, true);
@@ -141,9 +95,6 @@ describe('ticket-lease — acquireLease', () => {
       provider,
       ticketId: 42,
       operator: 'alice',
-      heartbeatAt: FRESH,
-      ttlMs: 5000,
-      now: NOW,
     });
 
     assert.equal(result.acquired, true);
@@ -151,17 +102,14 @@ describe('ticket-lease — acquireLease', () => {
     assert.equal(provider.updateCalls.length, 0);
   });
 
-  // AC2: returns acquired:false with the foreign owner for a live foreign claim
-  it('refuses a live foreign claim and reports the foreign owner', async () => {
+  // AC2: returns acquired:false with the foreign owner for any foreign claim
+  it('refuses a foreign claim and reports the foreign owner', async () => {
     const provider = makeProvider(['bob']);
 
     const result = await acquireLease({
       provider,
       ticketId: 42,
       operator: 'alice',
-      heartbeatAt: FRESH,
-      ttlMs: 5000,
-      now: NOW,
     });
 
     assert.equal(result.acquired, false);
@@ -171,58 +119,38 @@ describe('ticket-lease — acquireLease', () => {
     assert.deepEqual(provider.state.assignees, ['bob']);
   });
 
-  // AC3: reclaims and reassigns when the existing claim heartbeat is stale
-  it('reclaims a ticket whose foreign claim heartbeat is older than the TTL', async () => {
+  // Story #5006 — there is no longer a staleness escape hatch. A foreign
+  // claim refuses on its own, with no clock, heartbeat or TTL consulted: the
+  // ONLY way past it is `--steal`. A caller that still passes the retired
+  // options must not get the old reclaim behaviour back by accident.
+  it('refuses a foreign claim even when retired TTL/heartbeat options are supplied', async () => {
     const provider = makeProvider(['bob']);
 
     const result = await acquireLease({
       provider,
       ticketId: 42,
       operator: 'alice',
-      heartbeatAt: STALE,
+      heartbeatAt: NOW - 10 * 60 * 60 * 1000,
       ttlMs: 5000,
       now: NOW,
+      config: { delivery: { lease: { ttlMs: 1 } } },
     });
 
-    assert.equal(result.acquired, true);
-    assert.equal(result.owner, 'alice');
-    assert.equal(result.previousOwner, 'bob');
-    assert.equal(result.reason, 'reclaimed');
-    assert.deepEqual(provider.updateCalls[0].mutations, {
-      assignees: ['alice'],
-    });
-    assert.deepEqual(provider.state.assignees, ['alice']);
+    assert.equal(result.acquired, false);
+    assert.equal(result.reason, 'held');
+    assert.equal(provider.updateCalls.length, 0);
+    assert.deepEqual(provider.state.assignees, ['bob']);
   });
 
-  it('reclaims a foreign claim that has never emitted a heartbeat', async () => {
+  // AC4: steal:true transfers ownership from a foreign claim
+  it('steals a foreign claim when steal:true is set', async () => {
     const provider = makeProvider(['bob']);
 
     const result = await acquireLease({
       provider,
       ticketId: 42,
       operator: 'alice',
-      // no heartbeatAt — never claimed-alive
-      ttlMs: 5000,
-      now: NOW,
-    });
-
-    assert.equal(result.acquired, true);
-    assert.equal(result.reason, 'reclaimed');
-    assert.deepEqual(provider.state.assignees, ['alice']);
-  });
-
-  // AC4: steal:true transfers ownership from a live foreign claim
-  it('steals a live foreign claim when steal:true is set', async () => {
-    const provider = makeProvider(['bob']);
-
-    const result = await acquireLease({
-      provider,
-      ticketId: 42,
-      operator: 'alice',
-      heartbeatAt: FRESH,
       steal: true,
-      ttlMs: 5000,
-      now: NOW,
     });
 
     assert.equal(result.acquired, true);
@@ -232,9 +160,9 @@ describe('ticket-lease — acquireLease', () => {
     assert.deepEqual(provider.state.assignees, ['alice']);
   });
 
-  // Story #3513 — `steal:true` only changes the outcome for a *live* foreign
-  // claim (it forces the transfer that would otherwise be refused). For every
-  // non-live-foreign starting state it is inert: the same path runs as without
+  // Story #3513 — `steal:true` only changes the outcome for a foreign claim
+  // (it forces the transfer that would otherwise be refused). For every
+  // non-foreign starting state it is inert: the same path runs as without
   // the flag, and `reason` is NOT `stolen`.
   it('with steal:true on an unassigned ticket, claims it as unclaimed (not stolen)', async () => {
     const provider = makeProvider([]);
@@ -244,8 +172,6 @@ describe('ticket-lease — acquireLease', () => {
       ticketId: 42,
       operator: 'alice',
       steal: true,
-      ttlMs: 5000,
-      now: NOW,
     });
 
     assert.equal(result.acquired, true);
@@ -262,10 +188,7 @@ describe('ticket-lease — acquireLease', () => {
       provider,
       ticketId: 42,
       operator: 'alice',
-      heartbeatAt: FRESH,
       steal: true,
-      ttlMs: 5000,
-      now: NOW,
     });
 
     assert.equal(result.acquired, true);
@@ -273,44 +196,6 @@ describe('ticket-lease — acquireLease', () => {
     // steal must not force a redundant assignee write on a self-held claim
     assert.equal(provider.updateCalls.length, 0);
     assert.deepEqual(provider.state.assignees, ['alice']);
-  });
-
-  it('with steal:true on a stale foreign claim, reports reclaimed (not stolen)', async () => {
-    const provider = makeProvider(['bob']);
-
-    const result = await acquireLease({
-      provider,
-      ticketId: 42,
-      operator: 'alice',
-      heartbeatAt: STALE,
-      steal: true,
-      ttlMs: 5000,
-      now: NOW,
-    });
-
-    assert.equal(result.acquired, true);
-    assert.equal(result.owner, 'alice');
-    assert.equal(result.previousOwner, 'bob');
-    // a stale claim is reclaimed on its own merits — steal is inert here
-    assert.equal(result.reason, 'reclaimed');
-    assert.deepEqual(provider.state.assignees, ['alice']);
-  });
-
-  it('falls back to the configured TTL when no explicit ttlMs is given', async () => {
-    const provider = makeProvider(['bob']);
-
-    // Heartbeat newer than the config-resolved default → still live → no take.
-    const result = await acquireLease({
-      provider,
-      ticketId: 42,
-      operator: 'alice',
-      heartbeatAt: NOW - 1000,
-      config: { delivery: { lease: { ttlMs: 60_000 } } },
-      now: NOW,
-    });
-
-    assert.equal(result.acquired, false);
-    assert.equal(result.reason, 'held');
   });
 
   it('rejects a missing provider', async () => {
@@ -474,61 +359,5 @@ describe('ticket-lease — releaseLease', () => {
     assert.equal(result.released, false);
     assert.equal(result.reason, 'not-held');
     assert.equal(provider.updateCalls.length, 0);
-  });
-});
-
-describe('ticket-lease — describeLease', () => {
-  it('reports an unclaimed ticket without mutating it', async () => {
-    const provider = makeProvider([]);
-
-    const snapshot = await describeLease({
-      provider,
-      ticketId: 42,
-      operator: 'alice',
-      ttlMs: 5000,
-      now: NOW,
-    });
-
-    assert.deepEqual(snapshot, {
-      ticketId: 42,
-      owner: null,
-      heldByOperator: false,
-      live: false,
-      ttlMs: 5000,
-    });
-    assert.equal(provider.updateCalls.length, 0);
-  });
-
-  it('reports a live foreign claim', async () => {
-    const provider = makeProvider(['bob']);
-
-    const snapshot = await describeLease({
-      provider,
-      ticketId: 42,
-      operator: 'alice',
-      heartbeatAt: FRESH,
-      ttlMs: 5000,
-      now: NOW,
-    });
-
-    assert.equal(snapshot.owner, 'bob');
-    assert.equal(snapshot.heldByOperator, false);
-    assert.equal(snapshot.live, true);
-  });
-
-  it('reports a self-held claim', async () => {
-    const provider = makeProvider(['alice']);
-
-    const snapshot = await describeLease({
-      provider,
-      ticketId: 42,
-      operator: 'alice',
-      heartbeatAt: FRESH,
-      ttlMs: 5000,
-      now: NOW,
-    });
-
-    assert.equal(snapshot.heldByOperator, true);
-    assert.equal(snapshot.live, true);
   });
 });

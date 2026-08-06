@@ -1,7 +1,7 @@
 {
   "$schema": "https://mandrel.dev/baselines/dead-exports.schema.json",
   "kernelVersion": "6.17.1",
-  "generatedAt": "2026-08-06T04:13:27.579884Z",
+  "generatedAt": "2026-08-06T04:56:35.927181Z",
   "mode": "production",
   "rows": [
     {
@@ -814,10 +814,6 @@
     },
     {
       "file": ".agents/scripts/lib/config/limits.js",
-      "symbol": "LEASE_TTL_MS_DEFAULT"
-    },
-    {
-      "file": ".agents/scripts/lib/config/limits.js",
       "symbol": "SIGNALS_DEFAULTS"
     },
     {
@@ -1426,10 +1422,6 @@
     },
     {
       "file": ".agents/scripts/lib/orchestration/lifecycle/listeners/watcher.js",
-      "symbol": "Watcher"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/lifecycle/listeners/watcher.js",
       "symbol": "allTerminal"
     },
     {
@@ -1639,22 +1631,6 @@
     {
       "file": ".agents/scripts/lib/orchestration/resolve-stories.js",
       "symbol": "storyFootprintPaths"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/resolves-token.js",
-      "symbol": "RESOLVES_TRAILER_RE"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/resolves-token.js",
-      "symbol": "parseResolvesStoryId"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/resolves-token.js",
-      "symbol": "resolvesOrRefsGrepArgs"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/resolves-token.js",
-      "symbol": "resolvesToken"
     },
     {
       "file": ".agents/scripts/lib/orchestration/review-depth.js",
@@ -1957,15 +1933,7 @@
       "symbol": "validateAcceptancePartition"
     },
     {
-      "file": ".agents/scripts/lib/orchestration/story-close/emit-blocked.js",
-      "symbol": "*"
-    },
-    {
       "file": ".agents/scripts/lib/orchestration/story-close/format-autofix.js",
-      "symbol": "*"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/story-close/phases/code-review.js",
       "symbol": "*"
     },
     {
@@ -2027,14 +1995,6 @@
     {
       "file": ".agents/scripts/lib/orchestration/ticket-lease.js",
       "symbol": "OPERATOR_HANDLE_PLACEHOLDER"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/ticket-lease.js",
-      "symbol": "describeLease"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/ticket-lease.js",
-      "symbol": "isClaimLive"
     },
     {
       "file": ".agents/scripts/lib/orchestration/ticket-validator-conflicts.js",
@@ -2502,10 +2462,6 @@
     },
     {
       "file": ".agents/scripts/lib/worktree/lifecycle/merge-reachability.js",
-      "symbol": "hasMergeCommitForStory"
-    },
-    {
-      "file": ".agents/scripts/lib/worktree/lifecycle/merge-reachability.js",
       "symbol": "hasRebasedEquivalents"
     },
     {
@@ -2654,10 +2610,6 @@
     },
     {
       "file": ".agents/scripts/provision-git-hooks.js",
-      "symbol": "*"
-    },
-    {
-      "file": ".agents/scripts/sync-branch-from-base.js",
       "symbol": "*"
     },
     {
