@@ -1,13 +1,13 @@
 {
   "$schema": ".agents/schemas/baselines/duplication.schema.json",
   "kernelVersion": "1.0.0",
-  "generatedAt": "2026-08-06T10:31:29.291Z",
+  "generatedAt": "2026-08-06T11:34:31.989Z",
   "rollup": {
     "*": {
-      "percentage": 7.89,
-      "duplicatedLines": 1799,
-      "totalLines": 22804,
-      "filesWithDuplication": 80
+      "percentage": 7.91,
+      "duplicatedLines": 1789,
+      "totalLines": 22614,
+      "filesWithDuplication": 79
     }
   },
   "rows": [
@@ -36,16 +36,10 @@
       "percentage": 4.43
     },
     {
-      "path": ".agents/scripts/check-lifecycle-doc-drift.js",
-      "duplicatedLines": 10,
-      "totalLines": 411,
-      "percentage": 2.43
-    },
-    {
       "path": ".agents/scripts/check-lifecycle-lint.js",
       "duplicatedLines": 22,
-      "totalLines": 376,
-      "percentage": 5.85
+      "totalLines": 322,
+      "percentage": 6.83
     },
     {
       "path": ".agents/scripts/check-windows-git-perf.js",
@@ -200,8 +194,8 @@
     {
       "path": ".agents/scripts/lib/config-settings-schema.js",
       "duplicatedLines": 20,
-      "totalLines": 523,
-      "percentage": 3.82
+      "totalLines": 798,
+      "percentage": 2.51
     },
     {
       "path": ".agents/scripts/lib/config/gates/shared.js",

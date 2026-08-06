@@ -55,11 +55,12 @@
  * biome + markdownlint; a custom rule fits cleanly alongside.
  */
 
-import { readdirSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { runAsCli } from './lib/cli-utils.js';
+import { walkFilesByExtension } from './lib/fs-walk.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, '..', '..');
@@ -109,29 +110,6 @@ const MERGE_LOCKOUT_INFRASTRUCTURE_SUFFIXES = Object.freeze([
 ]);
 
 /**
- * Walk a directory tree synchronously, yielding absolute paths of files
- * matching `.js`. The lifecycle surface is small (< 50 files in the
- * worst case); a streaming walker is unnecessary.
- */
-function* walkJs(dir) {
-  let entries;
-  try {
-    entries = readdirSync(dir, { withFileTypes: true });
-  } catch (err) {
-    if (err.code === 'ENOENT') return;
-    throw err;
-  }
-  for (const entry of entries) {
-    const p = path.join(dir, entry.name);
-    if (entry.isDirectory()) {
-      yield* walkJs(p);
-    } else if (entry.isFile() && entry.name.endsWith('.js')) {
-      yield p;
-    }
-  }
-}
-
-/**
  * Rule 1 enforcement. Returns an array of `{ file, line, hint }`
  * violations. Inline disable comments (`// lint-lifecycle-disable`) on
  * the same line opt out — but reviewers should require justification.
@@ -141,7 +119,7 @@ export function findPromiseAllViolations(
   { read = readFileSync } = {},
 ) {
   const violations = [];
-  for (const file of walkJs(rootDir)) {
+  for (const file of walkFilesByExtension(rootDir, '.js')) {
     const text = read(file, 'utf8');
     const lines = text.split('\n');
     for (let i = 0; i < lines.length; i += 1) {
@@ -254,7 +232,7 @@ export function findMergeLockoutViolations(
   // CLI, only the space-delimited form is.
   const FORBIDDEN = 'gh pr merge';
   const lineRe = /(['"`])((?:\\.|(?!\1).)*)\1/g;
-  for (const file of walkJs(rootDir)) {
+  for (const file of walkFilesByExtension(rootDir, '.js')) {
     // Skip the armer (intentional carrier) and the lint infrastructure.
     const allExempt = [...allowSuffixes, ...infrastructureSuffixes];
     if (allExempt.some((suffix) => file.endsWith(suffix))) continue;

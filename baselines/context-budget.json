@@ -1,10 +1,10 @@
 {
   "$schema": "https://mandrel.dev/baselines/context-budget.schema.json",
-  "generatedAt": "2026-08-06T10:31:51.139Z",
+  "generatedAt": "2026-08-06T11:34:34.851Z",
   "toleranceBytes": 2048,
   "tiers": {
     "alwaysLoaded": {
-      "totalBytes": 21107,
+      "totalBytes": 21245,
       "files": [
         {
           "path": ".agentrc.json",
@@ -16,7 +16,7 @@
         },
         {
           "path": ".agents/rules/git-conventions.md",
-          "bytes": 3088
+          "bytes": 3226
         },
         {
           "path": ".agents/rules/security-baseline.md",
@@ -33,11 +33,11 @@
       ]
     },
     "mandatoryRead": {
-      "totalBytes": 328692,
+      "totalBytes": 336533,
       "files": [
         {
           "path": "docs/architecture.md",
-          "bytes": 88279
+          "bytes": 89205
         },
         {
           "path": "docs/data-dictionary.md",
@@ -45,7 +45,7 @@
         },
         {
           "path": "docs/decisions.md",
-          "bytes": 151272
+          "bytes": 158187
         },
         {
           "path": "docs/patterns.md",
@@ -54,7 +54,7 @@
       ]
     },
     "workflow": {
-      "totalBytes": 256568,
+      "totalBytes": 256521,
       "files": [
         {
           "path": ".agents/workflows/audit-accessibility.md",
@@ -86,7 +86,7 @@
         },
         {
           "path": ".agents/workflows/audit-documentation.md",
-          "bytes": 11834
+          "bytes": 11787
         },
         {
           "path": ".agents/workflows/audit-navigability.md",
@@ -201,7 +201,7 @@
     ]
   },
   "workflowClosure": {
-    "reachableTotalBytes": 442772,
+    "reachableTotalBytes": 443444,
     "entryPoints": [
       {
         "path": ".agents/workflows/audit-accessibility.md",
@@ -240,8 +240,8 @@
       },
       {
         "path": ".agents/workflows/audit-documentation.md",
-        "mandatoryBytes": 11834,
-        "reachableBytes": 224767
+        "mandatoryBytes": 11787,
+        "reachableBytes": 225439
       },
       {
         "path": ".agents/workflows/audit-navigability.md",
@@ -281,7 +281,7 @@
       {
         "path": ".agents/workflows/audit-to-stories.md",
         "mandatoryBytes": 14499,
-        "reachableBytes": 212933
+        "reachableBytes": 213652
       },
       {
         "path": ".agents/workflows/audit-ux-ui.md",
@@ -291,7 +291,7 @@
       {
         "path": ".agents/workflows/deliver.md",
         "mandatoryBytes": 7926,
-        "reachableBytes": 212933
+        "reachableBytes": 213652
       },
       {
         "path": ".agents/workflows/git-cleanup.md",
@@ -301,12 +301,12 @@
       {
         "path": ".agents/workflows/git-deliver.md",
         "mandatoryBytes": 7640,
-        "reachableBytes": 237621
+        "reachableBytes": 238340
       },
       {
         "path": ".agents/workflows/helpers/deliver-story.md",
         "mandatoryBytes": 15750,
-        "reachableBytes": 212933
+        "reachableBytes": 213652
       },
       {
         "path": ".agents/workflows/mandrel-update.md",
@@ -316,32 +316,32 @@
       {
         "path": ".agents/workflows/memory-consolidate.md",
         "mandatoryBytes": 5126,
-        "reachableBytes": 212933
+        "reachableBytes": 213652
       },
       {
         "path": ".agents/workflows/plan.md",
         "mandatoryBytes": 7545,
-        "reachableBytes": 212933
+        "reachableBytes": 213652
       },
       {
         "path": ".agents/workflows/prototype.md",
         "mandatoryBytes": 5148,
-        "reachableBytes": 212933
+        "reachableBytes": 213652
       },
       {
         "path": ".agents/workflows/qa-assist.md",
         "mandatoryBytes": 16427,
-        "reachableBytes": 277734
+        "reachableBytes": 278453
       },
       {
         "path": ".agents/workflows/qa-explore.md",
         "mandatoryBytes": 13457,
-        "reachableBytes": 277734
+        "reachableBytes": 278453
       },
       {
         "path": ".agents/workflows/qa-run.md",
         "mandatoryBytes": 13618,
-        "reachableBytes": 277734
+        "reachableBytes": 278453
       }
     ]
   }
