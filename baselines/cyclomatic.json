@@ -1,6 +1,6 @@
 {
   "$schema": "https://mandrel.dev/baselines/cyclomatic.schema.json",
-  "generatedAt": "2026-08-06T03:08:59.288Z",
+  "generatedAt": "2026-08-06T04:59:17.197Z",
   "ceiling": 12,
   "rollup": {
     "*": {
@@ -163,7 +163,7 @@
     {
       "file": ".agents/scripts/lib/orchestration/lifecycle/listeners/watcher.js",
       "methodsAboveCeiling": 2,
-      "maxCyclomatic": 18
+      "maxCyclomatic": 17
     },
     {
       "file": ".agents/scripts/lib/orchestration/merge-block-class.js",
