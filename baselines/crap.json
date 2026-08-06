@@ -1,7 +1,7 @@
 {
   "$schema": ".agents/schemas/baselines/crap.schema.json",
   "kernelVersion": "0.1.0",
-  "generatedAt": "2026-08-06T11:34:24.176Z",
+  "generatedAt": "2026-08-06T11:38:10.688Z",
   "scoringSemantics": "method-identity-v3",
   "tsTranspilerVersion": "6.0.3",
   "provenanceStamped": true,
@@ -837,52 +837,46 @@
     },
     {
       "path": ".agents/scripts/check-lifecycle-lint.js",
-      "method": "walkJs",
-      "startLine": 116,
-      "crap": 5.0407083248524325
-    },
-    {
-      "path": ".agents/scripts/check-lifecycle-lint.js",
       "method": "findPromiseAllViolations",
-      "startLine": 139,
+      "startLine": 117,
       "crap": 4
     },
     {
       "path": ".agents/scripts/check-lifecycle-lint.js",
       "method": "stripComments",
-      "startLine": 179,
+      "startLine": 157,
       "crap": 19
     },
     {
       "path": ".agents/scripts/check-lifecycle-lint.js",
       "method": "findMergeLockoutViolations",
-      "startLine": 242,
+      "startLine": 220,
       "crap": 6
     },
     {
       "path": ".agents/scripts/check-lifecycle-lint.js",
       "method": "<anon findMergeLockoutViolations/(suffix)#0>",
-      "startLine": 260,
+      "startLine": 238,
       "crap": 1,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/check-lifecycle-lint.js",
       "method": "main",
-      "startLine": 294,
+      "startLine": 272,
       "crap": 2
     },
     {
       "path": ".agents/scripts/check-lifecycle-lint.js",
       "method": "<anon main/(v)#0>",
-      "startLine": 299,
+      "startLine": 277,
       "crap": 1,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/check-lifecycle-lint.js",
       "method": "<anon main/(v)#1>",
-      "startLine": 300,
+      "startLine": 278,
       "crap": 1,
       "anonymous": true
     },
@@ -9462,6 +9456,12 @@
       "method": "authoredMarkerLine",
       "startLine": 37,
       "crap": 1
+    },
+    {
+      "path": ".agents/scripts/lib/fs-walk.js",
+      "method": "walkFilesByExtension",
+      "startLine": 32,
+      "crap": 5
     },
     {
       "path": ".agents/scripts/lib/gates/baseline-store.js",
@@ -21779,32 +21779,26 @@
     },
     {
       "path": ".agents/scripts/lint-label-vocabulary.js",
-      "method": "walkMd",
-      "startLine": 78,
-      "crap": 5.325666598819459
-    },
-    {
-      "path": ".agents/scripts/lint-label-vocabulary.js",
       "method": "resolveTargets",
-      "startLine": 101,
+      "startLine": 79,
       "crap": 7.084672
     },
     {
       "path": ".agents/scripts/lint-label-vocabulary.js",
       "method": "findVocabularyViolations",
-      "startLine": 140,
+      "startLine": 118,
       "crap": 6
     },
     {
       "path": ".agents/scripts/lint-label-vocabulary.js",
       "method": "lintLabelVocabulary",
-      "startLine": 203,
+      "startLine": 181,
       "crap": 1
     },
     {
       "path": ".agents/scripts/lint-label-vocabulary.js",
       "method": "main",
-      "startLine": 217,
+      "startLine": 195,
       "crap": 2.2560000000000002
     },
     {

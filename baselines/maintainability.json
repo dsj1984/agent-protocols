@@ -1,11 +1,11 @@
 {
   "$schema": ".agents/schemas/baselines/maintainability.schema.json",
   "kernelVersion": "0.1.0",
-  "generatedAt": "2026-08-06T11:33:15.073Z",
+  "generatedAt": "2026-08-06T11:37:41.155Z",
   "rollup": {
     "*": {
       "min": 76.381,
-      "p50": 98.358,
+      "p50": 98.526,
       "p95": 122.913
     }
   },
@@ -84,7 +84,7 @@
     },
     {
       "path": ".agents/scripts/check-lifecycle-lint.js",
-      "mi": 88.159
+      "mi": 89.114
     },
     {
       "path": ".agents/scripts/check-schema-references.js",
@@ -885,6 +885,10 @@
     {
       "path": ".agents/scripts/lib/framework-version.js",
       "mi": 147.396
+    },
+    {
+      "path": ".agents/scripts/lib/fs-walk.js",
+      "mi": 102.83
     },
     {
       "path": ".agents/scripts/lib/gates/baseline-store.js",
@@ -1872,7 +1876,7 @@
     },
     {
       "path": ".agents/scripts/lint-label-vocabulary.js",
-      "mi": 88.017
+      "mi": 88.767
     },
     {
       "path": ".agents/scripts/mandrel-update-preflight.js",

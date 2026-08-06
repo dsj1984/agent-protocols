@@ -1,12 +1,12 @@
 {
   "$schema": ".agents/schemas/baselines/coverage.schema.json",
   "kernelVersion": "1.0.0",
-  "generatedAt": "2026-08-06T11:34:23.073Z",
+  "generatedAt": "2026-08-06T11:38:10.211Z",
   "rollup": {
     "*": {
-      "lines": 95.87,
-      "branches": 86.51,
-      "functions": 88.71
+      "lines": 95.88,
+      "branches": 86.55,
+      "functions": 88.73
     }
   },
   "rows": [
@@ -114,8 +114,8 @@
     },
     {
       "path": ".agents/scripts/check-lifecycle-lint.js",
-      "lines": 99.38,
-      "branches": 96.43,
+      "lines": 100,
+      "branches": 97.87,
       "functions": 100
     },
     {
@@ -1362,6 +1362,12 @@
     },
     {
       "path": ".agents/scripts/lib/framework-version.js",
+      "lines": 100,
+      "branches": 100,
+      "functions": 100
+    },
+    {
+      "path": ".agents/scripts/lib/fs-walk.js",
       "lines": 100,
       "branches": 100,
       "functions": 100
@@ -2838,8 +2844,8 @@
     },
     {
       "path": ".agents/scripts/lint-label-vocabulary.js",
-      "lines": 94.51,
-      "branches": 82.61,
+      "lines": 95.79,
+      "branches": 89.47,
       "functions": 100
     },
     {

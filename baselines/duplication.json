@@ -1,12 +1,12 @@
 {
   "$schema": ".agents/schemas/baselines/duplication.schema.json",
   "kernelVersion": "1.0.0",
-  "generatedAt": "2026-08-06T11:34:31.989Z",
+  "generatedAt": "2026-08-06T11:38:14.623Z",
   "rollup": {
     "*": {
-      "percentage": 7.91,
-      "duplicatedLines": 1789,
-      "totalLines": 22614,
+      "percentage": 7.82,
+      "duplicatedLines": 1766,
+      "totalLines": 22570,
       "filesWithDuplication": 79
     }
   },
@@ -37,9 +37,9 @@
     },
     {
       "path": ".agents/scripts/check-lifecycle-lint.js",
-      "duplicatedLines": 22,
-      "totalLines": 322,
-      "percentage": 6.83
+      "duplicatedLines": 11,
+      "totalLines": 300,
+      "percentage": 3.67
     },
     {
       "path": ".agents/scripts/check-windows-git-perf.js",
@@ -331,9 +331,9 @@
     },
     {
       "path": ".agents/scripts/lint-label-vocabulary.js",
-      "duplicatedLines": 22,
-      "totalLines": 236,
-      "percentage": 9.32
+      "duplicatedLines": 10,
+      "totalLines": 214,
+      "percentage": 4.67
     },
     {
       "path": ".agents/scripts/post-structured-comment.js",

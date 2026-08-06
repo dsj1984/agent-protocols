@@ -1,6 +1,6 @@
 {
   "$schema": "https://mandrel.dev/baselines/context-budget.schema.json",
-  "generatedAt": "2026-08-06T11:34:34.851Z",
+  "generatedAt": "2026-08-06T11:38:16.011Z",
   "toleranceBytes": 2048,
   "tiers": {
     "alwaysLoaded": {

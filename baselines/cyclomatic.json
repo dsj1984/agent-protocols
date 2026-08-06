@@ -1,6 +1,6 @@
 {
   "$schema": "https://mandrel.dev/baselines/cyclomatic.schema.json",
-  "generatedAt": "2026-08-06T11:34:26.665Z",
+  "generatedAt": "2026-08-06T11:38:12.372Z",
   "ceiling": 12,
   "rollup": {
     "*": {
