@@ -1,6 +1,6 @@
 {
   "$schema": "https://mandrel.dev/baselines/context-budget.schema.json",
-  "generatedAt": "2026-08-06T03:32:31.430Z",
+  "generatedAt": "2026-08-06T04:12:50.087Z",
   "toleranceBytes": 2048,
   "tiers": {
     "alwaysLoaded": {
@@ -33,11 +33,11 @@
       ]
     },
     "mandatoryRead": {
-      "totalBytes": 328525,
+      "totalBytes": 328239,
       "files": [
         {
           "path": "docs/architecture.md",
-          "bytes": 88821
+          "bytes": 88551
         },
         {
           "path": "docs/data-dictionary.md",
@@ -45,7 +45,7 @@
         },
         {
           "path": "docs/decisions.md",
-          "bytes": 150963
+          "bytes": 150947
         },
         {
           "path": "docs/patterns.md",
@@ -180,8 +180,8 @@
     "files": [
       {
         "path": ".agents/agents/acceptance-critic.md",
-        "bytes": 7861,
-        "headroomBytes": 331
+        "bytes": 7810,
+        "headroomBytes": 382
       },
       {
         "path": ".agents/agents/auditor.md",
@@ -201,7 +201,7 @@
     ]
   },
   "workflowClosure": {
-    "reachableTotalBytes": 442802,
+    "reachableTotalBytes": 442820,
     "entryPoints": [
       {
         "path": ".agents/workflows/audit-accessibility.md",
@@ -241,7 +241,7 @@
       {
         "path": ".agents/workflows/audit-documentation.md",
         "mandatoryBytes": 11889,
-        "reachableBytes": 224766
+        "reachableBytes": 224784
       },
       {
         "path": ".agents/workflows/audit-navigability.md",
@@ -281,7 +281,7 @@
       {
         "path": ".agents/workflows/audit-to-stories.md",
         "mandatoryBytes": 14499,
-        "reachableBytes": 212877
+        "reachableBytes": 212895
       },
       {
         "path": ".agents/workflows/audit-ux-ui.md",
@@ -291,7 +291,7 @@
       {
         "path": ".agents/workflows/deliver.md",
         "mandatoryBytes": 7926,
-        "reachableBytes": 212877
+        "reachableBytes": 212895
       },
       {
         "path": ".agents/workflows/git-cleanup.md",
@@ -301,12 +301,12 @@
       {
         "path": ".agents/workflows/git-deliver.md",
         "mandatoryBytes": 7640,
-        "reachableBytes": 237565
+        "reachableBytes": 237583
       },
       {
         "path": ".agents/workflows/helpers/deliver-story.md",
         "mandatoryBytes": 15750,
-        "reachableBytes": 212877
+        "reachableBytes": 212895
       },
       {
         "path": ".agents/workflows/mandrel-update.md",
@@ -316,32 +316,32 @@
       {
         "path": ".agents/workflows/memory-consolidate.md",
         "mandatoryBytes": 5126,
-        "reachableBytes": 212877
+        "reachableBytes": 212895
       },
       {
         "path": ".agents/workflows/plan.md",
         "mandatoryBytes": 7545,
-        "reachableBytes": 212877
+        "reachableBytes": 212895
       },
       {
         "path": ".agents/workflows/prototype.md",
         "mandatoryBytes": 5148,
-        "reachableBytes": 212877
+        "reachableBytes": 212895
       },
       {
         "path": ".agents/workflows/qa-assist.md",
         "mandatoryBytes": 16561,
-        "reachableBytes": 277777
+        "reachableBytes": 277795
       },
       {
         "path": ".agents/workflows/qa-explore.md",
         "mandatoryBytes": 13422,
-        "reachableBytes": 277777
+        "reachableBytes": 277795
       },
       {
         "path": ".agents/workflows/qa-run.md",
         "mandatoryBytes": 13618,
-        "reachableBytes": 277777
+        "reachableBytes": 277795
       }
     ]
   }

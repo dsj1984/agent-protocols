@@ -1,11 +1,15 @@
 {
   "$schema": "https://mandrel.dev/baselines/dead-exports.schema.json",
   "kernelVersion": "6.17.1",
-  "generatedAt": "2026-08-06T03:33:08.945Z",
+  "generatedAt": "2026-08-06T04:13:27.579884Z",
   "rows": [
     {
       "file": ".agents/scripts/check-baseline-drift.js",
       "symbol": "HELP_TEXT"
+    },
+    {
+      "file": ".agents/scripts/lib/Logger.js",
+      "symbol": "STDERR_LOGGER"
     },
     {
       "file": ".agents/scripts/lib/baseline-schema-registry.js",
@@ -188,20 +192,12 @@
       "symbol": "parseInstallCmd"
     },
     {
-      "file": ".agents/scripts/lib/Logger.js",
-      "symbol": "STDERR_LOGGER"
-    },
-    {
       "file": ".agents/scripts/lib/onboard/init-tail.js",
       "symbol": "*"
     },
     {
       "file": ".agents/scripts/lib/orchestration/column-sync.js",
       "symbol": "LABEL_TO_COLUMN"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/context-envelope.js",
-      "symbol": "SECTION_RENDER_ORDER"
     },
     {
       "file": ".agents/scripts/lib/orchestration/git-cleanup/phases/git-probes-ff.js",
@@ -237,11 +233,11 @@
     },
     {
       "file": ".agents/scripts/lib/orchestration/review-providers/codex.js",
-      "symbol": "buildCodexReviewPrompt"
+      "symbol": "DEFAULT_PLUGIN_MARKERS"
     },
     {
       "file": ".agents/scripts/lib/orchestration/review-providers/codex.js",
-      "symbol": "DEFAULT_PLUGIN_MARKERS"
+      "symbol": "buildCodexReviewPrompt"
     },
     {
       "file": ".agents/scripts/lib/orchestration/review-providers/codex.js",
@@ -261,15 +257,15 @@
     },
     {
       "file": ".agents/scripts/lib/orchestration/review-providers/security-review.js",
+      "symbol": "SECURITY_REVIEW_INVOKE_PROMPT"
+    },
+    {
+      "file": ".agents/scripts/lib/orchestration/review-providers/security-review.js",
       "symbol": "defaultInvokeSecurityReview"
     },
     {
       "file": ".agents/scripts/lib/orchestration/review-providers/security-review.js",
       "symbol": "defaultProbeClaudeCli"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/review-providers/security-review.js",
-      "symbol": "SECURITY_REVIEW_INVOKE_PROMPT"
     },
     {
       "file": ".agents/scripts/lib/orchestration/single-story-close/phases/base-sync.js",
@@ -364,14 +360,6 @@
       "symbol": "walkSkillFiles"
     },
     {
-      "file": ".agents/scripts/lib/story-plan.js",
-      "symbol": "DEFAULT_DUPLICATE_MAX_RESULTS"
-    },
-    {
-      "file": ".agents/scripts/lib/story-plan.js",
-      "symbol": "DEFAULT_DUPLICATE_MIN_SCORE"
-    },
-    {
       "file": ".agents/scripts/lib/test-isolate/env-snapshot-loader.js",
       "symbol": "*"
     },
@@ -453,11 +441,11 @@
     },
     {
       "file": ".agents/scripts/providers/github/issues.js",
-      "symbol": "paginateRest"
+      "symbol": "SUBTICKET_HYDRATION_CONCURRENCY"
     },
     {
       "file": ".agents/scripts/providers/github/issues.js",
-      "symbol": "SUBTICKET_HYDRATION_CONCURRENCY"
+      "symbol": "paginateRest"
     },
     {
       "file": ".agents/scripts/providers/github/labels.js",
@@ -482,14 +470,6 @@
     {
       "file": ".agents/scripts/provision-git-hooks.js",
       "symbol": "*"
-    },
-    {
-      "file": ".agents/scripts/story-plan.js",
-      "symbol": "fetchOpenStories"
-    },
-    {
-      "file": ".agents/scripts/story-plan.js",
-      "symbol": "renderGhArgv"
     }
   ]
 }
