@@ -26,8 +26,9 @@ export function toExecuting(provider, ticketId, opts) {
 /**
  * Transition an array of tickets to `agent::done`, in order. Each call
  * triggers its own cascade (via `transitionTicketState`). Failures for
- * individual tickets propagate — callers that need per-ticket tolerance
- * should use `batchTransitionTickets` instead.
+ * individual tickets propagate — the loop aborts on the first error, so
+ * callers that need per-ticket tolerance must catch around each id
+ * themselves.
  *
  * @param {object} provider
  * @param {number[]} ticketIds

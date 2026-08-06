@@ -393,12 +393,13 @@ async function emitBlockedFriction(ticketId, fromState, newState, opts) {
  *   `agent::done` at story-close (after the merge lands), not when the
  *   last Task commit landed on the still-unmerged Story branch. The
  *   parameter is preserved for callers that still suppress cascade
- *   explicitly (e.g. batch-transition helpers).
+ *   explicitly (`single-story-init.js`, and `bulk.js` where the upward
+ *   recursion is driven by hand instead).
  *
  *   `ticketSnapshot` (Story #1795 / Epic #1788) is an optional pre-fetched
- *   ticket object. When the caller already holds the ticket (e.g.
- *   `batchTransitionTickets`, which loops over a list it just hydrated),
- *   passing the snapshot eliminates the two `getTicket` round-trips that
+ *   ticket object. When the caller already holds the ticket — e.g. it
+ *   hydrated the ticket to inspect its labels first — passing the
+ *   snapshot eliminates the two `getTicket` round-trips that
  *   `transitionTicketState` would otherwise issue — one for the notify
  *   `fromState` lookup and one inside `provider.updateTicket`'s label
  *   merge path. Backwards compatible: when omitted, behaviour is unchanged.
