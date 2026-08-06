@@ -222,6 +222,8 @@ async function openAndReviewPr({
     cwd,
     storyId,
     storyTitle: story.title,
+    // Scanned for a declared `BREAKING CHANGE:` footer — see pull-request.js.
+    storyBody: story.body,
     storyBranch,
     baseBranch,
     gh: injectedGh,

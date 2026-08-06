@@ -32,6 +32,8 @@ subject referencing the Story via `(refs #<storyId>)` — see
   It does **not** run on squash-merge titles edited in the GitHub UI —
   author the PR title in conventional form so the squash commit parses
   for release-please.
+- Consumer-breaking changes MUST carry a `BREAKING CHANGE:` footer
+  (breaking commit or Story body); prose never reaches release-please.
 
 ## Push Validation & Reliability (MUSTs)
 

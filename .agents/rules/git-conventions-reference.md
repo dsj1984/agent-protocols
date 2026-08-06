@@ -43,6 +43,33 @@ Practical guidance when authoring a contract change:
   can detect "I cannot read this artifact"); they are **not** an
   invitation to keep multiple readers alive in the same release.
 
+### Declaring the break so consumers see it
+
+A hard cutover is only honest if the consumer can find out about it. Prose in
+a commit body does not qualify: release-please recognizes exactly two signals,
+a `!` before the colon in the subject and a `BREAKING CHANGE:` footer, and
+sees nothing else. Story #5004 removed `project.commands.lintBaseline` from a
+schema block that is `additionalProperties: false` — a config that used to be
+silently ignored now fails validation — described it in three body paragraphs,
+and shipped with neither signal. It reached `main` as `docs:` and would have
+been absent from the release notes entirely.
+
+So a contract change MUST declare itself in one of two places, and close
+(`normalize-pr-title.js`) propagates either to the squash subject and PR body:
+
+1. **A commit footer** — a `BREAKING CHANGE:` (or `BREAKING-CHANGE:`) line in
+   the body of whichever commit does the breaking. This is the default; write
+   it as you write the commit. The keyword is uppercase and starts its own
+   line, per Conventional Commits.
+2. **A Story-body declaration** — the same footer as its own line in the Story
+   issue, naturally at the end of `## Spec`. Use this when the break is known
+   at plan time, or when it spans several commits and no single one owns it.
+
+Close reads both, marks the PR title `<type>!: …`, and appends the collected
+note to the PR body as a footer. Consumers whose on-disk state needs changing
+should also get a step in `lib/migrations/` — see that directory's README;
+`2.32.0-retire-lint-baseline-command.js` is the step #5004 should have shipped.
+
 ## Push Validation — the known false-negative signature
 
 The core rule is: **never bypass hooks** (`--no-verify`, `--no-gpg-sign`, or

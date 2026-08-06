@@ -65,25 +65,73 @@ Until Story #5004 this table carried a **Push-scoped maintainability** row: the
 `validate` job's `Maintainability Check` step exported
 `BASELINE_SCOPE: ${{ github.event_name == 'pull_request' && '' || 'full' }}`,
 so on PR runs it was diff-scoped — a byte-for-byte duplicate of the required
-`baselines` job's `check-baselines.js` run — and on push-to-`main` it widened to
-a full-scope sweep that re-scored untouched files.
+`baselines` job's `check-baselines.js` run — and on push-to-`main` it took the
+`full` branch.
 
-The step is gone, and with it **both** halves: the duplicate and the sweep. The
-duplicate was the reason to delete it; losing the sweep is the price, recorded
-here rather than left as a silent gap. Nothing in this repository now re-scores
-maintainability full-scope automatically.
+#### Correction: the `full` leg was not a sweep
 
-The deliberate replacement is
-[`check-baseline-drift.js`](../.agents/docs/quality-gates.md#check-baseline-driftjs--the-scheduled-full-scope-re-score)
-— it re-scores full-scope through the same scorer that writes the baseline, in
-either direction, and reports rows that moved beyond tolerance. It is
-operator-run: scheduling it is deliberately consumer-side work. Run it
-periodically on `main`, or when a refactor touched a dependency many untouched
-files score against:
+Story #5004 recorded the deleted `full` leg as a full-scope sweep that
+"re-scored untouched files", and called losing it the price of removing the
+duplicate. **That was wrong on the mechanism, and so wrong on the loss.**
+
+`check-baselines.js` is a **reader**. It loads the committed baseline envelope
+via `lib/baselines/reader.js` and never invokes a scorer. On the read path
+`BASELINE_SCOPE=full` does one thing: it makes `evaluateCompare`
+([`phases/compare.js`](../.agents/scripts/lib/orchestration/check-baselines/phases/compare.js))
+return an empty result, because that function short-circuits whenever
+`scope.mode !== 'diff'`. Full scope **disables the head-vs-base ratchet arm**;
+it does not widen a re-score, because there is no re-score to widen.
+
+Measured on this repository:
+
+| Invocation | Rows compared | `baseRead` | Wall clock |
+| --- | --- | --- | --- |
+| `check-baselines.js --gate maintainability` | 556 | `true` | 0.18s |
+| `BASELINE_SCOPE=full` + the same command | 0 | `false` | 0.14s |
+
+Both finish in under a fifth of a second, which is the tell on its own: a real
+full-scope maintainability re-score of this tree takes ~1.7s of escomplex work.
+
+So the push-to-`main` leg ran **floors only** over the committed rollup —
+strictly weaker than the diff-scoped PR leg, and a strict subset of the
+required `baselines` job on push runs as well as on PR runs. Deleting the step
+lost nothing. There is no gap here to attribute to Story #5004.
+
+#### The real gap, and what now covers it
+
+Full-scope **re-scoring** has only ever existed in two places: the write path
+(`*:update -- --full-scope`) and
+[`check-baseline-drift.js`](../.agents/docs/quality-gates.md#check-baseline-driftjs--the-scheduled-full-scope-re-score).
+Nothing automated ran the latter — before Story #5004 or after it — so drift in
+untouched files has always accumulated invisibly. That is a real hole; it was
+simply never the deleted step's to fill.
+
+[`.github/workflows/baseline-drift.yml`](../.github/workflows/baseline-drift.yml)
+now fills it: a nightly (05:43 UTC) + `workflow_dispatch` job that re-scores
+maintainability full-scope with `--require-scored`, opens or updates one
+`meta::baseline-drift` tracking issue with the report, closes that issue when
+the tree comes back clean, and fails the run. It is deliberately off the
+per-PR path, so the duplication #5004 removed is not reintroduced. Its first
+run on this tree found **20 of 556 rows** drifted beyond the 0.5 tolerance
+(all improvements — a slack ratchet, up to 8.5 MI points on one file).
+
+The same check remains available ad hoc, and a consumer materializing
+`.agents/` still owns its own schedule:
 
 ```bash
 node .agents/scripts/check-baseline-drift.js --gate maintainability
 ```
+
+`crap` is the other `DRIFT_KIND` and is **not** in the nightly job yet: its
+drift identity is `path::method@startLine`, so any edit above a method re-keys
+its row. Measured against a real coverage artifact: 82 drifted but 1438 added
+and 898 removed, of which 853 removals are the same `path::method` reappearing
+at a new line. Coverage and duplication are not `DRIFT_KIND`s at all — coverage
+rows carry three metric axes (`lines`/`branches`/`functions`) rather than the
+single scalar `KIND_SPECS` assumes, and duplication rows exist only where
+clones do, so an appearing or vanishing row is ordinary churn rather than
+drift. None of the three were ever in the deleted step, which ran
+`--gate maintainability` alone.
 
 `check-baseline-scope.js` (in CI's `baselines` job) covers the adjacent
 question — whether the baseline's row set still describes the tree — but not

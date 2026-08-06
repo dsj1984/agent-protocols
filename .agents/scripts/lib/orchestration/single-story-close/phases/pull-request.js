@@ -44,7 +44,7 @@
 import { gh as defaultGh } from '../../../gh-exec.js';
 import { Logger } from '../../../Logger.js';
 import { computeChangeSet as defaultComputeChangeSet } from '../../change-set.js';
-import { normalizePrTitle } from './normalize-pr-title.js';
+import { buildPullRequestFields } from './normalize-pr-title.js';
 
 /**
  * Pick the PR this head branch should resolve to from a `gh pr list
@@ -112,6 +112,7 @@ function probeEmptyDiff({ cwd, baseBranch, storyBranch, computeChangeSet }) {
  *   cwd: string,
  *   storyId: number,
  *   storyTitle: string,
+ *   storyBody?: string,
  *   storyBranch: string,
  *   baseBranch: string,
  *   gh?: ReturnType<typeof import('../../../gh-exec.js').createGh>,
@@ -124,6 +125,7 @@ export async function ensurePullRequestWith({
   cwd: _cwd,
   storyId,
   storyTitle,
+  storyBody = '',
   storyBranch,
   baseBranch,
   gh = defaultGh,
@@ -185,26 +187,19 @@ export async function ensurePullRequestWith({
   }
 
   progress('PR', `Opening PR for ${storyBranch} → ${baseBranch}...`);
-  // The repo squash-merges and GitHub uses the PR title as the squash
-  // subject on `main`. A raw human issue title is not a Conventional
-  // Commit, so release-please silently counts it as 0 releasable commits
-  // (Story #3969). Normalize the title to conventional form: preserve an
-  // already-conventional `storyTitle` verbatim, otherwise synthesize a
-  // type derived from the branch's own commit subjects (default `chore`).
-  // `gh-exec` spawns `gh` against the current process cwd (the worktree),
-  // so the branch-commit read uses the same cwd.
-  const title = normalizePrTitle({
+  // The repo squash-merges and GitHub uses the PR title as the squash subject
+  // on `main`, so both fields are derived rather than typed — see
+  // `normalize-pr-title.js`. `gh-exec` spawns `gh` against the current process
+  // cwd (the worktree), so the branch read uses the same cwd.
+  const { title, body } = buildPullRequestFields({
     storyTitle,
     storyId,
+    storyBody,
     storyBranch,
     baseBranch,
     cwd: _cwd ?? process.cwd(),
+    progress,
   });
-  const body = [
-    `Closes #${storyId}`,
-    '',
-    `_Auto-opened by \`/deliver\`._`,
-  ].join('\n');
   try {
     const createResult = await gh.pr.create([
       '--base',

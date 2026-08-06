@@ -84,14 +84,30 @@ jobs:
       # maintainability`, a strict subset of the `Run check-baselines` step in
       # the required `baselines` job below, against the same default scope on
       # PR runs. It failed on nothing the required job did not already fail on,
-      # so it bought a second full escomplex pass and no protection.
+      # so it bought a second baseline read and no protection.
       #
-      # It ALSO carried a push-to-main-only `BASELINE_SCOPE=full` sweep, which
-      # was NOT a duplicate — that leg re-scored untouched files. Deleting the
-      # step retires it, and nothing here re-scores maintainability full-scope
-      # automatically any more. That is a recorded loss, not an oversight:
-      # docs/ci-contract.md § "Retired: push-scoped maintainability" names
-      # `check-baseline-drift.js` as the operator-run replacement.
+      # A later correction pass revisited the rest of what #5004 recorded here. That comment
+      # claimed the step's push-to-main-only
+      # `BASELINE_SCOPE: ${{ github.event_name == 'pull_request' && '' || 'full' }}`
+      # leg was a full-scope SWEEP that re-scored untouched files, and that
+      # deleting the step lost it. It was not, and it did not.
+      # `check-baselines.js` is a reader: it loads the COMMITTED baseline
+      # envelope and never invokes a scorer. On that path `full` means only
+      # "skip the head-vs-base compare arm" — see `evaluateCompare` in
+      # .agents/scripts/lib/orchestration/check-baselines/phases/compare.js,
+      # which returns an empty result whenever `scope.mode !== 'diff'`.
+      # Measured: the default scope compares 556 rows against the base
+      # baseline; `BASELINE_SCOPE=full` compares 0 and reports
+      # `baseRead: false`, in 0.18s (no escomplex pass happens at all). The
+      # push leg was therefore floors-only — strictly WEAKER than the PR leg,
+      # and a strict subset of the required `baselines` job on push runs too.
+      # Nothing was lost with the step.
+      #
+      # Full-scope RE-SCORING lives on the write path (`*:update
+      # -- --full-scope`) and in `check-baseline-drift.js`. Nothing in CI ran
+      # the latter until this repository added
+      # `.github/workflows/baseline-drift.yml` — a nightly job, deliberately
+      # off the per-PR path so this duplication is not reintroduced.
 
       - name: Build node-pty for the PTY init guard
         # node-pty (1.x) ships no Linux prebuild and the shared setup installs
