@@ -1,11 +1,11 @@
 {
   "$schema": ".agents/schemas/baselines/coverage.schema.json",
   "kernelVersion": "1.0.0",
-  "generatedAt": "2026-08-06T10:55:16.737Z",
+  "generatedAt": "2026-08-06T11:07:48.322Z",
   "rollup": {
     "*": {
       "lines": 95.85,
-      "branches": 86.41,
+      "branches": 86.43,
       "functions": 88.75
     }
   },
@@ -3147,6 +3147,12 @@
       "lines": 39.04,
       "branches": 100,
       "functions": 0
+    },
+    {
+      "path": ".agents/scripts/update-dead-exports-baseline.js",
+      "lines": 99.04,
+      "branches": 97.83,
+      "functions": 88.89
     },
     {
       "path": ".agents/scripts/update-duplication-baseline.js",

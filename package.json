@@ -45,6 +45,7 @@
     "check:context-budget": "node .agents/scripts/check-context-budget.js",
     "check:cyclomatic": "node .agents/scripts/check-cyclomatic.js",
     "cyclomatic:update": "node .agents/scripts/check-cyclomatic.js --update",
+    "dead-exports:update": "node .agents/scripts/update-dead-exports-baseline.js && node .agents/scripts/update-dead-exports-baseline.js --production",
     "check:knip-entries": "node .agents/scripts/check-knip-entries.js",
     "check:schema-refs": "node .agents/scripts/check-schema-references.js",
     "check:workflow-citations": "node .agents/scripts/check-workflow-citations.js",

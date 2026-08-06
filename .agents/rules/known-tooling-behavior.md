@@ -133,6 +133,11 @@ grep -c '!"' knip.json                                  # the production markers
 ```
 
 **Safe move.** Run both passes before pushing. When an export is genuinely
-test-only, keep it and refresh the production baseline deliberately —
-`.agents/rules/test-seams.md` governs which seams are sanctioned. Never
-remove the `!` suffixes from `knip.json` to quieten the production pass.
+test-only, keep it and refresh both baselines deliberately with `npm run
+dead-exports:update` — `.agents/scripts/update-dead-exports-baseline.js`,
+which rewrites the rows knip currently reports and fails closed rather than
+persisting an empty snapshot from a knip run that never worked. Never
+hand-edit `baselines/dead-exports*.json`: a hand-written row set is the one
+input no gate re-derives. `.agents/rules/test-seams.md` governs which seams
+are sanctioned. Never remove the `!` suffixes from `knip.json` to quieten the
+production pass.

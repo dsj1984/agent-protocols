@@ -1,12 +1,8 @@
 {
   "$schema": "https://mandrel.dev/baselines/dead-exports.schema.json",
   "kernelVersion": "6.17.1",
-  "generatedAt": "2026-08-06T09:27:43.712789Z",
+  "generatedAt": "2026-08-06T11:07:50.117Z",
   "rows": [
-    {
-      "file": ".agents/scripts/lib/Logger.js",
-      "symbol": "STDERR_LOGGER"
-    },
     {
       "file": ".agents/scripts/lib/baseline-schema-registry.js",
       "symbol": "BASELINE_ENVELOPE_FILE"
@@ -188,6 +184,10 @@
       "symbol": "parseInstallCmd"
     },
     {
+      "file": ".agents/scripts/lib/Logger.js",
+      "symbol": "STDERR_LOGGER"
+    },
+    {
       "file": ".agents/scripts/lib/onboard/init-tail.js",
       "symbol": "*"
     },
@@ -225,11 +225,11 @@
     },
     {
       "file": ".agents/scripts/lib/orchestration/review-providers/codex.js",
-      "symbol": "DEFAULT_PLUGIN_MARKERS"
+      "symbol": "buildCodexReviewPrompt"
     },
     {
       "file": ".agents/scripts/lib/orchestration/review-providers/codex.js",
-      "symbol": "buildCodexReviewPrompt"
+      "symbol": "DEFAULT_PLUGIN_MARKERS"
     },
     {
       "file": ".agents/scripts/lib/orchestration/review-providers/codex.js",
@@ -249,15 +249,15 @@
     },
     {
       "file": ".agents/scripts/lib/orchestration/review-providers/security-review.js",
-      "symbol": "SECURITY_REVIEW_INVOKE_PROMPT"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/review-providers/security-review.js",
       "symbol": "defaultInvokeSecurityReview"
     },
     {
       "file": ".agents/scripts/lib/orchestration/review-providers/security-review.js",
       "symbol": "defaultProbeClaudeCli"
+    },
+    {
+      "file": ".agents/scripts/lib/orchestration/review-providers/security-review.js",
+      "symbol": "SECURITY_REVIEW_INVOKE_PROMPT"
     },
     {
       "file": ".agents/scripts/lib/orchestration/single-story-close/phases/base-sync.js",
@@ -433,11 +433,11 @@
     },
     {
       "file": ".agents/scripts/providers/github/issues.js",
-      "symbol": "SUBTICKET_HYDRATION_CONCURRENCY"
+      "symbol": "paginateRest"
     },
     {
       "file": ".agents/scripts/providers/github/issues.js",
-      "symbol": "paginateRest"
+      "symbol": "SUBTICKET_HYDRATION_CONCURRENCY"
     },
     {
       "file": ".agents/scripts/providers/github/labels.js",
