@@ -14,13 +14,21 @@
  * production-dead code hides behind its own tests. See
  * `lib/dead-exports-mode.js` for why the two passes carry separate baselines.
  *
+ * Story #5001 widens what the ratchet can see: knip's `files` category (a
+ * module nothing imports) now maps to a `{ file, symbol: '*' }` row alongside
+ * the per-export rows, and `knip.json` lists `.agents/scripts/*.js` entry
+ * points explicitly instead of by blanket glob — so a top-level CLI that
+ * nothing invokes surfaces as dead instead of being declared live by the glob.
+ *
  * Contract:
  *   - Reads the committed baseline at `baselines/dead-exports.json` — or
  *     `baselines/dead-exports-production.json` under `--production`
  *     (override either with `--baseline <path>`). Envelope shape:
  *       { $schema, kernelVersion, generatedAt, rows: [{ file, symbol }] }
  *   - Spawns `npx knip --reporter json --no-progress` (plus `--production`),
- *     parses stdout, extracts `{ file, symbol }` rows from `issues[].exports[]`.
+ *     parses stdout, extracts `{ file, symbol }` rows from `issues[].exports[]`
+ *     **and** `issues[].files[]` — the latter as one `{ file, symbol: '*' }`
+ *     whole-file row per module nothing imports (Story #5001).
  *   - Diffs current vs. baseline by `(file, symbol)` identity.
  *   - Prints `+ <file>: <symbol>` for each added dead export and
  *     `- <file>: <symbol>` for each removed one, then a summary line.

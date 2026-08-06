@@ -1,23 +1,11 @@
 {
   "$schema": "https://mandrel.dev/baselines/dead-exports.schema.json",
   "kernelVersion": "6.17.1",
-  "generatedAt": "2026-08-02T15:29:16.413Z",
+  "generatedAt": "2026-08-06T01:35:29.184Z",
   "rows": [
     {
-      "file": ".agents/scripts/lib/audit-suite/selector.js",
-      "symbol": "_resetPersistenceLayerCache"
-    },
-    {
-      "file": ".agents/scripts/lib/audit-suite/selector.js",
-      "symbol": "hasPersistenceLayer"
-    },
-    {
-      "file": ".agents/scripts/lib/audit-to-stories/audit-lenses.js",
-      "symbol": "isCanonicalLens"
-    },
-    {
-      "file": ".agents/scripts/lib/audit-to-stories/audit-lenses.js",
-      "symbol": "lensFromSourceReport"
+      "file": ".agents/scripts/check-baseline-drift.js",
+      "symbol": "HELP_TEXT"
     },
     {
       "file": ".agents/scripts/lib/baseline-schema-registry.js",
@@ -208,6 +196,10 @@
       "symbol": "runFromStdin"
     },
     {
+      "file": ".agents/scripts/lib/onboard/init-tail.js",
+      "symbol": "*"
+    },
+    {
       "file": ".agents/scripts/lib/orchestration/column-sync.js",
       "symbol": "LABEL_TO_COLUMN"
     },
@@ -222,14 +214,6 @@
     {
       "file": ".agents/scripts/lib/orchestration/git-cleanup/phases/git-probes.js",
       "symbol": "defaultGhRunner"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/lifecycle/listeners/watcher.js",
-      "symbol": "hasFailingCheck"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/lifecycle/listeners/watcher.js",
-      "symbol": "promotePendingToStillRunning"
     },
     {
       "file": ".agents/scripts/lib/orchestration/lifecycle/listeners/watcher.js",
@@ -294,6 +278,14 @@
     {
       "file": ".agents/scripts/lib/orchestration/single-story-close/phases/base-sync.js",
       "symbol": "runBaseSyncPhase"
+    },
+    {
+      "file": ".agents/scripts/lib/orchestration/single-story-close/phases/review-block.js",
+      "symbol": "*"
+    },
+    {
+      "file": ".agents/scripts/lib/orchestration/single-story-close/runner.js",
+      "symbol": "*"
     },
     {
       "file": ".agents/scripts/lib/orchestration/story-close/format-autofix.js",
@@ -368,6 +360,10 @@
       "symbol": "listJsFiles"
     },
     {
+      "file": ".agents/scripts/lib/single-story/story-merged-notify.js",
+      "symbol": "*"
+    },
+    {
       "file": ".agents/scripts/lib/skills/walk-skill-files.js",
       "symbol": "walkSkillFiles"
     },
@@ -378,6 +374,10 @@
     {
       "file": ".agents/scripts/lib/story-plan.js",
       "symbol": "DEFAULT_DUPLICATE_MIN_SCORE"
+    },
+    {
+      "file": ".agents/scripts/lib/test-isolate/env-snapshot-loader.js",
+      "symbol": "*"
     },
     {
       "file": ".agents/scripts/lib/test-isolate/list-files.js",
@@ -396,6 +396,10 @@
       "symbol": "runSuite"
     },
     {
+      "file": ".agents/scripts/lib/worktree/git-hooks.js",
+      "symbol": "resolveCommonCheckout"
+    },
+    {
       "file": ".agents/scripts/lib/worktree/lifecycle-manager.js",
       "symbol": "findByPath"
     },
@@ -406,6 +410,42 @@
     {
       "file": ".agents/scripts/lib/worktree/node-modules-strategy.js",
       "symbol": "primePnpmStore"
+    },
+    {
+      "file": ".agents/scripts/lint-baseline.js",
+      "symbol": "captureBaseline"
+    },
+    {
+      "file": ".agents/scripts/lint-baseline.js",
+      "symbol": "checkBaseline"
+    },
+    {
+      "file": ".agents/scripts/lint-baseline.js",
+      "symbol": "diffBaseline"
+    },
+    {
+      "file": ".agents/scripts/lint-baseline.js",
+      "symbol": "hasDegraded"
+    },
+    {
+      "file": ".agents/scripts/lint-baseline.js",
+      "symbol": "hasImproved"
+    },
+    {
+      "file": ".agents/scripts/lint-baseline.js",
+      "symbol": "loadBaselineWithFallback"
+    },
+    {
+      "file": ".agents/scripts/lint-baseline.js",
+      "symbol": "main"
+    },
+    {
+      "file": ".agents/scripts/post-structured-comment.js",
+      "symbol": "main"
+    },
+    {
+      "file": ".agents/scripts/post-structured-comment.js",
+      "symbol": "parseArgv"
     },
     {
       "file": ".agents/scripts/providers/github.js",
@@ -472,8 +512,16 @@
       "symbol": "DEFAULT_PER_PAGE"
     },
     {
-      "file": ".agents/scripts/providers/github/search-budget.js",
-      "symbol": "createSearchBudget"
+      "file": ".agents/scripts/provision-git-hooks.js",
+      "symbol": "*"
+    },
+    {
+      "file": ".agents/scripts/story-plan.js",
+      "symbol": "fetchOpenStories"
+    },
+    {
+      "file": ".agents/scripts/story-plan.js",
+      "symbol": "renderGhArgv"
     }
   ]
 }

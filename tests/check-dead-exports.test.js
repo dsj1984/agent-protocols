@@ -73,26 +73,71 @@ test('loadBaseline: returns null on malformed JSON', () => {
   assert.equal(loadBaseline(file), null);
 });
 
-test('extractRowsFromKnip: ignores file-level / dependency-level issues', () => {
+// Story #5001 — whole-file death.
+//
+// Mapping only `issues[].exports[]` made the ratchet structurally blind to a
+// module losing its last importer: knip reports that once under the `files`
+// category and suppresses the module's per-export rows, so an export-only
+// reading saw the row count go *down*. These tests pin the `files` leg.
+
+test('extractRowsFromKnip: maps a files-category issue to a whole-file row', () => {
   const envelope = {
     issues: [
       {
-        file: 'a.js',
-        files: [{ name: 'a.js' }],
+        file: '.agents/scripts/lib/orphan.js',
+        files: [{ name: '.agents/scripts/lib/orphan.js' }],
         exports: [],
         dependencies: [{ name: 'lodash' }],
       },
-      {
-        file: 'b.js',
-        exports: [{ name: 'bar' }, { symbol: 'baz' }],
-      },
     ],
   };
-  const rows = extractRowsFromKnip(envelope);
-  assert.deepEqual(rows, [
+  assert.deepEqual(extractRowsFromKnip(envelope), [
+    { file: '.agents/scripts/lib/orphan.js', symbol: '*' },
+  ]);
+});
+
+test('extractRowsFromKnip: whole-file and per-export rows coexist', () => {
+  const envelope = {
+    issues: [
+      { file: 'a.js', files: [{ name: 'a.js' }], exports: [] },
+      { file: 'b.js', exports: [{ name: 'bar' }, { symbol: 'baz' }] },
+    ],
+  };
+  assert.deepEqual(extractRowsFromKnip(envelope), [
+    { file: 'a.js', symbol: '*' },
     { file: 'b.js', symbol: 'bar' },
     { file: 'b.js', symbol: 'baz' },
   ]);
+});
+
+test('extractRowsFromKnip: emits one stable whole-file row per dead file', () => {
+  // Two issue records naming the same dead file must not double-count, or the
+  // row set would drift between runs purely on knip's grouping.
+  const envelope = {
+    issues: [
+      { file: 'a.js', files: [{ name: 'a.js' }, 'a.js'] },
+      { file: 'b.js', files: [{ name: 'a.js' }] },
+    ],
+  };
+  assert.deepEqual(extractRowsFromKnip(envelope), [
+    { file: 'a.js', symbol: '*' },
+  ]);
+});
+
+test('extractRowsFromKnip: falls back to the issue file when a files entry is shapeless', () => {
+  const envelope = { issues: [{ file: 'a.js', files: [{}] }] };
+  assert.deepEqual(extractRowsFromKnip(envelope), [
+    { file: 'a.js', symbol: '*' },
+  ]);
+});
+
+test('extractRowsFromKnip: still ignores dependency-level issues', () => {
+  const envelope = {
+    issues: [
+      { file: 'a.js', files: [], exports: [], dependencies: [{ name: 'x' }] },
+    ],
+  };
+  assert.deepEqual(extractRowsFromKnip(envelope), []);
 });
 
 test('extractRowsFromKnip: returns empty array for null / non-object input', () => {
@@ -393,6 +438,82 @@ test('runCli: exits 1 when baseline is missing and current rows are non-empty', 
   assert.match(stdout.text(), /\+ a\.js: foo/);
 });
 
+test('runCli: a newly dead file fails the gate (whole-file ratchet)', async () => {
+  // AC-4 — the regression this Story exists to prevent. A file under
+  // `.agents/scripts/lib` that nothing imports arrives from knip as a
+  // files-category issue with an EMPTY `exports` array (knip suppresses
+  // per-export rows for an unused file). Before Story #5001 that produced
+  // zero rows and the gate stayed green.
+  const tmp = makeTempDir('dead-exports-wholefile-');
+  const baselinePath = path.join(tmp, 'baseline.json');
+  fs.writeFileSync(
+    baselinePath,
+    JSON.stringify({
+      kernelVersion: '6.17.1',
+      rows: [{ file: '.agents/scripts/lib/known.js', symbol: '*' }],
+    }),
+  );
+  const knipOutPath = path.join(tmp, 'knip.json');
+  fs.writeFileSync(
+    knipOutPath,
+    JSON.stringify({
+      issues: [
+        {
+          file: '.agents/scripts/lib/known.js',
+          files: [{ name: '.agents/scripts/lib/known.js' }],
+          exports: [],
+        },
+        {
+          file: '.agents/scripts/lib/newly-orphaned.js',
+          files: [{ name: '.agents/scripts/lib/newly-orphaned.js' }],
+          exports: [],
+        },
+      ],
+    }),
+  );
+
+  const stdout = captureStream();
+  const exit = await runCli({
+    argv: ['--baseline', baselinePath, '--knip-output', knipOutPath, '--json'],
+    cwd: tmp,
+    stdout: stdout.stream,
+    stderr: captureStream().stream,
+  });
+  assert.equal(exit, 1);
+  const envelope = JSON.parse(stdout.text());
+  assert.deepEqual(envelope.added, [
+    { file: '.agents/scripts/lib/newly-orphaned.js', symbol: '*' },
+  ]);
+  // The pre-existing whole-file row passes — the ratchet contract is unchanged.
+  assert.deepEqual(envelope.removed, []);
+});
+
+test('runCli: renders a whole-file row with the * sentinel', async () => {
+  const tmp = makeTempDir('dead-exports-wholefile-');
+  const baselinePath = path.join(tmp, 'baseline.json');
+  fs.writeFileSync(
+    baselinePath,
+    JSON.stringify({ kernelVersion: '6.17.1', rows: [] }),
+  );
+  const knipOutPath = path.join(tmp, 'knip.json');
+  fs.writeFileSync(
+    knipOutPath,
+    JSON.stringify({
+      issues: [{ file: 'lib/orphan.js', files: [{ name: 'lib/orphan.js' }] }],
+    }),
+  );
+
+  const stdout = captureStream();
+  const exit = await runCli({
+    argv: ['--baseline', baselinePath, '--knip-output', knipOutPath],
+    cwd: tmp,
+    stdout: stdout.stream,
+    stderr: captureStream().stream,
+  });
+  assert.equal(exit, 1);
+  assert.match(stdout.text(), /^\+ lib\/orphan\.js: \*$/m);
+});
+
 test('runCli: surfaces knip spawn failure as advisory warning', async () => {
   const tmp = makeTempDir('dead-exports-cli-');
   const baselinePath = path.join(tmp, 'baseline.json');
@@ -421,6 +542,70 @@ test('runCli: surfaces knip spawn failure as advisory warning', async () => {
 // reaches. The two passes ratchet against separate baselines so the default
 // gate keeps its meaning and the production gate can carry its own (larger)
 // starting set.
+
+// Story #5001 — the knip entry configuration.
+//
+// A blanket `.agents/scripts/*.js!` entry glob declared every top-level CLI
+// live by construction, so knip could never report one as unreachable however
+// long nothing had invoked it. The entry set is now an explicit list; these
+// tests keep it from regressing to a glob and from going stale.
+
+const knipConfig = JSON.parse(
+  fs.readFileSync(path.join(import.meta.dirname, '..', 'knip.json'), 'utf-8'),
+);
+
+test('knip.json: no entry glob can reach a top-level .agents/scripts CLI', () => {
+  // The only wildcards permitted under `.agents/scripts` are scoped to a
+  // `__tests__` subtree — a colocated test can never be a top-level CLI, so
+  // those globs cannot re-declare one live behind the maintainer's back.
+  const blanket = knipConfig.entry.filter(
+    (p) =>
+      p.startsWith('.agents/scripts/') &&
+      p.includes('*') &&
+      !p.includes('__tests__/'),
+  );
+  assert.deepEqual(
+    blanket,
+    [],
+    `entry must name .agents/scripts CLIs explicitly; found ${blanket.join(', ')}`,
+  );
+});
+
+test('knip.json: the explicit entry list omits at least one top-level CLI', () => {
+  // The list is only load-bearing if it is narrower than the directory —
+  // an entry per file on disk would be the old blanket glob spelled out.
+  const repoRoot = path.join(import.meta.dirname, '..');
+  const onDisk = fs
+    .readdirSync(path.join(repoRoot, '.agents', 'scripts'))
+    .filter((f) => f.endsWith('.js'));
+  const declared = new Set(
+    knipConfig.entry
+      .filter((p) => p.startsWith('.agents/scripts/') && !p.includes('*'))
+      .map((p) => path.basename(p.replace(/!$/, ''))),
+  );
+  const omitted = onDisk.filter((f) => !declared.has(f));
+  assert.ok(
+    omitted.length > 0,
+    'every top-level CLI is declared an entry — the ratchet cannot see an uninvoked one',
+  );
+});
+
+test('knip.json: every explicit .agents/scripts entry exists on disk', () => {
+  const repoRoot = path.join(import.meta.dirname, '..');
+  const missing = knipConfig.entry
+    .filter((p) => p.startsWith('.agents/scripts/') && !p.includes('*'))
+    .map((p) => p.replace(/!$/, ''))
+    .filter((p) => !fs.existsSync(path.join(repoRoot, p)));
+  assert.deepEqual(
+    missing,
+    [],
+    `stale knip entry paths: ${missing.join(', ')}`,
+  );
+});
+
+test('knip.json: the files rule is enabled so whole-file death is reported', () => {
+  assert.notEqual(knipConfig.rules.files, 'off');
+});
 
 test('parseArgv: production defaults to false', () => {
   assert.equal(parseArgv([]).production, false);
