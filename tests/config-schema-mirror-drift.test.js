@@ -274,7 +274,7 @@ describe('generated mirror — cross-dialect agreement with the runtime AJV sche
           owner: 'o',
           repo: 'r',
           operatorHandle: '@me',
-          notifications: { commentEvents: ['loop.tick'] },
+          notifications: { commentEvents: ['merge.unlanded'] },
         },
       },
       'webhook-only event on the comment channel',

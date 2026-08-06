@@ -36,7 +36,7 @@
  *                      `` `${key}.schema.json` `` template), AND the
  *                      schema's stem appears literally in a JS source as the
  *                      key that would produce it. `lifecycle/` is loaded this
- *                      way by `lib/orchestration/lifecycle/bus.js`, and
+ *                      way by `lifecycle/emit-ledger-event.js`, and
  *                      `baselines/` by `lib/baselines/envelope.js`.
  *
  *                      BOTH halves are required. The directory evidence alone

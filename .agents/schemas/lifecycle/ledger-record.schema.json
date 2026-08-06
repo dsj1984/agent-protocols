@@ -2,22 +2,41 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/dsj1984/mandrel/blob/main/.agents/schemas/lifecycle/ledger-record.schema.json",
   "title": "Lifecycle ledger record (emitted | completed | failed)",
-  "description": "Append-only NDJSON record shape for temp/run-<id>/lifecycle.ndjson. Three discriminated kinds; consumers (LedgerWriter, TraceLogger) discriminate on `kind`.",
+  "description": "Append-only NDJSON record shape for the per-run lifecycle ledger. Three discriminated kinds keyed on `kind`. Only `emitted` has a writer: Story #5024 retired the lifecycle bus, so the `completed` / `failed` kinds are a READ contract for ledgers archived from the bus era (`failed` requires a `listener`, which only a listener chain could supply). Reading a ledger never consults this schema; validation happens on the write path only.",
   "oneOf": [
-    { "$ref": "#/$defs/emitted" },
-    { "$ref": "#/$defs/completed" },
-    { "$ref": "#/$defs/failed" }
+    {
+      "$ref": "#/$defs/emitted"
+    },
+    {
+      "$ref": "#/$defs/completed"
+    },
+    {
+      "$ref": "#/$defs/failed"
+    }
   ],
   "$defs": {
     "emitted": {
       "type": "object",
       "required": ["kind", "seqId", "ts", "event", "payload"],
       "properties": {
-        "kind": { "const": "emitted" },
-        "seqId": { "type": "integer", "minimum": 1 },
-        "ts": { "type": "string", "format": "date-time" },
-        "event": { "type": "string", "minLength": 1 },
-        "payload": { "type": "object" }
+        "kind": {
+          "const": "emitted"
+        },
+        "seqId": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "ts": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "event": {
+          "type": "string",
+          "minLength": 1
+        },
+        "payload": {
+          "type": "object"
+        }
       },
       "additionalProperties": false
     },
@@ -25,11 +44,25 @@
       "type": "object",
       "required": ["kind", "seqId", "ts", "event"],
       "properties": {
-        "kind": { "const": "completed" },
-        "seqId": { "type": "integer", "minimum": 1 },
-        "ts": { "type": "string", "format": "date-time" },
-        "event": { "type": "string", "minLength": 1 },
-        "listener": { "type": "string", "minLength": 1 }
+        "kind": {
+          "const": "completed"
+        },
+        "seqId": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "ts": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "event": {
+          "type": "string",
+          "minLength": 1
+        },
+        "listener": {
+          "type": "string",
+          "minLength": 1
+        }
       },
       "additionalProperties": false
     },
@@ -37,18 +70,39 @@
       "type": "object",
       "required": ["kind", "seqId", "ts", "event", "listener", "error"],
       "properties": {
-        "kind": { "const": "failed" },
-        "seqId": { "type": "integer", "minimum": 1 },
-        "ts": { "type": "string", "format": "date-time" },
-        "event": { "type": "string", "minLength": 1 },
-        "listener": { "type": "string", "minLength": 1 },
+        "kind": {
+          "const": "failed"
+        },
+        "seqId": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "ts": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "event": {
+          "type": "string",
+          "minLength": 1
+        },
+        "listener": {
+          "type": "string",
+          "minLength": 1
+        },
         "error": {
           "type": "object",
           "required": ["name", "message"],
           "properties": {
-            "name": { "type": "string", "minLength": 1 },
-            "message": { "type": "string" },
-            "stack": { "type": "string" }
+            "name": {
+              "type": "string",
+              "minLength": 1
+            },
+            "message": {
+              "type": "string"
+            },
+            "stack": {
+              "type": "string"
+            }
           },
           "additionalProperties": false
         }

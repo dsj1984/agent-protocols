@@ -73,15 +73,19 @@ const tasks = [
       '!.worktrees/**',
     ],
   },
-  // Lifecycle bus surface (Story #2227). Enforces (1) no `Promise.all` over
-  // listener arrays under `.agents/scripts/lib/orchestration/lifecycle/**`,
-  // and (2) the wildcard-observer firewall: no state-mutating imports in
-  // listener modules that register on `'*'`. Both are mandated by Tech Spec
-  // #2189 and have no biome equivalent.
+  // Lifecycle surface (Story #2227). Enforces (1) no `Promise.all` under
+  // `.agents/scripts/lib/orchestration/lifecycle/**` — the ledger is
+  // append-only and a parallel write interleaves records; and (2) the
+  // auto-merge lockout: the `gh pr merge` literal appears only in
+  // `single-story-close/phases/auto-merge.js`. Neither has a biome
+  // equivalent. Story #5024 dropped the third rule (the wildcard-observer
+  // firewall) with the bus and the `listeners/` directory its predicate
+  // required.
   nodeGate('lifecycle-lint', '.agents/scripts/check-lifecycle-lint.js'),
   // Workflow prose surface (Epic #4474 PR5). No workflow may instruct calling
   // an exported library function that has no CLI entrypoint — the measured
-  // shim-writing failure mode the /plan collapse killed.
+  // shim-writing failure mode the /plan collapse killed. See
+  // check-workflow-cli-lint.js for the paragraph-level heuristic.
   nodeGate('workflow-cli-lint', '.agents/scripts/check-workflow-cli-lint.js'),
   // Label-vocabulary citations in `.agents/docs/SDLC.md` and
   // `.agents/workflows/**/*.md` (Story #2892). Greps inline backtick code

@@ -1,7 +1,7 @@
 {
   "$schema": "https://mandrel.dev/baselines/dead-exports.schema.json",
   "kernelVersion": "6.17.1",
-  "generatedAt": "2026-08-06T11:07:50.920Z",
+  "generatedAt": "2026-08-06T11:50:19.019Z",
   "mode": "production",
   "rows": [
     {
@@ -310,15 +310,15 @@
     },
     {
       "file": ".agents/scripts/lib/bdd-scenario-scanner.js",
-      "symbol": "listFeatureFiles"
-    },
-    {
-      "file": ".agents/scripts/lib/bdd-scenario-scanner.js",
       "symbol": "parseFeatureBody"
     },
     {
       "file": ".agents/scripts/lib/bdd-scenario-scanner.js",
       "symbol": "scoreMatch"
+    },
+    {
+      "file": ".agents/scripts/lib/bdd-step-index.js",
+      "symbol": "__testing"
     },
     {
       "file": ".agents/scripts/lib/bootstrap/branch-protection.js",
@@ -747,6 +747,10 @@
     {
       "file": ".agents/scripts/lib/config/limits.js",
       "symbol": "SIGNALS_DEFAULTS"
+    },
+    {
+      "file": ".agents/scripts/lib/config/qa.js",
+      "symbol": "__testing"
     },
     {
       "file": ".agents/scripts/lib/config/quality.js",
@@ -1321,62 +1325,6 @@
       "symbol": "*"
     },
     {
-      "file": ".agents/scripts/lib/orchestration/lifecycle/bus.js",
-      "symbol": "*"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/lifecycle/emit-loop-tick.js",
-      "symbol": "*"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/lifecycle/ledger-writer.js",
-      "symbol": "*"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/lifecycle/listeners/watcher.js",
-      "symbol": "allTerminal"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/lifecycle/listeners/watcher.js",
-      "symbol": "extractPrNumber"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/lifecycle/listeners/watcher.js",
-      "symbol": "hasFailingCheck"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/lifecycle/listeners/watcher.js",
-      "symbol": "normalizeCheckState"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/lifecycle/listeners/watcher.js",
-      "symbol": "parseGhPrChecks"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/lifecycle/listeners/watcher.js",
-      "symbol": "pollUntilTerminal"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/lifecycle/listeners/watcher.js",
-      "symbol": "promotePendingToStillRunning"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/lifecycle/listeners/watcher.js",
-      "symbol": "RECOGNIZED_CHECK_STATES"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/lifecycle/listeners/watcher.js",
-      "symbol": "reduceOutcomes"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/lifecycle/listeners/watcher.js",
-      "symbol": "STILL_RUNNING"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/lifecycle/trace-logger.js",
-      "symbol": "*"
-    },
-    {
       "file": ".agents/scripts/lib/orchestration/light-suitability.js",
       "symbol": "LIGHT_DIFF_CEILINGS"
     },
@@ -1519,6 +1467,46 @@
     {
       "file": ".agents/scripts/lib/orchestration/plan-runner/worktree-sweep.js",
       "symbol": "*"
+    },
+    {
+      "file": ".agents/scripts/lib/orchestration/pr-watch.js",
+      "symbol": "allTerminal"
+    },
+    {
+      "file": ".agents/scripts/lib/orchestration/pr-watch.js",
+      "symbol": "extractPrNumber"
+    },
+    {
+      "file": ".agents/scripts/lib/orchestration/pr-watch.js",
+      "symbol": "hasFailingCheck"
+    },
+    {
+      "file": ".agents/scripts/lib/orchestration/pr-watch.js",
+      "symbol": "normalizeCheckState"
+    },
+    {
+      "file": ".agents/scripts/lib/orchestration/pr-watch.js",
+      "symbol": "parseGhPrChecks"
+    },
+    {
+      "file": ".agents/scripts/lib/orchestration/pr-watch.js",
+      "symbol": "pollUntilTerminal"
+    },
+    {
+      "file": ".agents/scripts/lib/orchestration/pr-watch.js",
+      "symbol": "promotePendingToStillRunning"
+    },
+    {
+      "file": ".agents/scripts/lib/orchestration/pr-watch.js",
+      "symbol": "RECOGNIZED_CHECK_STATES"
+    },
+    {
+      "file": ".agents/scripts/lib/orchestration/pr-watch.js",
+      "symbol": "reduceOutcomes"
+    },
+    {
+      "file": ".agents/scripts/lib/orchestration/pr-watch.js",
+      "symbol": "STILL_RUNNING"
     },
     {
       "file": ".agents/scripts/lib/orchestration/reassert-status-column.js",

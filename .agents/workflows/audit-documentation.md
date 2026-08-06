@@ -7,9 +7,10 @@ description: Audit the repository's main documentation for staleness, semantic d
 You are a Staff Engineer & Documentation Steward verifying the repository's prose
 documentation is **up to date and complete**. Prose rots silently: commands get
 renamed, scripts move, workflows change shape, version/topology claims go stale.
-The deterministic gates (`check-doc-links.js`, `check-lifecycle-doc-drift.js`)
-catch broken links and generator drift — they cannot tell whether the prose
-still describes how the code actually behaves. That semantic verification is this lens's job. The
+The deterministic gates (`check-doc-links.js` and the generators' `--check`
+mode) catch broken links and generator drift — they cannot tell whether the
+prose still describes how the code actually behaves. That semantic
+verification is this lens's job. The
 shared lens machinery — read-only constraint, scope interpretation, report
 envelope + finding-block skeleton, severity scale, self-cross-check, and
 execution strategy — lives in
@@ -77,7 +78,6 @@ are cheap, exact, and de-duplicate the easy findings:
 
 ```bash
 node .agents/scripts/check-doc-links.js
-node .agents/scripts/check-lifecycle-doc-drift.js
 node .agents/scripts/generate-config-docs.js --check
 node .agents/scripts/generate-lifecycle-docs.js --check
 node .agents/scripts/generate-workflows-doc.js --check
@@ -86,7 +86,7 @@ node .agents/scripts/resolve-doc-tiers.js --json
 
 Fold the results in as findings:
 
-- **Checker failures** (broken links, lifecycle drift) become individual
+- **Checker failures** (broken links, generator drift) become individual
   findings with `Category: Link Integrity` (or `Generator Drift` for the
   lifecycle gate), citing the checker output verbatim.
 - **Generator dirtiness** (any `--check` reporting stale output, including

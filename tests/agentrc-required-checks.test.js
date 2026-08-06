@@ -10,10 +10,11 @@
 // resurrect those entries.
 //
 // Epic #2880 / Task #2916 added `lifecycle-doc-drift` as a fourth
-// required check; Story #4356 (Epic #4355) pruned it back out — the
-// lifecycle-doc-drift gate is exercised via `npm run lint`'s docs:check
-// chain, so listing it as a standalone branch-protection required check
-// was stale/redundant. The snapshot is back to the canonical three entries.
+// required check; Story #4356 (Epic #4355) pruned it back out as
+// stale/redundant, leaving it in the `npm run lint` docs:check chain. Story
+// #5024 deleted the gate outright with the lifecycle bus it guarded, so the
+// name stays forbidden below for a second reason: there is no script left to
+// run. The snapshot is the canonical three entries.
 
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -42,8 +43,9 @@ const FORBIDDEN_NAMES = new Set([
   'crap',
   'maintainability',
   'mutation',
-  // Story #4356 (Epic #4355) — pruned the stale standalone lifecycle-doc-drift
-  // required check; guard against it resurfacing.
+  // Story #4356 pruned the stale standalone lifecycle-doc-drift required
+  // check; Story #5024 deleted the gate itself. Guard against either
+  // resurfacing.
   'lifecycle-doc-drift',
 ]);
 

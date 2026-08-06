@@ -203,10 +203,19 @@ const PROJECT_SCHEMA = {
 /**
  * Curated webhook event vocabulary. The webhook channel is gated by an
  * explicit allowlist of event names — the vocabulary mirrors the events the
- * v2 runtime actually emits through `notify()` (Story transitions, merge
- * outcomes, loop lifecycle beats).
+ * v2 runtime actually emits through `notify()` (Story transitions and merge
+ * outcomes).
  *
- * `story.heartbeat` was retired here (A22): the vocabulary's contract is
+ * `loop.tick` was retired here on the same rule (Story #5024). Its only
+ * producer was `emit-loop-tick.js`, which published to the lifecycle bus and
+ * never called `notify()` at all — and the bus had no production caller, so
+ * the event could not reach a webhook by any path. The notify CLI cannot
+ * substitute: it hardcodes `event: 'operator-message'` and exposes no
+ * `--event` flag, so a consumer could not dispatch it either. It shipped in
+ * `NOTIFICATIONS_DEFAULTS`, which meant every consumer was subscribed by
+ * default to something that could never fire.
+ *
+ * `story.heartbeat` was retired here first (A22): the vocabulary's contract is
  * "events the runtime actually emits", and nothing could emit this one. Its
  * emitter (`emit-story-heartbeat.js`) demanded an `epicId >= 1` while the
  * sole call path (`single-story-init.js` → `setActiveStoryEnv`) passed
@@ -224,7 +233,6 @@ export const WEBHOOK_EVENT_NAMES = Object.freeze([
   'operator-message',
   'merge.unlanded',
   'merge.flip-failed',
-  'loop.tick',
 ]);
 
 /**
@@ -235,11 +243,17 @@ export const WEBHOOK_EVENT_NAMES = Object.freeze([
  * is ticket scope, not importance. A comment is written *onto a Story
  * issue*, so only events that are about one Story, and whose message reads
  * as narrative an operator wants durably on the ticket, belong here. The
- * webhook-only remainder — `merge.unlanded`, `merge.flip-failed`,
- * `loop.tick` — are run-scoped or firehose beats;
- * mirroring them onto the ticket would bury the narrative under machine
- * chatter, and `notify()` drops a comment for any dispatch without a
- * resolvable ticket id regardless.
+ * webhook-only remainder — `merge.unlanded` and `merge.flip-failed` — are
+ * run-scoped beats; mirroring them onto the ticket would bury the narrative
+ * under machine chatter, and `notify()` drops a comment for any dispatch
+ * without a resolvable ticket id regardless.
+ *
+ * Note both webhook-only names are allowlistable but have no `notify()`
+ * dispatcher today — they reach the run ledger via `appendLedgerEvent`, not
+ * the notify path. That is a wiring gap, deliberately left alone by Story
+ * #5024 (which only removed `loop.tick`, whose producer went with the bus):
+ * unlike `loop.tick` these two have a live producer, so whether to wire the
+ * dispatch or drop the allowlist entries is an open decision, not dead code.
  *
  * `story-closing` IS in scope by that rule (Story-scoped, `level: 'story'`,
  * human-readable — the same shape as `story-merged`) and its earlier
@@ -280,7 +294,7 @@ const NOTIFICATIONS_SCHEMA = {
       items: { type: 'string', enum: [...WEBHOOK_EVENT_NAMES] },
       uniqueItems: true,
       description:
-        'Events dispatched to the configured webhook. The vocabulary is exactly the set the v2 runtime can emit through `notify()`.',
+        'Events dispatched to the configured webhook. The vocabulary is the allowlist the webhook channel gates on; `merge.unlanded` and `merge.flip-failed` are allowlistable but reach the run ledger rather than `notify()` today.',
       default: [...NOTIFICATIONS_DEFAULTS.webhookEvents],
     },
   },

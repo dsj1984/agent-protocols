@@ -23,7 +23,6 @@
     ".agents/scripts/check-doc-links.js!",
     ".agents/scripts/check-gherkin-corpus.js!",
     ".agents/scripts/check-knip-entries.js!",
-    ".agents/scripts/check-lifecycle-doc-drift.js!",
     ".agents/scripts/check-lifecycle-lint.js!",
     ".agents/scripts/check-schema-references.js!",
     ".agents/scripts/check-test-temp-hygiene.js!",

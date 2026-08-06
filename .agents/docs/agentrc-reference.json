@@ -60,8 +60,7 @@
         "story-closing",
         "operator-message",
         "merge.unlanded",
-        "merge.flip-failed",
-        "loop.tick"
+        "merge.flip-failed"
       ]
     }
   },

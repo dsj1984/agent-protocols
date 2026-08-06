@@ -1,7 +1,7 @@
-// tests/lib/orchestration/lifecycle/activation/watcher-behind-recovery.test.js
+// tests/lib/orchestration/pr-watch-behind-recovery.test.js
 /**
  * BEHIND auto-recovery preservation test
- * — Story #2327 / Task #2334, re-pointed by Story #5006.
+ * — Story #2327, re-pointed by Story #5006, re-homed by Story #5024.
  *
  * The `pr-watch-with-update.js` CLI performs a fast-forward recovery when
  * every required check goes green AND the PR's `mergeStateStatus` is
@@ -11,7 +11,7 @@
  * `applyBehindUpdate` (Story #5006) that the close-side merge wait also
  * runs. This file pins the CLI-side call site of that shared helper.
  *
- * (Task #2334 originally drove the flow through the `Watcher` listener's
+ * (This originally drove the flow through the `Watcher` listener's
  * classification log. Story #5006 deleted the listener — nothing emitted
  * `pr.created` at it — so the assertions read `watchPrToTerminal`'s returned
  * verdict, which is the surface the CLI has always consumed.)
@@ -27,7 +27,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { watchPrToTerminal } from '../../../../../.agents/scripts/lib/orchestration/lifecycle/listeners/watcher.js';
+import { watchPrToTerminal } from '../../../.agents/scripts/lib/orchestration/pr-watch.js';
 
 function quietLogger() {
   return { info: () => {}, warn: () => {}, debug: () => {} };
@@ -83,7 +83,7 @@ async function runWatch(mergeStates) {
   return { calls, verdict };
 }
 
-describe('watchPrToTerminal — mergeStateStatus BEHIND auto-recovery (Task #2334)', () => {
+describe('watchPrToTerminal — mergeStateStatus BEHIND auto-recovery', () => {
   it('issues exactly one gh pr update-branch between two view probes when first probe is BEHIND and second is CLEAN', async () => {
     const { calls, verdict } = await runWatch(['BEHIND', 'CLEAN']);
 

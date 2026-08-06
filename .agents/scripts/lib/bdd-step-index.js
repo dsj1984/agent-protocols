@@ -184,8 +184,15 @@ function expressionToRegExp(expression) {
 
 /**
  * Recursively list step-definition source files under the given roots.
- * Unreadable directories are skipped — an unreadable *scope* surfaces later as
- * "zero step definitions", which the gate treats as fail-closed.
+ *
+ * Deliberately not `walkFilesByExtension` from `fs-walk.js`, which is the
+ * shared walker for the lint surfaces. That one matches a single extension and
+ * walks everything below the root, so reusing it here would mean seven passes
+ * — one per accepted extension — each of them descending into a `node_modules`
+ * a consumer's step root may well contain. It also rethrows every non-ENOENT
+ * `readdir` failure, where this walker must skip an unreadable directory: an
+ * unreadable *scope* has to surface as "zero step definitions", the gate's
+ * fail-closed path, which names the scope and its step roots.
  *
  * @param {string[]} roots absolute or cwd-relative directories
  * @returns {string[]} absolute paths, sorted

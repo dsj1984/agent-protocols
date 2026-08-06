@@ -7,10 +7,11 @@
  * Polls the PR's required checks to a terminal state and auto-recovers
  * from `mergeStateStatus: BEHIND` (via bounded `gh pr update-branch`
  * calls) by delegating to the `watchPrToTerminal` primitive in
- * `lifecycle/listeners/watcher.js`. That primitive was shared with the
+ * `lib/orchestration/pr-watch.js`. That primitive was shared with the
  * `Watcher` bus listener until Story #5006 deleted it (nothing emitted at
- * it); this CLI is now its only caller. No lifecycle bus is created; this
- * is a direct, synchronous watch with a real exit code.
+ * it); this CLI is now its only caller. Story #5024 retired the bus
+ * outright, so there is no bus to create — this is a direct, synchronous
+ * watch with a real exit code.
  *
  * Slow-vs-failed semantics (Story #4358):
  *   - GREEN — every required check terminal + green → exit 0, unless the
@@ -101,7 +102,7 @@ import {
   retireCiDigest,
   writeCiDigest,
 } from './lib/orchestration/ci-rerun-guard.js';
-import { watchPrToTerminal } from './lib/orchestration/lifecycle/listeners/watcher.js';
+import { watchPrToTerminal } from './lib/orchestration/pr-watch.js';
 import { enableAutoMergeWith } from './lib/orchestration/single-story-close/phases/auto-merge.js';
 import { sleep as defaultSleep } from './lib/util/poll-loop.js';
 

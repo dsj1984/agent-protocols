@@ -114,7 +114,7 @@ GitHub provider identity plus the remote stance the bootstrap enforces. `owner`,
 | `notifications` | No | `object` | — | Allowlist-gated notification channels. An event fires on a channel only when it is named in that channel's array. |
 | `notifications.mentionOperator` | No | `boolean` | `false` | When true, `github.operatorHandle` is @-mentioned in the comments the notifier posts. |
 | `notifications.commentEvents` | No | `array<enum>` | `["state-transition","story-merged","operator-message"]` | Events mirrored onto the Story issue as a comment. Deliberately narrower than `webhookEvents`: only Story-scoped events whose message reads as narrative an operator wants durably on the ticket belong here. |
-| `notifications.webhookEvents` | No | `array<enum>` | `["state-transition","story-merged","story-closing","operator-message","merge.unlanded","merge.flip-failed","loop.tick"]` | Events dispatched to the configured webhook. The vocabulary is exactly the set the v2 runtime can emit through `notify()`. |
+| `notifications.webhookEvents` | No | `array<enum>` | `["state-transition","story-merged","story-closing","operator-message","merge.unlanded","merge.flip-failed"]` | Events dispatched to the configured webhook. The vocabulary is the allowlist the webhook channel gates on; `merge.unlanded` and `merge.flip-failed` are allowlistable but reach the run ledger rather than `notify()` today. |
 
 ### `planning` (optional)
 
