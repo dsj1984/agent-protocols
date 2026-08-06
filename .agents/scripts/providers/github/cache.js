@@ -5,8 +5,8 @@
  * single `GitHubProvider`, shared by dispatcher, reconciler, and cascade.
  * The outer TTL wrapper is deliberately omitted because `peekFresh` already
  * bounds entries by a caller-supplied `maxAgeMs`, and every other reader
- * trusts the ticket mutators (`updateTicket` / `postComment` /
- * `addSubIssue` / `removeSubIssue`) to call `invalidate` explicitly.
+ * trusts the ticket mutators (`updateTicket` / `postComment`) to call
+ * `invalidate` explicitly.
  *
  * Surface is intentionally narrow: only the methods the provider itself
  * reaches for live here (`has` / `peek` / `peekFresh` / `set` /

@@ -12,7 +12,6 @@ export class MockProvider extends ITicketingProvider {
     this.subTickets = subTickets;
     this.updates = [];
     this.comments = [];
-    this.prCalls = [];
     this.labelsEnsured = [];
     this.fieldsEnsured = [];
   }
@@ -58,13 +57,6 @@ export class MockProvider extends ITicketingProvider {
     this.comments.push({ id, payload });
   }
 
-  async getRecentComments() {
-    return this.comments.map((c) => ({
-      issue_url: `/issues/${c.id}`,
-      body: c.payload.body || c.payload,
-    }));
-  }
-
   async getTicketDependencies(id) {
     return this.deps[id] || { blocks: [], blockedBy: [] };
   }
@@ -78,19 +70,6 @@ export class MockProvider extends ITicketingProvider {
         return this.tickets[tid];
       })
       .filter(Boolean);
-  }
-
-  async removeSubIssue(parentId, subIssueId) {
-    if (this.subTickets[parentId]) {
-      this.subTickets[parentId] = this.subTickets[parentId].filter(
-        (id) => id !== subIssueId,
-      );
-    }
-  }
-
-  async createPullRequest(opts) {
-    this.prCalls.push(opts);
-    return { number: 123, url: 'https://github.com/pull/123' };
   }
 
   async ensureLabels(labels) {

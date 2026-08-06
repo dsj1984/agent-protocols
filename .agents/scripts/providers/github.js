@@ -19,8 +19,10 @@
  * module.
  *
  * Gateway map: tickets, sub-issues, comments, labels, branch-protection,
- * merge-methods, prs, project-board, issues (epics + sub-tickets +
- * branch probe + raw GraphQL).
+ * merge-methods, project-board, issues (epics + sub-tickets + branch probe
+ * + raw GraphQL). Story #5008 retired the `prs` gateway — `single-story-close`
+ * drives `gh pr create` directly — along with the sub-issue write surface and
+ * the repo-wide recent-comments feed.
  */
 
 import { createGh, gh as defaultGh } from '../lib/gh-exec.js';
@@ -125,16 +127,11 @@ const DELEGATIONS = [
   ['updateTicket', 'tickets.updateTicket'],
   ['_applyLabelMutations', 'tickets._applyLabelMutations'],
   ['_getNativeSubIssues', 'subIssues.getNativeSubIssues'],
-  ['addSubIssue', 'subIssues.addSubIssue'],
-  ['removeSubIssue', 'subIssues.removeSubIssue'],
-  ['reconcileSubIssueLinks', 'subIssues.reconcileSubIssueLinks'],
-  ['getRecentComments', 'comments.getRecentComments'],
   ['getTicketComments', 'comments.getTicketComments'],
   ['deleteComment', 'comments.deleteComment'],
   ['postComment', 'comments.postComment'],
   ['getBranchProtection', 'branchProtection.getBranchProtection'],
   ['setBranchProtection', 'branchProtection.setBranchProtection'],
-  ['createPullRequest', 'pullRequests.createPullRequest'],
   ['ensureLabels', 'labels.ensureLabels'],
   ['_reconcileLabelsPresence', 'labels._reconcileLabelsPresence'],
   ['getMergeMethods', 'mergeMethods.getMergeMethods'],

@@ -9,8 +9,7 @@
  *   1. **Transient retry** — each underlying `gh.api({...})` call inside
  *      `paginateRest` is wrapped in `withTransientRetry` (from `./errors.js`),
  *      so a single 502 / 429 / ECONNRESET on page N of M does not lose
- *      pages 1..N-1 of work. The retry shape matches the existing
- *      `addSubIssue` mutation retry contract in `sub-issues.js`.
+ *      pages 1..N-1 of work.
  *   2. **Page cap** — `paginateRest` enforces a hard ceiling (default
  *      `DEFAULT_PAGE_CAP = 50` → 5000 items at `per_page=100`). Exceeding
  *      the cap throws a clear error naming the endpoint, cap, and items

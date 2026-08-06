@@ -21,7 +21,6 @@ describe('ITicketingProvider — interface contract', () => {
     ['updateTicket', [1, {}]],
     ['postComment', [1, { body: 'test', type: 'progress' }]],
     ['deleteComment', [1]],
-    ['createPullRequest', ['branch-name', 1]],
   ];
 
   const setupMethods = [
@@ -63,19 +62,19 @@ describe('ITicketingProvider — interface contract', () => {
   }
 
   // Story #4545 dropped `createTicket` — the Epic-hierarchy write surface —
-  // from the interface, taking the declared surface from 15 methods to 14.
-  it('has exactly 14 interface methods', () => {
+  // taking the declared surface from 15 methods to 14. Story #5008 dropped
+  // four more Epic-era members (`getRecentComments`, `addSubIssue`,
+  // `removeSubIssue`, `createPullRequest`), leaving 10.
+  it('has exactly 10 interface methods', () => {
     const expectedMethods = [
       'getEpic',
       'getTickets',
       'getTicket',
       'getTicketDependencies',
-      'getRecentComments',
       'getTicketComments',
       'updateTicket',
       'postComment',
       'deleteComment',
-      'createPullRequest',
       'ensureLabels',
       'ensureProjectFields',
       'graphql',

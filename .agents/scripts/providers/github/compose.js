@@ -23,7 +23,6 @@ import { LabelGateway } from './labels.js';
 import { MergeMethodsGateway } from './merge-methods.js';
 import { ProjectBoardGateway } from './project-board.js';
 import * as projects from './projects-v2-graphql.js';
-import { PullRequestGateway } from './prs.js';
 import { SubIssueGateway } from './sub-issues.js';
 import { TicketGateway } from './tickets.js';
 
@@ -50,12 +49,6 @@ export function composeGateways(provider) {
     ghGraphql: (q, v, o) => p.graphql(q, v, o),
     cache: p._cache,
     classifyGithubError,
-    hooks: {
-      getTicket: (id, o) => p.getTicket(id, o),
-      getTickets: (id) => p.getTickets(id),
-      primeTicketCache: (t) => p.primeTicketCache(t),
-      invalidateTicket: (id) => p.invalidateTicket(id),
-    },
   });
   p.comments = new CommentGateway({
     ...ghDeps,
@@ -64,14 +57,6 @@ export function composeGateways(provider) {
   p.labels = new LabelGateway(ghDeps);
   p.branchProtection = new BranchProtectionGateway(ghDeps);
   p.mergeMethods = new MergeMethodsGateway(ghDeps);
-  p.pullRequests = new PullRequestGateway({
-    gh: p._gh,
-    hooks: {
-      getTicket: (id) => p.getTicket(id),
-      addItemToProject,
-      getProjectNumber,
-    },
-  });
   p.issues = new IssuesGateway({
     ...ghDeps,
     hooks: {

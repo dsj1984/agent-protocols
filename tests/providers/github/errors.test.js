@@ -33,8 +33,6 @@ const { GhExecTimeoutError } = ghExecMod;
 const {
   classifyGithubError,
   SUB_ISSUES_QUERY,
-  ADD_SUB_ISSUE_MUTATION,
-  REMOVE_SUB_ISSUE_MUTATION,
   TRANSIENT_RETRY_DEFAULTS,
   withTransientRetry,
 } = errorsMod;
@@ -143,15 +141,11 @@ describe('providers/github/errors.js — GraphQL constants', () => {
     assert.match(SUB_ISSUES_QUERY, /pageInfo \{ hasNextPage endCursor \}/);
   });
 
-  it('ADD_SUB_ISSUE_MUTATION sends parentId/subIssueId/replaceParent', () => {
-    assert.match(ADD_SUB_ISSUE_MUTATION, /addSubIssue\(input:/);
-    assert.match(ADD_SUB_ISSUE_MUTATION, /\$replaceParent: Boolean/);
-  });
-
-  it('REMOVE_SUB_ISSUE_MUTATION sends parentId/subIssueId', () => {
-    assert.match(REMOVE_SUB_ISSUE_MUTATION, /removeSubIssue\(input:/);
-    assert.match(REMOVE_SUB_ISSUE_MUTATION, /\$parentId: ID!/);
-    assert.match(REMOVE_SUB_ISSUE_MUTATION, /\$subIssueId: ID!/);
+  // Story #5008 removed the sub-issue add/remove mutations with the write
+  // surface. Assert the module no longer re-grows them.
+  it('exports no sub-issue write mutations', () => {
+    assert.equal(errorsMod.ADD_SUB_ISSUE_MUTATION, undefined);
+    assert.equal(errorsMod.REMOVE_SUB_ISSUE_MUTATION, undefined);
   });
 });
 

@@ -113,17 +113,6 @@ export class ITicketingProvider {
   }
 
   /**
-   * Fetch recent comments across the repository.
-   * Useful for auditing and visualization of agent telemetry.
-   *
-   * @param {number} [limit=100]
-   * @returns {Promise<object[]>}
-   */
-  async getRecentComments(_limit = 100) {
-    throw new Error('Not implemented: getRecentComments');
-  }
-
-  /**
    * Fetch all comments for a specific ticket.
    *
    * @param {number} ticketId - GitHub Issue number.
@@ -136,42 +125,6 @@ export class ITicketingProvider {
   // ---------------------------------------------------------------------------
   // Write Operations
   // ---------------------------------------------------------------------------
-
-  /**
-   * Create a child ticket within an Epic's structural hierarchy.
-   *
-   * @param {number} parentId - GitHub Issue number of the immediate structural parent (e.g. Epic or Story).
-   * @param {{
-   *   epicId: number,
-   *   title: string,
-   *   body: string,
-   *   labels: string[],
-   *   dependencies: number[]
-   * }} ticketData - The ticket content and metadata.
-   * @returns {Promise<{ id: number, url: string }>}
-   */
-
-  /**
-   * Link an existing issue as a sub-issue of a parent.
-   *
-   * @param {number} parentId - GitHub Issue number of the parent.
-   * @param {number} childId - GitHub internal database ID of the sub-issue.
-   * @returns {Promise<void>}
-   */
-  async addSubIssue(_parentId, _childId) {
-    throw new Error('Not implemented: addSubIssue');
-  }
-
-  /**
-   * Remove a sub-issue link from a parent.
-   *
-   * @param {number} parentId - GitHub Issue number of the parent.
-   * @param {number} childId - GitHub internal database ID of the sub-issue.
-   * @returns {Promise<void>}
-   */
-  async removeSubIssue(_parentId, _childId) {
-    throw new Error('Not implemented: removeSubIssue');
-  }
 
   /**
    * Mutate labels, body (tasklist checkboxes), and assignees on a ticket.
@@ -211,17 +164,6 @@ export class ITicketingProvider {
    */
   async deleteComment(_commentId) {
     throw new Error('Not implemented: deleteComment');
-  }
-
-  /**
-   * Open a Pull Request linking the specified ticket.
-   *
-   * @param {string} branchName - The source branch for the PR.
-   * @param {number} ticketId - GitHub Issue number to link.
-   * @returns {Promise<{ number: number, url: string, htmlUrl: string }>}
-   */
-  async createPullRequest(_branchName, _ticketId) {
-    throw new Error('Not implemented: createPullRequest');
   }
 
   // ---------------------------------------------------------------------------

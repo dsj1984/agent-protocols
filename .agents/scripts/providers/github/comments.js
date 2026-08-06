@@ -7,20 +7,16 @@
  * the upstream `upsertStructuredComment` ticketing helper before the body
  * lands here.
  *
- * Extracted from `../github.js` in Story #2462 / Task #2480. Public
- * surface on `GitHubProvider` is unchanged — `postComment`,
- * `getRecentComments`, `getTicketComments`, and `deleteComment` all
- * delegate here.
+ * Extracted from `../github.js` in Story #2462 / Task #2480. `postComment`,
+ * `getTicketComments`, and `deleteComment` on `GitHubProvider` all delegate
+ * here. Story #5008 dropped the repo-wide `getRecentComments` feed — the
+ * telemetry dashboard that read it was retired and nothing else polls a
+ * cross-issue comment stream.
  *
  * @see Story #2462 — Split GitHubProvider god class into seven composed gateways.
  */
 
-import { withTransientRetry } from './errors.js';
-import {
-  defaultRetryWarn,
-  paginateRest,
-  parseApiJson,
-} from './request-helpers.js';
+import { paginateRest, parseApiJson } from './request-helpers.js';
 
 // Structured-comment badge — preserved verbatim from the legacy
 // `./github/comments.js`. The upstream `upsertStructuredComment` ticketing
@@ -49,24 +45,6 @@ export class CommentGateway {
     this.owner = owner;
     this.repo = repo;
     this._hooks = hooks;
-  }
-
-  /**
-   * Recent comments across all issues in the repo (sorted newest first).
-   *
-   * @field-manifest /repos/{owner}/{repo}/issues/comments?sort=created:
-   *                 id, body, created_at, user, issue_url
-   */
-  async getRecentComments(limit = 100) {
-    const result = await withTransientRetry(
-      () =>
-        this._gh.api({
-          method: 'GET',
-          endpoint: `/repos/${this.owner}/${this.repo}/issues/comments?sort=created&direction=desc&per_page=${limit}`,
-        }),
-      { label: 'getRecentComments', onRetry: defaultRetryWarn },
-    );
-    return parseApiJson(result) ?? [];
   }
 
   /**
