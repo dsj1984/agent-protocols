@@ -282,7 +282,10 @@ describe('providers/github/tickets.js — TicketGateway', () => {
           id: 550,
           node_id: 'node_55',
           title: 'T55',
-          body: 'blocked by #10\nblocks #20',
+          // `blockedBy` is footer-scoped (Story #5046): only a `blocked by #N`
+          // line inside the `---` footer block declares an edge. `blocks #N`
+          // stays a whole-body scan — it is advisory, never a dispatch gate.
+          body: 'blocks #20\n\n---\nblocked by #10',
           labels: [],
           assignees: [],
           state: 'open',

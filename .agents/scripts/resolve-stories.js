@@ -11,8 +11,11 @@
  * What it resolves, per Story:
  *   - the issue itself, fetched with **state=all** so an already-landed
  *     sibling is present rather than silently dropped;
- *   - its dependency edges: the union of body-parsed `blocked by #N` /
- *     `depends on #N` and native GitHub `blocked_by` edges;
+ *   - its dependency edges: the union of the body's `---` footer
+ *     (`blocked by #N`, footer-scoped and strict — prose mentioning a blocker
+ *     elsewhere in the body declares nothing) and native GitHub `blocked_by`
+ *     edges, read to exhaustion and failing loud rather than degrading to
+ *     "no edges";
  *   - its declared file footprint, as plain path strings, so the scheduler's
  *     co-dispatch overlap guard has something to work with.
  *
@@ -45,7 +48,7 @@ import {
 } from './lib/orchestration/resolve-stories.js';
 import { createProvider } from './lib/provider-factory.js';
 import { concurrentMap } from './lib/util/concurrent-map.js';
-import { parseApiJson } from './providers/github/request-helpers.js';
+import { paginateRest } from './providers/github/request-helpers.js';
 
 export { buildStoriesEnvelope, parseIds, readNativeBlockedBy, toStoryRecord };
 
@@ -111,9 +114,21 @@ export async function fetchStories(provider, ids) {
 /**
  * Read native blocked_by edges for every Story in the set.
  *
+ * `paginate` is injected rather than imported inside the lib layer so
+ * `readNativeBlockedBy` stays provider-agnostic and unit-testable; production
+ * passes `paginateRest`, which walks every page (the read used to stop at the
+ * first, silently truncating a Story's gates — Story #5046).
+ *
  * @returns {Promise<Map<number, number[]>>}
  */
-export async function readNativeEdges({ provider, stories, owner, repo }) {
+export async function readNativeEdges({
+  provider,
+  stories,
+  owner,
+  repo,
+  paginate = paginateRest,
+  warn = (m) => Logger.warn(m),
+}) {
   const entries = await concurrentMap(
     stories,
     async (story) => [
@@ -123,7 +138,8 @@ export async function readNativeEdges({ provider, stories, owner, repo }) {
         owner,
         repo,
         issueNumber: story.id,
-        parseJson: parseApiJson,
+        paginate,
+        warn,
       }),
     ],
     { concurrency: FETCH_CONCURRENCY },

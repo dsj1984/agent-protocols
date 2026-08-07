@@ -126,7 +126,11 @@ describe('GitHubProvider — getTicketDependencies()', () => {
         json: {
           number: 5,
           title: 'Dependent task',
-          body: 'This is blocked by #3\nAlso depends on #4\nblocks #6',
+          // `blockedBy` is footer-scoped (Story #5046): only a `blocked by #N`
+          // line inside the `---` footer block declares an edge, so the prose
+          // mention of #4 below deliberately declares nothing. `blocks #N`
+          // stays a whole-body scan — it is advisory, never a dispatch gate.
+          body: 'Also depends on #4\nblocks #6\n\n---\nblocked by #3',
           labels: [],
           assignees: [],
           state: 'open',
@@ -136,7 +140,7 @@ describe('GitHubProvider — getTicketDependencies()', () => {
     const provider = createTestProvider({ gh });
     const deps = await provider.getTicketDependencies(5);
 
-    assert.deepEqual(deps.blockedBy, [3, 4]);
+    assert.deepEqual(deps.blockedBy, [3]);
     assert.deepEqual(deps.blocks, [6]);
   });
 

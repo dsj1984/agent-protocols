@@ -22,7 +22,7 @@
 
 import { Logger } from '../../lib/Logger.js';
 import { concurrentMap } from '../../lib/util/concurrent-map.js';
-import { parseApiJson } from './request-helpers.js';
+import { paginateRest } from './request-helpers.js';
 
 /**
  * Bounded concurrency for the GitHub dependency-edge round-trips. Kept modest
@@ -32,22 +32,37 @@ import { parseApiJson } from './request-helpers.js';
 const EDGE_CONCURRENCY = 5;
 
 /**
- * Fetch the existing blocked-by issue numbers for a given issue.
+ * Fetch the existing blocked-by database ids for a given issue, **paginated
+ * to exhaustion**.
+ *
+ * This read is the idempotency check: an edge it fails to see is re-POSTed.
+ * Reading only the first page therefore made the writer non-idempotent past
+ * the page boundary — every edge beyond it looked missing on every run
+ * (Story #5046). `paginateRest` walks the pages and carries the shared
+ * transient-retry and page-cap guards.
  *
  * Returns `[]` on any error so the caller falls back to posting the full
  * set of missing edges (worst case: a duplicate POST, which GitHub
- * handles idempotently).
+ * handles idempotently). That non-fatal contract is deliberate and is the
+ * inverse of the READ path in `lib/orchestration/resolve-stories.js`: a lost
+ * write-side edge is cosmetic, a lost read-side edge removes a dispatch gate.
  *
- * @param {{ gh: object, owner: string, repo: string, issueNumber: number }} opts
+ * @param {{ gh: object, owner: string, repo: string, issueNumber: number, paginate?: Function }} opts
  * @returns {Promise<number[]>} Database ids of the issues that currently block `issueNumber`.
  */
-async function fetchExistingBlockedBy({ gh, owner, repo, issueNumber }) {
+async function fetchExistingBlockedBy({
+  gh,
+  owner,
+  repo,
+  issueNumber,
+  paginate = paginateRest,
+}) {
   try {
-    const result = await gh.api({
-      method: 'GET',
-      endpoint: `/repos/${owner}/${repo}/issues/${issueNumber}/dependencies/blocked_by`,
-    });
-    const data = parseApiJson(result);
+    const data = await paginate(
+      gh,
+      `/repos/${owner}/${repo}/issues/${issueNumber}/dependencies/blocked_by`,
+      { label: `[blocked-by-add] blocked_by #${issueNumber}` },
+    );
     if (!Array.isArray(data)) return [];
     return data.map((item) => item?.id).filter((id) => typeof id === 'number');
   } catch (err) {

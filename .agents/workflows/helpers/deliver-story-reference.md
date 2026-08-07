@@ -161,6 +161,63 @@ terminal envelope are byte-identical either way.
 
 ---
 
+## Declared dependency edges — what actually gates dispatch
+
+`resolve-stories.js` builds each `dag[].dependsOn` from the **union of two
+declared-edge channels**, and nothing else: the Story body's footer block and
+the issue's native GitHub `blocked_by` relations. Both are read strictly — an
+edge the resolver cannot read is never quietly reported as an edge that does
+not exist.
+
+**The body channel is footer-scoped.** Only a `blocked by #N` line standing
+alone inside the `---` footer block declares an edge:
+
+```markdown
+## Goal
+
+…
+
+---
+
+blocked by #42
+```
+
+Prose elsewhere in the body declares **nothing**, and this is a deliberate,
+user-visible change from the whole-body scan that preceded it. A sentence
+merely mentioning a blocker — an example, a changelog note, an acceptance
+criterion quoting the phrase — used to mint a real dispatch gate that withheld
+the Story until an unrelated issue closed. `plan-persist` has always
+serialized the canonical footer form, so no machine-authored body is affected;
+only a **hand-written prose edge** stops gating, and the fix is to move it into
+the footer block. The loose spellings never reached the footer grammar either:
+`depends on #N`, `Blocked by: #N`, and `blocked by #N once X lands` all declare
+nothing. One grammar serves both readers — the body parser and the
+dispatch-edge parser share it — so what a Story body round-trips and what gates
+dispatch cannot drift apart.
+
+**The native channel fails loud.** The read paginates to exhaustion (a
+first-page read silently truncated a Story's gates at GitHub's 30-item
+default), and **a 404 is not an empty result**. An issue with no dependencies
+answers `200 []`; a 404 is how GitHub also answers a token that cannot see the
+dependencies API, so treating it as "no edges" erased every native edge in the
+run under a mis-scoped token, silently, with a clean exit code. Any non-OK
+read now fails the resolution naming the Story — check the token's scopes
+first. The one degrade that is scoped rather than fatal is a **cross-repo
+edge**: another repository's issue number cannot be matched against this
+repo's same-numbered issue without risking a false match, so that edge is
+dropped with a warning naming the Story, and its siblings resolve normally.
+
+**Edges are monotone — retraction is not built.** Both channels only ever
+_add_ a gate for the current resolution. Removing a `blocked by` footer line
+or deleting a native relation makes the edge absent from the **next** resolve,
+but nothing reconciles an edge that a previous run already acted on, and the
+write path never deletes a native relation it did not need. In practice that
+means: re-resolve after editing edges, and treat a stale gate as a body/issue
+edit plus a fresh `resolve-stories.js` run, never as something delivery
+un-declares on your behalf. This is a known limitation, not an oversight.
+
+---
+
 ## Step 1 — Implementation detail
 
 **Docs context — digest-first.** Read a full doc only when the Story's own

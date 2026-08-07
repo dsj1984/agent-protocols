@@ -48,6 +48,7 @@ import {
 } from '../framework-version.js';
 import { FILE_ASSUMPTION_VALUES } from '../orchestration/file-assumption-enum.js';
 import { suggestPathEntryFix } from './body-format-lints.js';
+import { isFooterSeparator, parseFooterBlockedByRefs } from './footer-block.js';
 
 // ---------------------------------------------------------------------------
 // Public types (JSDoc only — no runtime schema file)
@@ -313,16 +314,15 @@ function pathEntryFixIt(raw) {
  * Extract the `blocked by #N` lines from the footer block (text after
  * the last `---` separator). Returns an array of "#N" strings.
  *
+ * Delegates to `./footer-block.js`, which owns the footer-block grammar
+ * (Story #5046) so the body parser and the dispatch-edge parser cannot
+ * disagree about what declares an edge.
+ *
  * @param {string} footerBlock
  * @returns {string[]}
  */
 function extractBlockedBy(footerBlock) {
-  const deps = [];
-  for (const line of footerBlock.split('\n')) {
-    const m = line.trim().match(/^blocked by\s+(#\d+)$/i);
-    if (m) deps.push(m[1]);
-  }
-  return deps;
+  return parseFooterBlockedByRefs(footerBlock);
 }
 
 // Matches any trailing `<!-- meta: … -->` block. Object payloads are the
@@ -489,22 +489,6 @@ function splitSections(markdown) {
     footerStart >= 0 ? lines.slice(footerStart + 1).join('\n') : '';
   const preamble = preambleLines.join('\n').trim();
   return { sections, footer, preamble };
-}
-
-/**
- * True when line `index` opens the footer block: a `---` on its own line
- * whose remaining lines start with a recognised footer key (`parent:`,
- * `Epic:`, `blocked by`).
- *
- * @param {string} line
- * @param {string[]} lines
- * @param {number} index
- * @returns {boolean}
- */
-function isFooterSeparator(line, lines, index) {
-  if (!/^---\s*$/.test(line)) return false;
-  const remaining = lines.slice(index + 1).join('\n');
-  return /^(parent:|Epic:|blocked by)/im.test(remaining);
 }
 
 /**
