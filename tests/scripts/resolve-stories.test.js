@@ -33,10 +33,39 @@ import {
   planReadySet,
   storiesOverlap,
 } from '../../.agents/scripts/lib/wave-runner/ready-set.js';
-import { runResolveStories } from '../../.agents/scripts/resolve-stories.js';
+import { paginateRest } from '../../.agents/scripts/providers/github/request-helpers.js';
+import {
+  readNativeEdges,
+  runResolveStories,
+} from '../../.agents/scripts/resolve-stories.js';
 import { parseDag } from '../../.agents/scripts/stories-wave-tick.js';
 
 const REPO = { owner: 'dsj1984', repo: 'mandrel', issueNumber: 4534 };
+
+/**
+ * A `gh` fake for the dependencies endpoint that honours `page` / `per_page`
+ * the way GitHub does — including the default page size of **30** when the
+ * caller does not ask for one. Modelling that default is the whole point: it
+ * is the boundary the first-page-only read silently truncated against.
+ *
+ * @param {object[]} edges Full edge list the endpoint would serve.
+ * @param {{ failWith?: string }} [opts] Throw this message instead of serving.
+ */
+function makeDependenciesGh(edges, { failWith = null } = {}) {
+  const calls = [];
+  return {
+    calls,
+    api: async ({ endpoint }) => {
+      calls.push(endpoint);
+      if (failWith) throw new Error(failWith);
+      const params = new URL(endpoint, 'https://api.github.test').searchParams;
+      const page = Number(params.get('page') ?? 1);
+      const perPage = Number(params.get('per_page') ?? 30);
+      const slice = edges.slice((page - 1) * perPage, page * perPage);
+      return { stdout: JSON.stringify(slice), stderr: '', code: 0 };
+    },
+  };
+}
 
 function storyBody({
   changes = ['.agents/scripts/a.js'],
@@ -184,21 +213,28 @@ describe('nativeBlockedByNumbers — issue numbers, not database ids (run-breake
     assert.deepEqual(nativeBlockedByNumbers(data, REPO), [4530]);
   });
 
-  it('rejects a cross-repo blocker rather than matching its number locally', () => {
-    assert.throws(
-      () =>
-        nativeBlockedByNumbers(
-          [
-            {
-              id: 1,
-              number: 4530,
-              repository_url: 'https://api.github.com/repos/other/repo',
-            },
-          ],
-          REPO,
-        ),
-      /another repository/,
+  it('drops a cross-repo blocker rather than matching its number locally', () => {
+    // Matching another repo's #4530 against this repo's #4530 could satisfy a
+    // gate that is still open — so the edge is dropped, loudly, never mapped.
+    const warnings = [];
+    assert.deepEqual(
+      nativeBlockedByNumbers(
+        [
+          {
+            id: 1,
+            number: 4530,
+            repository_url: 'https://api.github.com/repos/other/repo',
+          },
+          { id: 2, number: 4531 },
+        ],
+        { ...REPO, warn: (m) => warnings.push(m) },
+      ),
+      [4531],
+      'the in-repo edge survives; only the unmatchable one is dropped',
     );
+    assert.equal(warnings.length, 1);
+    assert.match(warnings[0], /another repository/);
+    assert.match(warnings[0], /#4534/, 'the warning names the affected Story');
   });
 
   it('dedupes and tolerates a non-array payload', () => {
@@ -211,51 +247,123 @@ describe('nativeBlockedByNumbers — issue numbers, not database ids (run-breake
 });
 
 describe('readNativeBlockedBy — fails loud (run-breaker #3)', () => {
-  const parseJson = (r) => JSON.parse(r.stdout);
-
   it('returns the edges on success', async () => {
-    const gh = {
-      api: async () => ({ stdout: JSON.stringify([{ id: 9, number: 42 }]) }),
-    };
+    const gh = makeDependenciesGh([{ id: 9, number: 42 }]);
     assert.deepEqual(
-      await readNativeBlockedBy({ gh, ...REPO, parseJson }),
+      await readNativeBlockedBy({ gh, ...REPO, paginate: paginateRest }),
       [42],
     );
-  });
-
-  it('treats 404 as a legitimate empty result', async () => {
-    const gh = {
-      api: async () => {
-        throw new Error('HTTP 404: Not Found');
-      },
-    };
-    assert.deepEqual(await readNativeBlockedBy({ gh, ...REPO, parseJson }), []);
   });
 
   it('throws on 403 — a dropped edge would remove a real dispatch gate', async () => {
     // One 403 (dependencies API disabled, or a token missing the scope)
     // would otherwise erase EVERY native edge at once and co-dispatch the
     // whole run against unlanded blockers.
-    const gh = {
-      api: async () => {
-        throw new Error('HTTP 403: Resource not accessible by integration');
-      },
-    };
+    const gh = makeDependenciesGh([], {
+      failWith: 'HTTP 403: Resource not accessible by integration',
+    });
     await assert.rejects(
-      () => readNativeBlockedBy({ gh, ...REPO, parseJson }),
+      () => readNativeBlockedBy({ gh, ...REPO, paginate: paginateRest }),
       /Refusing to continue.*dispatch gate/s,
     );
   });
 
   it('throws on a 5xx rather than degrading to no edges', async () => {
-    const gh = {
-      api: async () => {
-        throw new Error('HTTP 502: Bad Gateway');
-      },
-    };
+    const gh = makeDependenciesGh([], { failWith: 'HTTP 502: Bad Gateway' });
     await assert.rejects(
-      () => readNativeBlockedBy({ gh, ...REPO, parseJson }),
+      () => readNativeBlockedBy({ gh, ...REPO, paginate: paginateRest }),
       /Could not read native blocked_by/,
+    );
+  });
+});
+
+describe('AC-2: a 404 on the native read is an auth failure, not "no edges"', () => {
+  // GitHub answers "this issue has no dependencies" with `200 []` — and
+  // answers "your token cannot see the dependencies API" with 404. Reading
+  // the second as the first erased every native edge in the run under a
+  // mis-scoped token, silently, with a clean exit code (Story #5046).
+  it('the read no longer resolves edge-free on 404 — it degrades loud, naming the story', async () => {
+    const gh = makeDependenciesGh([], { failWith: 'HTTP 404: Not Found' });
+    await assert.rejects(
+      () => readNativeBlockedBy({ gh, ...REPO, paginate: paginateRest }),
+      (err) => {
+        assert.match(
+          err.message,
+          new RegExp(`blocked_by edges for #${REPO.issueNumber}`),
+          'the failure names the story whose edges could not be read',
+        );
+        assert.match(
+          err.message,
+          /404 here is NOT "no dependencies"/,
+          'the failure explains why a 404 is not an empty result',
+        );
+        assert.match(err.message, /token's scopes/);
+        return true;
+      },
+    );
+  });
+
+  it('an issue that genuinely has no dependencies still resolves to no edges', async () => {
+    // The 200-empty path is what "no dependencies" looks like, so removing
+    // the 404 escape hatch costs nothing legitimate.
+    const gh = makeDependenciesGh([]);
+    assert.deepEqual(
+      await readNativeBlockedBy({ gh, ...REPO, paginate: paginateRest }),
+      [],
+    );
+  });
+});
+
+describe('AC-1: native reads are complete — the page walk runs to exhaustion', () => {
+  // The fake models GitHub's real default: a caller that does not ask for a
+  // page size gets 30 items. That default is exactly what the first-page-only
+  // read silently truncated against.
+  const manyEdges = Array.from({ length: 145 }, (_, i) => ({
+    id: 9000 + i,
+    number: 4000 + i,
+  }));
+
+  it('resolve-stories reads every edge of a 145-edge story, past the 30-item default', async () => {
+    const gh = makeDependenciesGh(manyEdges);
+    const numbers = await readNativeBlockedBy({
+      gh,
+      ...REPO,
+      paginate: paginateRest,
+    });
+    assert.equal(numbers.length, 145, 'no edge is dropped past the boundary');
+    assert.deepEqual(
+      numbers,
+      manyEdges.map((e) => e.number),
+      'every declared blocker is present, in order',
+    );
+    assert.ok(
+      numbers.includes(4144),
+      'the last edge — the one a first-page-only read loses — is a real gate',
+    );
+    assert.ok(gh.calls.length > 1, 'more than one page was requested');
+  });
+
+  it('a first-page-only read would have lost the tail — the fixture proves the defect is real', async () => {
+    // Same fixture, read the way the shipped code used to: one un-paged GET.
+    const gh = makeDependenciesGh(manyEdges);
+    const firstPageOnly = async (ghFacade, endpoint) => {
+      const result = await ghFacade.api({ method: 'GET', endpoint });
+      return JSON.parse(result.stdout);
+    };
+    const truncated = await readNativeBlockedBy({
+      gh,
+      ...REPO,
+      paginate: firstPageOnly,
+    });
+    assert.equal(
+      truncated.length,
+      30,
+      'the old read stopped at GitHub default',
+    );
+    assert.equal(
+      truncated.includes(4144),
+      false,
+      'and silently dropped a real dispatch gate',
     );
   });
 });
@@ -278,6 +386,168 @@ describe('storiesToDag — body and native edges union into one graph', () => {
     ];
     const dag = storiesToDag(stories);
     assert.deepEqual(dag[0].dependsOn, [4530]);
+  });
+});
+
+describe('AC-4: prose no longer mints dispatch gates — only the footer declares', () => {
+  // The live reproduction this Story shipped from: Story #5046's own body
+  // contained the phrase "blocked by #123" inside an acceptance criterion
+  // describing this very defect, and the unanchored whole-body scan minted it
+  // into a real dispatch edge (`resolve-stories --ids 5046` reported
+  // `dependsOn [123]`). A body is prose an operator writes; it must not gate
+  // dispatch by accident.
+  const prose = [
+    'Prose that merely MENTIONS a blocker declares nothing:',
+    'a body containing "blocked by #123" outside the footer block must',
+    'produce no dispatch edge. Nor may a sentence that depends on #456.',
+  ].join('\n');
+
+  it('a "blocked by #123" mention outside the footer produces no edge', () => {
+    const stories = [
+      toStoryRecord(issue({ body: `${storyBody()}\n\n${prose}` })),
+    ];
+    assert.deepEqual(
+      storiesToDag(stories)[0].dependsOn,
+      [],
+      'prose mentioning #123 and #456 declares neither as a gate',
+    );
+  });
+
+  it('the canonical footer form still declares a real gate', () => {
+    const stories = [
+      toStoryRecord(issue({ body: storyBody({ blockedBy: 777 }) })),
+    ];
+    assert.deepEqual(storiesToDag(stories)[0].dependsOn, [777]);
+  });
+
+  it('one body carrying both keeps only the footer edge', () => {
+    // The discriminator is position, not phrasing: the same words gate from
+    // inside the footer block and do not gate from outside it.
+    const stories = [
+      toStoryRecord(
+        issue({ body: `${storyBody({ blockedBy: 777 })}\n${prose}` }),
+      ),
+    ];
+    assert.deepEqual(storiesToDag(stories)[0].dependsOn, [777]);
+  });
+
+  it('a footer edge still unions with the native channel', () => {
+    // Semantics stay the UNION of native relations and body footers — the
+    // strict parse narrows the body channel, it does not replace it.
+    const stories = [
+      toStoryRecord(
+        issue({ body: `${storyBody({ blockedBy: 777 })}\n${prose}` }),
+      ),
+    ];
+    const dag = storiesToDag(stories, new Map([[101, [888]]]));
+    assert.deepEqual(
+      dag[0].dependsOn.sort((a, b) => a - b),
+      [777, 888],
+    );
+  });
+
+  it('end to end: the resolved envelope carries no prose edge', async () => {
+    const provider = {
+      getTicket: async (id) =>
+        id === 101 ? issue({ body: `${storyBody()}\n\n${prose}` }) : null,
+      _gh: makeDependenciesGh([]),
+    };
+    const chunks = [];
+    await runResolveStories(
+      { ids: '101', native: false },
+      {
+        provider,
+        config: { github: { owner: 'dsj1984', repo: 'mandrel' } },
+        stdout: { write: (s) => chunks.push(s) },
+      },
+    );
+    const envelope = JSON.parse(chunks.join(''));
+    assert.deepEqual(envelope.dag.find((n) => n.id === 101).dependsOn, []);
+    assert.deepEqual(envelope.done, [], 'no phantom blocker to resolve either');
+  });
+});
+
+describe('AC-3: a cross-repo edge degrades its own Story, never the whole set', () => {
+  // It used to throw out of the per-Story read and take the entire resolution
+  // down: one Story's unsupported edge meant no sibling resolved at all.
+  const CROSS_REPO = {
+    id: 1,
+    number: 4530,
+    repository_url: 'https://api.github.com/repos/other/repo',
+  };
+
+  function providerServing(byIssue) {
+    return {
+      _gh: {
+        api: async ({ endpoint }) => {
+          const issueNumber = Number(endpoint.match(/\/issues\/(\d+)\//)[1]);
+          const params = new URL(endpoint, 'https://api.github.test')
+            .searchParams;
+          const page = Number(params.get('page') ?? 1);
+          const perPage = Number(params.get('per_page') ?? 30);
+          const all = byIssue[issueNumber] ?? [];
+          return {
+            stdout: JSON.stringify(
+              all.slice((page - 1) * perPage, page * perPage),
+            ),
+            stderr: '',
+            code: 0,
+          };
+        },
+      },
+    };
+  }
+
+  it('the carrier loses only the unmatchable edge; its siblings resolve intact', async () => {
+    const warnings = [];
+    const edges = await readNativeEdges({
+      provider: providerServing({
+        101: [CROSS_REPO, { id: 2, number: 4531 }],
+        102: [{ id: 3, number: 4532 }],
+        103: [],
+      }),
+      stories: [{ id: 101 }, { id: 102 }, { id: 103 }],
+      owner: 'dsj1984',
+      repo: 'mandrel',
+      paginate: paginateRest,
+      warn: (m) => warnings.push(m),
+    });
+
+    assert.deepEqual(
+      edges.get(101),
+      [4531],
+      'the carrier keeps every edge this repo can match',
+    );
+    assert.deepEqual(edges.get(102), [4532], 'a sibling resolves untouched');
+    assert.deepEqual(edges.get(103), [], 'and so does an edge-free sibling');
+    assert.equal(warnings.length, 1, 'exactly one Story degraded');
+    assert.match(warnings[0], /#101/, 'the warning names the degraded Story');
+    assert.match(warnings[0], /DROPPED for #101 only/);
+  });
+
+  it('a hard read failure on one Story still fails the run — a lost gate is not degradable', async () => {
+    // The contrast that keeps the degrade honest: an unmatchable cross-repo
+    // edge is a KNOWN edge we decline to map, while an unreadable channel is
+    // an UNKNOWN edge set. Only the first is safe to continue past.
+    const provider = {
+      _gh: {
+        api: async () => {
+          throw new Error('HTTP 403: Resource not accessible by integration');
+        },
+      },
+    };
+    await assert.rejects(
+      () =>
+        readNativeEdges({
+          provider,
+          stories: [{ id: 101 }],
+          owner: 'dsj1984',
+          repo: 'mandrel',
+          paginate: paginateRest,
+          warn: () => {},
+        }),
+      /Refusing to continue/,
+    );
   });
 });
 

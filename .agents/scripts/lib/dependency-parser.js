@@ -7,18 +7,31 @@
  * lib/story-adjacency.js, lib/branch-name-guard.js).
  */
 
+import { parseFooterBlockedByIds } from './story-body/footer-block.js';
+
 /**
- * Parse `blocked by #NNN` and `depends on #NNN` references from text.
- * Handles case-insensitive variations.
+ * Parse a body's declared blocker issue numbers — **footer-scoped and
+ * strict**.
+ *
+ * Only a `blocked by #N` line standing alone inside the `---` footer block
+ * declares an edge. The unanchored predecessor scanned the whole body for
+ * `blocked by|depends on #N` anywhere, so a Story whose prose merely mentioned
+ * a blocker — an example, a changelog note, an acceptance criterion describing
+ * this very defect — minted a real dispatch gate that withheld the Story until
+ * an unrelated issue closed.
+ *
+ * The behaviour change is deliberate and user-visible: prose-only mentions
+ * outside the footer no longer gate. Every machine-authored body already
+ * carries the canonical footer form (`plan-persist` has always serialized it),
+ * so only hand-written prose edges are affected — those must be moved into the
+ * footer block to keep gating. The grammar itself lives in
+ * `lib/story-body/footer-block.js`, shared with the body parser.
  *
  * @param {string} body - Issue body or freeform text.
- * @returns {number[]} Array of issue numbers this text declares as blockers.
+ * @returns {number[]} Array of issue numbers this body declares as blockers.
  */
 export function parseBlockedBy(body) {
-  if (!body) return [];
-  const re = /(?:blocked\s+by|depends\s+on):?\s+#(\d+)/gi;
-  const ids = [...body.matchAll(re)].map((m) => Number.parseInt(m[1], 10));
-  return [...new Set(ids)];
+  return parseFooterBlockedByIds(body);
 }
 
 /**

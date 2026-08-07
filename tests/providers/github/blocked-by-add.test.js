@@ -395,6 +395,63 @@ describe('providers/github/blocked-by-add.js — applyBlockedByDependencies', ()
     assert.deepEqual(rawFetches, [10]);
   });
 
+  it('AC-1: the read-back paginates to exhaustion, so an edge past the first page is not re-POSTed', async () => {
+    // This GET is the idempotency check. Reading only the first page made the
+    // writer non-idempotent past the page boundary: every edge beyond it
+    // looked missing on every run and was POSTed again (Story #5046). The
+    // fake honours `page`/`per_page` and falls back to GitHub's real default
+    // of 30 when the caller does not ask — the boundary that truncated.
+    const existing = Array.from({ length: 145 }, (_, i) => ({ id: i + 1 }));
+    const calls = [];
+    const gh = {
+      calls,
+      api: async ({ method, endpoint, body }) => {
+        calls.push({ method, endpoint, body });
+        if (method !== 'GET') {
+          return { stdout: JSON.stringify({ id: 999 }), stderr: '', code: 0 };
+        }
+        const params = new URL(endpoint, 'https://api.github.test')
+          .searchParams;
+        const page = Number(params.get('page') ?? 1);
+        const perPage = Number(params.get('per_page') ?? 30);
+        return {
+          stdout: JSON.stringify(
+            existing.slice((page - 1) * perPage, page * perPage),
+          ),
+          stderr: '',
+          code: 0,
+        };
+      },
+    };
+
+    const result = await applyBlockedByDependencies({
+      stories: [{ slug: 'story-b', dependsOn: ['story-a'] }],
+      slugToIssueNumber: { 'story-a': 10, 'story-b': 20 },
+      // internalId 145 is the LAST existing edge — on page 2, invisible to a
+      // first-page-only read.
+      getTicket: async () => ({ internalId: 145 }),
+      owner,
+      repo,
+      gh,
+    });
+
+    assert.deepEqual(result, {
+      edgesAdded: 0,
+      edgesSkipped: 1,
+      edgesFailed: 0,
+      storiesProcessed: 1,
+    });
+    assert.equal(
+      calls.filter((c) => c.method === 'POST').length,
+      0,
+      'an edge that already exists is never re-POSTed',
+    );
+    assert.ok(
+      calls.filter((c) => c.method === 'GET').length > 1,
+      'more than one page was requested',
+    );
+  });
+
   it('gracefully handles a GET failure by assuming no existing edges', async () => {
     let getCallCount = 0;
     const gh = {

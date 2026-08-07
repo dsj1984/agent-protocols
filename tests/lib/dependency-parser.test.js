@@ -9,36 +9,75 @@ import {
 } from '../../.agents/scripts/lib/dependency-parser.js';
 
 describe('dependency-parser', () => {
-  describe('parseBlockedBy', () => {
+  describe('parseBlockedBy — footer-scoped and strict (Story #5046)', () => {
+    // A declared edge lives on its own line inside the `---` footer block.
+    // The unanchored predecessor scanned the whole body, so any prose
+    // mentioning a blocker minted a real dispatch gate.
+    const footer = (...lines) =>
+      ['## Goal', 'Do the thing.', '', '---', ...lines].join('\n');
+
     it('returns empty array for falsy input', () => {
       assert.deepEqual(parseBlockedBy(null), []);
       assert.deepEqual(parseBlockedBy(undefined), []);
       assert.deepEqual(parseBlockedBy(''), []);
     });
 
-    it('parses "blocked by #NNN"', () => {
-      assert.deepEqual(parseBlockedBy('This is blocked by #123.'), [123]);
-      assert.deepEqual(parseBlockedBy('blocked by #456'), [456]);
+    it('parses a footer "blocked by #NNN" line', () => {
+      assert.deepEqual(parseBlockedBy(footer('blocked by #123')), [123]);
     });
 
-    it('parses "depends on #NNN"', () => {
-      assert.deepEqual(parseBlockedBy('depends on #789'), [789]);
+    it('is case-insensitive within the footer', () => {
+      assert.deepEqual(parseBlockedBy(footer('BLOCKED BY #333')), [333]);
     });
 
-    it('handles colons', () => {
-      assert.deepEqual(parseBlockedBy('Blocked by: #111'), [111]);
-      assert.deepEqual(parseBlockedBy('Depends on: #222'), [222]);
-    });
-
-    it('is case-insensitive', () => {
-      assert.deepEqual(parseBlockedBy('BLOCKED BY #333'), [333]);
-      assert.deepEqual(parseBlockedBy('DePeNdS oN #444'), [444]);
-    });
-
-    it('extracts multiple dependencies', () => {
+    it('extracts and dedupes multiple footer dependencies', () => {
       assert.deepEqual(
-        parseBlockedBy('blocked by #1\nBlocked by: #2\ndepends on #3'),
-        [1, 2, 3],
+        parseBlockedBy(
+          footer('blocked by #1', 'blocked by #2', 'blocked by #1'),
+        ),
+        [1, 2],
+      );
+    });
+
+    it('reads a footer alongside the other recognised footer keys', () => {
+      assert.deepEqual(
+        parseBlockedBy(footer('parent: #900', 'blocked by #901')),
+        [901],
+      );
+    });
+
+    it('does NOT mint a gate from prose outside the footer', () => {
+      // The live reproduction: Story #5046's own acceptance text contained
+      // the phrase below as an EXAMPLE, and the old parser turned it into a
+      // real dispatch edge on #123.
+      assert.deepEqual(parseBlockedBy('This is blocked by #123.'), []);
+      assert.deepEqual(parseBlockedBy('blocked by #456'), []);
+      assert.deepEqual(
+        parseBlockedBy('## Goal\nA body mentioning blocked by #123 in prose.'),
+        [],
+      );
+    });
+
+    it('does NOT accept the loose "depends on" / colon spellings', () => {
+      // Only the canonical footer form declares. `plan-persist` has always
+      // serialized that form, so no machine-authored body is affected.
+      assert.deepEqual(parseBlockedBy(footer('depends on #789')), []);
+      assert.deepEqual(parseBlockedBy(footer('Blocked by: #111')), []);
+    });
+
+    it('does NOT accept a footer line carrying trailing prose', () => {
+      assert.deepEqual(
+        parseBlockedBy(footer('blocked by #123 once the API lands')),
+        [],
+      );
+    });
+
+    it('ignores a `---` rule that opens no footer block', () => {
+      // A thematic break mid-body is not a footer separator: the lines after
+      // it must start with a recognised footer key.
+      assert.deepEqual(
+        parseBlockedBy('## Goal\n\n---\n\nSome prose. blocked by #123'),
+        [],
       );
     });
 

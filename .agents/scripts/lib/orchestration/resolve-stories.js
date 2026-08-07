@@ -182,9 +182,16 @@ export function storyFootprintPaths(body, id, warn) {
 }
 
 /**
- * Build the DAG nodes. `dependsOn` is the union the adjacency builder already
- * computes (body-parsed `blocked by #N` + explicit fields), plus any native
- * edges threaded in via `nativeEdges`. `files` is a plain `string[]`.
+ * Build the DAG nodes. `dependsOn` is the **union of the two declared-edge
+ * channels**: the Story body's `---` footer (`blocked by #N`) and the native
+ * GitHub `blocked_by` relations threaded in via `nativeEdges`. `files` is a
+ * plain `string[]`.
+ *
+ * The body channel is footer-scoped and strict (`parseBlockedBy`, Story
+ * #5046) — a `blocked by #123` mention in prose no longer mints a dispatch
+ * gate. Only `{ id, dependsOn }` is handed to the adjacency builder, never the
+ * body: the edge set is decided here, once, so the builder's own body parse
+ * cannot re-derive a different one behind this function's back.
  *
  * @param {object[]} stories
  * @param {Map<number, number[]>} [nativeEdges]
@@ -193,7 +200,7 @@ export function storyFootprintPaths(body, id, warn) {
  */
 export function storiesToDag(stories, nativeEdges = new Map(), warn) {
   const withNative = stories.map((s) => ({
-    ...s,
+    id: s.id,
     dependsOn: [
       ...new Set([
         ...parseBlockedBy(s.body ?? ''),
@@ -222,28 +229,39 @@ export function storiesToDag(stories, nativeEdges = new Map(), warn) {
  * matching no Story, foreign to the set, never satisfiable, and (because
  * foreign edges are real gates) a silent permanent wedge.
  *
- * Cross-repo blockers are rejected rather than matched: another repo's #4530
- * is not this repo's #4530, and treating it as one could satisfy a gate that
- * is still open.
+ * A cross-repo blocker is **dropped with a loud warning**, never matched:
+ * another repo's #4530 is not this repo's #4530, and treating it as one could
+ * satisfy a gate that is still open. It used to throw, which failed the WHOLE
+ * resolution — one Story's unsupported edge took every sibling down with it
+ * (Story #5046). The degrade is now scoped to the Story carrying the edge:
+ * its siblings resolve normally, and the operator is told, by number, which
+ * Story lost which edge.
  *
  * @param {unknown} data Parsed API response.
- * @param {{ owner: string, repo: string, issueNumber: number }} ctx
+ * @param {{ owner: string, repo: string, issueNumber: number, warn?: (msg: string) => void }} ctx
  * @returns {number[]}
  */
-export function nativeBlockedByNumbers(data, { owner, repo, issueNumber }) {
+export function nativeBlockedByNumbers(
+  data,
+  { owner, repo, issueNumber, warn },
+) {
   if (!Array.isArray(data)) return [];
   const out = [];
   for (const item of data) {
     const repoUrl = item?.repository_url ?? item?.repository?.url ?? null;
-    if (typeof repoUrl === 'string' && repoUrl.length > 0) {
-      const expected = `/repos/${owner}/${repo}`;
-      if (!repoUrl.endsWith(expected)) {
-        throw new Error(
-          `[resolve-stories] #${issueNumber} is blocked by an issue in another repository ` +
-            `(${repoUrl}). Cross-repo dependency edges are not supported — its number cannot ` +
-            `be matched against this repo's Stories without risking a false match.`,
-        );
-      }
+    if (
+      typeof repoUrl === 'string' &&
+      repoUrl.length > 0 &&
+      !repoUrl.endsWith(`/repos/${owner}/${repo}`)
+    ) {
+      warn?.(
+        `[resolve-stories] #${issueNumber} declares a native blocked_by edge on an issue in ` +
+          `another repository (${repoUrl}). Cross-repo edges are not supported — its number ` +
+          `cannot be matched against this repo's Stories without risking a false match, so the ` +
+          `edge is DROPPED for #${issueNumber} only. Its siblings resolve normally; re-declare ` +
+          `the ordering in this repo if #${issueNumber} must wait.`,
+      );
+      continue;
     }
     const number = Number(item?.number);
     if (Number.isInteger(number) && number > 0) out.push(number);
@@ -252,17 +270,33 @@ export function nativeBlockedByNumbers(data, { owner, repo, issueNumber }) {
 }
 
 /**
- * Read an issue's native `blocked_by` edges as issue numbers.
+ * Read an issue's native `blocked_by` edges as issue numbers, **paginated to
+ * exhaustion**.
  *
- * **Fails loud**, deliberately inverting the write path's non-fatal contract.
- * A dropped write-side edge is cosmetic (the ordering still lives in the
- * `blocked by #N` body footer); a dropped READ-side edge silently removes a
- * dispatch gate, so a 403 (dependencies API disabled, or a token without the
- * scope) would erase every native edge at once and co-dispatch the whole run
- * against unlanded blockers. A 404 means "no dependencies on this issue" and
- * is a legitimate empty result.
+ * The read used to take the first page only, so a Story with more than a
+ * page of blockers silently lost every edge past the boundary — the exact
+ * failure this function's fail-loud contract exists to prevent, arriving
+ * through the one door that never raised (Story #5046). `paginate` is
+ * injected (the CLI passes `paginateRest`) so the lib layer stays free of a
+ * provider import and the page walk stays testable without a live round-trip.
  *
- * @param {{ gh: object, owner: string, repo: string, issueNumber: number, parseJson: Function }} opts
+ * **Fails loud on every non-OK read**, deliberately inverting the write path's
+ * non-fatal contract. A dropped write-side edge is cosmetic (the ordering
+ * still lives in the `blocked by #N` body footer); a dropped READ-side edge
+ * silently removes a dispatch gate, so one failure would erase every native
+ * edge at once and co-dispatch the run against unlanded blockers.
+ *
+ * **A 404 is not an empty result.** It used to be treated as "this issue has
+ * no dependencies", which is how GitHub answers an issue that genuinely has
+ * none — but it is *also* how GitHub answers a token that cannot see the
+ * dependencies API at all. Reading the second as the first erases every
+ * native edge in the run under a mis-scoped token, silently, with a clean
+ * exit code. An issue with no dependencies returns `200 []`, so the empty
+ * case needs no 404 escape hatch and the ambiguity resolves loud.
+ *
+ * @param {{ gh: object, owner: string, repo: string, issueNumber: number,
+ *   paginate: (gh: object, endpoint: string, opts?: object) => Promise<unknown[]>,
+ *   warn?: (msg: string) => void }} opts
  * @returns {Promise<number[]>}
  */
 export async function readNativeBlockedBy({
@@ -270,27 +304,30 @@ export async function readNativeBlockedBy({
   owner,
   repo,
   issueNumber,
-  parseJson,
+  paginate,
+  warn,
 }) {
-  let result;
+  const endpoint = `/repos/${owner}/${repo}/issues/${issueNumber}/dependencies/blocked_by`;
+  let items;
   try {
-    result = await gh.api({
-      method: 'GET',
-      endpoint: `/repos/${owner}/${repo}/issues/${issueNumber}/dependencies/blocked_by`,
+    items = await paginate(gh, endpoint, {
+      label: `[resolve-stories] blocked_by #${issueNumber}`,
     });
   } catch (err) {
     const detail = String(err?.message ?? err);
-    if (/404|not found/i.test(detail)) return [];
     throw new Error(
       `[resolve-stories] Could not read native blocked_by edges for #${issueNumber}: ${detail}. ` +
         `Refusing to continue: a dropped dependency edge would silently remove a dispatch gate ` +
-        `and co-dispatch this Story against an unlanded blocker.`,
+        `and co-dispatch this Story against an unlanded blocker. A 404 here is NOT "no ` +
+        `dependencies" (that answers 200 with an empty list) — check the token's scopes and ` +
+        `that the dependencies API is enabled for ${owner}/${repo}.`,
     );
   }
-  return nativeBlockedByNumbers(parseJson(result), {
+  return nativeBlockedByNumbers(items, {
     owner,
     repo,
     issueNumber,
+    warn,
   });
 }
 

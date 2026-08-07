@@ -39,7 +39,9 @@ function ticketStories() {
       id: 102,
       labels: ['type::story'],
       state: 'open',
-      body: 'Blocked by #101.',
+      // Footer-scoped edge (Story #5046): prose mentioning a blocker
+      // declares nothing — only a `blocked by #N` line in the `---` footer.
+      body: 'Story 102.\n\n---\nblocked by #101',
     },
     {
       id: 103,
@@ -52,14 +54,14 @@ function ticketStories() {
       id: 104,
       labels: ['type::story'],
       state: 'open',
-      body: 'Blocked by #102.',
+      body: 'Story 104.\n\n---\nblocked by #102',
       dependencies: [103],
     },
     {
       id: 105,
       labels: ['type::story'],
       state: 'open',
-      body: 'Depends on #104.',
+      body: 'Story 105.\n\n---\nblocked by #104',
     },
     { id: 106, labels: ['type::story'], state: 'open', body: 'Isolated.' },
   ];
@@ -84,7 +86,7 @@ describe('lib/story-adjacency — buildStoryAdjacency', () => {
   it('merges body blocked-by refs with explicit dependencies, deduped', () => {
     const adjacency = buildStoryAdjacency([
       { id: 1, body: '' },
-      { id: 2, body: 'blocked by #1', dependencies: [1] },
+      { id: 2, body: '---\nblocked by #1', dependencies: [1] },
     ]);
     assert.deepEqual(adjacency.get(2), [1]);
   });
@@ -92,7 +94,7 @@ describe('lib/story-adjacency — buildStoryAdjacency', () => {
   it('drops self-edges and foreign ids when dropForeign is true', () => {
     const adjacency = buildStoryAdjacency(
       [
-        { id: 1, body: 'blocked by #1', dependencies: [99] },
+        { id: 1, body: '---\nblocked by #1', dependencies: [99] },
         { id: 2, dependencies: [1, 2, 500] },
       ],
       { dropForeign: true },

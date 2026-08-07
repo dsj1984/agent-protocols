@@ -1,12 +1,12 @@
 {
   "$schema": ".agents/schemas/baselines/coverage.schema.json",
   "kernelVersion": "1.0.0",
-  "generatedAt": "2026-08-07T11:55:32.344Z",
+  "generatedAt": "2026-08-07T13:24:41.046Z",
   "rollup": {
     "*": {
-      "lines": 95.9,
-      "branches": 86.62,
-      "functions": 88.81
+      "lines": 95.91,
+      "branches": 86.65,
+      "functions": 88.82
     }
   },
   "rows": [
@@ -1225,7 +1225,7 @@
     {
       "path": ".agents/scripts/lib/dependency-parser.js",
       "lines": 100,
-      "branches": 97.06,
+      "branches": 96.67,
       "functions": 100
     },
     {
@@ -2040,8 +2040,8 @@
     },
     {
       "path": ".agents/scripts/lib/orchestration/resolve-stories.js",
-      "lines": 97.39,
-      "branches": 79.52,
+      "lines": 97.57,
+      "branches": 78.95,
       "functions": 100
     },
     {
@@ -2597,9 +2597,15 @@
       "functions": 100
     },
     {
+      "path": ".agents/scripts/lib/story-body/footer-block.js",
+      "lines": 100,
+      "branches": 100,
+      "functions": 100
+    },
+    {
       "path": ".agents/scripts/lib/story-body/story-body.js",
-      "lines": 99.34,
-      "branches": 94.92,
+      "lines": 99.74,
+      "branches": 95.51,
       "functions": 100
     },
     {
@@ -3060,9 +3066,9 @@
     },
     {
       "path": ".agents/scripts/resolve-stories.js",
-      "lines": 81.85,
-      "branches": 90.91,
-      "functions": 63.64
+      "lines": 82.91,
+      "branches": 91.67,
+      "functions": 58.33
     },
     {
       "path": ".agents/scripts/resync-status-column.js",
