@@ -803,7 +803,13 @@ describe('probeLiveState — inFlightRecords feed the footprint reservation', ()
     assert.deepEqual(envelope.ready, [103]);
     assert.equal(envelope.inFlightReservation.available, true);
     assert.deepEqual(envelope.inFlightReservation.withheld, [
-      { id: 102, blockedBy: 101, reason: 'in-flight-earlier-beat' },
+      {
+        id: 102,
+        blockedBy: 101,
+        reason: 'in-flight-earlier-beat',
+        source: 'declared-overlap',
+        paths: ['lib/shared.js'],
+      },
     ]);
   });
 
@@ -836,7 +842,13 @@ describe('probeLiveState — inFlightRecords feed the footprint reservation', ()
     assert.deepEqual(envelope.ready, [103]);
     assert.deepEqual(envelope.foreignHeld, [{ id: 101, holder: 'bob' }]);
     assert.deepEqual(envelope.inFlightReservation.withheld, [
-      { id: 102, blockedBy: 101, reason: 'foreign-lease' },
+      {
+        id: 102,
+        blockedBy: 101,
+        reason: 'foreign-lease',
+        source: 'declared-overlap',
+        paths: ['lib/shared.js'],
+      },
     ]);
     assert.match(
       envelope.inFlightReservation.note,
@@ -865,8 +877,20 @@ describe('probeLiveState — inFlightRecords feed the footprint reservation', ()
 
     assert.deepEqual(envelope.ready, []);
     assert.deepEqual(envelope.inFlightReservation.withheld, [
-      { id: 103, blockedBy: 101, reason: 'foreign-lease' },
-      { id: 104, blockedBy: 102, reason: 'in-flight-earlier-beat' },
+      {
+        id: 103,
+        blockedBy: 101,
+        reason: 'foreign-lease',
+        source: 'declared-overlap',
+        paths: ['lib/shared.js'],
+      },
+      {
+        id: 104,
+        blockedBy: 102,
+        reason: 'in-flight-earlier-beat',
+        source: 'declared-overlap',
+        paths: ['lib/other.js'],
+      },
     ]);
     assert.match(envelope.inFlightReservation.note, /#103 ← #101/);
     assert.match(envelope.inFlightReservation.note, /#104 ← #102/);

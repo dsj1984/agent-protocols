@@ -45,6 +45,7 @@ import {
 } from './lib/audit-to-stories/ledger.js';
 import { parseAuditReports } from './lib/audit-to-stories/parse-audit-md.js';
 import { buildPlanSeedMarkdown } from './lib/audit-to-stories/seed-from-findings.js';
+import { wireAuditStoryEdges } from './lib/audit-to-stories/wire-dependencies.js';
 import { runAsCli } from './lib/cli-utils.js';
 import { searchSemanticCandidates } from './lib/findings/semantic-issue-search.js';
 import { SEVERITIES, SEVERITY_RANK } from './lib/findings/severity.js';
@@ -583,6 +584,81 @@ function buildAndGateStories(eligible, edges) {
   return built;
 }
 
+/**
+ * The `--wire-edges` pass: hand the opened issue numbers back so the cohort's
+ * detected group edges become declared ordering (Story #5044).
+ *
+ * This is the second half of the two-pass crossing `--emit-stories` starts. The
+ * host opens one Issue per group from the emitted drafts, then replays the
+ * `groupKey → issueNumber` map here; each Story whose blockers now exist is
+ * re-rendered with a canonical `blocked by #N` footer and the same edges are
+ * mirrored as native `blocked_by` relations.
+ *
+ * @param {object} params
+ * @param {object} params.plan   A `--scan` plan envelope.
+ * @param {Record<string, number>} params.issueByGroupKey
+ * @param {object} [deps]
+ * @param {Function} [deps.loadProviderImpl]
+ * @param {Function} [deps.wireImpl]
+ * @returns {Promise<object>} the wiring summary.
+ */
+async function wireEdges({ plan, issueByGroupKey }, deps = {}) {
+  const { loadProviderImpl = loadProvider, wireImpl = wireAuditStoryEdges } =
+    deps;
+  const groups = (plan.classifications ?? [])
+    .filter((c) => c.action === 'create')
+    .map((c) => c.group);
+  const provider = await loadProviderImpl();
+  if (typeof provider?.updateTicket !== 'function') {
+    throw new Error(
+      '--wire-edges needs a provider exposing updateTicket to rewrite the ' +
+        'Story bodies with their `blocked by #N` footers. Configure ' +
+        'github.owner/repo (and auth), or wire the edges by hand.',
+    );
+  }
+  return wireImpl({
+    groups,
+    edges: plan.edges ?? [],
+    issueByGroupKey,
+    provider,
+    updateBody: (issueNumber, body) =>
+      provider.updateTicket(issueNumber, { body }),
+  });
+}
+
+/**
+ * Parse the `--ids` argument: a JSON object mapping group key → issue number,
+ * or a path to a file containing one.
+ *
+ * @param {string|undefined} raw
+ * @returns {Record<string, number>}
+ */
+function parseIssueMap(raw) {
+  if (!raw) {
+    throw new Error(
+      '--wire-edges requires --ids \'{"<groupKey>": <issueNumber>, ...}\' ' +
+        '(or a path to a JSON file with that shape) — the issue numbers the ' +
+        'create pass opened. Without them there is nothing to resolve the ' +
+        'group edges against.',
+    );
+  }
+  const text = raw.trimStart().startsWith('{')
+    ? raw
+    : fs.readFileSync(raw, 'utf8');
+  const parsed = JSON.parse(text);
+  const out = {};
+  for (const [key, value] of Object.entries(parsed)) {
+    const n = Number(value);
+    if (!Number.isInteger(n) || n <= 0) {
+      throw new Error(
+        `--ids: "${key}" maps to ${JSON.stringify(value)}, which is not a positive issue number.`,
+      );
+    }
+    out[key] = n;
+  }
+  return out;
+}
+
 function persist(text, outPath) {
   if (!outPath) {
     process.stdout.write(text);
@@ -604,6 +680,8 @@ export const __testing = {
   resolveSeverityFloor,
   reconcileScanLedger,
   issueStatesFromClassifications,
+  wireEdges,
+  parseIssueMap,
 };
 
 /**
@@ -637,6 +715,8 @@ export async function runAuditToStories(
     loadPlanImpl = loadPlan,
     buildAndGateStoriesImpl = buildAndGateStories,
     buildPlanSeedMarkdownImpl = buildPlanSeedMarkdown,
+    wireEdgesImpl = wireEdges,
+    parseIssueMapImpl = parseIssueMap,
     persistImpl = persist,
     stdout = process.stdout,
   } = deps;
@@ -648,6 +728,8 @@ export async function runAuditToStories(
       'dry-run': { type: 'boolean' },
       'emit-plan-seed': { type: 'boolean' },
       'emit-stories': { type: 'boolean' },
+      'wire-edges': { type: 'boolean' },
+      ids: { type: 'string' },
       glob: { type: 'string' },
       severity: { type: 'string' },
       ledger: { type: 'string' },
@@ -659,64 +741,93 @@ export async function runAuditToStories(
     strict: false,
   });
 
-  if (values.auto) {
-    const { summary } = await runAutoImpl({
+  const json = (value) => JSON.stringify(value, null, 2);
+
+  const runAutoSummary = async () =>
+    (
+      await runAutoImpl({
+        glob: values.glob,
+        severity: values.severity,
+        dryRun: values['dry-run'],
+        useProvider: !values['no-provider'],
+        ledgerPath: values.ledger,
+      })
+    ).summary;
+
+  const scanPlan = () =>
+    buildPlanImpl({
       glob: values.glob,
       severity: values.severity,
-      dryRun: values['dry-run'],
-      useProvider: !values['no-provider'],
-      ledgerPath: values.ledger,
-    });
-    persistImpl(JSON.stringify(summary, null, 2), values.out);
-    if (!values.out) stdout.write('\n');
-    return;
-  }
-
-  if (values.scan) {
-    const plan = await buildPlanImpl({
-      glob: values.glob,
-      severity: values.severity,
       useProvider: !values['no-provider'],
     });
-    const out = JSON.stringify(plan, null, 2);
-    persistImpl(out, values.out);
-    if (!values.out) stdout.write('\n');
-    return;
-  }
 
-  if (values['emit-plan-seed']) {
+  const seedMarkdown = () => {
     const plan = loadPlanImpl(values.plan);
-    const md = buildPlanSeedMarkdownImpl({
+    return buildPlanSeedMarkdownImpl({
       groups: plan.groups ?? [],
       findings: plan.findings ?? [],
       sourceReports: plan.sourceReports ?? [],
     });
-    persistImpl(md, values.out);
-    return;
-  }
+  };
 
-  if (values['emit-stories']) {
+  const emittedStories = () => {
     const plan = loadPlanImpl(values.plan);
     const eligible = (plan.classifications ?? [])
       .filter((c) => c.action === 'create')
       .map((c) => c.group);
     const built = buildAndGateStoriesImpl(eligible, plan.edges ?? []);
-    const out = values.json
-      ? JSON.stringify(built, null, 2)
-      : built
-          .map(
-            (s, i) =>
-              `--- story ${i + 1} ---\nTitle: ${s.title}\nLabels: ${s.labels.join(', ')}\n\n${s.body}\n`,
-          )
-          .join('\n');
-    persistImpl(out, values.out);
-    if (!values.out) stdout.write('\n');
-    return;
-  }
+    return values.json ? json(built) : renderStoryDrafts(built);
+  };
 
-  throw new Error(
-    'Usage: node audit-to-stories.js (--scan | --emit-plan-seed | --emit-stories) [options]',
-  );
+  const wiredEdges = () =>
+    wireEdgesImpl({
+      plan: loadPlanImpl(values.plan),
+      issueByGroupKey: parseIssueMapImpl(values.ids),
+    });
+
+  // One table, not a chain of `if (values.X) { …; return; }`. Each entry
+  // renders its sub-command's output; persisting it — and the stdout newline a
+  // piped run needs — happens once, below. The chain restated that tail in
+  // every arm, so each new sub-command paid for it twice: once in the branch
+  // and once in the complexity budget.
+  const subcommands = [
+    ['auto', async () => json(await runAutoSummary()), true],
+    ['scan', async () => json(await scanPlan()), true],
+    ['emit-plan-seed', () => seedMarkdown(), false],
+    ['emit-stories', () => emittedStories(), true],
+    ['wire-edges', async () => json(await wiredEdges()), true],
+  ];
+
+  const entry = subcommands.find(([flag]) => values[flag]);
+  if (!entry) {
+    throw new Error(
+      'Usage: node audit-to-stories.js (--scan | --emit-plan-seed | --emit-stories | --wire-edges) [options]',
+    );
+  }
+  const [, render, newlineOnStdout] = entry;
+  persistImpl(await render(), values.out);
+  if (newlineOnStdout && !values.out) stdout.write('\n');
+}
+
+/**
+ * Render the Story drafts as the human-readable `--emit-stories` transcript
+ * (the `--json` form is the machine one). `dependsOn` is surfaced because the
+ * group edges no longer ride the body at emit time — the blockers have no issue
+ * numbers yet — so this is where a human driving the create pass by hand sees
+ * the ordering they will replay through `--wire-edges` (Story #5044).
+ *
+ * @param {Array<{ title: string, labels: string[], body: string, groupKey?: string, dependsOn?: string[] }>} built
+ * @returns {string}
+ */
+function renderStoryDrafts(built) {
+  return built
+    .map((s, i) => {
+      const deps = (s.dependsOn ?? []).length
+        ? `\nDepends on group(s): ${s.dependsOn.join(', ')}`
+        : '';
+      return `--- story ${i + 1} ---\nTitle: ${s.title}\nLabels: ${s.labels.join(', ')}\nGroup key: ${s.groupKey}${deps}\n\n${s.body}\n`;
+    })
+    .join('\n');
 }
 
 async function main() {
@@ -727,7 +838,7 @@ runAsCli(import.meta.url, main, {
   source: 'audit-to-stories',
   usage: {
     invocation:
-      'node .agents/scripts/audit-to-stories.js (--scan | --auto | --emit-plan-seed | --emit-stories) [options]',
+      'node .agents/scripts/audit-to-stories.js (--scan | --auto | --emit-plan-seed | --emit-stories | --wire-edges) [options]',
     summary:
       'Turn audit-lens findings under temp/audits/ into a dedup-checked plan seed or standalone Stories.',
     flags: [
@@ -735,6 +846,14 @@ runAsCli(import.meta.url, main, {
       ['--auto', 'Run the full scan → file pipeline and print the summary.'],
       ['--emit-plan-seed', 'Emit a /plan --seed-file document.'],
       ['--emit-stories', 'Emit the Story drafts as JSON.'],
+      [
+        '--wire-edges',
+        'Second pass: resolve the detected group edges to blocked by #N footers plus native blocked_by relations. Needs --plan and --ids.',
+      ],
+      [
+        '--ids <json|path>',
+        'Group key → opened issue number, as JSON or a path to a JSON file. Required by --wire-edges.',
+      ],
       ['--glob <pattern>', 'Override the audit-results glob.'],
       ['--severity <level>', 'Lowest severity to include (high|medium|low).'],
       ['--ledger <path>', 'Path to the dedup ledger.'],

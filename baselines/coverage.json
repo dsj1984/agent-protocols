@@ -1,12 +1,12 @@
 {
   "$schema": ".agents/schemas/baselines/coverage.schema.json",
   "kernelVersion": "1.0.0",
-  "generatedAt": "2026-08-07T13:37:15.710Z",
+  "generatedAt": "2026-08-07T14:01:11.391Z",
   "rollup": {
     "*": {
       "lines": 95.93,
-      "branches": 86.66,
-      "functions": 88.84
+      "branches": 86.68,
+      "functions": 88.89
     }
   },
   "rows": [
@@ -36,9 +36,9 @@
     },
     {
       "path": ".agents/scripts/audit-to-stories.js",
-      "lines": 97.2,
-      "branches": 70.71,
-      "functions": 90.91
+      "lines": 97.59,
+      "branches": 72.73,
+      "functions": 93.94
     },
     {
       "path": ".agents/scripts/boot-sweep.js",
@@ -396,8 +396,8 @@
     },
     {
       "path": ".agents/scripts/lib/audit-to-stories/build-story-body.js",
-      "lines": 97.51,
-      "branches": 82.46,
+      "lines": 97.83,
+      "branches": 82.76,
       "functions": 100
     },
     {
@@ -434,6 +434,12 @@
       "path": ".agents/scripts/lib/audit-to-stories/seed-from-findings.js",
       "lines": 100,
       "branches": 95.24,
+      "functions": 100
+    },
+    {
+      "path": ".agents/scripts/lib/audit-to-stories/wire-dependencies.js",
+      "lines": 94.05,
+      "branches": 82.61,
       "functions": 100
     },
     {
@@ -2735,6 +2741,12 @@
       "functions": 100
     },
     {
+      "path": ".agents/scripts/lib/wave-runner/footprint.js",
+      "lines": 100,
+      "branches": 98.04,
+      "functions": 100
+    },
+    {
       "path": ".agents/scripts/lib/wave-runner/live-probe.js",
       "lines": 100,
       "branches": 88.14,
@@ -2743,7 +2755,7 @@
     {
       "path": ".agents/scripts/lib/wave-runner/ready-set.js",
       "lines": 100,
-      "branches": 95.05,
+      "branches": 95.45,
       "functions": 100
     },
     {
@@ -3120,8 +3132,8 @@
     },
     {
       "path": ".agents/scripts/stories-wave-tick.js",
-      "lines": 98.44,
-      "branches": 93.75,
+      "lines": 98.87,
+      "branches": 93.44,
       "functions": 100
     },
     {

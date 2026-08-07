@@ -55,7 +55,8 @@
  *     inFlight: number,
  *     cycleError: string | null,
  *     wedged: { reason, stories: [{ id, unmetBlockers }] } | null,
- *     inFlightReservation: { available, withheld: [{ id, blockedBy, reason }], note }
+ *     inFlightReservation: { available, withheld: [{ id, blockedBy, reason, source, paths }], note },
+ *     footprintGuard: { mode, withheld: [{ id, blockedBy, scope, source, paths }], advisory, note }
  *   }
  *
  * `inFlightReservation` reports the cross-beat half of the co-dispatch guard
@@ -69,6 +70,17 @@
  * beat (Story #4960). Flag mode carries a count and no records, so it reports
  * `available: false` rather than an empty — and therefore indistinguishable —
  * result.
+ *
+ * `footprintGuard` reports the **beat-local** half, which until Story #5044 was
+ * reported nowhere: a same-beat overlap skip was a bare `continue` inside
+ * `planReadySet`, so the Story vanished from `ready[]` with no field anywhere
+ * naming the collision. Every entry in either report now also carries the
+ * colliding `paths` and a `source` tag — `declared-overlap` when both Stories'
+ * `changes[]` named the path (intended serialization: two Stories really do
+ * rewrite the same generated baseline) versus `scraped-overlap` when only the
+ * text evidence produced it. `mode` names the `footprintGuard` config value;
+ * under `advisory` the collisions are detected and listed in `advisory[]` but
+ * dispatch follows the declared `depends_on` edges alone.
  *
  * Probe mode adds fields the caller can no longer compute for itself:
  * `done: number[]` (the resolved done set, in-set ∪ satisfied foreign
@@ -111,19 +123,24 @@ import { readFileSync } from 'node:fs';
 import { parseArgs } from 'node:util';
 
 import { runAsCli } from './lib/cli-utils.js';
-import { getRunners, resolveConfig } from './lib/config-resolver.js';
+import { getPaths, getRunners, resolveConfig } from './lib/config-resolver.js';
 import { detectCycle } from './lib/Graph.js';
 import { Logger } from './lib/Logger.js';
 import { AGENT_LABELS } from './lib/label-constants.js';
 import { parseIds } from './lib/orchestration/resolve-stories.js';
 import { buildStoryAdjacency } from './lib/story-adjacency.js';
 import { expandIdList } from './lib/util/parse-id-list.js';
+import { OVERLAP_SOURCES } from './lib/wave-runner/footprint.js';
 import {
   createProbeContext,
   probeLiveState,
   validateProbeFlags,
 } from './lib/wave-runner/live-probe.js';
-import { planReadySet } from './lib/wave-runner/ready-set.js';
+import {
+  GUARD_MODES,
+  planReadySet,
+  WITHHOLD_SCOPES,
+} from './lib/wave-runner/ready-set.js';
 
 /**
  * Exit code for a wedged run — deliberately distinct from the cycle exit (2)
@@ -214,7 +231,29 @@ Output envelope:
     "wedged": null,
     "inFlightReservation": {
       "available": true,
-      "withheld": [{ "id": 4951, "blockedBy": 4949 }],
+      "withheld": [
+        {
+          "id": 4951,
+          "blockedBy": 4949,
+          "reason": "in-flight-earlier-beat",
+          "source": "declared-overlap",
+          "paths": ["lib/shared.js"]
+        }
+      ],
+      "note": "..."
+    },
+    "footprintGuard": {
+      "mode": "enforce",
+      "withheld": [
+        {
+          "id": 4952,
+          "blockedBy": 4951,
+          "scope": "beat",
+          "source": "scraped-overlap",
+          "paths": ["lib/other.js"]
+        }
+      ],
+      "advisory": [],
       "note": "..."
     }
   }
@@ -224,6 +263,15 @@ footprint overlaps one still IN FLIGHT from an earlier beat, together with the
 blocking id — so an unfilled slot is explained rather than mysterious. It needs
 the in-flight Stories' footprints, which only --probe-live has: under --dag the
 report is { available: false } and selection de-conflicts within the beat only.
+
+footprintGuard names each Story withheld from THIS beat by a peer already
+admitted on it — the half that used to be an unreported skip — and every
+entry in either report carries the colliding paths plus a source tag
+(declared-overlap when both changes[] declarations named the path, else
+scraped-overlap from the text evidence). Its "mode" echoes
+delivery.deliverRunner.footprintGuard: under "advisory" the collisions are
+detected and listed in "advisory" but never withhold, and dispatch follows the
+declared depends_on edges alone.
 
 Exit codes:
   0 - Success, ready set emitted
@@ -258,6 +306,7 @@ function inputErrorResult(message, concurrencyCap = null, inFlightValue = 0) {
       cycleError: null,
       wedged: null,
       inFlightReservation: null,
+      footprintGuard: null,
       inputError: message,
     },
     exitCode: 1,
@@ -299,10 +348,18 @@ const RESERVATION_REASONS = Object.freeze({
  * and no later beat of this run will clear it. `foreignHeldIds` splits the two
  * so each carries its own reason (Story #4960).
  *
+ * Each entry also carries the **colliding paths** and an
+ * `OVERLAP_SOURCES` tag (Story #5044). A withhold that names no path is one an
+ * operator cannot act on, and `declared-overlap` vs `scraped-overlap` is the
+ * difference between "these two Stories both declared this generated baseline,
+ * serializing them is the point" and "one Story's body happened to mention a
+ * path the other declared" — the same unfilled slot for two very different
+ * reasons.
+ *
  * @param {object[]|null|undefined} inFlightRecords
- * @param {Array<{id: number, blockedBy: number}>} withheld
+ * @param {Array<{id: number, blockedBy: number, source?: string, paths?: string[]}>} withheld
  * @param {Iterable<number>} [foreignHeldIds] Ids held by a foreign lease.
- * @returns {{ available: boolean, withheld: Array<{id: number, blockedBy: number, reason: string}>, note: string|null }}
+ * @returns {{ available: boolean, withheld: Array<{id: number, blockedBy: number, reason: string, source: string, paths: string[]}>, note: string|null }}
  */
 export function buildReservationReport(
   inFlightRecords,
@@ -326,16 +383,100 @@ export function buildReservationReport(
   }
   const foreign = new Set(foreignHeldIds);
   const classified = withheld.map((w) => ({
-    ...w,
+    id: w.id,
+    blockedBy: w.blockedBy,
     reason: foreign.has(w.blockedBy)
       ? RESERVATION_REASONS.FOREIGN_LEASE
       : RESERVATION_REASONS.EARLIER_BEAT,
+    source: w.source ?? OVERLAP_SOURCES.DECLARED,
+    paths: w.paths ?? [],
   }));
   return {
     available: true,
     withheld: classified,
     note: reservationNote(classified),
   };
+}
+
+/**
+ * Report the **beat-local** half of the footprint guard, plus the guard mode
+ * itself (Story #5044).
+ *
+ * Until now a same-beat overlap skip was an anonymous `continue` inside
+ * `planReadySet`: the Story simply did not appear in `ready[]` and no field
+ * anywhere said why. That is the same unexplained-unfilled-slot failure the
+ * cross-beat `inFlightReservation` report was built to remove, left standing on
+ * the other half of the guard — and it is how a plan whose siblings collided
+ * only on machine-generated footer text ran fully serial without leaving a
+ * trace to notice.
+ *
+ * `withheld` and `advisory` are disjoint by construction: under `enforce` every
+ * detection withheld, under `advisory` none did. Reporting them as separate
+ * lists rather than one flagged list means a consumer counting withheld
+ * dispatches never has to inspect a boolean to get the count right.
+ *
+ * @param {Array<object>} footprintWithholds The kernel's complete ledger.
+ * @param {'enforce'|'advisory'} mode
+ * @returns {{ mode: string, withheld: object[], advisory: object[], note: string|null }}
+ */
+export function buildFootprintGuardReport(footprintWithholds, mode) {
+  const ledger = Array.isArray(footprintWithholds) ? footprintWithholds : [];
+  const project = ({ id, blockedBy, scope, source, paths }) => ({
+    id,
+    blockedBy,
+    scope,
+    source,
+    paths,
+  });
+  const beat = ledger
+    .filter((w) => w.scope === WITHHOLD_SCOPES.BEAT && w.enforced)
+    .map(project);
+  const advisory = ledger.filter((w) => !w.enforced).map(project);
+  return {
+    mode,
+    withheld: beat,
+    advisory,
+    note: footprintGuardNote(beat, advisory, mode),
+  };
+}
+
+/**
+ * Render the operator-facing note for the beat-local guard, naming the
+ * colliding path(s) for every entry. `null` when the guard neither withheld nor
+ * waved anything through.
+ *
+ * @param {object[]} beat
+ * @param {object[]} advisory
+ * @param {string} mode
+ * @returns {string|null}
+ */
+function footprintGuardNote(beat, advisory, mode) {
+  const detail = (entries) =>
+    entries
+      .map(
+        (w) =>
+          `#${w.id} ← #${w.blockedBy} on ${w.paths.join(', ')} (${w.source})`,
+      )
+      .join('; ');
+  if (beat.length > 0) {
+    return (
+      `${beat.length} Story(ies) withheld from THIS beat because their file ` +
+      `footprint overlaps a peer already admitted on it — ${detail(beat)}. ` +
+      `Each is still eligible and re-admits on a later beat once its peer ` +
+      `lands. A ${OVERLAP_SOURCES.SCRAPED} source means the collision came ` +
+      `from path evidence in the Story text rather than from either ` +
+      `changes[] declaration.`
+    );
+  }
+  if (advisory.length > 0) {
+    return (
+      `footprintGuard is '${mode}': ${advisory.length} footprint collision(s) ` +
+      `were detected and NOT enforced — ${detail(advisory)}. Dispatch followed ` +
+      `the declared depends_on edges alone. Set ` +
+      `delivery.deliverRunner.footprintGuard: 'enforce' to serialize these.`
+    );
+  }
+  return null;
 }
 
 /**
@@ -601,6 +742,29 @@ export function resolveCapPrecedence({ cwd, config, override } = {}) {
 }
 
 /**
+ * Resolve the two footprint-guard inputs from the same config seam the cap
+ * comes from (Story #5044).
+ *
+ * `tempRoot` is threaded rather than hardcoded because the evidence scrape must
+ * exclude the project's *configured* scratch root: a consumer that sets
+ * `project.paths.tempRoot: '.scratch'` would otherwise have every sibling
+ * citing a report under it collide, which is the exact defect this Story
+ * removes for the default `temp/`.
+ *
+ * @param {object} [opts]
+ * @param {string} [opts.cwd]     Repo root for config resolution.
+ * @param {object} [opts.config]  Pre-resolved config (test injection).
+ * @returns {{ footprintGuard: 'enforce'|'advisory', tempRoot: string }}
+ */
+export function resolveFootprintGuardSettings({ cwd, config } = {}) {
+  const resolved = config ?? resolveConfig({ cwd });
+  return {
+    footprintGuard: getRunners(resolved).deliverRunner.footprintGuard,
+    tempRoot: getPaths(resolved).tempRoot,
+  };
+}
+
+/**
  * Build the per-beat ready-set envelope from a validated DAG.
  *
  * Maps each operator-DAG node onto a Story record the ready-set core
@@ -648,6 +812,8 @@ export function buildReadySetEnvelope(
     inFlight = 0,
     inFlightRecords = null,
     foreignHeldIds = [],
+    footprintGuard = GUARD_MODES.ENFORCE,
+    tempRoot,
   },
 ) {
   const totalStories = nodes.length;
@@ -668,6 +834,11 @@ export function buildReadySetEnvelope(
     // which Stories a reservation withheld (Story #4950). Never omitted on a
     // resolved beat: an absent report reads exactly like an empty one.
     inFlightReservation: buildReservationReport(inFlightRecords, []),
+    // The beat-local half of the same guard, plus the mode it ran in (Story
+    // #5044). Also never omitted: a same-beat skip used to be reported nowhere
+    // at all, which is precisely how an evidence-widening artifact could
+    // serialize a whole run unnoticed.
+    footprintGuard: buildFootprintGuardReport([], footprintGuard),
   };
 
   if (totalStories === 0) {
@@ -714,7 +885,7 @@ export function buildReadySetEnvelope(
     return rec;
   });
 
-  const { selected, withheldByInFlight } = planReadySet({
+  const { selected, footprintWithholds, guardMode } = planReadySet({
     stories: records,
     doneIds,
     inFlight,
@@ -723,13 +894,21 @@ export function buildReadySetEnvelope(
     // contract (an array) while `base.inFlightReservation` reports that the
     // reservation itself was unavailable rather than merely empty.
     inFlightRecords: inFlightRecords ?? [],
+    footprintGuard,
+    tempRoot,
   });
   const ready = selected.map((rec) => rec.id);
+  // The cross-beat report reads the enforced in-flight slice of the kernel's
+  // ledger rather than the legacy `withheldByInFlight` list, so it carries the
+  // colliding paths and the overlap source through to the operator.
   const reservation = buildReservationReport(
     inFlightRecords,
-    withheldByInFlight,
+    footprintWithholds.filter(
+      (w) => w.scope === WITHHOLD_SCOPES.IN_FLIGHT && w.enforced,
+    ),
     foreignHeldIds,
   );
+  const guardReport = buildFootprintGuardReport(footprintWithholds, guardMode);
 
   // Wedge detection (Story #4540). `ready: []` is normal while work is in
   // flight — the loop is simply waiting. But ready-empty AND nothing in
@@ -750,6 +929,7 @@ export function buildReadySetEnvelope(
         ready,
         wedged: wedge,
         inFlightReservation: reservation,
+        footprintGuard: guardReport,
       },
       exitCode: WEDGED_EXIT_CODE,
     };
@@ -761,6 +941,7 @@ export function buildReadySetEnvelope(
       ready,
       wedged: null,
       inFlightReservation: reservation,
+      footprintGuard: guardReport,
     },
     exitCode: 0,
   };
@@ -896,6 +1077,7 @@ export function runStoriesWaveTick({
     capPrecedence,
     doneIds,
     inFlight: inFlightValue,
+    ...resolveFootprintGuardSettings({ cwd, config }),
   });
 }
 
@@ -1001,6 +1183,7 @@ export async function runProbedStoriesWaveTick({
     // ...and the only mode that can tell a foreign lease-holder apart from
     // this run's own earlier-beat dispatch (Story #4960).
     foreignHeldIds: foreignHeld.map((h) => h.id),
+    ...resolveFootprintGuardSettings({ cwd, config }),
   });
 
   const done = [...doneIds].sort((a, b) => a - b);

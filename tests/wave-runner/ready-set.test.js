@@ -1,12 +1,17 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
+import {
+  fingerprintFooter,
+  semanticKeyFooter,
+  semanticKeyFor,
+} from '../../.agents/scripts/lib/findings/route-finding.js';
 import { AGENT_LABELS } from '../../.agents/scripts/lib/label-constants.js';
+import { storyFootprint } from '../../.agents/scripts/lib/wave-runner/footprint.js';
 import {
   classifyStory,
   planReadySet,
   storiesOverlap,
-  storyFootprint,
   storyIdOf,
 } from '../../.agents/scripts/lib/wave-runner/ready-set.js';
 
@@ -923,5 +928,236 @@ describe('planReadySet — unknown width is beat-local, concrete width reserves'
       inFlightRecords: [held],
     });
     assert.deepEqual(withheldByInFlight, [{ id: 11, blockedBy: 10 }]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Story #5044 — the widening reads edit intent, not machine-generated text
+// ---------------------------------------------------------------------------
+
+describe('storyEvidencePaths — the three excluded token sources', () => {
+  /** A Story body's audit provenance footer pair, rendered by production code. */
+  const provenance = (area, primaryFile) =>
+    [
+      fingerprintFooter(['a'.repeat(40)]),
+      semanticKeyFooter([semanticKeyFor({ area, primaryFile })]),
+    ].join('\n');
+
+  it('admits two Stories colliding only inside audit provenance footers (AC-1)', () => {
+    // This is issue #5040 in miniature. `plan-persist` stamps the SWEEP-WIDE
+    // union of an audit run's fingerprint / semantic-key footers onto every
+    // sibling Story, and a semantic key is `area␟primaryFile` — a separator
+    // outside PROSE_PATH_RE's character class, so the primaryFile half matched
+    // as a standalone path token and made all 10/10 pairs of an audit-derived
+    // plan collide on files neither Story would ever open.
+    const shared = provenance(
+      'dry',
+      '.agents/scripts/lib/wave-runner/ready-set.js',
+    );
+    const a = story(1, { files: ['lib/a.js'], body: `Fix A.\n\n${shared}` });
+    const b = story(2, { files: ['lib/b.js'], body: `Fix B.\n\n${shared}` });
+
+    assert.equal(storiesOverlap(a, b), false);
+    assert.deepEqual(
+      ids(dispatchSet({ stories: [a, b], globalCap: 5 })),
+      [1, 2],
+      'both are admitted on the same beat',
+    );
+  });
+
+  it('does not scrape a path out of the temp root (AC-2)', () => {
+    // Every audit Story cites the same `temp/audits/audit-<lens>-results.md`
+    // source report. The temp root is gitignored by contract, so nothing under
+    // it can ever be a delivery write target — citing one is not edit intent.
+    const link = 'See temp/audits/audit-clean-code-results.md for the finding.';
+    const a = story(1, { files: ['lib/a.js'], body: link });
+    const b = story(2, { files: ['lib/b.js'], body: link });
+    assert.equal(storiesOverlap(a, b), false);
+
+    // The exclusion is rooted, not a substring match: a real deliverable whose
+    // path merely CONTAINS the word is still evidence.
+    const c = story(3, { body: 'rewrite lib/temperature.js' });
+    assert.equal(
+      storiesOverlap(c, story(4, { files: ['lib/temperature.js'] })),
+      true,
+    );
+  });
+
+  it('does not scrape a markdown link URL, but still reads the link text (AC-2)', () => {
+    const cited = '[the architecture doc](docs/architecture.md) explains why';
+    assert.equal(
+      storiesOverlap(
+        story(1, { files: ['lib/a.js'], body: cited }),
+        story(2, { files: ['lib/b.js'], body: cited }),
+      ),
+      false,
+    );
+    // A human writing "the caller in [`bin/mandrel.js`](bin/mandrel.js)" IS
+    // naming an edit target; only the URL half is dropped.
+    assert.equal(
+      storiesOverlap(
+        story(3, { body: 'the caller in [`bin/mandrel.js`](bin/mandrel.js)' }),
+        story(4, { files: ['bin/mandrel.js'] }),
+      ),
+      true,
+    );
+  });
+
+  it('still reads paths inside a DECOMPOSITION block (AC-2)', () => {
+    // The strip is surgical for exactly this reason: `.agents/instructions.md`
+    // § 7 puts a complexity decomposition's numbered sub-steps in an HTML
+    // comment, and the paths a sub-step names are genuine edit intent. A
+    // blanket comment strip would go blind to them.
+    const decomposition = [
+      '<!-- DECOMPOSITION',
+      '1. Rewrite `lib/engine.js` to take the new options bag.',
+      '2. Update the caller.',
+      '-->',
+    ].join('\n');
+    assert.equal(
+      storiesOverlap(
+        story(1, { files: ['lib/a.js'], body: decomposition }),
+        story(2, { files: ['lib/engine.js'] }),
+      ),
+      true,
+    );
+  });
+
+  it('honours a project-configured tempRoot rather than assuming `temp`', () => {
+    const body = 'see .scratch/audits/audit-quality-results.md';
+    const a = story(1, { files: ['lib/a.js'], body });
+    const b = story(2, { files: ['lib/b.js'], body });
+    assert.equal(
+      storiesOverlap(a, b),
+      true,
+      'not excluded under the default root',
+    );
+    assert.equal(storiesOverlap(a, b, { tempRoot: '.scratch' }), false);
+  });
+});
+
+describe('footprint collisions carry their colliding paths and source', () => {
+  it('tags a collision both Stories declared as declared-overlap', () => {
+    // The load-bearing class: two Stories that really do rewrite the same
+    // generated baseline. Narrowing the scrape must never touch this.
+    const { footprintWithholds } = planReadySet({
+      stories: [
+        story(1, { files: ['baselines/maintainability.json'] }),
+        story(2, { files: ['baselines/maintainability.json'] }),
+      ],
+      globalCap: 5,
+    });
+    assert.deepEqual(
+      footprintWithholds,
+      [
+        {
+          id: 2,
+          blockedBy: 1,
+          scope: 'beat',
+          source: 'declared-overlap',
+          paths: ['baselines/maintainability.json'],
+        },
+      ].map((w) => ({ ...w, enforced: true })),
+    );
+  });
+
+  it('tags an evidence-only collision as scraped-overlap', () => {
+    const { footprintWithholds } = planReadySet({
+      stories: [
+        story(1, { files: ['lib/a.js'] }),
+        story(2, { files: ['lib/b.js'], body: 'also touches lib/a.js' }),
+      ],
+      globalCap: 5,
+    });
+    assert.equal(footprintWithholds.length, 1);
+    assert.equal(footprintWithholds[0].source, 'scraped-overlap');
+    assert.deepEqual(footprintWithholds[0].paths, ['lib/a.js']);
+  });
+
+  it('explains the beat-local skip that used to be an anonymous continue (AC-4)', () => {
+    const { selected, footprintWithholds } = planReadySet({
+      stories: [
+        story(1, { files: ['lib/a.js'] }),
+        story(2, { files: ['lib/a.js'] }),
+        story(3, { files: ['lib/c.js'] }),
+      ],
+      globalCap: 5,
+    });
+    assert.deepEqual(ids(selected), [1, 3]);
+    assert.deepEqual(footprintWithholds, [
+      {
+        id: 2,
+        blockedBy: 1,
+        scope: 'beat',
+        source: 'declared-overlap',
+        paths: ['lib/a.js'],
+        enforced: true,
+      },
+    ]);
+  });
+});
+
+describe('footprintGuard: advisory admits, enforce withholds (AC-5)', () => {
+  const pair = () => [
+    story(1, { files: ['lib/a.js'] }),
+    story(2, { files: ['lib/b.js'], body: 'also touches lib/a.js' }),
+  ];
+
+  it('enforce is the default and still serializes a scraped overlap', () => {
+    assert.deepEqual(ids(dispatchSet({ stories: pair(), globalCap: 5 })), [1]);
+    assert.equal(
+      planReadySet({ stories: pair(), globalCap: 5 }).guardMode,
+      'enforce',
+    );
+  });
+
+  it('advisory admits the pair and logs the would-be withhold', () => {
+    const { selected, footprintWithholds, withheldByInFlight, guardMode } =
+      planReadySet({
+        stories: pair(),
+        globalCap: 5,
+        footprintGuard: 'advisory',
+      });
+    assert.equal(guardMode, 'advisory');
+    assert.deepEqual(
+      ids(selected),
+      [1, 2],
+      'dispatch follows declared edges alone',
+    );
+    assert.deepEqual(withheldByInFlight, []);
+    assert.deepEqual(footprintWithholds, [
+      {
+        id: 2,
+        blockedBy: 1,
+        scope: 'beat',
+        source: 'scraped-overlap',
+        paths: ['lib/a.js'],
+        enforced: false,
+      },
+    ]);
+  });
+
+  it('advisory does not disable the declared depends_on edges', () => {
+    // The knob trades footprint serialization for throughput; it is not a way
+    // to ignore ordering the plan actually declared.
+    const stories = [
+      story(1, { files: ['lib/a.js'] }),
+      story(2, { files: ['lib/a.js'], dependsOn: [1] }),
+    ];
+    assert.deepEqual(
+      ids(dispatchSet({ stories, globalCap: 5, footprintGuard: 'advisory' })),
+      [1],
+      '#2 is still gated by its blocker',
+    );
+  });
+
+  it('an unrecognised mode falls back to enforce rather than opening the guard', () => {
+    const { selected, guardMode } = planReadySet({
+      stories: pair(),
+      globalCap: 5,
+      footprintGuard: 'off',
+    });
+    assert.equal(guardMode, 'enforce');
+    assert.deepEqual(ids(selected), [1]);
   });
 });

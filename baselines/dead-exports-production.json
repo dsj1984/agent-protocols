@@ -1,7 +1,7 @@
 {
   "$schema": "https://mandrel.dev/baselines/dead-exports.schema.json",
   "kernelVersion": "6.17.1",
-  "generatedAt": "2026-08-06T11:50:19.019Z",
+  "generatedAt": "2026-08-07T14:16:19.314Z",
   "mode": "production",
   "rows": [
     {
@@ -2289,12 +2289,12 @@
       "symbol": "SCHEMA_VERSION"
     },
     {
-      "file": ".agents/scripts/lib/wave-runner/ready-set.js",
-      "symbol": "storiesOverlap"
+      "file": ".agents/scripts/lib/wave-runner/footprint.js",
+      "symbol": "storyFootprint"
     },
     {
       "file": ".agents/scripts/lib/wave-runner/ready-set.js",
-      "symbol": "storyFootprint"
+      "symbol": "storiesOverlap"
     },
     {
       "file": ".agents/scripts/lib/workspace-provisioner.js",

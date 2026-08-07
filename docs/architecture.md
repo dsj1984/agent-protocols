@@ -516,14 +516,18 @@ That is the complete live export surface — in particular there is **no**
 gone; its job now happens at *selection* time via `storiesOverlap()` in
 `lib/wave-runner/ready-set.js`, where `planReadySet` skips a Story whose
 **widened** footprint overlaps an already-selected peer, or which shares a
-**concrete** path with a Story still **in flight** from an earlier beat. The
-cross-beat half needs the in-flight Stories' records, which only probe mode
-holds: `live-probe.js` returns them as `inFlightRecords`, and the tick reports
-each withholding in the envelope's `inFlightReservation` naming the blocking
-id and why. Flag mode carries a count and no records, so it reports
-`available: false` rather than an indistinguishable empty result. The two
-halves treat unknown width differently on purpose — § Scheduler safety
-mechanics.
+**concrete** path with a Story still **in flight** from an earlier beat. What
+counts as a footprint — declared paths, scraped evidence, and the three token
+sources the scrape excludes — lives one layer down in
+`lib/wave-runner/footprint.js`, so the scheduler schedules and the footprint
+layer owns what counts as evidence. The cross-beat half needs the in-flight
+Stories' records, which only probe mode holds: `live-probe.js` returns them as
+`inFlightRecords`, and the tick reports each withholding in the envelope's
+`inFlightReservation` naming the blocking id and why; beat-local skips are
+reported alongside in `footprintGuard`. Flag mode carries a count and no
+records, so it reports `available: false` rather than an indistinguishable
+empty result. The two halves treat unknown width differently on purpose —
+§ Scheduler safety mechanics.
 
 ---
 
@@ -740,6 +744,19 @@ stateless and side-effect-free; these guards make the loop fail safe:
   declared `files` plus the paths the Story's own title and body name,
   a declaration being only a lower bound (#4875) — collides. An
   **empty** footprint means "no known overlap" and is never withheld.
+  Together with the declared `depends_on` edges this is the **whole** of
+  `/deliver`'s serialization authority: the edges order what the plan
+  knew, the guard catches what it did not.
+- **The widening reads edit intent, not machine text** (#5044,
+  `lib/wave-runner/footprint.js`). Three token sources are excluded
+  before the scrape, each structurally incapable of naming an edit
+  target: `audit-fingerprints` / `audit-semantic-keys` provenance
+  footers, paths under `project.paths.tempRoot`, and markdown-link URL
+  interiors. The strip is surgical — a blanket HTML-comment strip would
+  swallow a `<!-- DECOMPOSITION -->` block, whose paths are genuine
+  intent (`instructions.md` § 7). Before it, the sweep-wide provenance
+  union `plan-persist` stamps made every pair of an audit-derived plan
+  collide (10/10 measured; 0/10 after).
 - **Beat-local and cross-beat differ.** Against a peer admitted **this
   beat**, a **glob** — or the UNKNOWN sentinel `resolve-stories.js`
   substitutes for an unparseable body — overlaps *everything*: unknown
@@ -752,6 +769,16 @@ stateless and side-effect-free; these guards make the loop fail safe:
   named in `inFlightReservation` with its blocker and a `reason`
   (`in-flight-earlier-beat` / `foreign-lease`), and flag mode reports
   `available: false` rather than an indistinguishable empty result.
+- **Every withhold is explained.** Beat-local skips ride the tick
+  envelope's `footprintGuard` report — they used to be an unreported
+  `continue`, so an unfilled slot read exactly like a cap that was never
+  reached. Entries in both reports name the colliding `paths` and tag
+  `source`: `declared-overlap` (both `changes[]` named it — intended
+  serialization, e.g. a shared generated baseline) versus
+  `scraped-overlap` (only the text evidence produced it).
+  `delivery.deliverRunner.footprintGuard` selects `enforce` (default) or
+  `advisory`, where collisions are still detected and reported but
+  dispatch follows the declared edges alone.
 - **Cycle vs. wedge, distinct exits.** A dependency cycle is detected up
   front (`detectCycle`, exit 2); a wedge — nothing ready, nothing in
   flight, undone work with unmet blockers — exits 3 via `detectWedge`.

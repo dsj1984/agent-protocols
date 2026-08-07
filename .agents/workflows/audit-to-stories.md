@@ -189,6 +189,32 @@ Labels applied:
   (cross-audit groups carry multiple).
 - `risk::high` — added when any finding in the group is Critical.
 
+### Phase 5c — Wire the cohort's declared ordering (**required**)
+
+Creating the Issues is only the first pass. `groupFindings` detects `edges[]`
+between groups, but at emit time no group has an issue number, so each body
+ships with an empty `depends_on` and the cohort has **no declared ordering
+at all**. Replay the numbers you just opened:
+
+```bash
+node .agents/scripts/audit-to-stories.js --wire-edges \
+  --plan temp/audits/audit-to-stories-plan.json \
+  --ids '{"<groupKey>": <issueNumber>, ...}' \
+  --out temp/audits/audit-to-stories-wired.json
+```
+
+Each entry in the emitted `--json` payload carries its own `groupKey` and
+`dependsOn`, so the map is a lookup, not a reconstruction. The pass re-renders
+every Story that has a resolvable blocker with a canonical
+`---` / `blocked by #N` footer **and** mirrors the same edges as native
+GitHub `blocked_by` relations. An edge whose target was never opened (deduped,
+ledger-suppressed) drops rather than becoming a `blocked by #undefined`.
+
+**Do not skip this.** `/deliver` has no other source for this cohort's order:
+its footprint guard ignores the shared provenance footers, so an unwired cohort
+is genuinely unordered and `/deliver` will co-dispatch Stories the edges say
+must follow one another.
+
 ## Phase 6 — Idempotency (folded into Phase 1 scan)
 
 The `--scan` step routes each group's findings through the shared

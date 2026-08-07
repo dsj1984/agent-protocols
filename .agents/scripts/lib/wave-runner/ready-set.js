@@ -61,6 +61,35 @@
 
 import { AGENT_LABELS } from '../label-constants.js';
 import { buildStoryAdjacency } from '../story-adjacency.js';
+import { detectCollision } from './footprint.js';
+
+/**
+ * How a footprint collision affects dispatch — the `footprintGuard` config
+ * knob (`delivery.deliverRunner.footprintGuard`, Story #5044).
+ *
+ * `enforce` is the default and encodes delivery-time-only knowledge the
+ * planner cannot have: which implementation windows are open right now, which
+ * Stories a foreign lease holds, how far the ground has moved since the plan
+ * was authored. It is never demoted automatically.
+ *
+ * `advisory` is an explicit operator trade for throughput on a run whose
+ * `depends_on` edges are known to be complete. Detection still runs; only the
+ * withholding stops.
+ */
+export const GUARD_MODES = Object.freeze({
+  ENFORCE: 'enforce',
+  ADVISORY: 'advisory',
+});
+
+/**
+ * Which guard produced a withhold: a peer admitted **this beat**, or a Story
+ * still in flight from an **earlier** one. The two clear on different events,
+ * so an operator reading the report needs them apart.
+ */
+export const WITHHOLD_SCOPES = Object.freeze({
+  BEAT: 'beat',
+  IN_FLIGHT: 'in-flight',
+});
 
 /**
  * @typedef {object} StoryRecord
@@ -136,128 +165,6 @@ export function classifyStory(story) {
 }
 
 /**
- * Extract a Story's declared file footprint as a normalized set of path
- * strings. Accepts the three footprint shapes a Story record can carry:
- *
- *   - `files: string[]`                         — explicit footprint.
- *   - `changes: string[]`                       — string-array sketch.
- *   - `changeset: Array<{ path }>` /            — object-array sketch (the
- *     `changes: Array<{ path }>`                   `{ path, assumption }`
- *                                                  shape from a Story body).
- *
- * Paths are trimmed; empty / non-string entries are dropped. A Story with
- * no declared footprint yields an empty set, which (by `storiesOverlap`'s
- * contract) means it overlaps with nothing and is never withheld by the
- * co-dispatch guard.
- *
- * @param {StoryRecord} story
- * @returns {Set<string>}
- */
-export function storyFootprint(story) {
-  const out = new Set();
-  const push = (entry) => {
-    const path =
-      typeof entry === 'string'
-        ? entry
-        : typeof entry?.path === 'string'
-          ? entry.path
-          : null;
-    if (!path) return;
-    const trimmed = path.trim();
-    if (trimmed) out.add(trimmed);
-  };
-  if (Array.isArray(story?.files)) for (const e of story.files) push(e);
-  if (Array.isArray(story?.changes)) for (const e of story.changes) push(e);
-  if (Array.isArray(story?.changeset)) for (const e of story.changeset) push(e);
-  return out;
-}
-
-/**
- * Does a declared path contain a glob metacharacter? Mirrors the detection
- * in `story-body.js#extractChangePaths`, whose `isGlob` flag documents an
- * "unknown-width footprint" policy that was never implemented downstream.
- *
- * @param {string} path
- * @returns {boolean}
- */
-function isGlobPath(path) {
-  return path.includes('*') || path.includes('?') || path.includes('{');
-}
-
-/**
- * Repo-relative file paths as they appear in Story prose: at least one `/`
- * separator and a short file extension. Deliberately narrow — a token has to
- * look like a real path before it can widen a footprint and withhold a Story.
- */
-const PROSE_PATH_RE = /(?:[\w.@~-]+\/)+[\w.@-]+\.[A-Za-z0-9]{1,6}/g;
-
-/**
- * Scrape file paths a Story's **text** mentions but its `changes[]` never
- * declared (Story #4875).
- *
- * The declared footprint is a planner's *prediction*, and it is systematically
- * a lower bound: a Story's `## Spec` names the module it must also touch, its
- * acceptance criteria name the caller that must be updated, and none of that
- * reaches `changes[]`. The overlap guard exists to stop two Stories racing the
- * same file, so trusting the declaration outright means the guard is blind to
- * precisely the collisions nobody predicted.
- *
- * Evidence is only ever **added** — nothing here can shrink a declared
- * footprint, so widening can withhold a Story for a beat but can never
- * co-dispatch one the declared comparison would have caught.
- *
- * @param {StoryRecord} story
- * @returns {Set<string>}
- */
-function storyEvidencePaths(story) {
-  const out = new Set();
-  for (const field of [story?.title, story?.body, story?.spec]) {
-    if (typeof field !== 'string' || field === '') continue;
-    for (const match of field.matchAll(PROSE_PATH_RE)) {
-      const trimmed = match[0].trim();
-      if (trimmed) out.add(trimmed);
-    }
-  }
-  return out;
-}
-
-/**
- * A Story's footprint **widened from observable evidence** — the set the
- * co-dispatch guard actually compares (Story #4875).
- *
- * `declared ∪ scraped-from-prose`. See {@link storyEvidencePaths} for why the
- * declaration is treated as a lower bound rather than the answer.
- *
- * @param {StoryRecord} story
- * @returns {Set<string>}
- */
-function storyWidenedFootprint(story) {
-  const out = storyFootprint(story);
-  for (const path of storyEvidencePaths(story)) out.add(path);
-  return out;
-}
-
-/**
- * Both Stories' widened footprints, or `null` when either is empty.
- *
- * **An empty footprint means "no known overlap"**, so both guards below
- * short-circuit to `false` on one. This is permissive by necessity: a Story
- * with no declared footprint and no path evidence in its text carries no
- * information, and withholding on absence would serialize every run.
- *
- * @param {StoryRecord} a
- * @param {StoryRecord} b
- * @returns {[Set<string>, Set<string>]|null}
- */
-function widenedFootprintPair(a, b) {
-  const fa = storyWidenedFootprint(a);
-  if (fa.size === 0) return null;
-  const fb = storyWidenedFootprint(b);
-  if (fb.size === 0) return null;
-  return [fa, fb];
-}
-
-/**
  * **Beat-local** file-overlap co-dispatch guard. Returns `true` when two
  * Stories' file footprints intersect — meaning they would race the same file
  * if both were admitted onto parallel `story-<id>` branches on this beat.
@@ -282,17 +189,8 @@ function widenedFootprintPair(a, b) {
  * @param {StoryRecord} b
  * @returns {boolean}
  */
-export function storiesOverlap(a, b) {
-  const pair = widenedFootprintPair(a, b);
-  if (pair === null) return false;
-  const [fa, fb] = pair;
-  for (const path of fa) {
-    if (isGlobPath(path) || fb.has(path)) return true;
-  }
-  for (const path of fb) {
-    if (isGlobPath(path)) return true;
-  }
-  return false;
+export function storiesOverlap(a, b, options = {}) {
+  return detectCollision(a, b, options) !== null;
 }
 
 /**
@@ -319,16 +217,11 @@ export function storiesOverlap(a, b) {
  *
  * @param {StoryRecord} held      The in-flight Story holding the reservation.
  * @param {StoryRecord} candidate The Story being considered for admission.
- * @returns {boolean}
+ * @param {object} [options]      Evidence-scrape options (see {@link storyEvidencePaths}).
+ * @returns {{ paths: string[], source: string }|null}
  */
-function reservesConcretePath(held, candidate) {
-  const pair = widenedFootprintPair(held, candidate);
-  if (pair === null) return false;
-  const [fa, fb] = pair;
-  for (const path of fa) {
-    if (!isGlobPath(path) && fb.has(path)) return true;
-  }
-  return false;
+function reservesConcretePath(held, candidate, options = {}) {
+  return detectCollision(held, candidate, { ...options, concreteOnly: true });
 }
 
 /**
@@ -396,11 +289,28 @@ function reservesConcretePath(held, candidate) {
  *   footprint reserves nothing (Story #4960). Callers that hold only ids (the
  *   `--dag`/`--in-flight` flag mode) pass nothing and get the pre-#4950
  *   same-beat-only behaviour.
- * @returns {{ selected: StoryRecord[], withheldByInFlight: Array<{id: number, blockedBy: number}> }}
+ * @param {'enforce'|'advisory'} [args.footprintGuard='enforce'] Whether a
+ *   footprint collision **withholds** a Story (`enforce`, the default and
+ *   today's behaviour) or merely **reports** one while dispatch follows the
+ *   declared `depends_on` edges alone (`advisory`). Advisory never changes what
+ *   the guard *detects* — every would-be withhold is still computed and
+ *   returned in `footprintWithholds` with `enforced: false` — so turning it on
+ *   trades serialization for throughput without going blind (Story #5044).
+ * @param {string} [args.tempRoot] Resolved `project.paths.tempRoot`, threaded
+ *   so the evidence scrape can ignore gitignored scratch paths.
+ * @returns {{
+ *   selected: StoryRecord[],
+ *   withheldByInFlight: Array<{id: number, blockedBy: number}>,
+ *   footprintWithholds: Array<{id: number, blockedBy: number, scope: string, source: string, paths: string[], enforced: boolean}>,
+ *   guardMode: 'enforce'|'advisory'
+ * }}
  *   `selected` is the dispatch set: a subset of `stories`, ascending by id,
  *   overlap-free, length ≤ `globalCap − inFlight`. `withheldByInFlight`
  *   names each eligible Story a reservation held back and the in-flight
- *   Story that holds it.
+ *   Story that holds it. `footprintWithholds` is the **complete** ledger —
+ *   beat-local skips as well as cross-beat reservations, each with the
+ *   colliding paths and its `declared-overlap` / `scraped-overlap` source — so
+ *   no withheld dispatch is unexplained (Story #5044).
  */
 export function planReadySet({
   stories,
@@ -409,14 +319,25 @@ export function planReadySet({
   globalCap,
   dropForeign = false,
   inFlightRecords = [],
+  footprintGuard = GUARD_MODES.ENFORCE,
+  tempRoot,
 } = {}) {
   const records = Array.isArray(stories) ? stories : [];
+  const guardMode =
+    footprintGuard === GUARD_MODES.ADVISORY
+      ? GUARD_MODES.ADVISORY
+      : GUARD_MODES.ENFORCE;
   const cap = Number.isInteger(globalCap) ? globalCap : 0;
   const inFlightCount =
     Number.isInteger(inFlight) && inFlight > 0 ? inFlight : 0;
   const slots = Math.max(0, cap - inFlightCount);
   if (slots <= 0 || records.length === 0) {
-    return { selected: [], withheldByInFlight: [] };
+    return {
+      selected: [],
+      withheldByInFlight: [],
+      footprintWithholds: [],
+      guardMode,
+    };
   }
 
   // Step 1 — adjacency keyed by id. The `dropForeign` policy decides whether
@@ -425,7 +346,47 @@ export function planReadySet({
   // rationale.
   const adjacency = buildStoryAdjacency(records, { dropForeign });
 
-  // Step 2 — done set = caller-supplied ids ∪ records that classify done.
+  // Steps 2 + 3 — who is eligible at all, before any footprint reasoning.
+  const { eligibleIds, byId } = resolveEligibility({
+    records,
+    doneIds,
+    adjacency,
+  });
+
+  // Steps 4 + 5 — greedily admit up to `slots`, skipping file-overlap
+  // collisions against the already-admitted set AND against the footprints
+  // reserved by Stories still in flight from an earlier beat.
+  return admitStories({
+    eligibleIds,
+    byId,
+    slots,
+    reserved: Array.isArray(inFlightRecords) ? inFlightRecords : [],
+    guardMode,
+    evidence: { tempRoot },
+  });
+}
+
+/**
+ * Resolve which Stories are eligible to dispatch on dependency grounds alone —
+ * `agent::ready` with every declared blocker done — plus the id→record index
+ * the admission loop reads.
+ *
+ * Separated from {@link planReadySet} because it answers a different question:
+ * this is the *declared graph* half of the decision (edges and lifecycle
+ * state), while everything after it reasons about footprints. Keeping the two
+ * apart is also what holds `planReadySet` under the cyclomatic ceiling ratchet.
+ *
+ * The done set is the union of two sources: ids the caller resolved from live
+ * state, and records in this batch that classify done — a Story can be both,
+ * and neither alone is complete.
+ *
+ * @param {object} args
+ * @param {StoryRecord[]} args.records
+ * @param {number[]|Set<number>} args.doneIds
+ * @param {Map<number, number[]>} args.adjacency
+ * @returns {{ eligibleIds: number[], byId: Map<number, StoryRecord> }}
+ */
+function resolveEligibility({ records, doneIds, adjacency }) {
   const done = new Set();
   for (const raw of doneIds instanceof Set ? doneIds : (doneIds ?? [])) {
     const id = Number(raw);
@@ -439,25 +400,14 @@ export function planReadySet({
     if (classifyStory(rec) === 'done') done.add(id);
   }
 
-  // Step 3 — eligible: ready AND all dependencies done. Ascending id for
-  // deterministic admission order.
+  // Ascending id for deterministic admission order.
   const eligibleIds = [];
   for (const id of [...byId.keys()].sort((a, b) => a - b)) {
-    const rec = byId.get(id);
-    if (classifyStory(rec) !== 'ready') continue;
+    if (classifyStory(byId.get(id)) !== 'ready') continue;
     const deps = adjacency.get(id) ?? [];
     if (deps.every((dep) => done.has(dep))) eligibleIds.push(id);
   }
-
-  // Steps 4 + 5 — greedily admit up to `slots`, skipping file-overlap
-  // collisions against the already-admitted set AND against the footprints
-  // reserved by Stories still in flight from an earlier beat.
-  return admitStories({
-    eligibleIds,
-    byId,
-    slots,
-    reserved: Array.isArray(inFlightRecords) ? inFlightRecords : [],
-  });
+  return { eligibleIds, byId };
 }
 
 /**
@@ -469,37 +419,102 @@ export function planReadySet({
  * ({@link reservesConcretePath}), while the same-beat guard also serializes
  * unknown-width footprints ({@link storiesOverlap}). See both for why.
  *
- * The reservation check runs **first**, so a Story racing both an in-flight
- * Story and a same-beat peer is reported against the in-flight one: that is
- * the longer-lived and more informative blocker (a Story that has been
- * implementing for beats, not one merely admitted a moment ago), and checking
- * it first is what makes the report complete — every withheld-by-reservation
- * Story appears in it. Ordering cannot change `selected`: a candidate either
- * rule rejects is skipped whichever runs first; only which list it is
- * reported in depends on the order.
+ * Which of the two a candidate is reported against is {@link blockingCollision}'s
+ * decision, not this loop's.
+ *
+ * Under `footprintGuard: 'advisory'` neither rule withholds: dispatch follows
+ * the declared `depends_on` edges alone. Detection is unchanged — every hit is
+ * still computed and recorded with `enforced: false` — so advisory mode is a
+ * deliberate throughput trade an operator can read the cost of, not a blind
+ * spot (Story #5044).
  *
  * @param {object} args
  * @param {number[]} args.eligibleIds        Ascending eligible Story ids.
  * @param {Map<number, StoryRecord>} args.byId
  * @param {number} args.slots                Remaining dispatch capacity.
  * @param {StoryRecord[]} args.reserved      In-flight Story records.
- * @returns {{ selected: StoryRecord[], withheldByInFlight: Array<{id: number, blockedBy: number}> }}
+ * @param {'enforce'|'advisory'} args.guardMode
+ * @param {object} args.evidence             Evidence-scrape options.
+ * @returns {{ selected: StoryRecord[], withheldByInFlight: Array<{id: number, blockedBy: number}>, footprintWithholds: object[], guardMode: string }}
  */
-function admitStories({ eligibleIds, byId, slots, reserved }) {
+function admitStories({
+  eligibleIds,
+  byId,
+  slots,
+  reserved,
+  guardMode,
+  evidence,
+}) {
+  const enforced = guardMode !== GUARD_MODES.ADVISORY;
   const selected = [];
-  const withheldByInFlight = [];
+  const footprintWithholds = [];
   for (const id of eligibleIds) {
     if (selected.length >= slots) break;
     const rec = byId.get(id);
-    const blockedBy = findInFlightBlocker(rec, id, reserved);
-    if (blockedBy !== null) {
-      withheldByInFlight.push({ id, blockedBy });
-      continue;
-    }
-    if (selected.some((picked) => storiesOverlap(picked, rec))) continue;
+    const hit = blockingCollision({ rec, id, selected, reserved, evidence });
+    if (hit) footprintWithholds.push({ id, ...hit, enforced });
+    if (hit && enforced) continue;
     selected.push(rec);
   }
-  return { selected, withheldByInFlight };
+  return {
+    selected,
+    // The legacy cross-beat projection, kept at its original `{ id, blockedBy }`
+    // shape: it is `stories-wave-tick.js`'s long-standing reservation input and
+    // narrowing the scrape must not reshape it.
+    withheldByInFlight: footprintWithholds
+      .filter((w) => w.enforced && w.scope === WITHHOLD_SCOPES.IN_FLIGHT)
+      .map(({ id, blockedBy }) => ({ id, blockedBy })),
+    footprintWithholds,
+    guardMode,
+  };
+}
+
+/**
+ * The one footprint collision withholding this candidate, or `null`.
+ *
+ * The in-flight reservation is checked **first**, so a Story racing both an
+ * in-flight Story and a same-beat peer is reported against the in-flight one:
+ * that is the longer-lived and more informative blocker (a Story that has been
+ * implementing for beats, not one merely admitted a moment ago), and checking it
+ * first is what makes the reservation report complete. Order cannot change
+ * `selected` — a candidate either rule rejects is skipped whichever runs first.
+ *
+ * @param {object} args
+ * @param {StoryRecord} args.rec
+ * @param {number} args.id
+ * @param {StoryRecord[]} args.selected  Peers already admitted this beat.
+ * @param {StoryRecord[]} args.reserved  In-flight Story records.
+ * @param {object} args.evidence
+ * @returns {{ blockedBy: number, scope: string, paths: string[], source: string }|null}
+ */
+function blockingCollision({ rec, id, selected, reserved, evidence }) {
+  const held = findInFlightBlocker(rec, id, reserved, evidence);
+  if (held) return { ...held, scope: WITHHOLD_SCOPES.IN_FLIGHT };
+  const peer = findBeatBlocker(rec, selected, evidence);
+  return peer ? { ...peer, scope: WITHHOLD_SCOPES.BEAT } : null;
+}
+
+/**
+ * The **already-admitted peer** whose footprint this candidate would race on
+ * this beat, with the colliding paths — or `null` when none does.
+ *
+ * Until Story #5044 this was an anonymous `continue`: the candidate was
+ * silently dropped from the beat and nothing in any envelope said why. An
+ * unfilled slot with no explanation is indistinguishable from a cap that was
+ * simply not reached, which is what let a footprint-widening artifact
+ * serialize a whole audit-derived plan without leaving a trace to notice.
+ *
+ * @param {StoryRecord} candidate
+ * @param {StoryRecord[]} selected  Stories already admitted this beat.
+ * @param {object} [options]
+ * @returns {{ blockedBy: number, paths: string[], source: string }|null}
+ */
+function findBeatBlocker(candidate, selected, options = {}) {
+  for (const picked of selected) {
+    const collision = detectCollision(picked, candidate, options);
+    if (collision) return { blockedBy: storyIdOf(picked), ...collision };
+  }
+  return null;
 }
 
 /**
@@ -520,13 +535,15 @@ function admitStories({ eligibleIds, byId, slots, reserved }) {
  * @param {StoryRecord} candidate
  * @param {number} candidateId
  * @param {StoryRecord[]} reserved
- * @returns {number|null}
+ * @param {object} [options]
+ * @returns {{ blockedBy: number, paths: string[], source: string }|null}
  */
-function findInFlightBlocker(candidate, candidateId, reserved) {
+function findInFlightBlocker(candidate, candidateId, reserved, options = {}) {
   for (const held of reserved) {
     const heldId = storyIdOf(held);
     if (heldId === null || heldId === candidateId) continue;
-    if (reservesConcretePath(held, candidate)) return heldId;
+    const collision = reservesConcretePath(held, candidate, options);
+    if (collision) return { blockedBy: heldId, ...collision };
   }
   return null;
 }

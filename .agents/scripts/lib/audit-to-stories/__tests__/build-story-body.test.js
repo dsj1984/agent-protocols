@@ -113,23 +113,34 @@ describe('buildStoryBody changes + edges (criterion 3)', () => {
     ]);
   });
 
-  it('carries edges[] anchored on the group through a ## Sequencing block', () => {
+  it('carries only the edges anchored on the group (Story #5044)', () => {
+    // The prose `## Sequencing` block this replaced declared nothing any
+    // scheduler could read, which is why standalone audit Stories shipped with
+    // depends_on: [] and were serialized only by accident.
     const group = makeGroup();
     const edges = [
       { fromGroupKey: group.groupKey, toGroupKey: 'file:other.js', via: 'x' },
       { fromGroupKey: 'file:unrelated.js', toGroupKey: 'file:nope.js' },
     ];
-    const { body } = buildStoryBody({ group, edges });
-    assert.match(body, /## Sequencing/);
-    assert.match(body, /depends on group `file:other\.js`/);
+    const built = buildStoryBody({ group, edges });
+    assert.deepEqual(built.dependsOn, ['file:other.js']);
+    assert.ok(!built.body.includes('## Sequencing'));
+
+    const wired = buildStoryBody({
+      group,
+      edges,
+      issueByGroupKey: { [group.groupKey]: 500, 'file:other.js': 499 },
+    });
+    assert.deepEqual(parse(wired.body).body.depends_on, ['#499']);
     // The unrelated edge's target must not leak in.
-    assert.ok(!body.includes('file:nope.js'));
+    assert.ok(!wired.body.includes('file:nope.js'));
   });
 
-  it('omits the ## Sequencing block when no edge anchors on the group', () => {
-    const { body } = buildStoryBody({ group: makeGroup() });
-    assert.ok(!body.includes('## Sequencing'));
-    assert.deepEqual(parse(body).body.depends_on, []);
+  it('declares nothing when no edge anchors on the group', () => {
+    const built = buildStoryBody({ group: makeGroup() });
+    assert.deepEqual(built.dependsOn, []);
+    assert.deepEqual(parse(built.body).body.depends_on, []);
+    assert.ok(!built.body.includes('blocked by'));
   });
 });
 
@@ -167,7 +178,11 @@ describe('buildAndGateStories inline-contract gate (criterion 5)', () => {
     assert.equal(built.length, 1);
     const { body } = parse(built[0].body);
     assert.ok(body.acceptance.length > 0 && body.verify.length > 0);
-    assert.match(built[0].body, /depends on group `file:other\.js`/);
+    // The edge rides the returned object, not the body: at create time the
+    // blocker has no issue number, so there is no `#N` to declare yet. The
+    // `--wire-edges` pass resolves it once the issues exist (Story #5044).
+    assert.deepEqual(built[0].dependsOn, ['file:other.js']);
+    assert.equal(built[0].groupKey, group.groupKey);
   });
 
   it('throws (opening no issues) when a group yields no acceptance items', () => {
