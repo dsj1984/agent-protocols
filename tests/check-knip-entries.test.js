@@ -29,6 +29,7 @@ import { makeTempDir } from '../.agents/scripts/lib/test-temp.js';
 
 const {
   buildInvocationPatterns,
+  collectEntryPatterns,
   collectInvocationSurfaces,
   readKnipEntries,
   stripJsComments,
@@ -115,7 +116,7 @@ test('buildInvocationPatterns: joinedSpawn requires the "scripts" sibling argume
   assert.ok(!joinedSpawn.test(`const NAMES = ['bar.js', 'foo.js'];`));
 });
 
-test('readKnipEntries: reads explicit top-level entries and ignores globs', () => {
+test('readKnipEntries: reads explicit top-level entries and ignores globs', async () => {
   const root = makeFixtureRepo({ clis: ['a.js'] });
   fs.writeFileSync(
     path.join(root, 'knip.json'),
@@ -129,12 +130,12 @@ test('readKnipEntries: reads explicit top-level entries and ignores globs', () =
       ],
     }),
   );
-  const { entries, error } = readKnipEntries({ repoRoot: root });
+  const { entries, error } = await readKnipEntries({ repoRoot: root });
   assert.equal(error, null);
   assert.deepEqual(entries, ['a.js']);
 });
 
-test('readKnipEntries: reports an entry declared without the `!` production marker', () => {
+test('readKnipEntries: reports an entry declared without the `!` production marker', async () => {
   const root = makeFixtureRepo({ clis: ['a.js', 'b.js'] });
   fs.writeFileSync(
     path.join(root, 'knip.json'),
@@ -142,20 +143,22 @@ test('readKnipEntries: reports an entry declared without the `!` production mark
       entry: ['.agents/scripts/a.js!', '.agents/scripts/b.js'],
     }),
   );
-  const { entries, unsuffixed, error } = readKnipEntries({ repoRoot: root });
+  const { entries, unsuffixed, error } = await readKnipEntries({
+    repoRoot: root,
+  });
   assert.equal(error, null);
   // Still declared — the CLI is named — but knip's production pass negates it.
   assert.deepEqual(entries, ['a.js', 'b.js']);
   assert.deepEqual(unsuffixed, ['b.js']);
 });
 
-test('resolveEntrySync: an unsuffixed entry is a divergence, not a satisfied one', () => {
+test('resolveEntrySync: an unsuffixed entry is a divergence, not a satisfied one', async () => {
   const root = makeFixtureRepo({ clis: ['a.js'] });
   fs.writeFileSync(
     path.join(root, 'knip.json'),
     JSON.stringify({ entry: ['.agents/scripts/a.js'] }),
   );
-  const report = resolveEntrySync({ repoRoot: root });
+  const report = await resolveEntrySync({ repoRoot: root });
   assert.deepEqual(report.unsuffixed, ['a.js']);
   // The gate must fail: reading it as declared points the operator away from
   // the cause, and accepting the dead-exports diff would then record a live
@@ -164,19 +167,27 @@ test('resolveEntrySync: an unsuffixed entry is a divergence, not a satisfied one
   assert.match(renderEntrySyncReport(report), /without a "!" suffix/);
 });
 
-test('readKnipEntries: reports an unreadable or entry-less config as an error', () => {
+test('readKnipEntries: an unusable repository and an entry-less config are errors, not skips', async () => {
+  // No package.json at all: knip's resolver cannot even start. A broken
+  // repository is not an opt-out, so it must not take the skip path.
   const root = makeTempDir('knip-entry-bad-');
-  assert.match(
-    readKnipEntries({ repoRoot: root }).error,
-    /cannot read knip\.json/,
-  );
+  const unusable = await readKnipEntries({ repoRoot: root });
+  assert.equal(unusable.skipped, null);
+  assert.match(unusable.error, /cannot resolve the knip configuration/);
+
+  // A config that resolves but enumerates no entry points anywhere leaves the
+  // gate nothing to compare against. Reporting every CLI as `missing` would be
+  // a lie, so this is an error too.
+  fs.writeFileSync(path.join(root, 'package.json'), JSON.stringify({}));
   fs.writeFileSync(path.join(root, 'knip.json'), JSON.stringify({}));
-  assert.match(readKnipEntries({ repoRoot: root }).error, /no "entry" array/);
+  const entryless = await readKnipEntries({ repoRoot: root });
+  assert.equal(entryless.skipped, null);
+  assert.match(entryless.error, /declares no "entry" array/);
 });
 
 // --- the regression the gate exists for -------------------------------------
 
-test('REGRESSION: a newly-added, invoked CLI absent from knip entry is reported missing', () => {
+test('REGRESSION: a newly-added, invoked CLI absent from knip entry is reported missing', async () => {
   // Exactly the Story #5012 shape: the CLI is real, wired into package.json and
   // CI, and simply not yet listed in knip.json. Without this gate knip calls it
   // unreachable and check-dead-exports offers a whole-file dead row for it.
@@ -195,7 +206,7 @@ test('REGRESSION: a newly-added, invoked CLI absent from knip entry is reported 
     },
   });
 
-  const report = resolveEntrySync({ repoRoot: root });
+  const report = await resolveEntrySync({ repoRoot: root });
   assert.equal(report.error, null);
   assert.deepEqual(
     report.missing.map((m) => m.cli),
@@ -223,39 +234,39 @@ test('REGRESSION: a newly-added, invoked CLI absent from knip entry is reported 
       entry: ['.agents/scripts/existing.js!', '.agents/scripts/brand-new.js!'],
     }),
   );
-  const after = resolveEntrySync({ repoRoot: root });
+  const after = await resolveEntrySync({ repoRoot: root });
   assert.deepEqual(after.missing, []);
   assert.deepEqual(after.stale, []);
   assert.deepEqual(after.phantom, []);
   assert.match(renderEntrySyncReport(after), /\(ok\)/);
 });
 
-test('a CLI declared in entry that nothing invokes is reported stale', () => {
+test('a CLI declared in entry that nothing invokes is reported stale', async () => {
   // The blind spot #5001 closed: a declared entry point is immortal, so its
   // death can never surface. An entry outliving its last caller restores it.
   const root = makeFixtureRepo({
     clis: ['live.js', 'orphaned.js'],
     packageJson: { scripts: { live: 'node .agents/scripts/live.js' } },
   });
-  const report = resolveEntrySync({ repoRoot: root });
+  const report = await resolveEntrySync({ repoRoot: root });
   assert.deepEqual(report.stale, ['orphaned.js']);
   assert.deepEqual(report.missing, []);
   assert.match(renderEntrySyncReport(report), /nothing invokes it/);
 });
 
-test('an entry whose file is gone is reported phantom', () => {
+test('an entry whose file is gone is reported phantom', async () => {
   const root = makeFixtureRepo({
     clis: ['live.js'],
     entry: ['live.js', 'renamed-away.js'],
     packageJson: { scripts: { live: 'node .agents/scripts/live.js' } },
   });
-  const report = resolveEntrySync({ repoRoot: root });
+  const report = await resolveEntrySync({ repoRoot: root });
   assert.deepEqual(report.phantom, ['renamed-away.js']);
 });
 
 // --- what does and does not confer liveness ---------------------------------
 
-test('documentation prose does not make an uninvoked CLI live', () => {
+test('documentation prose does not make an uninvoked CLI live', async () => {
   // Four CLIs are named only in docs today; #5001 recorded all four as
   // whole-file dead on purpose. Counting prose would silently resurrect them.
   const root = makeFixtureRepo({
@@ -268,12 +279,12 @@ test('documentation prose does not make an uninvoked CLI live', () => {
         'The operator-run replacement is `node .agents/scripts/operator-tool.js`.\n',
     },
   });
-  const report = resolveEntrySync({ repoRoot: root });
+  const report = await resolveEntrySync({ repoRoot: root });
   assert.deepEqual(report.missing, [], 'prose is not a caller');
   assert.deepEqual(report.stale, []);
 });
 
-test('a comment naming a CLI does not make it live, but a real spawn does', () => {
+test('a comment naming a CLI does not make it live, but a real spawn does', async () => {
   const root = makeFixtureRepo({
     clis: ['mentioned.js', 'spawned.js'],
     entry: ['spawned.js'],
@@ -287,7 +298,7 @@ test('a comment naming a CLI does not make it live, but a real spawn does', () =
       ].join('\n'),
     },
   });
-  const report = resolveEntrySync({ repoRoot: root });
+  const report = await resolveEntrySync({ repoRoot: root });
   assert.deepEqual(
     report.missing,
     [],
@@ -296,7 +307,7 @@ test('a comment naming a CLI does not make it live, but a real spawn does', () =
   assert.deepEqual(report.stale, [], 'a path.join spawn must confer liveness');
 });
 
-test('a CLI reachable only by import is neither missing nor stale', () => {
+test('a CLI reachable only by import is neither missing nor stale', async () => {
   // `cleanup-repo-test-temp.js` is imported by run-tests.js, so knip already
   // reaches it through the module graph; declaring it an entry would be wrong.
   const root = makeFixtureRepo({
@@ -308,12 +319,12 @@ test('a CLI reachable only by import is neither missing nor stale', () => {
     path.join(root, '.agents', 'scripts', 'runner.js'),
     "import { help } from './helper.js';\nhelp();\n",
   );
-  const report = resolveEntrySync({ repoRoot: root });
+  const report = await resolveEntrySync({ repoRoot: root });
   assert.deepEqual(report.missing, []);
   assert.deepEqual(report.stale, []);
 });
 
-test('collectInvocationSurfaces: excludes test files from the invoked set', () => {
+test('collectInvocationSurfaces: excludes test files from the invoked set', async () => {
   const root = makeFixtureRepo({
     clis: ['only-tested.js'],
     entry: [],
@@ -324,7 +335,7 @@ test('collectInvocationSurfaces: excludes test files from the invoked set', () =
   });
   const surfaces = collectInvocationSurfaces({ repoRoot: root });
   assert.ok(!surfaces.some((s) => s.path.includes('__tests__')));
-  assert.deepEqual(resolveEntrySync({ repoRoot: root }).missing, []);
+  assert.deepEqual((await resolveEntrySync({ repoRoot: root })).missing, []);
 });
 
 // --- CLI exit codes ---------------------------------------------------------
@@ -396,10 +407,256 @@ test('runCli: --json emits the machine-readable report', async () => {
   );
 });
 
+// --- config resolution (Story #5039) ----------------------------------------
+
+/**
+ * Rewrite a fixture's configuration into one of knip's other supported
+ * locations, removing the `knip.json` `makeFixtureRepo` seeds by default.
+ *
+ * @param {string} root fixture repo root
+ * @param {string} name config filename, or `package.json` for the manifest key
+ * @param {object|string} body parsed object, or verbatim source for a TS/JS module
+ */
+function relocateConfig(root, name, body) {
+  const entry = JSON.parse(
+    fs.readFileSync(path.join(root, 'knip.json'), 'utf8'),
+  );
+  fs.rmSync(path.join(root, 'knip.json'));
+  if (name === 'package.json') {
+    const manifest = JSON.parse(
+      fs.readFileSync(path.join(root, 'package.json'), 'utf8'),
+    );
+    manifest.knip = body ?? entry;
+    fs.writeFileSync(path.join(root, 'package.json'), JSON.stringify(manifest));
+    return;
+  }
+  fs.writeFileSync(
+    path.join(root, name),
+    typeof body === 'string' ? body : JSON.stringify(body ?? entry),
+  );
+}
+
+for (const [name, body] of [
+  ['knip.jsonc', null],
+  ['.knip.json', null],
+  ['package.json', null],
+  [
+    'knip.config.ts',
+    // A type annotation and a computed array: proof the module is EVALUATED,
+    // not parsed. A purpose-built parser would see neither the mapped suffix
+    // nor the interpolated prefix.
+    [
+      "const clis: string[] = ['a.js'];",
+      'export default {',
+      '  entry: clis.map((cli: string) => `.agents/scripts/${cli}!`),',
+      '};',
+      '',
+    ].join('\n'),
+  ],
+  [
+    'knip.ts',
+    // Function-form config — knip unwraps it via `loadResolvedConfigFile`.
+    [
+      'export default () => ({',
+      "  entry: ['.agents/scripts/a.js!'],",
+      '});',
+      '',
+    ].join('\n'),
+  ],
+]) {
+  test(`resolves an entry list declared in ${name}`, async () => {
+    const root = makeFixtureRepo({
+      clis: ['a.js'],
+      packageJson: { scripts: { a: 'node .agents/scripts/a.js' } },
+    });
+    relocateConfig(root, name, body);
+
+    const report = await resolveEntrySync({ repoRoot: root });
+    assert.equal(report.error, null, `${name} must resolve`);
+    assert.equal(report.skipped, null, `${name} exists — this is not a skip`);
+    assert.deepEqual(report.declared, ['a.js']);
+    assert.deepEqual(report.missing, []);
+    assert.deepEqual(report.stale, []);
+    assert.deepEqual(report.unsuffixed, []);
+  });
+}
+
+test('a knip.config.ts that spreads an imported base resolves to the COMPUTED entry array', async () => {
+  // The `Beestera/swarm-os` shape verbatim: knip 6 has no root-level `extends`,
+  // so a consumer inheriting the shared `knip.base.json` must spread it inside a
+  // TS module. #5026 read the file as JSON and saw an ENOENT; a hand-written TS
+  // parser would see a spread it cannot evaluate. Only knip's own loader gets
+  // the final array — which is why this gate goes through `createOptions`.
+  const root = makeFixtureRepo({
+    clis: ['from-base.js', 'from-local.js'],
+    packageJson: {
+      scripts: {
+        base: 'node .agents/scripts/from-base.js',
+        local: 'node .agents/scripts/from-local.js',
+      },
+    },
+  });
+  fs.writeFileSync(
+    path.join(root, 'knip.base.json'),
+    JSON.stringify({ entry: ['.agents/scripts/from-base.js!'] }),
+  );
+  relocateConfig(
+    root,
+    'knip.config.ts',
+    [
+      "import base from './knip.base.json';",
+      'const config = {',
+      '  ...base,',
+      "  entry: [...base.entry, '.agents/scripts/from-local.js!'],",
+      '};',
+      'export default config;',
+      '',
+    ].join('\n'),
+  );
+
+  const report = await resolveEntrySync({ repoRoot: root });
+  assert.equal(report.error, null);
+  assert.deepEqual(report.declared, ['from-base.js', 'from-local.js']);
+  assert.deepEqual(report.missing, [], 'the inherited entry must count');
+  assert.deepEqual(report.stale, []);
+});
+
+test('entries declared under a workspace count alongside the top-level entry array', async () => {
+  // A pnpm-workspace config puts entries under `workspaces`, so #5026 read an
+  // empty declared set even when the config was plain JSON — every CLI would
+  // have been reported missing.
+  const root = makeFixtureRepo({
+    clis: ['top.js', 'root-ws.js'],
+    packageJson: {
+      scripts: {
+        top: 'node .agents/scripts/top.js',
+        ws: 'node .agents/scripts/root-ws.js',
+      },
+    },
+  });
+  relocateConfig(root, 'knip.jsonc', {
+    entry: ['.agents/scripts/top.js!'],
+    workspaces: {
+      '.': { entry: ['.agents/scripts/root-ws.js!'] },
+      'packages/app': { entry: ['src/index.ts!'] },
+    },
+  });
+
+  const report = await resolveEntrySync({ repoRoot: root });
+  assert.equal(report.error, null);
+  assert.deepEqual(report.declared, ['root-ws.js', 'top.js']);
+  assert.deepEqual(report.missing, []);
+  assert.deepEqual(report.stale, []);
+});
+
+test('collectEntryPatterns: joins named-workspace patterns, leaves the root workspace alone, keeps negation leading', () => {
+  const { patterns, sawEntryArray } = collectEntryPatterns({
+    entry: ['top.js!'],
+    workspaces: {
+      '.': { entry: ['.agents/scripts/root.js!'] },
+      './also-root': { entry: ['rel.js!'] },
+      'packages/app/': { entry: ['src/index.ts!', '!src/ignored.ts'] },
+      'packages/no-entry': { ignore: ['**/*.d.ts'] },
+    },
+  });
+  assert.equal(sawEntryArray, true);
+  assert.deepEqual(patterns.sort(), [
+    '!packages/app/src/ignored.ts',
+    '.agents/scripts/root.js!',
+    'also-root/rel.js!',
+    'packages/app/src/index.ts!',
+    'top.js!',
+  ]);
+  // A config with no entry array anywhere is distinguishable from one that
+  // simply declares nothing under .agents/scripts/.
+  assert.equal(collectEntryPatterns({ workspaces: {} }).sawEntryArray, false);
+  assert.equal(collectEntryPatterns(undefined).sawEntryArray, false);
+});
+
+test('no knip configuration at all is a clean skip, not a failure', async () => {
+  // The whole point of Story #5039's opt-in posture: until this, wiring the
+  // gate into a consumer that does not run knip red the build, and leaving it
+  // unwired left #5001's guard unbuilt. Neither was the intended outcome.
+  const root = makeFixtureRepo({
+    clis: ['a.js'],
+    packageJson: { scripts: { a: 'node .agents/scripts/a.js' } },
+  });
+  fs.rmSync(path.join(root, 'knip.json'));
+
+  const report = await resolveEntrySync({ repoRoot: root });
+  assert.equal(report.error, null);
+  assert.match(report.skipped, /no knip configuration found/);
+  assert.equal(countDivergences(report), 0);
+
+  const stdout = {
+    out: '',
+    write(s) {
+      this.out += s;
+    },
+  };
+  assert.equal(
+    await runCli({ argv: ['--cwd', root], stdout, stderr: { write() {} } }),
+    0,
+  );
+  assert.match(stdout.out, /not applicable/);
+});
+
+test('an unresolvable knip package is a clean skip; an incompatible one is not', async () => {
+  const root = makeFixtureRepo({
+    clis: ['a.js'],
+    packageJson: { scripts: { a: 'node .agents/scripts/a.js' } },
+  });
+
+  const absent = await resolveEntrySync({
+    repoRoot: root,
+    loadKnipSession: () => {
+      throw new Error("Cannot find package 'knip'");
+    },
+  });
+  assert.equal(absent.error, null);
+  assert.match(absent.skipped, /not resolvable/);
+
+  // Present but too old to export the resolver: that is a real breakage and
+  // must not be swallowed as "nothing to check".
+  const incompatible = await resolveEntrySync({
+    repoRoot: root,
+    loadKnipSession: async () => ({}),
+  });
+  assert.equal(incompatible.skipped, null);
+  assert.match(incompatible.error, /does not export createOptions/);
+});
+
+test('a configuration that exists but throws on load exits 2, never 0', async () => {
+  const root = makeFixtureRepo({
+    clis: ['a.js'],
+    packageJson: { scripts: { a: 'node .agents/scripts/a.js' } },
+  });
+  relocateConfig(
+    root,
+    'knip.config.ts',
+    "throw new Error('boom from the config');\n",
+  );
+
+  const report = await resolveEntrySync({ repoRoot: root });
+  assert.equal(report.skipped, null, 'breakage is not absence');
+  assert.match(report.error, /cannot resolve the knip configuration/);
+
+  const stderr = {
+    out: '',
+    write(s) {
+      this.out += s;
+    },
+  };
+  assert.equal(
+    await runCli({ argv: ['--cwd', root], stdout: { write() {} }, stderr }),
+    2,
+  );
+});
+
 // --- live-repository invariants ---------------------------------------------
 
-test('INVARIANT: this repository\u2019s knip entry list matches its invoked CLI set', () => {
-  const report = resolveEntrySync({ repoRoot: REPO_ROOT });
+test('INVARIANT: this repository\u2019s knip entry list matches its invoked CLI set', async () => {
+  const report = await resolveEntrySync({ repoRoot: REPO_ROOT });
   assert.equal(report.error, null);
   assert.deepEqual(
     report.missing.map((m) => m.cli),
@@ -421,11 +678,11 @@ test('INVARIANT: this repository\u2019s knip entry list matches its invoked CLI 
   );
 });
 
-test('INVARIANT: no entry-declared CLI is also recorded as a whole-file dead row', () => {
+test('INVARIANT: no entry-declared CLI is also recorded as a whole-file dead row', async () => {
   // The two artifacts must stay disjoint by construction. A CLI appearing in
   // both is precisely the poisoning #5012 nearly committed: declared live to
   // knip, yet recorded as expected-dead in the ratchet's own baseline.
-  const { entries } = readKnipEntries({ repoRoot: REPO_ROOT });
+  const { entries } = await readKnipEntries({ repoRoot: REPO_ROOT });
   const declared = new Set(entries);
   for (const baseline of [
     'baselines/dead-exports.json',

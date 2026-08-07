@@ -76,6 +76,23 @@ describe('runtime-deps drift', () => {
     );
   });
 
+  it('declares knip as an optional dependency (the entry gate degrades without it)', () => {
+    // `check-knip-entries.js` imports `knip/session` behind a try/catch and
+    // skips cleanly when it does not resolve (Story #5039). Promoting it to
+    // `dependencies` would make the preflight guard fail-fast, forcing every
+    // consumer — including those that do not run knip at all — to install it
+    // just to have `.agents/` materialized.
+    const { optionalDependencies, dependencies } = loadRuntimeDepsManifest();
+    assert.ok(
+      Object.hasOwn(optionalDependencies, 'knip'),
+      'knip must be in optionalDependencies (not dependencies)',
+    );
+    assert.ok(
+      !Object.hasOwn(dependencies, 'knip'),
+      'knip must never be preflight-blocked — the gate is opt-in by absence',
+    );
+  });
+
   it('fails the drift check when a declaration is removed (negative control)', () => {
     const { packages } = scanThirdPartyImports(SCRIPTS_DIR);
     assert.ok(packages.has('minimatch'), 'precondition: minimatch is imported');
