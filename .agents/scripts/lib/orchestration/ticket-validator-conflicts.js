@@ -109,8 +109,11 @@ const DEFAULT_POLICY = Object.freeze({
  * Patterns support two shapes:
  *   - exact path  — `lib/orchestration/lifecycle/listeners/index.js`
  *   - `**` suffix — `**\/listeners/index.js` (matches any depth)
+ *
+ * Module-private since `resolveConflictPolicy` became the one production
+ * reader; tests reach it through `_internal`.
  */
-export const DEFAULT_REGISTRY_PATTERNS = Object.freeze([
+const DEFAULT_REGISTRY_PATTERNS = Object.freeze([
   'lib/orchestration/lifecycle/listeners/index.js',
   '**/listeners/index.js',
   '**/handlers/index.js',
