@@ -23,7 +23,14 @@ import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
  * `collectReportPaths` and `readReports` are exercised for real.
  */
 
-const { buildPlan, buildAndGateStories, runAuto, meetsSeverity } = __testing;
+const {
+  buildPlan,
+  buildAndGateStories,
+  runAuto,
+  meetsSeverity,
+  wireEdges,
+  parseIssueMap,
+} = __testing;
 
 const FIXTURES = path.join(import.meta.dirname, 'fixtures');
 
@@ -368,11 +375,23 @@ describe('runAuditToStories (sub-command dispatch)', () => {
         },
         buildAndGateStoriesImpl: (eligible, edges) => {
           seen.gate = { eligible, edges };
-          return [{ title: 'T', labels: ['a', 'b'], body: 'BODY' }];
+          return [
+            {
+              title: 'T',
+              labels: ['a', 'b'],
+              body: 'BODY',
+              groupKey: 'g1',
+              dependsOn: ['g0'],
+            },
+          ];
         },
         buildPlanSeedMarkdownImpl: (args) => {
           seen.seed = args;
           return '# seed\n';
+        },
+        wireEdgesImpl: async (params) => {
+          seen.wireEdges = params;
+          return { storiesWired: 1, bodiesUpdated: 1, edgesDeclared: 1 };
         },
         persistImpl: (text, outPath) => persisted.push({ text, outPath }),
         stdout: { write: (s) => written.push(s) },
@@ -383,8 +402,35 @@ describe('runAuditToStories (sub-command dispatch)', () => {
   it('throws the usage error when no sub-command is given', async () => {
     await assert.rejects(
       () => runAuditToStories([], harness().deps),
-      /Usage: node audit-to-stories\.js \(--scan \| --emit-plan-seed \| --emit-stories\)/,
+      /Usage: node audit-to-stories\.js \(--scan \| --emit-plan-seed \| --emit-stories \| --wire-edges\)/,
     );
+  });
+
+  it('--wire-edges threads the plan and the parsed issue map (Story #5044)', async () => {
+    const h = harness();
+    await runAuditToStories(
+      [
+        '--wire-edges',
+        '--plan',
+        'plan.json',
+        '--ids',
+        '{"a": 101, "b": 102}',
+        '--out',
+        'wired.json',
+      ],
+      h.deps,
+    );
+    assert.equal(h.seen.loadPlan, 'plan.json');
+    assert.deepEqual(h.seen.wireEdges.issueByGroupKey, { a: 101, b: 102 });
+    assert.equal(h.seen.wireEdges.plan.edges.length, 1);
+    assert.deepEqual(h.persisted.at(-1), {
+      text: JSON.stringify(
+        { storiesWired: 1, bodiesUpdated: 1, edgesDeclared: 1 },
+        null,
+        2,
+      ),
+      outPath: 'wired.json',
+    });
   });
 
   it('--auto persists the summary and adds a trailing newline on stdout', async () => {
@@ -452,9 +498,12 @@ describe('runAuditToStories (sub-command dispatch)', () => {
     assert.deepEqual(h.seen.gate.edges, [
       { fromGroupKey: 'a', toGroupKey: 'b' },
     ]);
+    // The group edges no longer ride the body at emit time — the blockers have
+    // no issue numbers yet — so the transcript surfaces them here, which is
+    // what a human driving the create pass replays through --wire-edges.
     assert.match(
       h.persisted[0].text,
-      /--- story 1 ---\nTitle: T\nLabels: a, b\n\nBODY/,
+      /--- story 1 ---\nTitle: T\nLabels: a, b\nGroup key: g1\nDepends on group\(s\): g0\n\nBODY/,
     );
   });
 
@@ -465,7 +514,13 @@ describe('runAuditToStories (sub-command dispatch)', () => {
       h.deps,
     );
     assert.deepEqual(JSON.parse(h.persisted[0].text), [
-      { title: 'T', labels: ['a', 'b'], body: 'BODY' },
+      {
+        title: 'T',
+        labels: ['a', 'b'],
+        body: 'BODY',
+        groupKey: 'g1',
+        dependsOn: ['g0'],
+      },
     ]);
   });
 
@@ -474,5 +529,98 @@ describe('runAuditToStories (sub-command dispatch)', () => {
     await runAuditToStories(['--auto', '--scan'], h.deps);
     assert.ok(h.seen.runAuto);
     assert.equal(h.seen.buildPlan, undefined);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Story #5044 — the --wire-edges second pass
+// ---------------------------------------------------------------------------
+
+describe('parseIssueMap', () => {
+  it('accepts inline JSON', () => {
+    assert.deepEqual(parseIssueMap('{"a": 101, "b": 102}'), { a: 101, b: 102 });
+  });
+
+  it('accepts a path to a JSON file', () => {
+    const dir = makeTempDir('audit-wire-ids');
+    const file = path.join(dir, 'ids.json');
+    fs.writeFileSync(file, JSON.stringify({ a: 7 }));
+    assert.deepEqual(parseIssueMap(file), { a: 7 });
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('refuses to run without ids rather than silently wiring nothing', () => {
+    // A missing map would resolve every edge to undefined and report a clean
+    // "0 edges declared" — a green run that wired nothing at all.
+    assert.throws(
+      () => parseIssueMap(undefined),
+      /--wire-edges requires --ids/,
+    );
+  });
+
+  it('rejects a value that is not a positive issue number', () => {
+    assert.throws(
+      () => parseIssueMap('{"a": "nope"}'),
+      /not a positive issue number/,
+    );
+    assert.throws(
+      () => parseIssueMap('{"a": 0}'),
+      /not a positive issue number/,
+    );
+  });
+});
+
+describe('wireEdges', () => {
+  const plan = {
+    edges: [{ fromGroupKey: 'b', toGroupKey: 'a' }],
+    classifications: [
+      { action: 'create', group: { groupKey: 'a' } },
+      { action: 'create', group: { groupKey: 'b' } },
+      { action: 'skip-open', group: { groupKey: 'c' } },
+    ],
+  };
+
+  it('passes only the create-eligible groups and an updateBody bound to updateTicket', async () => {
+    const patched = [];
+    let seen;
+    const summary = await wireEdges(
+      { plan, issueByGroupKey: { a: 101, b: 102 } },
+      {
+        loadProviderImpl: async () => ({
+          updateTicket: (issueNumber, mutations) => {
+            patched.push({ issueNumber, body: mutations.body });
+            return Promise.resolve();
+          },
+        }),
+        wireImpl: async (args) => {
+          seen = args;
+          await args.updateBody(102, 'NEW BODY');
+          return { storiesWired: 1 };
+        },
+      },
+    );
+
+    assert.deepEqual(
+      seen.groups.map((g) => g.groupKey),
+      ['a', 'b'],
+      'a skip-open group has no issue of this run to wire',
+    );
+    assert.deepEqual(seen.edges, plan.edges);
+    assert.deepEqual(seen.issueByGroupKey, { a: 101, b: 102 });
+    assert.deepEqual(patched, [{ issueNumber: 102, body: 'NEW BODY' }]);
+    assert.deepEqual(summary, { storiesWired: 1 });
+  });
+
+  it('fails loudly when the provider cannot rewrite a body', async () => {
+    // Without updateTicket the footers never land, and the native mirroring
+    // alone would leave /deliver's body-parsing resolver blind to the order.
+    await assert.rejects(
+      () =>
+        wireEdges(
+          { plan, issueByGroupKey: { a: 101 } },
+          { loadProviderImpl: async () => ({}) },
+        ),
+      /--wire-edges needs a provider exposing updateTicket/,
+    );
   });
 });

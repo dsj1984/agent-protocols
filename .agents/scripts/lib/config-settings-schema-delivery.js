@@ -73,9 +73,17 @@ const DELIVER_RUNNER_SCHEMA = {
       minimum: 1,
       description:
         'Maximum ready Stories dispatched by /deliver at once. Default 3. Moderate by design — keeps host-quota consumption predictable while allowing a small ready-set fan-out. Set 1 for strictly sequential delivery; raise further on hosts with adequate parallel-agent quota. See deliver.md for the sequencing model and throughput tradeoff.',
-      // getRunners() resolves this inline rather than from an exported
-      // constant; the rewritten parity suite asserts the two agree.
+      // getRunners() resolves this from its own DEFAULT_DELIVER_RUNNER
+      // constant, not from this annotation; the parity suite asserts the two
+      // agree.
       default: 3,
+    },
+    footprintGuard: {
+      type: 'string',
+      enum: ['enforce', 'advisory'],
+      description:
+        "How a file-footprint collision affects dispatch. 'enforce' (default, and the behaviour to keep unless you have a reason) withholds a Story whose footprint races a peer admitted this beat or one still in flight — the guard encodes delivery-time-only knowledge (open implementation windows, foreign leases, ground that moved since planning) that no depends_on edge can carry. 'advisory' still DETECTS every collision and reports each would-be withhold in the tick envelope, but lets dispatch follow the declared depends_on edges alone — a deliberate throughput trade for a run whose ordering is fully declared. See stories-wave-tick.js and helpers/deliver-reference.md.",
+      default: 'enforce',
     },
   },
   additionalProperties: false,

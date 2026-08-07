@@ -18,6 +18,9 @@ describe('getRunners', () => {
     for (const input of [null, undefined, {}, { delivery: {} }]) {
       const r = getRunners(input);
       assert.equal(r.deliverRunner.concurrencyCap, 3);
+      // The footprint guard defaults to enforce and stays there: it encodes
+      // delivery-time-only knowledge no depends_on edge carries (Story #5044).
+      assert.equal(r.deliverRunner.footprintGuard, 'enforce');
       assert.equal(r.decomposer, DEFAULT_DECOMPOSER);
       assert.equal(r.storyMergeRetry, undefined);
       assert.equal(r.epicAudit, undefined);
@@ -33,6 +36,30 @@ describe('getRunners', () => {
     const r = getRunners(config);
     assert.deepEqual(r.deliverRunner, {
       concurrencyCap: 5,
+      footprintGuard: 'enforce',
+    });
+  });
+
+  it('reads an operator-set footprintGuard, leaving the cap defaulted', () => {
+    const r = getRunners({
+      delivery: { deliverRunner: { footprintGuard: 'advisory' } },
+    });
+    assert.deepEqual(r.deliverRunner, {
+      concurrencyCap: 3,
+      footprintGuard: 'advisory',
+    });
+  });
+
+  it('keeps the returned shape closed over the framework defaults', () => {
+    // A key the framework does not define must not reach a consumer through
+    // here, so a stray entry degrades to the defaults rather than to an
+    // undefined a caller would read as configuration.
+    const r = getRunners({
+      delivery: { deliverRunner: { concurrencyCap: 4, nope: true } },
+    });
+    assert.deepEqual(r.deliverRunner, {
+      concurrencyCap: 4,
+      footprintGuard: 'enforce',
     });
   });
 

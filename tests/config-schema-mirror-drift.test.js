@@ -210,6 +210,32 @@ describe('generated mirror — cross-dialect agreement with the runtime AJV sche
     }
   });
 
+  it('accepts delivery.deliverRunner.footprintGuard on BOTH schemas (Story #5044, AC-5)', () => {
+    // A knob that lands in only one of the two is dead on arrival: runtime-only
+    // and every consumer's editor red-underlines a valid config; mirror-only
+    // and DELIVERY_SCHEMA's `additionalProperties: false` rejects it at load.
+    for (const mode of ['enforce', 'advisory']) {
+      const doc = {
+        ...REQ,
+        delivery: { deliverRunner: { footprintGuard: mode } },
+      };
+      assertAgree(doc, `footprintGuard: ${mode}`);
+      assert.equal(
+        runtimeValidator(doc),
+        true,
+        `footprintGuard: '${mode}' must validate`,
+      );
+    }
+    // The enum is closed — a typo must fail rather than silently disable the
+    // guard, which is the failure mode a permissive string type would create.
+    const bogus = {
+      ...REQ,
+      delivery: { deliverRunner: { footprintGuard: 'off' } },
+    };
+    assertAgree(bogus, 'footprintGuard: off');
+    assert.equal(runtimeValidator(bogus), false);
+  });
+
   it('agrees on the guards that are easy to get wrong across dialects', () => {
     // Shell-injection guard (`not: { pattern }`).
     assertAgree(
