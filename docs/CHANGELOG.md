@@ -15,6 +15,22 @@ All notable changes to this project will be documented in this file.
 -->
 <!-- markdownlint-disable-file MD004 MD012 MD037 -->
 
+## [2.33.0](https://github.com/dsj1984/mandrel/compare/mandrel-v2.32.0...mandrel-v2.33.0) (2026-08-07)
+
+
+### Added
+
+* deliver: widen footprints from edit intent only, explain every withhold, and give standalone audit cohorts declared edges ([#5044](https://github.com/dsj1984/mandrel/issues/5044)) ([#5049](https://github.com/dsj1984/mandrel/issues/5049)) ([6bd0653](https://github.com/dsj1984/mandrel/commit/6bd0653e88e07ddbcc90c3c947b5f135374649d4))
+* plan: stamp only the provenance a Story owns, and run cross-Story conflict analysis over the bodies persist actually writes ([#5045](https://github.com/dsj1984/mandrel/issues/5045)) ([#5048](https://github.com/dsj1984/mandrel/issues/5048)) ([804b308](https://github.com/dsj1984/mandrel/commit/804b3087c001f21815aecb109bb636e59a87b2cb))
+
+
+### Fixed
+
+* check-knip-entries: resolve the entry list through knip's own config resolver, and skip cleanly when there is no knip config ([#5039](https://github.com/dsj1984/mandrel/issues/5039)) ([#5041](https://github.com/dsj1984/mandrel/issues/5041)) ([7f69a18](https://github.com/dsj1984/mandrel/commit/7f69a18ead79da77779981bec3eed8772dc05643))
+* deliver: make the declared-edge channel trustworthy — paginate native reads, fail loud on 404, parse footers strictly ([#5046](https://github.com/dsj1984/mandrel/issues/5046)) ([#5047](https://github.com/dsj1984/mandrel/issues/5047)) ([38b543d](https://github.com/dsj1984/mandrel/commit/38b543dec2634318b2407b54404239e7ae34d381))
+* **lint:** add a --root scan seam so the lint test stops mutating the shared tree (refs [#5052](https://github.com/dsj1984/mandrel/issues/5052)) ([#5053](https://github.com/dsj1984/mandrel/issues/5053)) ([69d1952](https://github.com/dsj1984/mandrel/commit/69d1952fb7410659ca21a9bb0d34eefadb654d2e))
+* plan: resolve the cross-Story conflict policy once for the raw and assembled passes ([#5050](https://github.com/dsj1984/mandrel/issues/5050)) ([711199a](https://github.com/dsj1984/mandrel/commit/711199a861bc1e85218a09fe4674c507b0c0edb1))
+
 ## [2.32.0](https://github.com/dsj1984/mandrel/compare/mandrel-v2.31.0...mandrel-v2.32.0) (2026-08-06)
 
 
