@@ -30,9 +30,19 @@ export const DEFAULT_DECOMPOSER = Object.freeze({
  * `verifyWaveResults` loop it claimed to bound never existed in the tree, and
  * its only reader was the retired execution-analysis CLI, which echoed the
  * number into a report rather than bounding anything.
+ *
+ * **Serialization tradeoff — `footprintGuard`.** `enforce` is the default and
+ * stays it: the file-overlap guard encodes delivery-time-only knowledge (which
+ * implementation windows are open, which Stories a foreign lease holds) that no
+ * plan-time `depends_on` edge can carry, so demoting it by default would trade
+ * a real merge-conflict class for throughput nobody asked for. `advisory`
+ * detects collisions and reports every would-be withhold but lets dispatch
+ * follow the declared edges alone — for runs whose ordering is fully declared
+ * (Story #5044).
  */
 const DEFAULT_DELIVER_RUNNER = Object.freeze({
   concurrencyCap: 3,
+  footprintGuard: 'enforce',
 });
 
 /**
@@ -51,28 +61,40 @@ export const DEFAULT_CODE_REVIEW = Object.freeze({
  *
  * @param {object | null | undefined} config
  * @returns {{
- *   deliverRunner: { concurrencyCap: number },
+ *   deliverRunner: { concurrencyCap: number, footprintGuard: 'enforce'|'advisory' },
  *   codeReview: { maxFixAttempts: number, maxFixScopeFiles: number, autoFixSeverity: 'high'|'medium' },
  *   decomposer: { concurrencyCap: number },
  * }}
  */
 export function getRunners(config) {
-  const deliverRunnerUser = config?.delivery?.deliverRunner ?? {};
-  const codeReviewUser = config?.delivery?.codeReview ?? {};
   return {
-    deliverRunner: {
-      concurrencyCap:
-        deliverRunnerUser.concurrencyCap ??
-        DEFAULT_DELIVER_RUNNER.concurrencyCap,
-    },
-    codeReview: {
-      maxFixAttempts:
-        codeReviewUser.maxFixAttempts ?? DEFAULT_CODE_REVIEW.maxFixAttempts,
-      maxFixScopeFiles:
-        codeReviewUser.maxFixScopeFiles ?? DEFAULT_CODE_REVIEW.maxFixScopeFiles,
-      autoFixSeverity:
-        codeReviewUser.autoFixSeverity ?? DEFAULT_CODE_REVIEW.autoFixSeverity,
-    },
+    deliverRunner: withDefaults(
+      DEFAULT_DELIVER_RUNNER,
+      config?.delivery?.deliverRunner,
+    ),
+    codeReview: withDefaults(DEFAULT_CODE_REVIEW, config?.delivery?.codeReview),
     decomposer: DEFAULT_DECOMPOSER,
   };
+}
+
+/**
+ * Overlay an operator's block onto the framework defaults — the per-key `??`
+ * fallback these accessors have always applied, written once.
+ *
+ * Iterating the **defaults'** keys rather than the user's is what keeps the
+ * returned shape closed: a key the framework does not define cannot reach a
+ * consumer through here even if one somehow survived AJV, so a typo degrades to
+ * the default rather than to an undefined a caller would read as configuration.
+ *
+ * @template {Record<string, unknown>} T
+ * @param {T} defaults      Frozen framework defaults.
+ * @param {object|null|undefined} user Operator block from `.agentrc`.
+ * @returns {T} A fresh object; the frozen defaults are never mutated.
+ */
+function withDefaults(defaults, user) {
+  const out = { ...defaults };
+  for (const key of Object.keys(defaults)) {
+    if (user?.[key] != null) out[key] = user[key];
+  }
+  return out;
 }

@@ -105,7 +105,8 @@
       }
     },
     "deliverRunner": {
-      "concurrencyCap": 3
+      "concurrencyCap": 3,
+      "footprintGuard": "enforce"
     },
     "worktreeIsolation": {
       "enabled": true,

@@ -27,6 +27,11 @@ import { writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
+import {
+  fingerprintFooter,
+  semanticKeyFooter,
+  semanticKeyFor,
+} from '../../.agents/scripts/lib/findings/route-finding.js';
 import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
 import {
   buildReadySetEnvelope,
@@ -37,6 +42,7 @@ import {
   parseInFlight,
   resolveCapPrecedence,
   resolveConcurrencyCap,
+  resolveFootprintGuardSettings,
   runProbedStoriesWaveTick,
   runStoriesWaveTick,
   WEDGED_EXIT_CODE,
@@ -964,7 +970,16 @@ describe('buildReadySetEnvelope — inFlightReservation (Story #4950)', () => {
     assert.deepEqual(envelope.ready, [2]);
     assert.strictEqual(envelope.inFlightReservation.available, true);
     assert.deepEqual(envelope.inFlightReservation.withheld, [
-      { id: 1, blockedBy: 9, reason: 'in-flight-earlier-beat' },
+      {
+        id: 1,
+        blockedBy: 9,
+        reason: 'in-flight-earlier-beat',
+        // Both sides declared lib/shared.js in changes[], so this is the
+        // guard serializing an intended collision, not an artifact of the
+        // evidence widening (Story #5044).
+        source: 'declared-overlap',
+        paths: ['lib/shared.js'],
+      },
     ]);
     // The note must name both sides — an unfilled slot with no explanation is
     // exactly what this report exists to remove.
@@ -1090,7 +1105,13 @@ describe('runProbedStoriesWaveTick — threads the probed in-flight records (AC-
     assert.strictEqual(exitCode, 0);
     assert.deepEqual(envelope.ready, [2], '#1 races the in-flight #9');
     assert.deepEqual(envelope.inFlightReservation.withheld, [
-      { id: 1, blockedBy: 9, reason: 'in-flight-earlier-beat' },
+      {
+        id: 1,
+        blockedBy: 9,
+        reason: 'in-flight-earlier-beat',
+        source: 'declared-overlap',
+        paths: ['lib/shared.js'],
+      },
     ]);
   });
 
@@ -1108,5 +1129,213 @@ describe('runProbedStoriesWaveTick — threads the probed in-flight records (AC-
     assert.deepEqual(envelope.ready, [1]);
     assert.strictEqual(envelope.inFlightReservation.available, true);
     assert.deepEqual(envelope.inFlightReservation.withheld, []);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Story #5044 — every withhold is explained, and the guard has a knob
+// ---------------------------------------------------------------------------
+
+describe('buildReadySetEnvelope — footprintGuard reports the beat-local half (AC-4)', () => {
+  it('names the beat-local skip, its blocker, and the colliding paths', () => {
+    // Before #5044 this Story simply vanished from ready[]: the same-beat skip
+    // was a bare `continue` and no envelope field mentioned it, so an unfilled
+    // slot was indistinguishable from a cap that was never reached.
+    const { envelope } = buildReadySetEnvelope(
+      [
+        { id: 1, dependsOn: [], files: ['lib/shared.js'] },
+        { id: 2, dependsOn: [], files: ['lib/shared.js'] },
+        { id: 3, dependsOn: [], files: ['lib/other.js'] },
+      ],
+      { concurrencyCap: 5 },
+    );
+
+    assert.deepEqual(envelope.ready, [1, 3]);
+    assert.equal(envelope.footprintGuard.mode, 'enforce');
+    assert.deepEqual(envelope.footprintGuard.withheld, [
+      {
+        id: 2,
+        blockedBy: 1,
+        scope: 'beat',
+        source: 'declared-overlap',
+        paths: ['lib/shared.js'],
+      },
+    ]);
+    assert.deepEqual(envelope.footprintGuard.advisory, []);
+    assert.match(envelope.footprintGuard.note, /#2 ← #1/);
+    assert.match(envelope.footprintGuard.note, /lib\/shared\.js/);
+  });
+
+  it('tags a scraped collision apart from a declared one', () => {
+    const { envelope } = buildReadySetEnvelope(
+      [
+        { id: 1, dependsOn: [], files: ['lib/a.js'] },
+        {
+          id: 2,
+          dependsOn: [],
+          files: ['lib/b.js'],
+          body: 'the caller in lib/a.js changes shape',
+        },
+      ],
+      { concurrencyCap: 5 },
+    );
+    assert.deepEqual(envelope.ready, [1]);
+    assert.deepEqual(envelope.footprintGuard.withheld, [
+      {
+        id: 2,
+        blockedBy: 1,
+        scope: 'beat',
+        source: 'scraped-overlap',
+        paths: ['lib/a.js'],
+      },
+    ]);
+  });
+
+  it('reports an empty guard rather than omitting it, on every short-circuit', () => {
+    const quiet = { mode: 'enforce', withheld: [], advisory: [], note: null };
+    assert.deepEqual(
+      buildReadySetEnvelope([], { concurrencyCap: 3 }).envelope.footprintGuard,
+      quiet,
+    );
+    assert.deepEqual(
+      buildReadySetEnvelope([{ id: 1, dependsOn: [], files: ['lib/a.js'] }], {
+        concurrencyCap: 3,
+      }).envelope.footprintGuard,
+      quiet,
+    );
+    // A cycle short-circuits before selection; an absent report would read
+    // exactly like a guard that found nothing.
+    const { envelope: cyclic } = buildReadySetEnvelope(
+      [
+        { id: 1, dependsOn: [2] },
+        { id: 2, dependsOn: [1] },
+      ],
+      { concurrencyCap: 3 },
+    );
+    assert.deepEqual(cyclic.footprintGuard, quiet);
+  });
+
+  it('does not manufacture a collision from audit provenance footers (#4875 × #4877)', () => {
+    // The composition pin the two Stories never got: #4875 widened the
+    // footprint from body text, #4877 made the audit filers stamp provenance
+    // footers into that same body text, and nothing tested them together. A
+    // semantic key is `area␟primaryFile`, so the path half scraped as evidence
+    // and every sibling of an audit-derived plan collided (issue #5040).
+    const footers = [
+      fingerprintFooter(['b'.repeat(40)]),
+      semanticKeyFooter([
+        semanticKeyFor({
+          area: 'clean-code',
+          primaryFile: '.agents/scripts/lib/wave-runner/ready-set.js',
+        }),
+      ]),
+    ].join('\n');
+    const contextLink =
+      'Opened by `/audit-to-stories` from [audit-clean-code-results.md](temp/audits/audit-clean-code-results.md)';
+    const body = (goal) => `${goal}\n\n${contextLink}\n\n${footers}`;
+
+    const { envelope } = buildReadySetEnvelope(
+      [
+        { id: 1, dependsOn: [], files: ['lib/a.js'], body: body('Fix A') },
+        { id: 2, dependsOn: [], files: ['lib/b.js'], body: body('Fix B') },
+        { id: 3, dependsOn: [], files: ['lib/c.js'], body: body('Fix C') },
+      ],
+      { concurrencyCap: 5 },
+    );
+
+    assert.deepEqual(
+      envelope.ready,
+      [1, 2, 3],
+      'the whole cohort co-dispatches',
+    );
+    assert.deepEqual(envelope.footprintGuard.withheld, []);
+  });
+});
+
+describe('buildReadySetEnvelope — footprintGuard: advisory (AC-5)', () => {
+  const colliding = () => [
+    { id: 1, dependsOn: [], files: ['lib/a.js'] },
+    {
+      id: 2,
+      dependsOn: [],
+      files: ['lib/b.js'],
+      body: 'also rewrites lib/a.js',
+    },
+  ];
+
+  it('admits the scraped-overlap pair and logs the would-be withhold', () => {
+    const { envelope } = buildReadySetEnvelope(colliding(), {
+      concurrencyCap: 5,
+      footprintGuard: 'advisory',
+    });
+
+    assert.deepEqual(envelope.ready, [1, 2]);
+    assert.equal(envelope.footprintGuard.mode, 'advisory');
+    assert.deepEqual(envelope.footprintGuard.withheld, [], 'nothing withheld');
+    assert.deepEqual(envelope.footprintGuard.advisory, [
+      {
+        id: 2,
+        blockedBy: 1,
+        scope: 'beat',
+        source: 'scraped-overlap',
+        paths: ['lib/a.js'],
+      },
+    ]);
+    assert.match(envelope.footprintGuard.note, /advisory/);
+    assert.match(envelope.footprintGuard.note, /lib\/a\.js/);
+  });
+
+  it('keeps enforce as the default with today’s behaviour', () => {
+    const { envelope } = buildReadySetEnvelope(colliding(), {
+      concurrencyCap: 5,
+    });
+    assert.deepEqual(envelope.ready, [1]);
+    assert.equal(envelope.footprintGuard.mode, 'enforce');
+    assert.equal(envelope.footprintGuard.advisory.length, 0);
+  });
+});
+
+describe('resolveFootprintGuardSettings — config seam', () => {
+  it('defaults to enforce and the default temp root', () => {
+    assert.deepEqual(resolveFootprintGuardSettings({ config: {} }), {
+      footprintGuard: 'enforce',
+      tempRoot: 'temp',
+    });
+  });
+
+  it('reads the configured mode and temp root', () => {
+    assert.deepEqual(
+      resolveFootprintGuardSettings({
+        config: {
+          project: { paths: { tempRoot: '.scratch' } },
+          delivery: { deliverRunner: { footprintGuard: 'advisory' } },
+        },
+      }),
+      { footprintGuard: 'advisory', tempRoot: '.scratch' },
+    );
+  });
+
+  it('is threaded end to end by runStoriesWaveTick', () => {
+    const dag = JSON.stringify([
+      { id: 1, dependsOn: [], files: ['lib/a.js'] },
+      { id: 2, dependsOn: [], files: ['lib/a.js'] },
+    ]);
+    const enforced = runStoriesWaveTick({
+      dagJson: dag,
+      config: { delivery: { deliverRunner: { concurrencyCap: 5 } } },
+    });
+    assert.deepEqual(enforced.envelope.ready, [1]);
+
+    const advisory = runStoriesWaveTick({
+      dagJson: dag,
+      config: {
+        delivery: {
+          deliverRunner: { concurrencyCap: 5, footprintGuard: 'advisory' },
+        },
+      },
+    });
+    assert.deepEqual(advisory.envelope.ready, [1, 2]);
+    assert.equal(advisory.envelope.footprintGuard.mode, 'advisory');
+    assert.equal(advisory.envelope.footprintGuard.advisory.length, 1);
   });
 });
