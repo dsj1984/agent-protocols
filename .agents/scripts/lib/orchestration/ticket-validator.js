@@ -1,4 +1,5 @@
 import { ValidationError } from '../errors/index.js';
+import { normalizeOwnedProvenance } from '../findings/provenance-field.js';
 import { detectCycle } from '../Graph.js';
 import { gitSpawn } from '../git-utils.js';
 
@@ -528,6 +529,41 @@ function assertEveryStoryHasInlineContract({ stories }) {
   );
 }
 
+/**
+ * Shape-check the optional per-Story `provenance` field (Story #5045).
+ *
+ * The field decides which audit identities persist stamps into a Story body,
+ * so a malformed entry has to fail at the validator rather than at the
+ * stamper: by the time assembly runs, an unnoticed drop is indistinguishable
+ * from a Story that legitimately owns nothing — and the cost lands a whole
+ * sweep later, when the next audit re-files work this plan already tracked.
+ *
+ * Absence is valid and common: a Story with no `provenance` inherits the
+ * whole-seed union carry, which is the recall-safe default.
+ *
+ * Errors are batched across the backlog so one pass names every offender.
+ *
+ * @param {{ stories: object[] }} args
+ * @throws {Error} naming each malformed field.
+ */
+function assertStoryProvenanceShape({ stories }) {
+  const violations = [];
+  for (const story of stories) {
+    try {
+      normalizeOwnedProvenance(story?.provenance, story?.slug ?? '<unknown>');
+    } catch (err) {
+      violations.push(`  - ${err.message}`);
+    }
+  }
+  if (violations.length === 0) return;
+  throw new Error(
+    `Cross-Validation Failed: ${violations.length} Story provenance field(s) ` +
+      `are malformed:\n${violations.join('\n')}\n\nAuthor provenance as ` +
+      '{ "fingerprints": ["<40-char sha1>"], "semanticKeys": ["<area␟path>"] }, ' +
+      'or omit it entirely to inherit the seed-wide union.',
+  );
+}
+
 function assertNoUnknownDeps({ tickets, ticketBySlug }) {
   const unknownDeps = [];
   for (const t of tickets) {
@@ -575,6 +611,7 @@ export function validateAndNormalizeTickets(tickets, opts = {}) {
 
   assertAllTicketsAreStories({ tickets, stories });
   assertEveryStoryHasInlineContract({ stories });
+  assertStoryProvenanceShape({ stories });
   assertNoUnknownDeps({ tickets, ticketBySlug });
 
   assertAcyclic(slugAdjacency);
@@ -704,6 +741,7 @@ export const _internal = {
   indexTicketsBySlug,
   assertAllTicketsAreStories,
   assertEveryStoryHasInlineContract,
+  assertStoryProvenanceShape,
   assertNoUnknownDeps,
   assertAcyclic,
   attachFindingsAndErrors,

@@ -224,3 +224,71 @@ describe('ticket-validator: soft ## Spec word budget (Story #4723)', () => {
     );
   });
 });
+
+/**
+ * Optional per-Story `provenance` shape gate (Story #5045).
+ *
+ * The field decides which audit identities persist stamps into a Story body.
+ * A malformed entry must fail here rather than at the stamper: past assembly,
+ * a dropped identity is indistinguishable from a Story that legitimately owns
+ * nothing, and the cost lands a whole sweep later when the next audit re-files
+ * work this plan already tracked.
+ */
+describe('ticket-validator: per-Story provenance shape (Story #5045)', () => {
+  const SHA = 'a'.repeat(40);
+
+  function withProvenance(provenance) {
+    return { ...story('owns-a-finding'), provenance };
+  }
+
+  it('accepts a well-formed provenance field', () => {
+    const validated = validateAndNormalizeTickets([
+      withProvenance({
+        fingerprints: [SHA],
+        semanticKeys: ['architecture␟lib/owned.js'],
+      }),
+    ]);
+    assert.equal(validated.length, 1);
+  });
+
+  it('accepts an absent field — the union fallback is the recall-safe default', () => {
+    assert.equal(
+      validateAndNormalizeTickets([story('no-provenance')]).length,
+      1,
+    );
+  });
+
+  it('rejects a malformed field and names the offending Story', () => {
+    assert.throws(
+      () =>
+        validateAndNormalizeTickets([
+          withProvenance({ fingerprints: ['nope'] }),
+        ]),
+      /Cross-Validation Failed:.*provenance on "owns-a-finding"/s,
+    );
+  });
+
+  it('batches every offender in one pass', () => {
+    assert.throws(
+      () =>
+        validateAndNormalizeTickets([
+          { ...story('bad-one'), provenance: { fingerprints: 'not-an-array' } },
+          {
+            ...story('bad-two'),
+            provenance: { semanticKeys: ['has,a,comma'] },
+          },
+        ]),
+      /2 Story provenance field\(s\) are malformed/,
+    );
+  });
+
+  it('the assertion is reachable through _internal for a targeted check', () => {
+    assert.throws(
+      () =>
+        _internal.assertStoryProvenanceShape({
+          stories: [{ slug: 'direct', provenance: { unknownKey: [] } }],
+        }),
+      /unknown field: unknownKey/,
+    );
+  });
+});

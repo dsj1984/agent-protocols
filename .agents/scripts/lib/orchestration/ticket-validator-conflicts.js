@@ -763,6 +763,79 @@ export function computeConflictFindings({ stories, policy } = {}) {
 }
 
 /**
+ * Re-run the cross-Story conflict passes over the **assembled** Story bodies —
+ * the artifact persist actually writes (Story #5045).
+ *
+ * `validateTickets` runs before `assemblePlanStories`, over the raw
+ * `stories.json` payload, so plan-time conflict analysis never saw what got
+ * persisted. That is not a cosmetic ordering nit: the canonical authoring shape
+ * carries `acceptance[]` / `verify[]` at the ticket's **top level**, and it is
+ * assembly's `syncContractFieldFromTopLevel` that folds them into the body.
+ * `indexConsumers` scans `body.acceptance` / `body.verify` for producer paths —
+ * so on the real payload it scanned two empty arrays, and every
+ * `implicit-cross-story-dep` and `missing-bdd-scaffold` finding was silently
+ * unreachable. Running the passes again over the serialized bodies restores
+ * them.
+ *
+ * **The fan-out pass is deliberately not re-run.** It is a `git grep` per
+ * deleted path and its inputs (`changes[]` deletes) are identical on both
+ * sides, so re-probing would double the git cost for a byte-identical answer;
+ * `enforceFanOutGate` already owns that class over the raw payload.
+ *
+ * @param {object} args
+ * @param {Array<{ slug: string, title?: string, body: string, depends_on?: string[] }>} args.stories
+ *   Assembled Stories — `body` is the serialized, footer-stamped markdown.
+ * @param {object} [args.config] Resolved config; `planning.*` supplies the
+ *   severity policy (the same keys `persist-helpers.resolveConflictPolicy`
+ *   reads, minus the fan-out half this pass does not run).
+ * @returns {ConflictFinding[]}
+ */
+export function computeAssembledConflictFindings({ stories, config } = {}) {
+  const planning = config?.planning;
+  return computeConflictFindings({
+    stories: (Array.isArray(stories) ? stories : []).map((story) => ({
+      slug: story.slug,
+      title: story.title,
+      body: story.body,
+      depends_on: Array.isArray(story.depends_on) ? story.depends_on : [],
+    })),
+    policy: {
+      failOnSharedEditors: planning?.failOnSharedEditors === true,
+      requireExplicitCrossStoryDeps:
+        planning?.requireExplicitCrossStoryDeps === true,
+      failOnRegistryConflicts: planning?.failOnRegistryConflicts === true,
+      failOnMissingBddScaffold: planning?.failOnMissingBddScaffold === true,
+      fanOutCounter: null,
+    },
+  });
+}
+
+/**
+ * Stable identity for one conflict finding, so the post-assembly pass can be
+ * diffed against the raw pass and only the genuinely-new findings reported
+ * (Story #5045). Without it the two passes announce the same shared-editor
+ * collision twice per run, which is how a warning channel gets discounted.
+ *
+ * The separator is written as the `\u0000` escape and never as a raw byte — a
+ * literal NUL would make git classify this file as binary and drop its diffs.
+ *
+ * @param {object} finding
+ * @returns {string}
+ */
+export function conflictFindingKey(finding) {
+  return [
+    finding?.kind ?? '',
+    finding?.path ?? finding?.registryPath ?? '',
+    Array.isArray(finding?.storySlugs)
+      ? [...finding.storySlugs].sort().join(',')
+      : (finding?.storySlug ?? ''),
+    finding?.producer?.storySlug ?? '',
+    finding?.consumer?.storySlug ?? '',
+    finding?.consumer?.sourceField ?? '',
+  ].join('\u0000');
+}
+
+/**
  * Render the audit trail behind a fan-out finding's number, so an operator
  * can check the figure rather than trust it (Story #4547).
  *

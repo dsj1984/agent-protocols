@@ -3,7 +3,9 @@ import test from 'node:test';
 import { validateAndNormalizeTickets } from '../../../.agents/scripts/lib/orchestration/ticket-validator.js';
 import {
   _internal,
+  computeAssembledConflictFindings,
   computeConflictFindings,
+  conflictFindingKey,
   renderHardConflictError,
 } from '../../../.agents/scripts/lib/orchestration/ticket-validator-conflicts.js';
 import { serialize as serializeStoryBody } from '../../../.agents/scripts/lib/story-body/story-body.js';
@@ -1233,4 +1235,110 @@ test('registry pass: every collaborating predicate is injectable through the fin
   assert.equal(seen.waveChecks, 1);
   assert.equal(findings.length, 1);
   assert.equal(findings[0].registryPath, 'anything/at/all.js');
+});
+
+// ---------------------------------------------------------------------------
+// Post-assembly re-run (Story #5045)
+//
+// `validateTickets` runs over the raw `stories.json` payload, before assembly
+// serializes the bodies persist actually posts. `computeAssembledConflictFindings`
+// is the second pass over that artifact.
+// ---------------------------------------------------------------------------
+
+test('computeAssembledConflictFindings scans the serialized body strings', () => {
+  const assembled = ['s-a', 's-b'].map((slug) => ({
+    slug,
+    title: `Story ${slug}`,
+    body: serializeStoryBody({
+      goal: `Goal for ${slug}.`,
+      changes: [{ path: 'lib/shared.js', assumption: 'refactors-existing' }],
+      acceptance: ['observable criterion'],
+      verify: ['npm test (unit)'],
+    }),
+    depends_on: [],
+  }));
+
+  const findings = computeAssembledConflictFindings({ stories: assembled });
+  const shared = findings.filter((f) => f.kind === 'shared-editor');
+  assert.equal(shared.length, 1);
+  assert.equal(shared[0].path, 'lib/shared.js');
+  assert.deepEqual(shared[0].storySlugs, ['s-a', 's-b']);
+  assert.equal(
+    shared[0].severity,
+    'soft',
+    'advisory unless policy upgrades it',
+  );
+});
+
+test('computeAssembledConflictFindings never re-runs the fan-out probe', () => {
+  // The probe is a `git grep` per deleted path and its inputs are identical on
+  // both sides, so re-probing would double the git cost for the same answer.
+  let probed = 0;
+  const findings = computeAssembledConflictFindings({
+    stories: [
+      {
+        slug: 's-a',
+        body: serializeStoryBody({
+          goal: 'Delete it.',
+          changes: [{ path: 'lib/gone.js', assumption: 'deletes' }],
+          acceptance: ['observable criterion'],
+          verify: ['npm test (unit)'],
+        }),
+        depends_on: [],
+      },
+    ],
+    config: {
+      planning: {
+        fanOutCounter: () => {
+          probed += 1;
+          return 999;
+        },
+      },
+    },
+  });
+  assert.equal(probed, 0);
+  assert.deepEqual(
+    findings.filter((f) => f.kind === 'fan-out-warning'),
+    [],
+  );
+});
+
+test('computeAssembledConflictFindings is total on absent and malformed input', () => {
+  // It runs on the pre-creation path, so a shape surprise must not strand a
+  // plan between validation and its first createIssue.
+  assert.deepEqual(computeAssembledConflictFindings(), []);
+  assert.deepEqual(computeAssembledConflictFindings({ stories: null }), []);
+  assert.deepEqual(
+    computeAssembledConflictFindings({
+      stories: [{ slug: 's-a', body: 'not a parseable story body' }],
+    }),
+    [],
+  );
+});
+
+test('conflictFindingKey is stable across passes and separates distinct findings', () => {
+  const finding = {
+    kind: 'shared-editor',
+    severity: 'soft',
+    path: 'lib/shared.js',
+    storySlugs: ['s-a', 's-b'],
+  };
+  assert.equal(
+    conflictFindingKey(finding),
+    conflictFindingKey({
+      ...finding,
+      severity: 'hard',
+      storySlugs: ['s-b', 's-a'],
+    }),
+    'severity and slug order are not identity — the same collision keys alike',
+  );
+  assert.notEqual(
+    conflictFindingKey(finding),
+    conflictFindingKey({ ...finding, path: 'lib/other.js' }),
+  );
+  assert.notEqual(
+    conflictFindingKey(finding),
+    conflictFindingKey({ ...finding, kind: 'cross-cutting-registries' }),
+  );
+  assert.equal(typeof conflictFindingKey({}), 'string');
 });

@@ -66,6 +66,53 @@ function renderWaveTableLines(waveTable) {
 }
 
 /**
+ * Render the shared-editor collisions beside the wave table (Story #5045).
+ *
+ * The wave table is a promise about parallelism — "these Stories can run
+ * together". `computeSharedEditorFindings` knows exactly where that promise
+ * breaks down: a path two same-wave Stories both write will conflict on every
+ * merge after the first. Until now those findings degraded to a `Logger.warn`
+ * on stderr and were discarded, so the comment carried the optimistic half of
+ * the analysis and none of the caveat. Rendering them here puts the promise
+ * and its known exceptions on one durable surface.
+ *
+ * Advisory by default and labelled as such — `planning.failOnSharedEditors`
+ * is the knob that makes a collision refuse the plan, and it stays off.
+ *
+ * @param {object[]|null} conflictFindings
+ * @returns {string[]} Lines to splice after the wave table, or `[]`.
+ */
+function renderSharedEditorLines(conflictFindings) {
+  const shared = (
+    Array.isArray(conflictFindings) ? conflictFindings : []
+  ).filter((finding) => finding?.kind === 'shared-editor');
+  if (shared.length === 0) return [];
+  const rows = shared
+    .slice()
+    .sort((a, b) => String(a.path).localeCompare(String(b.path)))
+    .map(
+      (finding) =>
+        `| \`${finding.path}\` | ${(finding.storySlugs ?? [])
+          .map((slug) => `\`${slug}\``)
+          .join(', ')} |`,
+    );
+  return [
+    '',
+    `#### ⚠️ Known collisions (${shared.length} shared file(s))`,
+    '',
+    '| Path | Stories in the same order |',
+    '| --- | --- |',
+    ...rows,
+    '',
+    '_These Stories are scheduled to run together **and** write the same ' +
+      'file — expect a merge conflict on every landing after the first. Add a ' +
+      '`depends_on` edge to serialize them, or move the shared edit into one ' +
+      'Story. Advisory: `planning.failOnSharedEditors` turns this into a ' +
+      'refusal and is off by default._',
+  ];
+}
+
+/**
  * Build the `plan-summary` structured-comment body.
  *
  * @param {object} input
@@ -81,6 +128,7 @@ export function buildPlanSummaryCommentBody({
   mode = 'stories',
   planMetricsLine = null,
   stories = null,
+  conflictFindings = null,
   // legacy unused knobs kept so older test call sites don't crash mid-migration
   single = null,
   amend = null,
@@ -132,6 +180,7 @@ export function buildPlanSummaryCommentBody({
     '#### Delivery order (`depends_on`)',
     '',
     ...renderWaveTableLines(waveTable),
+    ...renderSharedEditorLines(conflictFindings),
     '',
     `_Deliver with \`${deliverCommand}\` — \`/deliver\` resolves the dependency graph from live state, so edges may point at Stories from earlier plan runs._`,
   ].join('\n');
