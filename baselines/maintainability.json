@@ -1,11 +1,11 @@
 {
   "$schema": ".agents/schemas/baselines/maintainability.schema.json",
   "kernelVersion": "0.1.0",
-  "generatedAt": "2026-08-07T13:37:15.267Z",
+  "generatedAt": "2026-08-07T13:54:43.451Z",
   "rollup": {
     "*": {
       "min": 76.381,
-      "p50": 98.588,
+      "p50": 98.61,
       "p95": 122.913
     }
   },
@@ -32,7 +32,7 @@
     },
     {
       "path": ".agents/scripts/audit-to-stories.js",
-      "mi": 93.542
+      "mi": 97.959
     },
     {
       "path": ".agents/scripts/boot-sweep.js",
@@ -280,7 +280,7 @@
     },
     {
       "path": ".agents/scripts/lib/audit-to-stories/build-story-body.js",
-      "mi": 113.323
+      "mi": 114.05
     },
     {
       "path": ".agents/scripts/lib/audit-to-stories/dedupe-against-github.js",
@@ -305,6 +305,10 @@
     {
       "path": ".agents/scripts/lib/audit-to-stories/seed-from-findings.js",
       "mi": 106.555
+    },
+    {
+      "path": ".agents/scripts/lib/audit-to-stories/wire-dependencies.js",
+      "mi": 99.693
     },
     {
       "path": ".agents/scripts/lib/baseline-loader.js",
@@ -704,7 +708,7 @@
     },
     {
       "path": ".agents/scripts/lib/config/runners.js",
-      "mi": 104.725
+      "mi": 109.986
     },
     {
       "path": ".agents/scripts/lib/config/runtime.js",
@@ -1799,6 +1803,10 @@
       "mi": 94.023
     },
     {
+      "path": ".agents/scripts/lib/wave-runner/footprint.js",
+      "mi": 101.626
+    },
+    {
       "path": ".agents/scripts/lib/wave-runner/live-probe.js",
       "mi": 105.603
     },
@@ -2080,7 +2088,7 @@
     },
     {
       "path": ".agents/scripts/stories-wave-tick.js",
-      "mi": 91.958
+      "mi": 93.382
     },
     {
       "path": ".agents/scripts/sync-agentrc.js",

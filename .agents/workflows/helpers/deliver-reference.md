@@ -112,9 +112,9 @@ and a `source` tag:
 - `declared-overlap` — both Stories' `changes[]` named the path (or a declared
   glob). Intended serialization; two Stories rewriting the same generated
   baseline must not co-dispatch.
-- `scraped-overlap` — only the text evidence produced it. Real signal (a
-  declaration is a lower bound, #4875), but the class where a false positive
-  is possible.
+- `scraped-overlap` — only the text evidence produced it. Real signal — a
+  declaration is only a lower bound — but the class where a false positive is
+  possible.
 
 **The evidence scrape excludes exactly three token sources**, each structurally
 incapable of naming an edit target: `audit-fingerprints` /

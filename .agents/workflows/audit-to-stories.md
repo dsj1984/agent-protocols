@@ -210,11 +210,10 @@ every Story that has a resolvable blocker with a canonical
 GitHub `blocked_by` relations. An edge whose target was never opened (deduped,
 ledger-suppressed) drops rather than becoming a `blocked by #undefined`.
 
-**Do not skip this.** Until Story #5044 these cohorts were serialized only by
-accident — siblings shared the sweep-wide provenance footers, and `/deliver`'s
-footprint guard scraped path-shaped tokens out of them. That scrape now ignores
-those footers, so an unwired cohort is genuinely unordered: `/deliver` will
-co-dispatch Stories the edges say must follow one another.
+**Do not skip this.** `/deliver` has no other source for this cohort's order:
+its footprint guard ignores the shared provenance footers, so an unwired cohort
+is genuinely unordered and `/deliver` will co-dispatch Stories the edges say
+must follow one another.
 
 ## Phase 6 — Idempotency (folded into Phase 1 scan)
 
