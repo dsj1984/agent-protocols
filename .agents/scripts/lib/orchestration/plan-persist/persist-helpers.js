@@ -15,11 +15,10 @@
  */
 
 import posix from 'node:path/posix';
-import { resolveListValue } from '../../config/shared.js';
 import { gitSpawn } from '../../git-utils.js';
 import { validateTaskBodies } from '../task-body-validator.js';
 import { validateAndNormalizeTickets } from '../ticket-validator.js';
-import { DEFAULT_REGISTRY_PATTERNS } from '../ticket-validator-conflicts.js';
+import { resolveConflictPolicy } from '../ticket-validator-conflicts.js';
 import { normalizeVerifyTiers } from '../verify-tier-repair.js';
 
 /**
@@ -174,30 +173,6 @@ export function makeDefaultFanOutCounter({ baseBranchRef, cwd, git } = {}) {
     const sorted = [...files].sort();
     return { count: sorted.length, files: sorted, probe };
   };
-}
-
-/**
- * Resolve the cross-Story conflict-finding policy from `_config.planning`.
- */
-function resolveConflictPolicy(cfg) {
-  const planning = cfg?.planning;
-  const policy = {
-    failOnSharedEditors: planning?.failOnSharedEditors === true,
-    requireExplicitCrossStoryDeps:
-      planning?.requireExplicitCrossStoryDeps === true,
-    failOnRegistryConflicts: planning?.failOnRegistryConflicts === true,
-    failOnLargeFanOut: planning?.failOnLargeFanOut === true,
-  };
-  if (Number.isFinite(planning?.largeFanOutThreshold)) {
-    policy.largeFanOutThreshold = planning.largeFanOutThreshold;
-  }
-  if (planning?.crossCuttingRegistries !== undefined) {
-    policy.registries = resolveListValue(
-      DEFAULT_REGISTRY_PATTERNS,
-      planning.crossCuttingRegistries,
-    );
-  }
-  return policy;
 }
 
 /**

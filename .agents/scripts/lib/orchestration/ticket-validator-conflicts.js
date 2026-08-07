@@ -1,3 +1,4 @@
+import { resolveListValue } from '../config/shared.js';
 import { parse as parseStoryBody } from '../story-body/story-body.js';
 import { collectStoryAssumptionEntries } from './file-assumptions.js';
 import { computeStoryReachability } from './story-reachability.js';
@@ -108,8 +109,11 @@ const DEFAULT_POLICY = Object.freeze({
  * Patterns support two shapes:
  *   - exact path  — `lib/orchestration/lifecycle/listeners/index.js`
  *   - `**` suffix — `**\/listeners/index.js` (matches any depth)
+ *
+ * Module-private since `resolveConflictPolicy` became the one production
+ * reader; tests reach it through `_internal`.
  */
-export const DEFAULT_REGISTRY_PATTERNS = Object.freeze([
+const DEFAULT_REGISTRY_PATTERNS = Object.freeze([
   'lib/orchestration/lifecycle/listeners/index.js',
   '**/listeners/index.js',
   '**/handlers/index.js',
@@ -763,6 +767,49 @@ export function computeConflictFindings({ stories, policy } = {}) {
 }
 
 /**
+ * Resolve the config-derived half of the conflict policy from
+ * `config.planning` — the severity flags, the fan-out threshold, and the
+ * registry patterns, in one place.
+ *
+ * Two passes consume `planning.*` and must not disagree: the raw
+ * pre-assembly pass (`persist-helpers.validateTickets`, which attaches its
+ * production `fanOutCounter` on top of this) and the post-assembly pass
+ * (`computeAssembledConflictFindings`, which forces `fanOutCounter: null`).
+ * Under Story #5045 each resolved its own copy, and the copies had already
+ * drifted — `failOnMissingBddScaffold` reached only the assembled pass,
+ * `failOnLargeFanOut` / `largeFanOutThreshold` / `crossCuttingRegistries`
+ * only the raw one — so a knob set in config silently applied on one of the
+ * two passes. A knob read here reaches both; that is the contract.
+ *
+ * `fanOutCounter` is deliberately absent: it is probe machinery, not
+ * config, and each caller owns its own.
+ *
+ * @param {object} [config] Resolved config carrying `planning.*`.
+ * @returns {object} A `computeConflictFindings` policy (no `fanOutCounter`).
+ */
+export function resolveConflictPolicy(config) {
+  const planning = config?.planning;
+  const policy = {
+    failOnSharedEditors: planning?.failOnSharedEditors === true,
+    requireExplicitCrossStoryDeps:
+      planning?.requireExplicitCrossStoryDeps === true,
+    failOnRegistryConflicts: planning?.failOnRegistryConflicts === true,
+    failOnLargeFanOut: planning?.failOnLargeFanOut === true,
+    failOnMissingBddScaffold: planning?.failOnMissingBddScaffold === true,
+  };
+  if (Number.isFinite(planning?.largeFanOutThreshold)) {
+    policy.largeFanOutThreshold = planning.largeFanOutThreshold;
+  }
+  if (planning?.crossCuttingRegistries !== undefined) {
+    policy.registries = resolveListValue(
+      DEFAULT_REGISTRY_PATTERNS,
+      planning.crossCuttingRegistries,
+    );
+  }
+  return policy;
+}
+
+/**
  * Re-run the cross-Story conflict passes over the **assembled** Story bodies —
  * the artifact persist actually writes (Story #5045).
  *
@@ -786,12 +833,11 @@ export function computeConflictFindings({ stories, policy } = {}) {
  * @param {Array<{ slug: string, title?: string, body: string, depends_on?: string[] }>} args.stories
  *   Assembled Stories — `body` is the serialized, footer-stamped markdown.
  * @param {object} [args.config] Resolved config; `planning.*` supplies the
- *   severity policy (the same keys `persist-helpers.resolveConflictPolicy`
- *   reads, minus the fan-out half this pass does not run).
+ *   policy via {@link resolveConflictPolicy} — the same resolver the raw
+ *   pass uses, so a knob cannot apply on only one of the two passes.
  * @returns {ConflictFinding[]}
  */
 export function computeAssembledConflictFindings({ stories, config } = {}) {
-  const planning = config?.planning;
   return computeConflictFindings({
     stories: (Array.isArray(stories) ? stories : []).map((story) => ({
       slug: story.slug,
@@ -800,11 +846,7 @@ export function computeAssembledConflictFindings({ stories, config } = {}) {
       depends_on: Array.isArray(story.depends_on) ? story.depends_on : [],
     })),
     policy: {
-      failOnSharedEditors: planning?.failOnSharedEditors === true,
-      requireExplicitCrossStoryDeps:
-        planning?.requireExplicitCrossStoryDeps === true,
-      failOnRegistryConflicts: planning?.failOnRegistryConflicts === true,
-      failOnMissingBddScaffold: planning?.failOnMissingBddScaffold === true,
+      ...resolveConflictPolicy(config),
       fanOutCounter: null,
     },
   });

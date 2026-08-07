@@ -38,7 +38,7 @@ import { LIMITS_DEFAULTS } from '../../.agents/scripts/lib/config/limits.js';
 import { getRunners } from '../../.agents/scripts/lib/config/runners.js';
 import { WORKTREE_ISOLATION_DEFAULTS } from '../../.agents/scripts/lib/config/worktree-isolation.js';
 import { AGENTRC_SCHEMA } from '../../.agents/scripts/lib/config-settings-schema.js';
-import { DEFAULT_REGISTRY_PATTERNS } from '../../.agents/scripts/lib/orchestration/ticket-validator-conflicts.js';
+import { _internal as conflictsInternal } from '../../.agents/scripts/lib/orchestration/ticket-validator-conflicts.js';
 import { DEFAULT_MODEL_CAPACITY } from '../../.agents/scripts/lib/orchestration/ticket-validator-sizing.js';
 import { WATCH_DEFAULTS } from '../../.agents/scripts/pr-watch-with-update.js';
 
@@ -102,7 +102,7 @@ const RESTATED_DEFAULTS = Object.freeze([
     path: 'planning.crossCuttingRegistries',
     reason:
       'ticket-validator-conflicts.js pulls in the story-body parser and the reachability walker — too heavy to load behind a schema declaration.',
-    expected: () => [...DEFAULT_REGISTRY_PATTERNS],
+    expected: () => [...conflictsInternal.DEFAULT_REGISTRY_PATTERNS],
   },
   {
     path: 'delivery.deliverRunner.concurrencyCap',

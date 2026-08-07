@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { validateTickets } from '../../../.agents/scripts/lib/orchestration/plan-persist/persist-helpers.js';
 import { validateAndNormalizeTickets } from '../../../.agents/scripts/lib/orchestration/ticket-validator.js';
 import {
   _internal,
@@ -1314,6 +1315,122 @@ test('computeAssembledConflictFindings is total on absent and malformed input', 
     }),
     [],
   );
+});
+
+// ---------------------------------------------------------------------------
+// One conflict-policy resolver, two passes (Story #5045 follow-up)
+//
+// The raw pass (`validateTickets`) and the assembled pass
+// (`computeAssembledConflictFindings`) each resolved `planning.*` through a
+// private copy, and the copies drifted: `failOnMissingBddScaffold` reached
+// only the assembled pass; `crossCuttingRegistries` (and the fan-out knobs)
+// only the raw one. Both passes now share `resolveConflictPolicy`; these
+// tests pin one previously-missing knob to each side so a re-split of the
+// resolver fails here before it ships.
+// ---------------------------------------------------------------------------
+
+/**
+ * A Story carrying the full inline contract `validateTickets` requires
+ * (top-level `acceptance[]` / `verify[]` plus the serialized body), so the
+ * same fixture drives the raw pass directly and the assembled pass via
+ * `{ slug, title, body }`.
+ */
+function contractedStory(slug, { changes, verify }) {
+  const acceptance = [`${slug} lands observably`];
+  return {
+    slug,
+    type: 'story',
+    title: `Story ${slug}`,
+    acceptance,
+    verify,
+    body: serializeStoryBody({
+      goal: `Goal for ${slug}.`,
+      changes,
+      acceptance,
+      verify,
+      reason_to_exist: `Ship ${slug}.`,
+    }),
+  };
+}
+
+function asAssembled(stories) {
+  return stories.map(({ slug, title, body }) => ({
+    slug,
+    title,
+    body,
+    depends_on: [],
+  }));
+}
+
+test('planning.failOnMissingBddScaffold reaches the raw AND the assembled pass', () => {
+  const config = { planning: { failOnMissingBddScaffold: true } };
+  const scaffold = contractedStory('s-scaffold', {
+    changes: [
+      { path: 'features/plan-parity-probe.feature', assumption: 'creates' },
+    ],
+    verify: ['npm test (validate)'],
+  });
+  const behavior = contractedStory('s-behavior', {
+    changes: [
+      {
+        path: 'tests/lib/orchestration/ticket-validator-conflicts.test.js',
+        assumption: 'refactors-existing',
+      },
+    ],
+    verify: ['features/plan-parity-probe.feature scenarios pass (e2e)'],
+  });
+
+  // Raw pass — the knob the split dropped here: the finding must land hard
+  // in the validator's errors[] channel, not stay a silent advisory.
+  const validated = validateTickets([scaffold, behavior], config, {
+    fanOutCounter: () => 0,
+  });
+  assert.ok(
+    validated.errors.some((e) => /Missing BDD scaffold/.test(e)),
+    `raw-pass errors[] should carry the hard finding, got: ${JSON.stringify(validated.errors)}`,
+  );
+
+  // Assembled pass — same config, serialized bodies.
+  const hard = computeAssembledConflictFindings({
+    stories: asAssembled([scaffold, behavior]),
+    config,
+  }).filter((f) => f.kind === 'missing-bdd-scaffold' && f.severity === 'hard');
+  assert.equal(hard.length, 1);
+});
+
+test('planning.crossCuttingRegistries + failOnRegistryConflicts reach the raw AND the assembled pass', () => {
+  const registryPath = 'src/plugins/registry.js';
+  const config = {
+    planning: {
+      failOnRegistryConflicts: true,
+      crossCuttingRegistries: [registryPath],
+    },
+  };
+  const stories = ['s-reg-a', 's-reg-b'].map((slug) =>
+    contractedStory(slug, {
+      changes: [{ path: registryPath, assumption: 'creates' }],
+      verify: ['npm test (validate)'],
+    }),
+  );
+
+  const validated = validateTickets(stories, config, {
+    fanOutCounter: () => 0,
+  });
+  assert.ok(
+    validated.errors.some((e) => /Cross-cutting registry conflict/.test(e)),
+    `raw-pass errors[] should carry the hard finding, got: ${JSON.stringify(validated.errors)}`,
+  );
+
+  // Before the shared resolver, the assembled pass fell back to the default
+  // registry patterns — a consumer-configured registry was invisible here.
+  const hard = computeAssembledConflictFindings({
+    stories: asAssembled(stories),
+    config,
+  }).filter(
+    (f) => f.kind === 'cross-cutting-registries' && f.severity === 'hard',
+  );
+  assert.equal(hard.length, 1);
+  assert.equal(hard[0].registryPath, registryPath);
 });
 
 test('conflictFindingKey is stable across passes and separates distinct findings', () => {
