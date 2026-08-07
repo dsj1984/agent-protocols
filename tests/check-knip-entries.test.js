@@ -640,6 +640,9 @@ test('a configuration that exists but throws on load exits 2, never 0', async ()
   const report = await resolveEntrySync({ repoRoot: root });
   assert.equal(report.skipped, null, 'breakage is not absence');
   assert.match(report.error, /cannot resolve the knip configuration/);
+  // The message must name the file it tried, or the operator is left guessing
+  // which of knip's eight config locations was picked up.
+  assert.match(report.error, /knip\.config\.ts/);
 
   const stderr = {
     out: '',
