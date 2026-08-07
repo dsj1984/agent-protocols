@@ -1,12 +1,12 @@
 {
   "$schema": ".agents/schemas/baselines/coverage.schema.json",
   "kernelVersion": "1.0.0",
-  "generatedAt": "2026-08-07T13:24:41.046Z",
+  "generatedAt": "2026-08-07T13:37:15.710Z",
   "rollup": {
     "*": {
-      "lines": 95.91,
-      "branches": 86.65,
-      "functions": 88.82
+      "lines": 95.93,
+      "branches": 86.66,
+      "functions": 88.84
     }
   },
   "rows": [
@@ -1355,9 +1355,15 @@
       "functions": 100
     },
     {
+      "path": ".agents/scripts/lib/findings/provenance-field.js",
+      "lines": 100,
+      "branches": 93.94,
+      "functions": 100
+    },
+    {
       "path": ".agents/scripts/lib/findings/route-finding.js",
       "lines": 100,
-      "branches": 94.74,
+      "branches": 93.14,
       "functions": 100
     },
     {
@@ -1944,20 +1950,20 @@
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/run-plan-persist.js",
-      "lines": 93.2,
-      "branches": 78.89,
+      "lines": 93.91,
+      "branches": 80.65,
       "functions": 100
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/story-ops.js",
-      "lines": 94.38,
-      "branches": 82.11,
+      "lines": 95.78,
+      "branches": 84.24,
       "functions": 100
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/summary.js",
       "lines": 100,
-      "branches": 86.84,
+      "branches": 87.5,
       "functions": 100
     },
     {
@@ -2358,8 +2364,8 @@
     },
     {
       "path": ".agents/scripts/lib/orchestration/ticket-validator-conflicts.js",
-      "lines": 99.22,
-      "branches": 88.76,
+      "lines": 99.28,
+      "branches": 88.58,
       "functions": 100
     },
     {
@@ -2370,8 +2376,8 @@
     },
     {
       "path": ".agents/scripts/lib/orchestration/ticket-validator.js",
-      "lines": 98.17,
-      "branches": 87.94,
+      "lines": 98.26,
+      "branches": 87.76,
       "functions": 100
     },
     {

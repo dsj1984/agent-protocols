@@ -62,6 +62,11 @@ import {
   evaluateDraftReachability,
   renderReachabilityOrphans,
 } from '../plan-reachability.js';
+import {
+  computeAssembledConflictFindings,
+  conflictFindingKey,
+  renderHardConflictError,
+} from '../ticket-validator-conflicts.js';
 import { upsertStructuredComment } from '../ticketing.js';
 import {
   enforceFanOutGate,
@@ -374,6 +379,50 @@ function resolveEffectiveRoute({
     authored: verdict.authored,
     shape: perStory,
   };
+}
+
+/**
+ * Re-run the cross-Story conflict passes over the assembled bodies and route
+ * the result (Story #5045).
+ *
+ * `validateTickets` runs before assembly, over the raw payload, so until now
+ * plan-time conflict analysis judged an artifact that is not the one persist
+ * writes — and the passes that scan `body.acceptance` / `body.verify` were
+ * inert on the canonical top-level authoring shape as a result.
+ *
+ * Three outcomes, in order:
+ *
+ * 1. **Hard findings throw.** Policy upgrades (`planning.failOnSharedEditors`,
+ *    `planning.requireExplicitCrossStoryDeps`) are off by default; when an
+ *    operator turns one on it must bite on the persisted artifact too, and it
+ *    must bite **before** the first `createIssue`.
+ * 2. **Soft findings the raw pass already reported are dropped**, so the same
+ *    collision is not announced twice per run.
+ * 3. **Everything else is returned** for the plan-summary comment, which is
+ *    where these findings stop being a stderr line nobody keeps.
+ *
+ * @param {{ stories: object[], config: object, rawFindings: object[] }} args
+ * @returns {object[]} The assembled-pass findings, for the summary comment.
+ */
+function analyzeAssembledStories({ stories, config, rawFindings }) {
+  const findings = computeAssembledConflictFindings({ stories, config });
+  const hard = findings.filter((finding) => finding.severity === 'hard');
+  if (hard.length > 0) {
+    throw new Error(
+      `[plan-persist] ${hard.length} cross-Story conflict(s) in the assembled ` +
+        `Story bodies:\n${hard.map((f) => `  - ${renderHardConflictError(f)}`).join('\n')}`,
+    );
+  }
+  const alreadyReported = new Set(
+    (rawFindings ?? []).map((finding) => conflictFindingKey(finding)),
+  );
+  surfaceSoftConflictFindings(
+    findings.filter(
+      (finding) => !alreadyReported.has(conflictFindingKey(finding)),
+    ),
+    'plan-persist/assembled',
+  );
+  return findings;
 }
 
 /**
@@ -702,12 +751,23 @@ export async function runPlanPersist({
     sharedSpec: techSpecContent,
     planAcceptance: planAcceptance ?? undefined,
     sourceTicketIds,
-    // The seed this plan was authored from is the provenance source: an audit
-    // sweep's Single-plan seed carries the `audit-fingerprints` /
-    // `audit-semantic-keys` footers, which assembly copies into every persisted
-    // Story body so the next sweep recognises what it already planned
-    // (Story #4877). Empty for a `--tickets` run, which is a no-op.
+    // The seed this plan was authored from: an audit sweep's Single-plan seed
+    // carries the `audit-fingerprints` / `audit-semantic-keys` footers, and
+    // assembly copies them into the persisted Story bodies so the next sweep
+    // recognises what it already planned (Story #4877). Since Story #5045 this
+    // is the **fallback** — it is carried onto every Story that did not
+    // attribute its own `provenance`, which keeps an un-attributed plan exactly
+    // as recall-safe as it was. Empty for a `--tickets` run, a no-op there.
     provenanceSource: planContextEnvelope?.seed?.content ?? '',
+  });
+
+  // Story #5045: the cross-Story conflict passes re-run over the assembled,
+  // footer-stamped bodies — the artifact persist actually writes — before any
+  // GitHub call, so a policy upgrade still refuses the plan pre-creation.
+  const assembledConflicts = analyzeAssembledStories({
+    stories,
+    config,
+    rawFindings: validated.findings,
   });
 
   // Effective complexity route (Story #4722): the planner's authored lite
@@ -764,6 +824,10 @@ export async function runPlanPersist({
     mode: 'stories',
     planMetricsLine,
     stories: created,
+    // Story #5045: the wave table promises what can run in parallel; the
+    // collisions the conflict passes found belong on the same surface, or the
+    // promise is the only half anyone reads.
+    conflictFindings: assembledConflicts,
   });
 
   if (!dryRun) {

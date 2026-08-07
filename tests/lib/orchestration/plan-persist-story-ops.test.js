@@ -20,6 +20,10 @@ import {
 } from '../../../.agents/scripts/lib/orchestration/plan-persist/story-ops.js';
 import { DEFAULT_SPEC_BODY_TOKEN_BUDGET } from '../../../.agents/scripts/lib/orchestration/spec-spill.js';
 import {
+  computeAssembledConflictFindings,
+  computeConflictFindings,
+} from '../../../.agents/scripts/lib/orchestration/ticket-validator-conflicts.js';
+import {
   parse,
   serialize,
 } from '../../../.agents/scripts/lib/story-body/story-body.js';
@@ -725,5 +729,259 @@ describe('audit dedup provenance carry (Story #4877, AC-5)', () => {
       1,
       'exactly one fingerprint footer',
     );
+  });
+});
+
+describe('per-Story provenance attribution (Story #5045, AC-1)', () => {
+  const SHA_OWNED = 'a'.repeat(40);
+  const SHA_SIBLING = 'b'.repeat(40);
+  const KEY_OWNED = 'architecture␟lib/owned.js';
+  const KEY_SIBLING = 'quality␟lib/sibling.js';
+
+  /** A two-group audit seed: the union both groups' footers add up to. */
+  const auditSeed = [
+    '# Idea Seed: Audit Remediation',
+    '',
+    '## MVP Scope',
+    '',
+    '1. **Own the seam** — architecture (`lib/owned.js`)',
+    `   <!-- audit-fingerprints: ${SHA_OWNED} -->`,
+    `   <!-- audit-semantic-keys: ${KEY_OWNED} -->`,
+    '2. **Cover the gap** — quality (`lib/sibling.js`)',
+    `   <!-- audit-fingerprints: ${SHA_SIBLING} -->`,
+    `   <!-- audit-semantic-keys: ${KEY_SIBLING} -->`,
+    '',
+  ].join('\n');
+
+  const attributed = {
+    slug: 'own-the-seam',
+    type: 'story',
+    title: 'Own the seam',
+    goal: 'Wire the unread seam.',
+    changes: [{ path: 'lib/owned.js', assumption: 'refactors-existing' }],
+    acceptance: ['The seam is wired and a test fails without it.'],
+    verify: ['npm test (unit)'],
+    provenance: {
+      fingerprints: [SHA_OWNED],
+      semanticKeys: [KEY_OWNED],
+    },
+  };
+
+  const unattributed = {
+    slug: 'cover-the-gap',
+    type: 'story',
+    title: 'Cover the gap',
+    goal: 'Cover the untested branch.',
+    changes: [{ path: 'lib/sibling.js', assumption: 'refactors-existing' }],
+    acceptance: ['The untested branch has a failing-first test.'],
+    verify: ['npm test (unit)'],
+  };
+
+  it('stamps exactly the keys the attributed Story owns', () => {
+    const { stories } = assemblePlanStories([attributed], {
+      provenanceSource: auditSeed,
+    });
+    const { body } = stories[0];
+    assert.match(body, new RegExp(`audit-fingerprints:\\s*${SHA_OWNED}`));
+    assert.ok(body.includes(`audit-semantic-keys: ${KEY_OWNED}`));
+    // The whole point: the sibling group's identities are in the seed and
+    // must NOT reach this Story. Under the union every sibling carried every
+    // key, which is what made the next sweep's attribution arbitrary.
+    assert.ok(
+      !body.includes(SHA_SIBLING),
+      "an attributed Story must not carry a sibling group's fingerprint",
+    );
+    assert.ok(
+      !body.includes(KEY_SIBLING),
+      "an attributed Story must not carry a sibling group's semantic key",
+    );
+  });
+
+  it('a sibling without the field still receives the whole-seed union', () => {
+    // Recall safety: deleting the union fallback re-opens the measured
+    // #4626 / #4877 hand-carry failure. Attribution is additive, not a swap.
+    const { stories } = assemblePlanStories([attributed, unattributed], {
+      provenanceSource: auditSeed,
+    });
+    const bySlug = new Map(stories.map((s) => [s.slug, s.body]));
+
+    const owned = bySlug.get('own-the-seam');
+    assert.ok(!owned.includes(SHA_SIBLING));
+
+    const inherited = bySlug.get('cover-the-gap');
+    assert.ok(
+      inherited.includes(SHA_OWNED) && inherited.includes(SHA_SIBLING),
+      'an un-attributed sibling keeps the recall-safe union fallback',
+    );
+    assert.ok(
+      inherited.includes(KEY_OWNED) && inherited.includes(KEY_SIBLING),
+      'and the union covers semantic keys too',
+    );
+  });
+
+  it('an empty provenance object stamps nothing at all', () => {
+    // "Owns no findings" is a real answer and must not silently inherit.
+    const { stories } = assemblePlanStories(
+      [{ ...attributed, provenance: {} }],
+      { provenanceSource: auditSeed },
+    );
+    assert.ok(!stories[0].body.includes('audit-fingerprints'));
+    assert.ok(!stories[0].body.includes('audit-semantic-keys'));
+  });
+
+  it('a Story may own fingerprints without semantic keys', () => {
+    const { stories } = assemblePlanStories(
+      [{ ...attributed, provenance: { fingerprints: [SHA_OWNED] } }],
+      { provenanceSource: auditSeed },
+    );
+    assert.match(
+      stories[0].body,
+      new RegExp(`audit-fingerprints:\\s*${SHA_OWNED}`),
+    );
+    assert.ok(!stories[0].body.includes('audit-semantic-keys'));
+  });
+
+  it('normalizeStoryTicket surfaces the owned identities, deduplicated', () => {
+    const { provenance } = normalizeStoryTicket({
+      ...attributed,
+      provenance: {
+        fingerprints: [SHA_OWNED, SHA_OWNED],
+        semanticKeys: [KEY_OWNED],
+      },
+    });
+    assert.deepEqual(provenance, {
+      fingerprints: [SHA_OWNED],
+      semanticKeys: [KEY_OWNED],
+    });
+  });
+
+  it('an absent provenance field normalizes to null, not an empty set', () => {
+    // `null` is what selects the union fallback — an empty object would
+    // silently mean "owns nothing" and strip every Story of its provenance.
+    assert.equal(normalizeStoryTicket(unattributed).provenance, null);
+  });
+
+  it('rejects a malformed provenance field rather than dropping identities', () => {
+    for (const bad of [
+      { fingerprints: 'not-an-array' },
+      { fingerprints: ['too-short'] },
+      { semanticKeys: ['has,a,comma'] },
+      { unknownField: [] },
+      ['an', 'array'],
+    ]) {
+      assert.throws(
+        () => normalizeStoryTicket({ ...attributed, provenance: bad }),
+        /provenance on "own-the-seam"/,
+        `expected a throw for ${JSON.stringify(bad)}`,
+      );
+    }
+  });
+});
+
+describe('conflict analysis sees the persisted artifact (Story #5045, AC-3)', () => {
+  // The canonical authoring shape carries `acceptance[]` / `verify[]` at the
+  // ticket's TOP LEVEL; assembly folds them into the body. `indexConsumers`
+  // scans `body.acceptance` / `body.verify`, so on the raw payload it scanned
+  // two empty arrays and the implicit-cross-story-dep pass was inert — the
+  // exact defect running the passes post-assembly closes.
+  const producer = {
+    slug: 'produce-the-fixture',
+    type: 'story',
+    title: 'Produce the fixture',
+    goal: 'Create the shared fixture module.',
+    changes: [{ path: 'lib/fixture.js', assumption: 'creates' }],
+    acceptance: ['The fixture module exists and exports the builder.'],
+    verify: ['npm test (unit)'],
+  };
+  const consumer = {
+    slug: 'consume-the-fixture',
+    type: 'story',
+    title: 'Consume the fixture',
+    goal: 'Verify the reader against the shared fixture.',
+    changes: [{ path: 'lib/reader.js', assumption: 'refactors-existing' }],
+    acceptance: ['The reader resolves every entry.'],
+    // No depends_on edge — this is the implicit dependency the pass exists
+    // to name, and it is only visible once the body carries `verify[]`.
+    verify: ['node --test lib/fixture.js (unit)'],
+  };
+
+  it('the raw payload hides the implicit dependency the assembled body reveals', () => {
+    const rawFindings = computeConflictFindings({
+      stories: [producer, consumer],
+    });
+    assert.deepEqual(
+      rawFindings.filter((f) => f.kind === 'implicit-cross-story-dep'),
+      [],
+      'pre-assembly the consumer scan has no body.verify to read',
+    );
+
+    const { stories } = assemblePlanStories([producer, consumer]);
+    const assembled = computeAssembledConflictFindings({ stories });
+    const implicit = assembled.filter(
+      (f) => f.kind === 'implicit-cross-story-dep',
+    );
+    assert.equal(
+      implicit.length,
+      1,
+      `expected the assembled pass to find the edge, got ${JSON.stringify(assembled)}`,
+    );
+    assert.equal(implicit[0].path, 'lib/fixture.js');
+    assert.equal(implicit[0].producer.storySlug, 'produce-the-fixture');
+    assert.equal(implicit[0].consumer.storySlug, 'consume-the-fixture');
+  });
+
+  it('scans the footer-stamped bodies, not a re-serialization of the tickets', () => {
+    // The bodies handed to the pass are the same strings persist posts —
+    // provenance footers and all — so what validation judged is what landed.
+    const seed = `1. **Fix it**\n   <!-- audit-fingerprints: ${'c'.repeat(40)} -->`;
+    const { stories } = assemblePlanStories([producer, consumer], {
+      provenanceSource: seed,
+    });
+    for (const story of stories) {
+      assert.ok(
+        story.body.includes('audit-fingerprints:'),
+        'the assembled body carries its provenance footer',
+      );
+    }
+    const assembled = computeAssembledConflictFindings({ stories });
+    assert.equal(
+      assembled.filter((f) => f.kind === 'implicit-cross-story-dep').length,
+      1,
+      'the footers must not disturb the conflict passes',
+    );
+  });
+
+  it('an explicit depends_on edge clears the finding', () => {
+    const { stories } = assemblePlanStories([
+      producer,
+      { ...consumer, depends_on: ['produce-the-fixture'] },
+    ]);
+    assert.deepEqual(
+      computeAssembledConflictFindings({ stories }).filter(
+        (f) => f.kind === 'implicit-cross-story-dep',
+      ),
+      [],
+    );
+  });
+
+  it('a policy upgrade bites on the assembled artifact too', () => {
+    const shared = [
+      {
+        ...producer,
+        changes: [{ path: 'lib/shared.js', assumption: 'refactors-existing' }],
+      },
+      {
+        ...consumer,
+        changes: [{ path: 'lib/shared.js', assumption: 'refactors-existing' }],
+      },
+    ];
+    const { stories } = assemblePlanStories(shared);
+    const findings = computeAssembledConflictFindings({
+      stories,
+      config: { planning: { failOnSharedEditors: true } },
+    });
+    const sharedEditor = findings.filter((f) => f.kind === 'shared-editor');
+    assert.equal(sharedEditor.length, 1);
+    assert.equal(sharedEditor[0].severity, 'hard');
   });
 });

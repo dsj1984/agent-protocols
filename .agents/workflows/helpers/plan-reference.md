@@ -243,6 +243,82 @@ as a hard error — so the grounding contract is the author's own targeted reads
 plus that gate. There is no pre-computed codebase snapshot to fall back on,
 and no manifest-derived replacement to build.
 
+### Per-Story audit provenance (`provenance`)
+
+An audit-seeded plan carries dedup identities forward so the next sweep
+recognises what it already planned. The optional top-level `provenance` field
+says **which of them this Story owns**:
+
+```jsonc
+{
+  "slug": "own-the-seam",
+  "provenance": {
+    "fingerprints": ["<40-char sha1, one per finding this Story tracks>"],
+    "semanticKeys": ["architecture␟lib/owned.js"]
+  }
+}
+```
+
+Both arrays are optional; a malformed entry is a validator rejection, never a
+silent drop — a dropped identity is invisible until the next sweep re-files
+work this plan already tracked.
+
+| `provenance` | What persist stamps |
+| --- | --- |
+| Present | **Exactly** the identities listed — siblings' groups never leak in. |
+| Present but empty (`{}`) | Nothing. "Owns no findings" is a real answer. |
+| **Absent** | The **whole seed's** footers (the union) — the recall-safe default. |
+
+**The union fallback is load-bearing, not legacy.** Leaving the authoring agent
+to hand-carry provenance out of the seed's HTML comments was measured to fail —
+a remembered step is no step at all — and the mechanical union carry is what
+closed it. Attribution is additive: it sharpens a plan that opts in and changes
+nothing for one that does not. Never remove the fallback to "finish the
+migration".
+
+Attribution is what makes the next sweep's dedup answerable rather than
+arbitrary. Under the union every sibling carried every key, so a finding
+confirming against several open Stories could only pick one at random, and a
+key whose owning Story had since **closed** was masked by any open neighbour —
+a genuine regression filed as a routine update. With ownership stamped, the
+issue carrying a finding's own fingerprint decides both the match and its
+state (`lib/findings/route-finding.js`).
+
+The audit path authors this mechanically from the per-group footers the seed
+already carries — see [`audit-to-stories`](../audit-to-stories.md). A `--seed`
+or `--tickets` plan has nothing to attribute and omits the field.
+
+## Cross-Story conflict analysis at persist
+
+The conflict passes run **twice**: once over the raw `stories.json` payload
+(alongside the freshness, file-assumption and sizing gates), and again over the
+**assembled, footer-stamped bodies** — the artifact persist actually posts.
+The second pass is not belt-and-braces. The canonical authoring shape carries
+`acceptance[]` / `verify[]` at the ticket's top level and assembly folds them
+into the body, so the passes that scan `body.acceptance` / `body.verify`
+(`implicit-cross-story-dep`, `missing-bdd-scaffold`) saw two empty arrays on
+the real payload and emitted nothing. Both passes complete before the first
+`createIssue`, so a refusal still costs no writes.
+
+`shared-editor` findings are rendered into the posted `plan-summary` comment,
+directly beneath the wave table: the table promises which Stories can run
+together, and a path two same-wave Stories both write is exactly where that
+promise breaks. Promise and caveat belong on one durable surface — previously
+the caveat was a stderr warning nobody kept.
+
+Two `planning.*` knobs upgrade a conflict class from advisory to a hard
+refusal. **Both default to `false` and are documented, not recommended:**
+
+| Knob | Upgrades | Why it is off |
+| --- | --- | --- |
+| `planning.failOnSharedEditors` | `shared-editor` → `hard` | Co-editing one file is routine and often correct; the delivery scheduler already serializes file-overlapping Stories. |
+| `planning.requireExplicitCrossStoryDeps` | `implicit-cross-story-dep` → `hard` | Path references are matched by substring, so a legitimate mention in prose can read as a dependency. |
+
+Turn one on for a repo where the class is genuinely fatal; expect a refusal to
+name the Stories and the fix (a `depends_on` edge, or folding the shared edit
+into one Story). The sibling knobs `failOnRegistryConflicts`,
+`failOnMissingBddScaffold` and `failOnLargeFanOut` behave the same way.
+
 ## Tickets mode — authoring `supersedes[]`
 
 In `--tickets` mode each Story carries a top-level `supersedes` array claiming

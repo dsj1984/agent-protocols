@@ -98,3 +98,83 @@ describe('plan summary — names the exact deliver command (Story #4540)', () =>
     assert.doesNotMatch(body, /--run/);
   });
 });
+
+describe('plan summary — findings persist beside the promise (Story #5045)', () => {
+  const sharedEditor = (path, storySlugs) => ({
+    kind: 'shared-editor',
+    severity: 'soft',
+    path,
+    storySlugs,
+  });
+
+  it('renders shared-editor findings next to the wave table', () => {
+    // The wave table promises "these run together"; the shared-editor pass
+    // knows exactly where that promise breaks. Until now the promise was
+    // posted and the caveat died on stderr.
+    const body = buildPlanSummaryCommentBody({
+      ...BASE,
+      conflictFindings: [sharedEditor('lib/shared.js', ['a', 'b'])],
+    });
+
+    const lines = body.split('\n');
+    const waveHeading = lines.findIndex((l) =>
+      l.startsWith('#### Delivery order'),
+    );
+    const collisionHeading = lines.findIndex((l) =>
+      l.includes('Known collisions'),
+    );
+    assert.ok(waveHeading >= 0, `expected a wave table:\n${body}`);
+    assert.ok(
+      collisionHeading > waveHeading,
+      `expected collisions after the wave table:\n${body}`,
+    );
+
+    assert.match(body, /\| `lib\/shared\.js` \| `a`, `b` \|/);
+    assert.match(body, /1 shared file\(s\)/);
+  });
+
+  it('names the knob that would turn the advisory into a refusal', () => {
+    const body = buildPlanSummaryCommentBody({
+      ...BASE,
+      conflictFindings: [sharedEditor('lib/shared.js', ['a', 'b'])],
+    });
+    assert.match(body, /planning\.failOnSharedEditors/);
+    assert.match(body, /off by default/);
+  });
+
+  it('renders one row per colliding path, ordered deterministically', () => {
+    const body = buildPlanSummaryCommentBody({
+      ...BASE,
+      conflictFindings: [
+        sharedEditor('lib/z.js', ['b', 'a']),
+        sharedEditor('lib/a.js', ['a', 'b']),
+      ],
+    });
+    const rows = body
+      .split('\n')
+      .filter((line) => line.startsWith('| `lib/'))
+      .map((line) => line.split('|')[1].trim());
+    assert.deepEqual(rows, ['`lib/a.js`', '`lib/z.js`']);
+    assert.match(body, /2 shared file\(s\)/);
+  });
+
+  it('says nothing when the passes found no collision', () => {
+    for (const conflictFindings of [
+      null,
+      undefined,
+      [],
+      // Other conflict kinds have their own remediation and are not a
+      // parallelism caveat — only shared-editor belongs beside the table.
+      [
+        {
+          kind: 'implicit-cross-story-dep',
+          severity: 'soft',
+          path: 'lib/x.js',
+        },
+      ],
+    ]) {
+      const body = buildPlanSummaryCommentBody({ ...BASE, conflictFindings });
+      assert.doesNotMatch(body, /Known collisions/);
+    }
+  });
+});

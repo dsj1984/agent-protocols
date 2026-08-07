@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
+  normalizeOwnedProvenance,
+  ownedProvenanceSource,
+} from '../../../.agents/scripts/lib/findings/provenance-field.js';
+import {
   __testing,
   carryProvenanceFooters,
   fingerprintFinding,
@@ -8,6 +12,7 @@ import {
   parseFingerprintFooter,
   routeFinding,
   semanticKeyFooter,
+  semanticKeyFor,
 } from '../../../.agents/scripts/lib/findings/route-finding.js';
 
 // Internal helper: the module's three call sites reach it directly, so it is
@@ -427,4 +432,286 @@ test('a Story carrying carried-through provenance dedupes on the next sweep (AC-
     'the second sweep must recognise the planned Story, not re-file it',
   );
   assert.equal(result.matchedIssue.number, 99);
+});
+
+// ---------------------------------------------------------------------------
+// Dedup attribution (Story #5045, AC-2)
+//
+// Confirmation admits two strengths of claim: an issue carrying the finding's
+// exact FINGERPRINT owns it, while one carrying only the location-based
+// SEMANTIC KEY is merely adjacent. Reading the confirmed pool flat conflated
+// them, which produced two wrong routes — an arbitrary `open[0]` pick, and a
+// closed owner masked by any open neighbour.
+// ---------------------------------------------------------------------------
+
+/** A finding and the two identities an Issue body can confirm it by. */
+const attributedFinding = {
+  title: 'Unread field nothing populates',
+  area: 'architecture',
+  primaryFile: 'lib/opts.js',
+  severity: 'medium',
+  labels: ['audit::architecture'],
+};
+const ATTRIBUTED_SHA = fingerprintFinding(attributedFinding).full;
+const ATTRIBUTED_KEY = semanticKeyFor(attributedFinding);
+
+/** An Issue body stamped with exactly the identities that Story owns. */
+function stampedBody({ shas = [], keys = [] } = {}) {
+  const parts = ['## Goal', '', 'Remediate.', ''];
+  if (shas.length > 0) parts.push(fingerprintFooter(shas));
+  if (keys.length > 0) parts.push(semanticKeyFooter(keys));
+  return parts.join('\n');
+}
+
+/** Route through the semantic-first port with semantic-key confirmation on. */
+function routeAgainst(issues) {
+  return routeFinding(
+    attributedFinding,
+    { searchCandidates: async () => issues },
+    { semanticKeyConfirm: true },
+  );
+}
+
+test('a semantic key matches the OWNING open Story, never an arbitrary open[0]', async () => {
+  // #201 merely shares the location; #202 carries the finding's fingerprint.
+  // The search port returns the neighbour first, which is exactly how the old
+  // `open[0]` pick landed on the wrong Story.
+  const issues = [
+    {
+      number: 201,
+      state: 'open',
+      body: stampedBody({ keys: [ATTRIBUTED_KEY] }),
+    },
+    {
+      number: 202,
+      state: 'open',
+      body: stampedBody({ shas: [ATTRIBUTED_SHA], keys: [ATTRIBUTED_KEY] }),
+    },
+  ];
+
+  const result = await routeAgainst(issues);
+
+  assert.equal(
+    result.decision,
+    'update-existing',
+    'one owner and one neighbour is not a duplicate',
+  );
+  assert.equal(
+    result.matchedIssue.number,
+    202,
+    'the issue carrying the fingerprint owns the finding',
+  );
+});
+
+test('the owning open Story wins regardless of the port’s return order', async () => {
+  const owner = {
+    number: 202,
+    state: 'open',
+    body: stampedBody({ shas: [ATTRIBUTED_SHA] }),
+  };
+  const neighbour = {
+    number: 201,
+    state: 'open',
+    body: stampedBody({ keys: [ATTRIBUTED_KEY] }),
+  };
+  for (const order of [
+    [owner, neighbour],
+    [neighbour, owner],
+  ]) {
+    const result = await routeAgainst(order);
+    assert.equal(result.matchedIssue.number, 202);
+    assert.equal(result.decision, 'update-existing');
+  }
+});
+
+test('a key owned by a CLOSED Story routes as a regression, not skip-open', async () => {
+  // The regression the flat read masked: #300 tracked this exact finding and
+  // was closed; #301 is an open Story at the same location tracking something
+  // else. Routing to #301 would file a genuine regression as business as usual.
+  const issues = [
+    {
+      number: 301,
+      state: 'open',
+      body: stampedBody({ keys: [ATTRIBUTED_KEY] }),
+    },
+    {
+      number: 300,
+      state: 'closed',
+      body: stampedBody({ shas: [ATTRIBUTED_SHA], keys: [ATTRIBUTED_KEY] }),
+    },
+  ];
+
+  const result = await routeAgainst(issues);
+
+  assert.equal(
+    result.decision,
+    'regression-of-closed',
+    'the owning issue’s state decides the route',
+  );
+  assert.equal(result.matchedIssue.number, 300);
+});
+
+test('two open owners are still a duplicate, pinned deterministically', async () => {
+  // A genuine duplicate — both carry the fingerprint — stays a duplicate. The
+  // pin is the earliest-filed issue, not whichever the port returned first.
+  const a = {
+    number: 410,
+    state: 'open',
+    body: stampedBody({ shas: [ATTRIBUTED_SHA] }),
+  };
+  const b = {
+    number: 405,
+    state: 'open',
+    body: stampedBody({ shas: [ATTRIBUTED_SHA] }),
+  };
+  for (const order of [
+    [a, b],
+    [b, a],
+  ]) {
+    const result = await routeAgainst(order);
+    assert.equal(result.decision, 'duplicate');
+    assert.equal(result.matchedIssue.number, 405);
+  }
+});
+
+test('a location-only match still routes when nothing carries the fingerprint', async () => {
+  // The semantic key exists to catch a reworded finding whose fingerprint has
+  // drifted. Attribution must not narrow that away.
+  const result = await routeAgainst([
+    {
+      number: 501,
+      state: 'open',
+      body: stampedBody({ keys: [ATTRIBUTED_KEY] }),
+    },
+  ]);
+  assert.equal(result.decision, 'update-existing');
+  assert.equal(result.matchedIssue.number, 501);
+});
+
+test('a closed location-only match is still a regression', async () => {
+  const result = await routeAgainst([
+    {
+      number: 502,
+      state: 'closed',
+      body: stampedBody({ keys: [ATTRIBUTED_KEY] }),
+    },
+  ]);
+  assert.equal(result.decision, 'regression-of-closed');
+});
+
+test('attributedPool keeps owners and drops location-only matches beside them', () => {
+  const owner = {
+    number: 9,
+    state: 'open',
+    body: stampedBody({ shas: [ATTRIBUTED_SHA] }),
+  };
+  const located = {
+    number: 2,
+    state: 'open',
+    body: stampedBody({ keys: [ATTRIBUTED_KEY] }),
+  };
+  assert.deepEqual(
+    __testing
+      .attributedPool([located, owner], ATTRIBUTED_SHA)
+      .map((i) => i.number),
+    [9],
+    'an owner outranks a neighbour regardless of input order',
+  );
+  // With no owner the location-only pool stands in, sorted by issue number.
+  assert.deepEqual(
+    __testing
+      .attributedPool(
+        [
+          {
+            number: 7,
+            state: 'open',
+            body: stampedBody({ keys: [ATTRIBUTED_KEY] }),
+          },
+          located,
+        ],
+        ATTRIBUTED_SHA,
+      )
+      .map((i) => i.number),
+    [2, 7],
+  );
+});
+
+// ---------------------------------------------------------------------------
+// The per-Story `provenance` field (Story #5045, AC-1 support)
+// ---------------------------------------------------------------------------
+
+test('normalizeOwnedProvenance returns null for an absent field', () => {
+  // `null` is what selects the recall-safe union fallback downstream — an
+  // empty object would mean "this Story owns nothing" and strip its footers.
+  assert.equal(normalizeOwnedProvenance(undefined), null);
+  assert.equal(normalizeOwnedProvenance(null), null);
+});
+
+test('normalizeOwnedProvenance shape-checks, trims and de-duplicates', () => {
+  assert.deepEqual(
+    normalizeOwnedProvenance({
+      fingerprints: [` ${ATTRIBUTED_SHA} `, ATTRIBUTED_SHA],
+      semanticKeys: [ATTRIBUTED_KEY],
+    }),
+    { fingerprints: [ATTRIBUTED_SHA], semanticKeys: [ATTRIBUTED_KEY] },
+  );
+  assert.deepEqual(normalizeOwnedProvenance({}), {
+    fingerprints: [],
+    semanticKeys: [],
+  });
+});
+
+test('normalizeOwnedProvenance rejects rather than silently dropping', () => {
+  // A dropped identity is invisible until the NEXT sweep re-files planned
+  // work, so every malformed shape fails at the validator instead.
+  for (const bad of [
+    'a string',
+    ['an array'],
+    { fingerprints: {} },
+    { fingerprints: ['deadbeef'] },
+    { fingerprints: [ATTRIBUTED_SHA.toUpperCase()] },
+    { semanticKeys: [''] },
+    { semanticKeys: ['carries,a,comma'] },
+    { semanticKeys: ['carries>a>bracket'] },
+    { extra: true },
+  ]) {
+    assert.throws(
+      () => normalizeOwnedProvenance(bad, 'own-the-seam'),
+      /provenance on "own-the-seam"/,
+      `expected a throw for ${JSON.stringify(bad)}`,
+    );
+  }
+});
+
+test('ownedProvenanceSource renders a carryable footer document', () => {
+  const source = ownedProvenanceSource({
+    fingerprints: [ATTRIBUTED_SHA],
+    semanticKeys: [ATTRIBUTED_KEY],
+  });
+  // The point of rendering the SAME footer vocabulary: the carry stays
+  // additive, union-preserving and idempotent for an attributed plan.
+  const carried = carryProvenanceFooters({
+    from: source,
+    into: '## Goal\n',
+  });
+  assert.deepEqual(parseFingerprintFooter(carried.body), [ATTRIBUTED_SHA]);
+  assert.deepEqual(parseSemanticKeyFooter(carried.body), [ATTRIBUTED_KEY]);
+  assert.equal(
+    carryProvenanceFooters({ from: source, into: carried.body }).carried,
+    false,
+    're-stamping an attributed body is still a no-op',
+  );
+});
+
+test('ownedProvenanceSource renders nothing for an empty or absent set', () => {
+  for (const empty of [null, undefined, {}, { fingerprints: [] }]) {
+    assert.equal(ownedProvenanceSource(empty), '');
+    assert.equal(
+      carryProvenanceFooters({
+        from: ownedProvenanceSource(empty),
+        into: '## Goal\n',
+      }).carried,
+      false,
+    );
+  }
 });

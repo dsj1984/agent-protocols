@@ -35,11 +35,11 @@ import { fingerprintSeverity } from './severity.js';
 const SEP = '␟'; // unit separator — keeps fingerprint fields unambiguous
 const MARKER = 'audit-fingerprints:';
 const SEMANTIC_MARKER = 'audit-semantic-keys:';
-const SHA1_RE = /^[0-9a-f]{40}$/;
+export const SHA1_RE = /^[0-9a-f]{40}$/;
 // A semantic key round-trips through a comma-joined footer, so it must not
 // carry a comma or a `>` (which would truncate the HTML comment). Both are
 // stripped when the key is built, so this guard is defence-in-depth.
-const SEMANTIC_KEY_RE = /^[^,>]+$/;
+export const SEMANTIC_KEY_RE = /^[^,>]+$/;
 
 /**
  * Normalise a single scalar identity field to a stable string.
@@ -344,11 +344,58 @@ function decisionForIssue(issue) {
 }
 
 /**
+ * Resolve the pool that **attributes** a finding, out of everything that
+ * confirmed it (Story #5045).
+ *
+ * Confirmation admits two different strengths of claim, and collapsing them
+ * was the source of two wrong routes:
+ *
+ * - An issue carrying the finding's exact **fingerprint** owns it. That is
+ *   identity: this issue tracks *this* finding.
+ * - An issue matching only on the location-based **semantic key** is merely
+ *   adjacent: it tracks *a* finding at the same `area␟primaryFile`.
+ *
+ * Owners win outright when any exist. Location-only matches are not discarded
+ * — they are the whole point of the semantic key and remain the pool when
+ * nothing carries the fingerprint (a reworded finding at an unchanged
+ * location). The pool is sorted by issue number so a genuine tie resolves to
+ * the earliest-filed issue rather than to whatever order the search port
+ * happened to return.
+ *
+ * @param {Array<{ number: number, state: string, body?: string }>} confirmed
+ * @param {string} sha
+ * @returns {Array<{ number: number, state: string }>}
+ */
+function attributedPool(confirmed, sha) {
+  const owns = (issue) => issueCarriesFingerprint(issue, sha);
+  const owners = confirmed.filter(owns);
+  const pool = owners.length > 0 ? owners : confirmed.filter((i) => !owns(i));
+  return [...pool].sort((a, b) => (a?.number ?? 0) - (b?.number ?? 0));
+}
+
+/**
  * Decide the final route from a confirmed-match pool (issues that both
- * surfaced in the candidate/search pass AND carry the finding's fingerprint
- * in their footer). Shared by both the semantic-first and fingerprint-only
- * code paths so the decision enum is identical regardless of how candidates
- * were gathered.
+ * surfaced in the candidate/search pass AND carry a confirming footer).
+ * Shared by both the semantic-first and fingerprint-only code paths so the
+ * decision enum is identical regardless of how candidates were gathered.
+ *
+ * **Attribution decides, not array order (Story #5045).** The pool used to be
+ * read flat, which produced two wrong answers whenever more than one issue
+ * confirmed:
+ *
+ *   1. Two open matches routed `duplicate` pinned to `open[0]` — whichever
+ *    issue the search port happened to return first. With per-Story
+ *    provenance that pick is answerable rather than arbitrary: the issue
+ *    carrying the finding's own fingerprint owns it, and a sibling matching
+ *    only by location does not.
+ *   2. Any open match at all masked a closed one, so a finding whose
+ *    fingerprint is owned by a **closed** Story routed `update-existing`
+ *    against an open neighbour — a genuine regression filed as a
+ *    business-as-usual update. Attribution restores it: state is read off the
+ *    owning issue, not off whatever else shares its location.
+ *
+ * {@link attributedPool} owns that selection; the decision below reads only
+ * the pool it returns.
  *
  * @param {Array<{ number: number, state: string }>} confirmed
  * @param {string} sha
@@ -359,7 +406,8 @@ function decideFromConfirmed(confirmed, sha) {
     return { decision: 'new', matchedIssue: null, fingerprint: sha };
   }
 
-  const open = confirmed.filter((h) => normaliseField(h.state) === 'open');
+  const attributed = attributedPool(confirmed, sha);
+  const open = attributed.filter((h) => normaliseField(h.state) === 'open');
   if (open.length > 1) {
     return { decision: 'duplicate', matchedIssue: open[0], fingerprint: sha };
   }
@@ -371,7 +419,7 @@ function decideFromConfirmed(confirmed, sha) {
     };
   }
 
-  const closed = confirmed[0];
+  const closed = attributed[0];
   return {
     decision: decisionForIssue(closed),
     matchedIssue: closed,
@@ -484,4 +532,5 @@ export const __testing = {
   decideFromConfirmed,
   issueCarriesSemanticKey,
   parseSemanticKeyFooter,
+  attributedPool,
 };
