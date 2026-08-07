@@ -1,7 +1,7 @@
 {
   "$schema": ".agents/schemas/baselines/maintainability.schema.json",
   "kernelVersion": "0.1.0",
-  "generatedAt": "2026-08-07T11:55:39.057Z",
+  "generatedAt": "2026-08-07T13:23:36.131Z",
   "rollup": {
     "*": {
       "min": 76.381,
@@ -792,7 +792,7 @@
     },
     {
       "path": ".agents/scripts/lib/dependency-parser.js",
-      "mi": 111.597
+      "mi": 112.265
     },
     {
       "path": ".agents/scripts/lib/detect-package-manager.js",
@@ -1336,7 +1336,7 @@
     },
     {
       "path": ".agents/scripts/lib/orchestration/resolve-stories.js",
-      "mi": 103.288
+      "mi": 103.8
     },
     {
       "path": ".agents/scripts/lib/orchestration/retro-proposals.js",
@@ -1707,8 +1707,12 @@
       "mi": 83.974
     },
     {
+      "path": ".agents/scripts/lib/story-body/footer-block.js",
+      "mi": 117.261
+    },
+    {
       "path": ".agents/scripts/lib/story-body/story-body.js",
-      "mi": 94.035
+      "mi": 94.57
     },
     {
       "path": ".agents/scripts/lib/temp-retention.js",
