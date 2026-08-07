@@ -7,11 +7,11 @@ import {
   semanticKeyFor,
 } from '../../.agents/scripts/lib/findings/route-finding.js';
 import { AGENT_LABELS } from '../../.agents/scripts/lib/label-constants.js';
+import { storyFootprint } from '../../.agents/scripts/lib/wave-runner/footprint.js';
 import {
   classifyStory,
   planReadySet,
   storiesOverlap,
-  storyFootprint,
   storyIdOf,
 } from '../../.agents/scripts/lib/wave-runner/ready-set.js';
 

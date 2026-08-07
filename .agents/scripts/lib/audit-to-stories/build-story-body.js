@@ -22,6 +22,7 @@
  * structured contract.
  */
 
+import path from 'node:path';
 import { AGENT_LABELS, RISK_LABELS, TYPE_LABELS } from '../label-constants.js';
 import { serialize } from '../story-body/story-body.js';
 import { definesAuditLabel } from './audit-label-taxonomy.js';
@@ -197,7 +198,11 @@ function contextLinksFromGroup(group) {
       .filter((s) => typeof s === 'string'),
   );
   if (reports.length === 0) return '_(no source audit reports captured)_';
-  return reports.map((r) => `- [${r.split('/').pop()}](${r})`).join('\n');
+  // `path.basename` rather than `split('/')`: on win32 it splits on both
+  // separators, so an absolute Windows path yields the file name instead of
+  // the whole path — which would render the path twice in one link and
+  // re-create the very duplication this function exists to remove.
+  return reports.map((r) => `- [${path.basename(r)}](${r})`).join('\n');
 }
 
 function labelsForGroup(group) {

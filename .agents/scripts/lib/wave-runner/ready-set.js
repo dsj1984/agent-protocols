@@ -63,13 +63,6 @@ import { AGENT_LABELS } from '../label-constants.js';
 import { buildStoryAdjacency } from '../story-adjacency.js';
 import { detectCollision } from './footprint.js';
 
-// `storyFootprint` is re-exported because the declared-footprint reader is part
-// of this module's long-standing published surface; splitting the collision
-// rules into `footprint.js` (Story #5044) is an internal seam, not a rename for
-// consumers to absorb. Everything else in that module is imported from it
-// directly.
-export { storyFootprint } from './footprint.js';
-
 /**
  * How a footprint collision affects dispatch — the `footprintGuard` config
  * knob (`delivery.deliverRunner.footprintGuard`, Story #5044).

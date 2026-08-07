@@ -158,7 +158,7 @@ test('buildStoryBody renders each source-report link exactly once (AC-6)', () =>
     );
     // Still a link, still labelled — the file name is the label, the path is
     // the target.
-    assert.ok(body.includes(`[${report.split('/').pop()}](${report})`));
+    assert.ok(body.includes(`[${path.basename(report)}](${report})`));
   }
 });
 
