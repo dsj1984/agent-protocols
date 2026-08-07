@@ -44,14 +44,17 @@ From zero to shipped:
    resolves their dependency graph from live state — body edges union native
    GitHub `blocked_by` edges, every blocker checked against its real issue
    state, so a Story whose blocker landed in an earlier plan run is simply
-   ready. `/deliver` owns input resolution and `depends_on` sequencing only;
+   ready. `/deliver` owns input resolution and dispatch order — the declared
+   `depends_on` edges plus a delivery-time file-overlap guard that withholds
+   two Stories whose footprints would race the same path (see
+   [`architecture.md` § Scheduler safety mechanics](../../docs/architecture.md));
    every Story runs through the single v2 delivery engine
    [`helpers/deliver-story`](../workflows/helpers/deliver-story.md) —
    init → implement → acceptance self-eval → ceremony → close → CI watch →
    confirm-merge — which owns its own per-step detail. For a multi-Story run,
-   `/deliver` sequences ready Stories by `depends_on` and runs the per-run
-   epilogue (audit roster · follow-up roll-up · sibling coherence) once after
-   the last Story lands.
+   `/deliver` sequences ready Stories by `depends_on` — plus that footprint
+   guard — and runs the per-run epilogue (audit roster · follow-up roll-up ·
+   sibling coherence) once after the last Story lands.
 
 That is the whole happy path. Everything below is **detail** — branching
 conventions, HITL escalation, audit lenses — that you only need when the
@@ -239,7 +242,7 @@ self-eval, ceremony, close, CI watch, confirm-merge, cleanup) lives in the
 | Mode | Entry point | When to use |
 | --- | --- | --- |
 | **Single Story** | `/deliver <storyId>` | Deliver one Story end-to-end; ends with a PR open to `main`. |
-| **Story set** | `/deliver <storyId> [<storyId>…]` | Deliver multiple Stories in `depends_on` order (default concurrency **3**), resolved from live state so edges may point at Stories from earlier plan runs; each lands through its own PR, and the per-run epilogue runs after the set lands. |
+| **Story set** | `/deliver <storyId> [<storyId>…]` | Deliver multiple Stories in `depends_on` order (default concurrency **3**), resolved from live state so edges may point at Stories from earlier plan runs; a delivery-time file-overlap guard additionally withholds two Stories whose footprints would race the same path (`delivery.deliverRunner.footprintGuard`). Each lands through its own PR, and the per-run epilogue runs after the set lands. |
 | **Story worker (internal)** | *helper* `helpers/deliver-story <storyId>` | Per-Story engine invoked internally by `/deliver`; not an operator slash command. |
 
 The single operator-facing entry point is `/deliver`. It performs no

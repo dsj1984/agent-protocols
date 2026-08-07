@@ -94,7 +94,7 @@ probe logs a warning and leans on init's lease refusal alone.
 **Overlapping footprints are reserved across beats, not just within one.** A
 Story sharing a **concrete** path with a still-implementing Story is withheld
 and named in `inFlightReservation: { available, withheld: [{ id, blockedBy,
-reason }], note }`, where `reason` is `in-flight-earlier-beat` or
+reason, source, paths }], note }`, where `reason` is `in-flight-earlier-beat` or
 `foreign-lease`. Like `foreignHeld` this is neither a failure nor a wedge — the
 Story re-admits automatically once its blocker leaves the in-flight set — and
 it exists so an unfilled slot is explained rather than mysterious. A **glob**
@@ -102,6 +102,33 @@ footprint (or the UNKNOWN sentinel for an unparseable body) reserves nothing
 across beats; it still serializes its own beat. Reservation needs the in-flight
 Stories' footprints, so it is a `--probe-live` capability: under `--dag` the
 report is `available: false` and selection de-conflicts within the beat only.
+
+**Beat-local skips are reported too**, in `footprintGuard: { mode, withheld,
+advisory, note }`. They used to be an unreported skip, so a Story simply
+vanished from `ready[]` and an unfilled slot read exactly like a cap that was
+never reached. Every entry in **either** report carries the colliding `paths`
+and a `source` tag:
+
+- `declared-overlap` — both Stories' `changes[]` named the path (or a declared
+  glob). Intended serialization; two Stories rewriting the same generated
+  baseline must not co-dispatch.
+- `scraped-overlap` — only the text evidence produced it. Real signal (a
+  declaration is a lower bound, #4875), but the class where a false positive
+  is possible.
+
+**The evidence scrape excludes exactly three token sources**, each structurally
+incapable of naming an edit target: `audit-fingerprints` /
+`audit-semantic-keys` provenance footers, paths under `project.paths.tempRoot`,
+and markdown-link URL interiors. Nothing else is stripped — a
+`<!-- DECOMPOSITION -->` block's paths are genuine intent
+([`instructions.md` § 7](../../instructions.md)) and still count.
+
+**`delivery.deliverRunner.footprintGuard`** selects what a collision does:
+
+| Mode | Effect |
+| --- | --- |
+| `enforce` (default) | A collision withholds the Story. Keep this unless you have a reason — the guard encodes delivery-time-only knowledge (open implementation windows, foreign leases, ground moved since planning) no `depends_on` edge can carry. |
+| `advisory` | Collisions are still **detected** and listed in `footprintGuard.advisory`, but never withhold; dispatch follows the declared `depends_on` edges alone. A throughput trade for a run whose ordering is fully declared. |
 
 ## Dispatch mechanics (role-scoped by default)
 
