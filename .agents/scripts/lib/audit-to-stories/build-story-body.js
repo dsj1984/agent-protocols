@@ -149,18 +149,19 @@ function sequencingDepsForGroup(group, edges) {
  * created (deduped against an existing Issue, suppressed by the ledger) simply
  * drops — a `blocked by #undefined` would be worse than an absent edge.
  *
+ * A **plain object**, deliberately, not a `Map`: the same map is handed to
+ * `applyBlockedByDependencies`, which indexes it with property access, so a
+ * `Map` there would silently resolve every lookup to `undefined`, skip every
+ * edge, and report success having written nothing. One shape, both halves.
+ *
  * @param {string[]} deps                     Group keys this group depends on.
- * @param {Record<string, number>|Map<string, number>|null} issueByGroupKey
+ * @param {Record<string, number>|null} issueByGroupKey
  * @returns {string[]} `#N` refs, in `deps` order.
  */
 function dependencyRefs(deps, issueByGroupKey) {
   if (!issueByGroupKey) return [];
-  const lookup =
-    issueByGroupKey instanceof Map
-      ? (k) => issueByGroupKey.get(k)
-      : (k) => issueByGroupKey[k];
   return deps
-    .map((key) => lookup(key))
+    .map((key) => issueByGroupKey[key])
     .filter((n) => Number.isInteger(n) && n > 0)
     .map((n) => `#${n}`);
 }
@@ -253,7 +254,7 @@ function assertLabelsInTaxonomy(labels) {
  *   — the dependency `edges[]` emitted by `groupFindings`. Edges anchored on
  *   this group are carried through to `depends_on[]`; omit when no sequencing
  *   is known.
- * @param {Record<string, number>|Map<string, number>|null} [params.issueByGroupKey]
+ * @param {Record<string, number>|null} [params.issueByGroupKey]
  *   — group key → opened issue number. Supplied on the **second** pass, once
  *   the issues exist, so this group's edges render as canonical
  *   `blocked by #N` footers (Story #5044). Omit on the first pass.
