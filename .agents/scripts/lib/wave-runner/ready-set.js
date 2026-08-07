@@ -346,7 +346,47 @@ export function planReadySet({
   // rationale.
   const adjacency = buildStoryAdjacency(records, { dropForeign });
 
-  // Step 2 — done set = caller-supplied ids ∪ records that classify done.
+  // Steps 2 + 3 — who is eligible at all, before any footprint reasoning.
+  const { eligibleIds, byId } = resolveEligibility({
+    records,
+    doneIds,
+    adjacency,
+  });
+
+  // Steps 4 + 5 — greedily admit up to `slots`, skipping file-overlap
+  // collisions against the already-admitted set AND against the footprints
+  // reserved by Stories still in flight from an earlier beat.
+  return admitStories({
+    eligibleIds,
+    byId,
+    slots,
+    reserved: Array.isArray(inFlightRecords) ? inFlightRecords : [],
+    guardMode,
+    evidence: { tempRoot },
+  });
+}
+
+/**
+ * Resolve which Stories are eligible to dispatch on dependency grounds alone —
+ * `agent::ready` with every declared blocker done — plus the id→record index
+ * the admission loop reads.
+ *
+ * Separated from {@link planReadySet} because it answers a different question:
+ * this is the *declared graph* half of the decision (edges and lifecycle
+ * state), while everything after it reasons about footprints. Keeping the two
+ * apart is also what holds `planReadySet` under the cyclomatic ceiling ratchet.
+ *
+ * The done set is the union of two sources: ids the caller resolved from live
+ * state, and records in this batch that classify done — a Story can be both,
+ * and neither alone is complete.
+ *
+ * @param {object} args
+ * @param {StoryRecord[]} args.records
+ * @param {number[]|Set<number>} args.doneIds
+ * @param {Map<number, number[]>} args.adjacency
+ * @returns {{ eligibleIds: number[], byId: Map<number, StoryRecord> }}
+ */
+function resolveEligibility({ records, doneIds, adjacency }) {
   const done = new Set();
   for (const raw of doneIds instanceof Set ? doneIds : (doneIds ?? [])) {
     const id = Number(raw);
@@ -360,27 +400,14 @@ export function planReadySet({
     if (classifyStory(rec) === 'done') done.add(id);
   }
 
-  // Step 3 — eligible: ready AND all dependencies done. Ascending id for
-  // deterministic admission order.
+  // Ascending id for deterministic admission order.
   const eligibleIds = [];
   for (const id of [...byId.keys()].sort((a, b) => a - b)) {
-    const rec = byId.get(id);
-    if (classifyStory(rec) !== 'ready') continue;
+    if (classifyStory(byId.get(id)) !== 'ready') continue;
     const deps = adjacency.get(id) ?? [];
     if (deps.every((dep) => done.has(dep))) eligibleIds.push(id);
   }
-
-  // Steps 4 + 5 — greedily admit up to `slots`, skipping file-overlap
-  // collisions against the already-admitted set AND against the footprints
-  // reserved by Stories still in flight from an earlier beat.
-  return admitStories({
-    eligibleIds,
-    byId,
-    slots,
-    reserved: Array.isArray(inFlightRecords) ? inFlightRecords : [],
-    guardMode,
-    evidence: { tempRoot },
-  });
+  return { eligibleIds, byId };
 }
 
 /**
