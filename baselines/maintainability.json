@@ -1,7 +1,7 @@
 {
   "$schema": ".agents/schemas/baselines/maintainability.schema.json",
   "kernelVersion": "0.1.0",
-  "generatedAt": "2026-08-07T13:23:36.131Z",
+  "generatedAt": "2026-08-07T13:37:15.267Z",
   "rollup": {
     "*": {
       "min": 76.381,
@@ -879,8 +879,12 @@
       "mi": 98.091
     },
     {
+      "path": ".agents/scripts/lib/findings/provenance-field.js",
+      "mi": 93.873
+    },
+    {
       "path": ".agents/scripts/lib/findings/route-finding.js",
-      "mi": 104.674
+      "mi": 105.27
     },
     {
       "path": ".agents/scripts/lib/findings/semantic-issue-search.js",
@@ -1272,7 +1276,7 @@
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/run-plan-persist.js",
-      "mi": 94.385
+      "mi": 95.892
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/story-ops.js",
@@ -1280,7 +1284,7 @@
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/summary.js",
-      "mi": 107.628
+      "mi": 109.344
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/supersede-ops.js",
@@ -1548,7 +1552,7 @@
     },
     {
       "path": ".agents/scripts/lib/orchestration/ticket-validator-conflicts.js",
-      "mi": 85.87
+      "mi": 86.485
     },
     {
       "path": ".agents/scripts/lib/orchestration/ticket-validator-sizing.js",
