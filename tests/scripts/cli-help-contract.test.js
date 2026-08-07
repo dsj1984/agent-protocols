@@ -40,7 +40,6 @@ const SCRIPTS_DIR = path.join(REPO_ROOT, '.agents', 'scripts');
 const KNOWN_HELP_GAPS = new Set([
   'check-action-pinning.js',
   'check-context-budget.js',
-  'check-lifecycle-lint.js',
   'check-schema-references.js',
   'check-workflow-cli-lint.js',
   'check-workflow-timeouts.js',

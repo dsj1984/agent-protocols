@@ -46,6 +46,23 @@
  *   The exempt path is matched by suffix so it bites even before the
  *   armer file lands (Wave 7); pre-existence is not required.
  *
+ * Scan root:
+ *   --root <dir>  Scan <dir> instead of this checkout. Both surfaces are
+ *                 derived from it, so one flag moves the whole scan.
+ *                 Defaults to the repository this script ships in, which is
+ *                 what `npm run lint` gets by passing nothing.
+ *
+ *   The seam exists for tests (Story #5052). The CLI test that proves a
+ *   violation is *caught* has to plant one, and it used to plant into the
+ *   live `.agents/` tree — which `tests/e2e/sync-prune.integration.test.js`
+ *   copies with the real binary, so the two raced: the sync either lost the
+ *   file between enumeration and `copyfile` (ENOENT) or copied it once and
+ *   pruned it on the second pass, tripping an idempotence assertion. Pointing
+ *   the planting test at a temp root keeps what that test was written for —
+ *   discovery is still the CLI's own walk, not an injected file list — while
+ *   leaving the shared tree untouched. Mirrors the `--root` seam
+ *   `check-test-temp-hygiene.js` already ships for the same reason.
+ *
  * Exit codes:
  *   0 — clean.
  *   1 — at least one violation; offending file + line printed to stderr.
@@ -65,15 +82,22 @@ import { walkFilesByExtension } from './lib/fs-walk.js';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, '..', '..');
 
-const LIFECYCLE_DIR = path.join(
-  REPO_ROOT,
-  '.agents',
-  'scripts',
-  'lib',
-  'orchestration',
-  'lifecycle',
-);
-const SCRIPTS_DIR = path.join(REPO_ROOT, '.agents', 'scripts');
+/** Rule 1's scan surface for a given repository root. */
+function lifecycleDirFor(root) {
+  return path.join(
+    root,
+    '.agents',
+    'scripts',
+    'lib',
+    'orchestration',
+    'lifecycle',
+  );
+}
+
+/** Rule 3's scan surface for a given repository root. */
+function scriptsDirFor(root) {
+  return path.join(root, '.agents', 'scripts');
+}
 
 /**
  * Files exempt from the merge-lockout rule. The path is matched by
@@ -269,10 +293,31 @@ export function findMergeLockoutViolations(
   return violations;
 }
 
+/**
+ * Parse the argument vector. The only option is the scan root; anything
+ * else is ignored so an extra flag can never silently narrow the scan.
+ *
+ * @param {string[]} argv Arguments without the node/script entries.
+ * @returns {{ root: string }}
+ */
+function parseArgv(argv) {
+  let root = REPO_ROOT;
+  for (let i = 0; i < argv.length; i += 1) {
+    if (argv[i] === '--root') {
+      i += 1;
+      root = path.resolve(String(argv[i] ?? '.'));
+    }
+  }
+  return { root };
+}
+
 async function main() {
-  // Per-rule discovery.
-  const v1 = findPromiseAllViolations(LIFECYCLE_DIR);
-  const v3 = findMergeLockoutViolations(SCRIPTS_DIR);
+  const { root } = parseArgv(process.argv.slice(2));
+  // Per-rule discovery. Both rules' exemptions match by absolute-path
+  // SUFFIX, which is what lets an injected root keep the same allow-list
+  // semantics as the live tree — do not re-anchor them to `root`.
+  const v1 = findPromiseAllViolations(lifecycleDirFor(root));
+  const v3 = findMergeLockoutViolations(scriptsDirFor(root));
   const all = [
     ...v1.map((v) => ({ rule: 'no-promise-all-lifecycle', ...v })),
     ...v3.map((v) => ({ rule: 'merge-lockout', ...v })),
@@ -297,4 +342,19 @@ async function main() {
 await runAsCli(import.meta.url, main, {
   source: 'check-lifecycle-lint',
   propagateExitCode: true,
+  usage: {
+    invocation: 'node .agents/scripts/check-lifecycle-lint.js [--root <dir>]',
+    summary:
+      'Enforce the two lifecycle lint rules biome cannot express: no Promise.all on the append-only lifecycle surface, and the auto-merge lockout on string literals under .agents/scripts/.',
+    flags: [
+      [
+        '--root <dir>',
+        'Repository root to scan (default: the checkout this script ships in). Both rule surfaces derive from it; used by tests so a planted violation never touches the shared tree.',
+      ],
+    ],
+    notes: [
+      'Ships as part of `npm run lint`, which invokes it with no arguments.',
+      'Exit codes:\n  0  clean\n  1  at least one violation; offending file and line printed to stderr',
+    ],
+  },
 });

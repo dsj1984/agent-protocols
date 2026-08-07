@@ -1,7 +1,7 @@
 // tests/lifecycle/lifecycle-lint.test.js
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
@@ -100,9 +100,53 @@ describe('lifecycle-lint/cli', () => {
   });
 
   it('exits 1 and tags the offending rule when a violation is planted', () => {
-    // Plant a Promise.all under the real lifecycle dir, so the CLI's own
-    // discovery (not an injected fixture path) is what finds it.
-    const planted = path.join(
+    // Plant into a temp root, NOT the live tree. The property this test was
+    // written for — that the CLI's own discovery finds the violation, rather
+    // than an injected fixture path — survives, because `--root` only moves
+    // where the walk starts; the walk is still the CLI's.
+    //
+    // Planting into the real `.agents/` tree raced
+    // `tests/e2e/sync-prune.integration.test.js`, which copies that same tree
+    // with the real binary: the sync either lost the file between enumeration
+    // and `copyfile` (ENOENT) or copied it on the first pass and pruned it on
+    // the second, tripping the idempotence assertion. Both tests were correct
+    // in isolation; this one mutated shared state the other read (Story #5052,
+    // filed as #5051).
+    const root = makeTempDir('mandrel-lint-cli-');
+    try {
+      const lifecycleDir = path.join(
+        root,
+        '.agents',
+        'scripts',
+        'lib',
+        'orchestration',
+        'lifecycle',
+      );
+      mkdirSync(lifecycleDir, { recursive: true });
+      writeFileSync(
+        path.join(lifecycleDir, 'zz-planted-violation.js'),
+        'export const x = Promise.all([]);\n',
+        'utf8',
+      );
+
+      const result = spawnSync(
+        process.execPath,
+        [SCRIPT_PATH, '--root', root],
+        { cwd: REPO_ROOT, encoding: 'utf8' },
+      );
+      assert.equal(result.status, 1, `stdout: ${result.stdout}`);
+      assert.match(result.stderr, /no-promise-all-lifecycle/);
+      assert.match(result.stderr, /zz-planted-violation\.js/);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('leaves the real .agents/ tree untouched while scanning an injected root', () => {
+    // The regression guard for #5051: the CLI test must not create the file
+    // whose transient presence broke the sync e2e. Asserting on the exact path
+    // keeps the guard honest if someone reinstates the live-tree plant.
+    const livePlant = path.join(
       REPO_ROOT,
       '.agents',
       'scripts',
@@ -111,18 +155,96 @@ describe('lifecycle-lint/cli', () => {
       'lifecycle',
       'zz-planted-violation.js',
     );
-    writeFileSync(planted, 'export const x = Promise.all([]);\n', 'utf8');
+    const root = makeTempDir('mandrel-lint-cli-untouched-');
     try {
-      const result = spawnSync(process.execPath, [SCRIPT_PATH], {
+      const lifecycleDir = path.join(
+        root,
+        '.agents',
+        'scripts',
+        'lib',
+        'orchestration',
+        'lifecycle',
+      );
+      mkdirSync(lifecycleDir, { recursive: true });
+      writeFileSync(
+        path.join(lifecycleDir, 'zz-planted-violation.js'),
+        'export const x = Promise.all([]);\n',
+        'utf8',
+      );
+
+      spawnSync(process.execPath, [SCRIPT_PATH, '--root', root], {
         cwd: REPO_ROOT,
         encoding: 'utf8',
       });
-      assert.equal(result.status, 1, `stdout: ${result.stdout}`);
-      assert.match(result.stderr, /no-promise-all-lifecycle/);
-      assert.match(result.stderr, /zz-planted-violation\.js/);
+
+      assert.equal(
+        existsSync(livePlant),
+        false,
+        'scanning an injected root must never write into the shared source tree',
+      );
     } finally {
-      rmSync(planted, { force: true });
+      rmSync(root, { recursive: true, force: true });
     }
+  });
+
+  it('keeps the merge-lockout exemptions suffix-matched under an injected root', () => {
+    // The allow-list is matched by absolute-path SUFFIX, so it has to keep
+    // biting when the root moves. Re-anchoring it to the repo root would make
+    // the authorized carrier report a violation under any other root.
+    const root = makeTempDir('mandrel-lint-cli-exempt-');
+    try {
+      const phasesDir = path.join(
+        root,
+        '.agents',
+        'scripts',
+        'lib',
+        'orchestration',
+        'single-story-close',
+        'phases',
+      );
+      mkdirSync(phasesDir, { recursive: true });
+      writeFileSync(
+        path.join(phasesDir, 'auto-merge.js'),
+        "const cmd = 'gh pr merge --auto --squash';\n",
+        'utf8',
+      );
+
+      const result = spawnSync(
+        process.execPath,
+        [SCRIPT_PATH, '--root', root],
+        { cwd: REPO_ROOT, encoding: 'utf8' },
+      );
+      assert.equal(
+        result.status,
+        0,
+        `the authorized carrier must stay exempt; stderr: ${result.stderr}`,
+      );
+      assert.match(result.stdout, /\[lifecycle-lint\] clean/);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('--help exits 0 with a usage block and never reaches the scan', () => {
+    // Supplying `usage` is what makes runAsCli short-circuit --help before
+    // main(); this script used to fall through and run a full scan, which is
+    // why it sat in KNOWN_HELP_GAPS (tests/scripts/cli-help-contract.test.js).
+    const result = spawnSync(process.execPath, [SCRIPT_PATH, '--help'], {
+      cwd: REPO_ROOT,
+      encoding: 'utf8',
+    });
+    assert.equal(result.status, 0, `stderr: ${result.stderr}`);
+    assert.match(
+      result.stdout,
+      /^Usage: node \.agents\/scripts\/check-lifecycle-lint\.js /m,
+      'usage block did not print the invocation line',
+    );
+    assert.match(result.stdout, /--root <dir>/);
+    assert.doesNotMatch(
+      `${result.stdout}${result.stderr}`,
+      /\[lifecycle-lint\] clean/,
+      '--help fell through to the scan path',
+    );
   });
 });
 
