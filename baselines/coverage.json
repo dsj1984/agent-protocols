@@ -1,12 +1,12 @@
 {
   "$schema": ".agents/schemas/baselines/coverage.schema.json",
   "kernelVersion": "1.0.0",
-  "generatedAt": "2026-08-06T11:50:06.682Z",
+  "generatedAt": "2026-08-07T11:55:32.344Z",
   "rollup": {
     "*": {
       "lines": 95.9,
-      "branches": 86.58,
-      "functions": 88.78
+      "branches": 86.62,
+      "functions": 88.81
     }
   },
   "rows": [
@@ -115,8 +115,8 @@
     {
       "path": ".agents/scripts/check-knip-entries.js",
       "lines": 100,
-      "branches": 80.95,
-      "functions": 66.67
+      "branches": 92.59,
+      "functions": 75
     },
     {
       "path": ".agents/scripts/check-lifecycle-lint.js",
@@ -1481,9 +1481,15 @@
       "functions": 100
     },
     {
+      "path": ".agents/scripts/lib/knip-config-resolver.js",
+      "lines": 100,
+      "branches": 97.14,
+      "functions": 100
+    },
+    {
       "path": ".agents/scripts/lib/knip-entry-sync.js",
-      "lines": 97.77,
-      "branches": 90.59,
+      "lines": 98.23,
+      "branches": 91.11,
       "functions": 100
     },
     {

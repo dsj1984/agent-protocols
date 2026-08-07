@@ -12,6 +12,7 @@
     "@commitlint/load": "^21.0.0",
     "chokidar": "^5.0.0",
     "jscpd": "^4.0.0",
+    "knip": "^6.17.1",
     "typescript": ">=5.0.0"
   }
 }

@@ -1,6 +1,8 @@
 /**
  * knip-entry-sync.js — derive which top-level `.agents/scripts/*.js` CLIs are
- * actually invoked, and diff that set against `knip.json`'s `entry` array.
+ * actually invoked, and diff that set against the `entry` array of whatever
+ * configuration knip itself would load (Story #5039; #5026 could only read a
+ * literal `knip.json`).
  *
  * Why this exists (Story #5001 → the #5012 near-miss):
  *
@@ -20,7 +22,7 @@
  * real death later. It was caught only because a base-sync conflict forced a
  * manual read of the diff.
  *
- * The fix is to stop depending on a human remembering to edit `knip.json`.
+ * The fix is to stop depending on a human remembering to edit the config.
  * #5001's own wording already names the derivation rule — entries are derived
  * "from what package.json scripts, husky hooks, .github/workflows, and the
  * .agents workflow/skill markdown actually invoke". This module mechanizes
@@ -53,6 +55,10 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
+import {
+  resolveKnipEntryPatterns,
+  __testing as resolverTesting,
+} from './knip-config-resolver.js';
 
 // Only `resolveEntrySync` and `renderEntrySyncReport` are public — they are
 // what `check-knip-entries.js` calls. Everything else is module-private and
@@ -261,9 +267,13 @@ function listTopLevelClis({ repoRoot, fsImpl = fs }) {
 }
 
 /**
- * Read the top-level `.agents/scripts/*.js` basenames declared in `knip.json`'s
- * `entry` array. Glob-bearing patterns are ignored — this reads the explicit
- * enumeration only, which is the surface #5001 made authoritative.
+ * Read the `.agents/scripts/*.js` basenames declared as knip entry points.
+ *
+ * Resolution goes through knip's own loader — see
+ * `knip-config-resolver.js` for why, and for the skipped / error / resolved
+ * contract this forwards. All this adds is the projection onto top-level CLI
+ * basenames: glob-bearing patterns are dropped, so what remains is the explicit
+ * enumeration #5001 made authoritative.
  *
  * The trailing `!` is knip's production-mode marker and is load-bearing, not
  * decoration: in a `--production` run knip keeps only the suffixed entries and
@@ -272,45 +282,41 @@ function listTopLevelClis({ repoRoot, fsImpl = fs }) {
  * unreachable in exactly the pass that emits whole-file rows — the #5012 shape
  * this gate exists to catch. Reading it as satisfied would point the operator
  * away from the cause, so unsuffixed entries are reported as their own
- * divergence rather than silently normalized.
+ * divergence rather than silently normalized. `createOptions` preserves the
+ * suffix, so the marker survives resolution.
  *
- * @param {{ repoRoot: string, fsImpl?: typeof fs }} opts
- * @returns {{ entries: string[], unsuffixed: string[], error: string | null }}
+ * @param {{ repoRoot: string, loadKnipSession?: () => Promise<object> }} opts
+ * @returns {Promise<{
+ *   entries: string[],
+ *   unsuffixed: string[],
+ *   configFilePath: string | null,
+ *   skipped: string | null,
+ *   error: string | null,
+ * }>}
  */
-function readKnipEntries({ repoRoot, fsImpl = fs }) {
-  const configPath = path.join(repoRoot, 'knip.json');
-  let parsed;
-  try {
-    parsed = JSON.parse(fsImpl.readFileSync(configPath, 'utf8'));
-  } catch (error) {
-    return {
-      entries: [],
-      unsuffixed: [],
-      error: `cannot read knip.json: ${error.message}`,
-    };
+async function readKnipEntries({ repoRoot, loadKnipSession }) {
+  const { patterns, configFilePath, skipped, error } =
+    await resolveKnipEntryPatterns({ repoRoot, loadKnipSession });
+  if (skipped || error) {
+    return { entries: [], unsuffixed: [], configFilePath, skipped, error };
   }
-  if (!Array.isArray(parsed?.entry)) {
-    return {
-      entries: [],
-      unsuffixed: [],
-      error: 'knip.json has no "entry" array',
-    };
-  }
+
   const prefix = '.agents/scripts/';
-  const declared = parsed.entry
-    .filter((e) => typeof e === 'string' && e.startsWith(prefix))
-    .filter((e) => !e.includes('*'))
+  const declared = patterns
+    .filter((e) => e.startsWith(prefix) && !e.includes('*'))
     .map((e) => ({
       cli: e.slice(prefix.length).replace(/!$/, ''),
       suffixed: e.endsWith('!'),
     }))
     .filter((e) => !e.cli.includes('/'));
 
-  const entries = declared.map((e) => e.cli);
-  const unsuffixed = declared.filter((e) => !e.suffixed).map((e) => e.cli);
   return {
-    entries: [...new Set(entries)].sort(),
-    unsuffixed: [...new Set(unsuffixed)].sort(),
+    entries: [...new Set(declared.map((e) => e.cli))].sort(),
+    unsuffixed: [
+      ...new Set(declared.filter((e) => !e.suffixed).map((e) => e.cli)),
+    ].sort(),
+    configFilePath,
+    skipped: null,
     error: null,
   };
 }
@@ -318,16 +324,27 @@ function readKnipEntries({ repoRoot, fsImpl = fs }) {
 /**
  * Resolve the full entry-sync report for a repository.
  *
- * @param {{ repoRoot: string, fsImpl?: typeof fs }} opts
- * @returns {{
+ * Async because knip's config loader is: a `knip.config.ts` has to be
+ * *evaluated*, not read. `EntrySync` names entry-list synchronization, not
+ * synchronous I/O, so the name still describes what this returns.
+ *
+ * @param {{
+ *   repoRoot: string,
+ *   fsImpl?: typeof fs,
+ *   loadKnipSession?: () => Promise<object>,
+ * }} opts
+ * @returns {Promise<{
  *   error: string | null,
+ *   skipped: string | null,
+ *   configFilePath: string | null,
  *   clis: string[],
  *   declared: string[],
  *   missing: Array<{ cli: string, invokers: string[] }>,
  *   stale: string[],
  *   phantom: string[],
  *   unsuffixed: string[],
- * }}
+ * }>}
+ *   `skipped` — nothing to check; the caller passes rather than failing.
  *   `missing` — invoked but not declared (the #5012 bug).
  *   `stale` — declared but invoked by nothing.
  *   `phantom` — declared but no such file on disk (a rename left the list behind).
@@ -335,13 +352,21 @@ function readKnipEntries({ repoRoot, fsImpl = fs }) {
  *     production pass negates rather than honours (the #5012 bug wearing a
  *     declared entry).
  */
-export function resolveEntrySync({ repoRoot, fsImpl = fs }) {
+export async function resolveEntrySync({
+  repoRoot,
+  fsImpl = fs,
+  loadKnipSession,
+}) {
   const {
     entries: declared,
     unsuffixed,
+    configFilePath,
+    skipped,
     error,
-  } = readKnipEntries({ repoRoot, fsImpl });
+  } = await readKnipEntries({ repoRoot, loadKnipSession });
   const empty = {
+    skipped: null,
+    configFilePath,
     clis: [],
     declared,
     missing: [],
@@ -349,6 +374,7 @@ export function resolveEntrySync({ repoRoot, fsImpl = fs }) {
     phantom: [],
     unsuffixed: [],
   };
+  if (skipped) return { error: null, ...empty, skipped };
   if (error) return { error, ...empty };
 
   const clis = listTopLevelClis({ repoRoot, fsImpl });
@@ -379,7 +405,17 @@ export function resolveEntrySync({ repoRoot, fsImpl = fs }) {
   const onDisk = new Set(clis);
   const phantom = declared.filter((cli) => !onDisk.has(cli));
 
-  return { error: null, clis, declared, missing, stale, phantom, unsuffixed };
+  return {
+    error: null,
+    skipped: null,
+    configFilePath,
+    clis,
+    declared,
+    missing,
+    stale,
+    phantom,
+    unsuffixed,
+  };
 }
 
 /**
@@ -460,6 +496,9 @@ export function renderEntrySyncReport(report) {
  */
 export const __testing = Object.freeze({
   buildInvocationPatterns,
+  // Re-exported from `knip-config-resolver.js` so the suite reaches the whole
+  // gate through one seam rather than importing two modules to test one gate.
+  collectEntryPatterns: resolverTesting.collectEntryPatterns,
   collectInvocationSurfaces,
   INVOCATION_SURFACES,
   listTopLevelClis,

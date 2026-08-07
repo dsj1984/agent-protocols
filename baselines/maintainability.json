@@ -1,11 +1,11 @@
 {
   "$schema": ".agents/schemas/baselines/maintainability.schema.json",
   "kernelVersion": "0.1.0",
-  "generatedAt": "2026-08-06T11:50:07.753Z",
+  "generatedAt": "2026-08-07T11:55:39.057Z",
   "rollup": {
     "*": {
       "min": 76.381,
-      "p50": 98.358,
+      "p50": 98.588,
       "p95": 122.913
     }
   },
@@ -84,7 +84,7 @@
     },
     {
       "path": ".agents/scripts/check-knip-entries.js",
-      "mi": 92.67
+      "mi": 95.873
     },
     {
       "path": ".agents/scripts/check-lifecycle-lint.js",
@@ -192,7 +192,7 @@
     },
     {
       "path": ".agents/scripts/lib/audit-baselines/kinds.js",
-      "mi": 97.921
+      "mi": 98.578
     },
     {
       "path": ".agents/scripts/lib/audit-baselines/outliers.js",
@@ -332,7 +332,7 @@
     },
     {
       "path": ".agents/scripts/lib/baselines/diff-scope-cli.js",
-      "mi": 101.053
+      "mi": 106.344
     },
     {
       "path": ".agents/scripts/lib/baselines/drift-detector.js",
@@ -340,7 +340,7 @@
     },
     {
       "path": ".agents/scripts/lib/baselines/duplication-scanner.js",
-      "mi": 90.847
+      "mi": 92.1
     },
     {
       "path": ".agents/scripts/lib/baselines/env-overrides.js",
@@ -432,7 +432,7 @@
     },
     {
       "path": ".agents/scripts/lib/baselines/reader.js",
-      "mi": 93.895
+      "mi": 95.043
     },
     {
       "path": ".agents/scripts/lib/baselines/refresh-service.js",
@@ -660,7 +660,7 @@
     },
     {
       "path": ".agents/scripts/lib/config/commands.js",
-      "mi": 110.571
+      "mi": 113.626
     },
     {
       "path": ".agents/scripts/lib/config/defaults.js",
@@ -961,6 +961,10 @@
     {
       "path": ".agents/scripts/lib/json-utils.js",
       "mi": 95.486
+    },
+    {
+      "path": ".agents/scripts/lib/knip-config-resolver.js",
+      "mi": 93.327
     },
     {
       "path": ".agents/scripts/lib/knip-entry-sync.js",
@@ -1268,11 +1272,11 @@
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/run-plan-persist.js",
-      "mi": 90.533
+      "mi": 94.385
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/story-ops.js",
-      "mi": 94.219
+      "mi": 95.716
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/summary.js",
@@ -1280,7 +1284,7 @@
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/supersede-ops.js",
-      "mi": 97.905
+      "mi": 99.598
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-reachability.js",
@@ -1428,7 +1432,7 @@
     },
     {
       "path": ".agents/scripts/lib/orchestration/single-story-close/phases/conventional-subject.js",
-      "mi": 91.925
+      "mi": 92.982
     },
     {
       "path": ".agents/scripts/lib/orchestration/single-story-close/phases/normalize-pr-title.js",
@@ -1516,7 +1520,7 @@
     },
     {
       "path": ".agents/scripts/lib/orchestration/story-follow-ups.js",
-      "mi": 95.541
+      "mi": 98.792
     },
     {
       "path": ".agents/scripts/lib/orchestration/story-init-remote.js",
@@ -1796,15 +1800,15 @@
     },
     {
       "path": ".agents/scripts/lib/workers/crap-worker.js",
-      "mi": 87
+      "mi": 88.469
     },
     {
       "path": ".agents/scripts/lib/workers/maintainability-report-worker.js",
-      "mi": 94.191
+      "mi": 96.195
     },
     {
       "path": ".agents/scripts/lib/workers/maintainability-worker.js",
-      "mi": 96.776
+      "mi": 99.91
     },
     {
       "path": ".agents/scripts/lib/workers/serve-worker-messages.js",
@@ -2004,7 +2008,7 @@
     },
     {
       "path": ".agents/scripts/providers/github/tickets.js",
-      "mi": 94.98
+      "mi": 96.306
     },
     {
       "path": ".agents/scripts/provision-git-hooks.js",
@@ -2068,7 +2072,7 @@
     },
     {
       "path": ".agents/scripts/stories-wave-tick.js",
-      "mi": 89.91
+      "mi": 91.958
     },
     {
       "path": ".agents/scripts/sync-agentrc.js",
@@ -2104,7 +2108,7 @@
     },
     {
       "path": ".agents/scripts/update-duplication-baseline.js",
-      "mi": 97.514
+      "mi": 106.025
     },
     {
       "path": ".agents/scripts/update-maintainability-baseline.js",
@@ -2200,7 +2204,7 @@
     },
     {
       "path": "lib/migrations/steps/2.32.0-retire-lint-baseline-command.js",
-      "mi": 103.921
+      "mi": 105.909
     }
   ]
 }

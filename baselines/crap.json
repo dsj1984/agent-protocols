@@ -1,7 +1,7 @@
 {
   "$schema": ".agents/schemas/baselines/crap.schema.json",
   "kernelVersion": "0.1.0",
-  "generatedAt": "2026-08-06T11:50:10.268Z",
+  "generatedAt": "2026-08-07T11:55:32.944Z",
   "scoringSemantics": "method-identity-v3",
   "tsTranspilerVersion": "6.0.3",
   "provenanceStamped": true,
@@ -834,6 +834,31 @@
       "method": "main",
       "startLine": 528,
       "crap": 6
+    },
+    {
+      "path": ".agents/scripts/check-knip-entries.js",
+      "method": "exitCodeFor",
+      "startLine": 85,
+      "crap": 4
+    },
+    {
+      "path": ".agents/scripts/check-knip-entries.js",
+      "method": "parseArgs",
+      "startLine": 98,
+      "crap": 4
+    },
+    {
+      "path": ".agents/scripts/check-knip-entries.js",
+      "method": "runCli",
+      "startLine": 125,
+      "crap": 4
+    },
+    {
+      "path": ".agents/scripts/check-knip-entries.js",
+      "method": "<anon ()#0>",
+      "startLine": 154,
+      "crap": 1,
+      "anonymous": true
     },
     {
       "path": ".agents/scripts/check-lifecycle-lint.js",
@@ -10230,136 +10255,181 @@
       "crap": 14
     },
     {
+      "path": ".agents/scripts/lib/knip-config-resolver.js",
+      "method": "importKnipSession",
+      "startLine": 36,
+      "crap": 1
+    },
+    {
+      "path": ".agents/scripts/lib/knip-config-resolver.js",
+      "method": "collectEntryPatterns",
+      "startLine": 60,
+      "crap": 5
+    },
+    {
+      "path": ".agents/scripts/lib/knip-config-resolver.js",
+      "method": "<anon collectEntryPatterns/(value,prefix)#0>",
+      "startLine": 64,
+      "crap": 4,
+      "anonymous": true
+    },
+    {
+      "path": ".agents/scripts/lib/knip-config-resolver.js",
+      "method": "<anon collectEntryPatterns/(entry,prefix)#0>",
+      "startLine": 72,
+      "crap": 2,
+      "anonymous": true
+    },
+    {
+      "path": ".agents/scripts/lib/knip-config-resolver.js",
+      "method": "resolveKnipEntryPatterns",
+      "startLine": 114,
+      "crap": 4
+    },
+    {
       "path": ".agents/scripts/lib/knip-entry-sync.js",
       "method": "stripJsComments",
-      "startLine": 102,
+      "startLine": 108,
       "crap": 12
     },
     {
       "path": ".agents/scripts/lib/knip-entry-sync.js",
       "method": "<anon stripJsComments/(s)#0>",
-      "startLine": 106,
+      "startLine": 112,
       "crap": 1,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/knip-entry-sync.js",
       "method": "walk",
-      "startLine": 151,
+      "startLine": 157,
       "crap": 4
     },
     {
       "path": ".agents/scripts/lib/knip-entry-sync.js",
       "method": "collectInvocationSurfaces",
-      "startLine": 181,
+      "startLine": 187,
       "crap": 4.004296599644188
     },
     {
       "path": ".agents/scripts/lib/knip-entry-sync.js",
       "method": "<anon collectInvocationSurfaces/(absolute)#0>",
-      "startLine": 183,
+      "startLine": 189,
       "crap": 4.0466472303206995,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/knip-entry-sync.js",
       "method": "buildInvocationPatterns",
-      "startLine": 232,
+      "startLine": 238,
       "crap": 1
     },
     {
       "path": ".agents/scripts/lib/knip-entry-sync.js",
       "method": "listTopLevelClis",
-      "startLine": 248,
+      "startLine": 254,
       "crap": 1.0029154518950438
     },
     {
       "path": ".agents/scripts/lib/knip-entry-sync.js",
       "method": "<anon listTopLevelClis/(e)#0>",
-      "startLine": 258,
+      "startLine": 264,
       "crap": 2.011661807580175,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/knip-entry-sync.js",
       "method": "<anon listTopLevelClis/(e)#1>",
-      "startLine": 259,
+      "startLine": 265,
       "crap": 1.0029154518950438,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/knip-entry-sync.js",
       "method": "readKnipEntries",
-      "startLine": 271,
-      "crap": 2
+      "startLine": 297,
+      "crap": 3
     },
     {
       "path": ".agents/scripts/lib/knip-entry-sync.js",
       "method": "<anon readKnipEntries/(e)#0>",
-      "startLine": 284,
+      "startLine": 306,
       "crap": 2,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/knip-entry-sync.js",
       "method": "<anon readKnipEntries/(e)#1>",
-      "startLine": 285,
+      "startLine": 307,
       "crap": 1,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/knip-entry-sync.js",
       "method": "<anon readKnipEntries/(e)#2>",
-      "startLine": 286,
+      "startLine": 311,
       "crap": 1,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/knip-entry-sync.js",
       "method": "<anon readKnipEntries/(e)#3>",
-      "startLine": 287,
+      "startLine": 314,
+      "crap": 1,
+      "anonymous": true
+    },
+    {
+      "path": ".agents/scripts/lib/knip-entry-sync.js",
+      "method": "<anon readKnipEntries/(e)#4/(e)#0>",
+      "startLine": 316,
       "crap": 1,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/knip-entry-sync.js",
       "method": "<anon readKnipEntries/(e)#4>",
-      "startLine": 288,
+      "startLine": 316,
       "crap": 1,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/knip-entry-sync.js",
       "method": "resolveEntrySync",
-      "startLine": 308,
-      "crap": 7.009142857142857
+      "startLine": 355,
+      "crap": 8.00186436049158
     },
     {
       "path": ".agents/scripts/lib/knip-entry-sync.js",
       "method": "<anon resolveEntrySync/(s)#0>",
-      "startLine": 327,
-      "crap": 4.002985422740525,
+      "startLine": 394,
+      "crap": 4.000466090122895,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/knip-entry-sync.js",
       "method": "<anon resolveEntrySync/(s)#1>",
-      "startLine": 332,
-      "crap": 1.0001865889212829,
+      "startLine": 399,
+      "crap": 1.000029130632681,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/knip-entry-sync.js",
       "method": "<anon resolveEntrySync/(cli)#0>",
-      "startLine": 339,
-      "crap": 1.0001865889212829,
+      "startLine": 406,
+      "crap": 1.000029130632681,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/knip-entry-sync.js",
+      "method": "countDivergences",
+      "startLine": 429,
+      "crap": 1
+    },
+    {
+      "path": ".agents/scripts/lib/knip-entry-sync.js",
       "method": "renderEntrySyncReport",
-      "startLine": 352,
-      "crap": 3.0052083333333335
+      "startLine": 446,
+      "crap": 3.002666666666667
     },
     {
       "path": ".agents/scripts/lib/label-constants.js",
