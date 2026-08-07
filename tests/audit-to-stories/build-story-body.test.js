@@ -137,3 +137,77 @@ test('buildStoryBody (real fixtures) clears the inline-contract bar and round-tr
   // verify[] survives intact — extended markdown did not bleed in.
   assert.deepEqual(body.verify, ['npm run lint (validate)', 'npm test (unit)']);
 });
+
+// ---------------------------------------------------------------------------
+// Story #5044 — standalone audit cohorts carry declared ordering
+// ---------------------------------------------------------------------------
+
+test('buildStoryBody renders each source-report link exactly once (AC-6)', () => {
+  // The link used to render as `- [`path`](path)` — the same
+  // temp/audits/audit-<lens>-results.md in the label AND the URL, byte-
+  // identical across every Story of a same-lens sweep, so the delivery
+  // footprint guard scraped it twice as edit intent and serialized the cohort.
+  const group = loginGroup();
+  const { body } = buildStoryBody({ group });
+  for (const report of new Set(group.findings.map((f) => f.sourceReport))) {
+    const occurrences = body.split(report).length - 1;
+    assert.equal(
+      occurrences,
+      1,
+      `expected ${report} to appear once, saw ${occurrences}`,
+    );
+    // Still a link, still labelled — the file name is the label, the path is
+    // the target.
+    assert.ok(body.includes(`[${report.split('/').pop()}](${report})`));
+  }
+});
+
+test('buildStoryBody carries the group edges as machine-readable keys (AC-6)', () => {
+  const group = loginGroup();
+  const edges = [{ fromGroupKey: group.groupKey, toGroupKey: 'other-group' }];
+  const built = buildStoryBody({ group, edges });
+
+  assert.equal(built.groupKey, group.groupKey);
+  assert.deepEqual(built.dependsOn, ['other-group']);
+  // Without issue numbers there is nothing to declare yet, and the prose
+  // `## Sequencing` block that used to stand in for it is gone: it declared
+  // nothing any scheduler could read.
+  assert.ok(!built.body.includes('## Sequencing'));
+  assert.deepEqual(parseStoryBody(built.body).body.depends_on, []);
+});
+
+test('buildStoryBody resolves group edges to a blocked by #N footer (AC-6)', () => {
+  const group = loginGroup();
+  const edges = [{ fromGroupKey: group.groupKey, toGroupKey: 'other-group' }];
+  const built = buildStoryBody({
+    group,
+    edges,
+    issueByGroupKey: { [group.groupKey]: 4200, 'other-group': 4199 },
+  });
+
+  assert.ok(built.body.includes('blocked by #4199'));
+  // The footer is the canonical serializer's own, so /deliver's resolver reads
+  // this Story's ordering from exactly where it reads every other Story's.
+  const parsed = parseStoryBody(built.body).body;
+  assert.deepEqual(parsed.depends_on, ['#4199']);
+  // ...and the rest of the inline contract still round-trips around it.
+  assert.equal(parsed.acceptance.length, group.findings.length);
+  assert.deepEqual(parsed.verify, [
+    'npm run lint (validate)',
+    'npm test (unit)',
+  ]);
+});
+
+test('buildStoryBody drops an edge whose target was never opened (AC-6)', () => {
+  // A group deduped against an existing Issue or suppressed by the ledger has
+  // no number. `blocked by #undefined` would gate the Story on nothing forever,
+  // which is strictly worse than the un-ordered cohort this replaces.
+  const group = loginGroup();
+  const built = buildStoryBody({
+    group,
+    edges: [{ fromGroupKey: group.groupKey, toGroupKey: 'never-created' }],
+    issueByGroupKey: { [group.groupKey]: 4200 },
+  });
+  assert.ok(!built.body.includes('blocked by'));
+  assert.deepEqual(parseStoryBody(built.body).body.depends_on, []);
+});

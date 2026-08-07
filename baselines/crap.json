@@ -198,8 +198,8 @@
     {
       "path": ".agents/scripts/audit-to-stories.js",
       "method": "<anon loadProvider/(query)#0>",
-      "startLine": 218,
-      "crap": 1,
+      "startLine": 180,
+      "crap": 3,
       "anonymous": true
     },
     {

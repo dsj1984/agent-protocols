@@ -116,10 +116,7 @@ function acceptanceCriteriaFromGroup(group) {
 
 /**
  * Resolve the `edges[]` sequencing anchored on this group. Each edge whose
- * `fromGroupKey` matches this group's key contributes its `toGroupKey`. Group
- * keys are the only stable identifier available at emit time — issues are not
- * numbered yet — so the relationship is preserved as machine-readable keys the
- * operator can resolve.
+ * `fromGroupKey` matches this group's key contributes its `toGroupKey`.
  *
  * @param {object} group
  * @param {Array<{ fromGroupKey: string, toGroupKey: string }>} edges
@@ -135,22 +132,37 @@ function sequencingDepsForGroup(group, edges) {
 }
 
 /**
- * Render the carried-through `edges[]` sequencing as a dedicated extended
- * markdown block. The canonical `depends_on[]` footer only round-trips `#N`
- * issue refs (`blocked by #123`), which do not exist before the issues are
- * opened; rendering the group-key sequencing as its own informational section
- * keeps the signal in the body (not discarded — Story #4270) and survives
- * `parse()` / `serialize()` round-tripping (it is preamble/extended content,
- * not a structured section). Returns the empty string when there is no
- * sequencing to surface.
+ * Resolve this group's sequencing to canonical `#N` issue refs, or `[]` when
+ * the caller has no issue numbers yet (Story #5044).
  *
- * @param {string[]} deps
- * @returns {string}
+ * Group keys are the only identifier that exists at *emit* time — the issues
+ * are not numbered — which is why this used to render as a prose
+ * `## Sequencing` block that nothing could act on. Standalone audit Stories
+ * therefore hardcoded `depends_on: []`, and their only actual serializer was
+ * an accident: their shared provenance footers collided under the delivery
+ * footprint guard. Narrowing that scrape removes the accident, so the ordering
+ * has to become real in the same change.
+ *
+ * The resolution is the two-pass shape `plan-persist` already uses: create every
+ * issue first, then re-render each body with the now-known numbers and mirror
+ * the same edges as native `blocked_by` relations. An edge whose target was not
+ * created (deduped against an existing Issue, suppressed by the ledger) simply
+ * drops — a `blocked by #undefined` would be worse than an absent edge.
+ *
+ * @param {string[]} deps                     Group keys this group depends on.
+ * @param {Record<string, number>|Map<string, number>|null} issueByGroupKey
+ * @returns {string[]} `#N` refs, in `deps` order.
  */
-function sequencingSection(deps) {
-  if (deps.length === 0) return '';
-  const lines = deps.map((k) => `- depends on group \`${k}\``);
-  return ['## Sequencing', '', lines.join('\n'), ''].join('\n');
+function dependencyRefs(deps, issueByGroupKey) {
+  if (!issueByGroupKey) return [];
+  const lookup =
+    issueByGroupKey instanceof Map
+      ? (k) => issueByGroupKey.get(k)
+      : (k) => issueByGroupKey[k];
+  return deps
+    .map((key) => lookup(key))
+    .filter((n) => Number.isInteger(n) && n > 0)
+    .map((n) => `#${n}`);
 }
 
 function agentPromptsSection(group) {
@@ -162,6 +174,21 @@ function agentPromptsSection(group) {
   return blocks.join('\n\n') || '_(no copy-pasteable prompts captured)_';
 }
 
+/**
+ * Link each source audit report **once**.
+ *
+ * This used to render `- [\`path\`](path)` — the same
+ * `temp/audits/audit-<lens>-results.md` in the link text and again in the URL,
+ * byte-identical across every Story of a same-lens sweep. That doubled a token
+ * the delivery footprint guard scraped as edit intent, so a lens's whole cohort
+ * serialized on a report none of them would ever write to (Story #5044). The
+ * guard now ignores markdown-link URLs and temp-root paths, but rendering the
+ * path twice was never useful to a reader either: the file name is the label,
+ * the path is the target.
+ *
+ * @param {object} group
+ * @returns {string}
+ */
 function contextLinksFromGroup(group) {
   const reports = uniq(
     (group.findings ?? [])
@@ -169,7 +196,7 @@ function contextLinksFromGroup(group) {
       .filter((s) => typeof s === 'string'),
   );
   if (reports.length === 0) return '_(no source audit reports captured)_';
-  return reports.map((r) => `- [\`${r}\`](${r})`).join('\n');
+  return reports.map((r) => `- [${r.split('/').pop()}](${r})`).join('\n');
 }
 
 function labelsForGroup(group) {
@@ -226,20 +253,27 @@ function assertLabelsInTaxonomy(labels) {
  *   — the dependency `edges[]` emitted by `groupFindings`. Edges anchored on
  *   this group are carried through to `depends_on[]`; omit when no sequencing
  *   is known.
- * @returns {{ title: string, body: string, labels: string[] }}
+ * @param {Record<string, number>|Map<string, number>|null} [params.issueByGroupKey]
+ *   — group key → opened issue number. Supplied on the **second** pass, once
+ *   the issues exist, so this group's edges render as canonical
+ *   `blocked by #N` footers (Story #5044). Omit on the first pass.
+ * @returns {{ title: string, body: string, labels: string[], groupKey: string, dependsOn: string[] }}
+ *   `groupKey` and `dependsOn` are the caller's handle on the second pass:
+ *   they name this Story and the groups it must follow, so the caller can map
+ *   both onto issue numbers without re-deriving the grouping.
  */
-export function buildStoryBody({ group, edges = [] }) {
+export function buildStoryBody({ group, edges = [], issueByGroupKey = null }) {
   if (!group || !Array.isArray(group.findings)) {
     throw new Error('buildStoryBody: group with findings[] is required');
   }
   const title = group.title;
+  const dependsOn = sequencingDepsForGroup(group, edges);
 
   // Build the canonical StoryBody object from the audit group data. The
   // acceptance + verify arrays are populated so the body clears the
-  // inline-contract bar; changes[] carries the file footprint. The edges[]
-  // sequencing is carried through as an extended `## Sequencing` block (see
-  // sequencingSection) — group keys are not `#N` refs, so they cannot ride the
-  // canonical depends_on footer.
+  // inline-contract bar; changes[] carries the file footprint. `depends_on`
+  // is empty on the first pass (the blockers have no issue numbers yet) and
+  // carries real `#N` refs on the second — see dependencyRefs.
   const storyBody = {
     goal: goalFromGroup(group),
     changes: changesFromGroup(group),
@@ -248,20 +282,21 @@ export function buildStoryBody({ group, edges = [] }) {
     references: [],
     wide: null,
     reason_to_exist: null,
-    depends_on: [],
+    depends_on: dependencyRefs(dependsOn, issueByGroupKey),
   };
 
-  // Serialize via the canonical serializer (no footer — depends_on is empty).
-  const canonicalSections = serialize(storyBody);
-  const sequencing = sequencingSection(sequencingDepsForGroup(group, edges));
+  // The `---` / `blocked by #N` footer is the canonical serializer's own, so
+  // the body round-trips through `parse()` and `/deliver`'s resolver reads the
+  // ordering from the same place it reads every other Story's.
+  const canonicalSections = serialize(storyBody, {
+    includeFooter: storyBody.depends_on.length > 0,
+  });
 
-  // Append audit-specific extended sections (sequencing, agent prompts,
-  // context links, fingerprint footer) that are not part of the canonical
-  // shape.
+  // Append audit-specific extended sections (agent prompts, context links,
+  // provenance footers) that are not part of the canonical shape.
   const body = [
     canonicalSections,
     '',
-    ...(sequencing ? [sequencing] : []),
     '## Agent Prompts',
     '',
     agentPromptsSection(group),
@@ -276,5 +311,11 @@ export function buildStoryBody({ group, edges = [] }) {
     renderSemanticKeyFooter(group.findings),
   ].join('\n');
 
-  return { title, body, labels: labelsForGroup(group) };
+  return {
+    title,
+    body,
+    labels: labelsForGroup(group),
+    groupKey: group.groupKey,
+    dependsOn,
+  };
 }
