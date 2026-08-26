@@ -233,11 +233,33 @@ runs maker-blind at Story-scope review inside the close subprocess. The
 dispatch step produces `checklistPath` from the Story's predicted footprint
 before it spawns the worker — see [`/deliver`](../deliver.md).
 
-**Pre-eval full-suite discipline (spine step 5).** Repo-invariant guards —
+**Pre-eval full-suite discipline (spine step 1.3).** Repo-invariant guards —
 drift-guard and schema tests living outside the Story's scoped greps — are
 the failure class that actually bounces deliveries: close-validation
 discovers them only after the whole close pipeline has run, at several times
 the cost of one pre-eval full-suite run.
+
+**Run it so close can credit it.** Close skips a gate that already passed at
+the current HEAD, but a bare `npm test` deposits no such record — the suite
+then runs twice per delivery, once here and once in the close gate chain.
+Pick the invocation by the same predicate `close-validation/gates.js` uses to
+choose its test gate:
+
+```bash
+# CRAP gate enabled (default) + a `test:coverage` script — writes the stamp
+# the close `coverage-capture` gate reads:
+node <main-repo>/.agents/scripts/coverage-capture.js --cwd <workCwd>
+# otherwise — the evidence record the close `test` gate reads. <workCwd> must
+# be ABSOLUTE and the runner exactly `npm test`: both sides hash
+# {cmd, args, cwd}, so a relative path or a wrapper misses the credit.
+node <main-repo>/.agents/scripts/evidence-gate.js --standalone \
+  --scope-id <storyId> --gate test --worktree <workCwd> -- npm test
+```
+
+The credit expires the moment it stops describing the tree: evidence is keyed
+on HEAD, the capture stamp on a content digest of `crap.targetDirs`. A
+self-eval fix — or any commit — invalidates it and close re-runs the suite for
+real, so this never trades away the gate.
 
 **Conflict with `main` mid-implementation** → resolve as you would any branch
 rebase. There is no `epic/<id>` intermediate, so the rebase base is `main`

@@ -1,12 +1,12 @@
 {
   "$schema": ".agents/schemas/baselines/coverage.schema.json",
   "kernelVersion": "1.0.0",
-  "generatedAt": "2026-08-07T14:01:11.391Z",
+  "generatedAt": "2026-08-26T23:20:26.711Z",
   "rollup": {
     "*": {
-      "lines": 95.93,
-      "branches": 86.68,
-      "functions": 88.89
+      "lines": 95.94,
+      "branches": 86.71,
+      "functions": 88.91
     }
   },
   "rows": [
@@ -168,8 +168,8 @@
     },
     {
       "path": ".agents/scripts/coverage-capture.js",
-      "lines": 98.21,
-      "branches": 89.47,
+      "lines": 98.28,
+      "branches": 90.48,
       "functions": 100
     },
     {
@@ -1154,6 +1154,12 @@
       "path": ".agents/scripts/lib/coverage-capture-incremental.js",
       "lines": 95.69,
       "branches": 81.25,
+      "functions": 100
+    },
+    {
+      "path": ".agents/scripts/lib/coverage-capture-usage.js",
+      "lines": 100,
+      "branches": 100,
       "functions": 100
     },
     {

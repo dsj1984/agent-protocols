@@ -6,6 +6,7 @@ import {
   parseArgs,
   runCoverageCapture,
 } from '../.agents/scripts/coverage-capture.js';
+import { handleCoverageCaptureHelp } from '../.agents/scripts/lib/coverage-capture-usage.js';
 
 /**
  * Story #4780 — `main` scored CRAP 42.7: the gate that decides whether
@@ -93,6 +94,42 @@ describe('coverage-capture parseArgs', () => {
   it('keeps the defaults when a value-taking flag has no value', () => {
     const parsed = parseArgs(argv('--ref'));
     assert.equal(parsed.ref, 'main');
+  });
+});
+
+// The delivery workflow invokes this script by name, so it owes the
+// workflow-invoked self-description contract
+// (tests/enforcement/workflow-script-help.test.js). Before this wiring
+// `--help` fell through to the capture path and ran the whole coverage suite,
+// which is why the CLI shell answers it ahead of `runCoverageCapture`.
+describe('handleCoverageCaptureHelp', () => {
+  it('prints the usage block and reports that the run must stop', () => {
+    const out = [];
+    const sink = { write: (s) => out.push(s) };
+    assert.equal(handleCoverageCaptureHelp(argv('--help'), sink), true);
+    assert.match(out.join(''), /coverage-capture\.js/);
+    assert.match(out.join(''), /--skip-when-no-crap-files/);
+    assert.match(out.join(''), /--ref/);
+  });
+
+  it('accepts the -h alias', () => {
+    const out = [];
+    assert.equal(
+      handleCoverageCaptureHelp(argv('-h'), { write: (s) => out.push(s) }),
+      true,
+    );
+    assert.ok(out.join('').trim().length > 0);
+  });
+
+  it('stays out of the way of a normal invocation', () => {
+    const out = [];
+    assert.equal(
+      handleCoverageCaptureHelp(argv('--ref', 'main'), {
+        write: (s) => out.push(s),
+      }),
+      false,
+    );
+    assert.equal(out.length, 0);
   });
 });
 

@@ -1,12 +1,12 @@
 {
   "$schema": ".agents/schemas/baselines/maintainability.schema.json",
   "kernelVersion": "0.1.0",
-  "generatedAt": "2026-08-26T19:30:34.288Z",
+  "generatedAt": "2026-08-26T23:19:37.252Z",
   "rollup": {
     "*": {
       "min": 76.381,
       "p50": 98.61,
-      "p95": 122.913
+      "p95": 125.857
     }
   },
   "rows": [
@@ -120,7 +120,7 @@
     },
     {
       "path": ".agents/scripts/coverage-capture.js",
-      "mi": 81.209
+      "mi": 80.437
     },
     {
       "path": ".agents/scripts/deliver-light.js",
@@ -745,6 +745,10 @@
     {
       "path": ".agents/scripts/lib/coverage-capture-incremental.js",
       "mi": 90.084
+    },
+    {
+      "path": ".agents/scripts/lib/coverage-capture-usage.js",
+      "mi": 126.323
     },
     {
       "path": ".agents/scripts/lib/coverage-capture.js",
