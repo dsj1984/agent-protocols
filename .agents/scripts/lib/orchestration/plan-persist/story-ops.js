@@ -672,13 +672,30 @@ function renderStoryBodyForCreate(story, idBySlug) {
   const dependencyRefs = story.depends_on.map(
     (slug) => `#${idBySlug.get(slug)}`,
   );
-  const base =
-    dependencyRefs.length === 0
-      ? story.body
-      : serializeStoryBody(
-          { ...story.bodyObject, depends_on: dependencyRefs },
-          { includeFooter: true },
-        );
+  let base = story.body;
+  if (dependencyRefs.length > 0) {
+    // Re-serializing from `bodyObject` is what resolves the sibling slugs to
+    // real issue ids — but `bodyObject` never held the provenance footers
+    // (`assembleOnePlanStory` appends those to the body *string*), so this
+    // branch drops them unless the carry is re-applied. That is the exact
+    // loss site Story #4935 diagnosed, #4939 fixed, and #4956 reverted
+    // wholesale hours later; Story #5056 restored it with a persist-side
+    // regression test that reads the POSTed body.
+    //
+    // `from: story.body` — not the seed — is load-bearing: it re-carries the
+    // identities *this* Story was stamped with under Story #5045 attribution
+    // rather than reintroducing the whole seed's union. `carryProvenanceFooters`
+    // is additive, union-preserving and idempotent, so re-applying is safe by
+    // construction.
+    const reserialized = serializeStoryBody(
+      { ...story.bodyObject, depends_on: dependencyRefs },
+      { includeFooter: true },
+    );
+    base = carryProvenanceFooters({
+      from: story.body,
+      into: reserialized,
+    }).body;
+  }
   return `${base}\n\n${planFingerprintMarker(story.fingerprint)}`;
 }
 
