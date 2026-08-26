@@ -33,6 +33,7 @@ import {
 } from './lib/coverage-capture.js';
 import { runFullScopeCapture } from './lib/coverage-capture-fullscope.js';
 import { tryIncrementalCapture } from './lib/coverage-capture-incremental.js';
+import { handleCoverageCaptureHelp } from './lib/coverage-capture-usage.js';
 
 import { Logger } from './lib/Logger.js';
 import { hasNpmScript, readPackageScripts } from './lib/npm-scripts.js';
@@ -160,7 +161,12 @@ export function runCoverageCapture(argv = process.argv, deps = {}) {
 // invoked as a CLI the behaviour — exit code and log lines — is unchanged.
 if (isDirectInvocation(import.meta.url)) {
   try {
-    process.exit(runCoverageCapture());
+    // `--help` is answered before the decision core runs: it used to fall
+    // through to the capture path, so asking this script to describe itself
+    // spawned the whole coverage suite.
+    process.exit(
+      handleCoverageCaptureHelp(process.argv) ? 0 : runCoverageCapture(),
+    );
   } catch (err) {
     Logger.error('[coverage-capture] unexpected error:', err);
     process.exit(1);

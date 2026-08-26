@@ -131,8 +131,11 @@ answer).
    invoked, not reimplemented.
 
 3. **Implement + self-eval.** `cd` into `workCwd`, implement the change, run
-   `npm test` once in the worktree, then run the bounded acceptance self-eval
-   loop ([`deliver-story.md`](deliver-story.md) Step 1a). Commit
+   the full suite once in the worktree **so close can credit it** — the
+   crediting invocation and the freshness contract are
+   [`deliver-story.md`](deliver-story.md) Step 1.3, unchanged here — then run
+   the bounded acceptance self-eval loop
+   ([`deliver-story.md`](deliver-story.md) Step 1a). Commit
    on `story-<id>` with `(refs #<storyId>)`.
 
 4. **Diff backstop.** Before close, re-check the ACTUAL diff:

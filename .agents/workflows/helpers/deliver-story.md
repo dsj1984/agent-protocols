@@ -75,9 +75,11 @@ One branch, one PR to `main`, commits against the inline `acceptance[]` /
    `## Slicing` rows as **intra-session checkpoints** (reference § Step 1).
 2. Implement and commit on the Story branch, iterating with quick advisory
    gates (`typecheck`, `lint`, scoped tests) — the full chain runs in Step 3.
-3. Run `npm test` once in the worktree **before Step 1a**: repo-invariant
+3. Run the full suite once in the worktree **before Step 1a**: repo-invariant
    guards outside the Story's scoped greps are the failure class that bounces
-   deliveries. Fix and commit first, then run the self-eval loop.
+   deliveries. Fix and commit first, then run the self-eval loop. Run it **so
+   Step 3 credits it** — a bare `npm test` records nothing, so close re-runs
+   the identical suite (reference § Step 1, "Pre-eval full-suite discipline").
 
 ### Step 1a — Bounded acceptance self-eval loop (**required**)
 
