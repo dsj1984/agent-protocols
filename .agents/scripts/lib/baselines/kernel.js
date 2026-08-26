@@ -107,6 +107,7 @@ import {
 } from './kinds/maintainability.js';
 import {
   applyEpsilon as mutationApplyEpsilon,
+  assertBaselineCompatible as mutationAssertBaselineCompatible,
   compare as mutationCompare,
   kernelVersion as mutationKernelVersion,
   keyField as mutationKeyField,
@@ -211,6 +212,7 @@ const KIND_MODULES = Object.freeze({
     compare: mutationCompare,
     applyEpsilon: mutationApplyEpsilon,
     mergeRows: mutationMergeRows,
+    assertBaselineCompatible: mutationAssertBaselineCompatible,
   }),
   lighthouse: bindKindModule({
     name: lighthouseName,
@@ -281,6 +283,22 @@ export function currentKernelVersion(kind) {
 }
 
 /**
+ * Resolve a kind module, or null when the kind is not registered. Lets the
+ * optional-hook callers below stay expression-shaped instead of threading a
+ * mutable binding through a try/catch.
+ *
+ * @param {string} kind
+ * @returns {object|null}
+ */
+function tryGetKindModule(kind) {
+  try {
+    return getKindModule(kind);
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Ask a kind whether a loaded baseline is compatible with the running
  * scorer's SEMANTICS — a dimension `kernelVersion` cannot express, because a
  * kind's scoring can change while the upstream package it stamps does not
@@ -291,13 +309,8 @@ export function currentKernelVersion(kind) {
  * @returns {string|null} Operator-facing message, or null when compatible.
  */
 export function checkBaselineSemantics(kind, baseline) {
-  let mod;
-  try {
-    mod = getKindModule(kind);
-  } catch {
-    return null;
-  }
-  if (typeof mod.assertBaselineCompatible !== 'function') return null;
+  const mod = tryGetKindModule(kind);
+  if (typeof mod?.assertBaselineCompatible !== 'function') return null;
   return mod.assertBaselineCompatible(baseline);
 }
 
