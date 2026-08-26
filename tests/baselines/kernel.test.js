@@ -50,15 +50,13 @@ describe('currentKernelVersion()', () => {
   });
 
   it("returns the static '1.0.0' for kinds with a static kernel", () => {
-    for (const kind of [
-      'lint',
-      'coverage',
-      'mutation',
-      'lighthouse',
-      'bundle-size',
-    ]) {
+    for (const kind of ['lint', 'coverage', 'lighthouse', 'bundle-size']) {
       assert.equal(currentKernelVersion(kind), '1.0.0');
     }
+  });
+
+  it("returns the static '2.0.0' for 'mutation' (weighted rollup, Story #5058)", () => {
+    assert.equal(currentKernelVersion('mutation'), '2.0.0');
   });
 
   it('throws on an unknown kind', () => {
