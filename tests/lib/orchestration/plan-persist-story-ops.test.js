@@ -673,6 +673,13 @@ describe('audit dedup provenance carry (Story #4877, AC-5)', () => {
   });
 
   it('every Story in an N>1 plan carries the provenance', () => {
+    // Scope note (Story #5056): this asserts on ASSEMBLY output for tickets
+    // with no edges at all. It is not the persist-side guard, however much it
+    // reads like one — a dependent Story's posted body is rebuilt by
+    // `renderStoryBodyForCreate` and can lose the footers with this still
+    // green. The guard that reads the POSTed body is the
+    // `Story #4935/#5056` suite at the bottom of this file.
+    //
     // Distinct acceptance per Story — a verbatim-shared criterion is refused as
     // a coupled split before assembly ever reaches the carry.
     const second = {
@@ -983,5 +990,217 @@ describe('conflict analysis sees the persisted artifact (Story #5045, AC-3)', ()
     const sharedEditor = findings.filter((f) => f.kind === 'shared-editor');
     assert.equal(sharedEditor.length, 1);
     assert.equal(sharedEditor[0].severity, 'hard');
+  });
+});
+
+/**
+ * The persist-side guard for the provenance carry (Story #4935, restored by
+ * Story #5056).
+ *
+ * Every assertion here reads `provider.createPayloads[N].body` — the body
+ * `createIssue` is actually called with — and never `stories[N].body`. That
+ * distinction is the whole point of the suite. `assembleOnePlanStory` appends
+ * the footers to the body *string*; `story.bodyObject` never holds them. So a
+ * Story with a non-empty `depends_on`, whose posted body
+ * `renderStoryBodyForCreate` re-serializes from that object, can lose the
+ * provenance while every assembly-level assertion in the two suites above
+ * stays green. That is exactly how the #4939 fix was reverted by #4956 hours
+ * later and stayed reverted for three weeks: the persist path had no witness.
+ */
+describe('the dependent path re-carries the provenance (Story #4935/#5056)', () => {
+  const SHA_ROOT = '1'.repeat(40);
+  const SHA_DEP = '2'.repeat(40);
+  const KEY_ROOT = 'architecture␟lib/foundation.js';
+  const KEY_DEP = 'quality␟lib/consumer.js';
+
+  /** A two-group audit seed — one group per Story in the pair below. */
+  const auditSeed = [
+    '# Idea Seed: Audit Remediation',
+    '',
+    '## MVP Scope',
+    '',
+    '1. **Lay the foundation** — architecture (`lib/foundation.js`)',
+    `   <!-- audit-fingerprints: ${SHA_ROOT} -->`,
+    `   <!-- audit-semantic-keys: ${KEY_ROOT} -->`,
+    '2. **Build on it** — quality (`lib/consumer.js`)',
+    `   <!-- audit-fingerprints: ${SHA_DEP} -->`,
+    `   <!-- audit-semantic-keys: ${KEY_DEP} -->`,
+    '',
+  ].join('\n');
+
+  const rootTicket = {
+    slug: 'lay-the-foundation',
+    type: 'story',
+    title: 'Lay the foundation',
+    goal: 'Introduce the seam the consumer will read.',
+    changes: [{ path: 'lib/foundation.js', assumption: 'creates' }],
+    acceptance: ['The seam exists and is exported.'],
+    verify: ['npm test (unit)'],
+  };
+
+  const dependentTicket = {
+    slug: 'build-on-the-foundation',
+    type: 'story',
+    title: 'Build on the foundation',
+    goal: 'Read the seam from the consumer.',
+    changes: [{ path: 'lib/consumer.js', assumption: 'refactors-existing' }],
+    acceptance: ['The consumer reads the seam and fails without it.'],
+    verify: ['npm test (unit)'],
+    depends_on: ['lay-the-foundation'],
+  };
+
+  /**
+   * Persist a plan through a recording provider and index the bodies actually
+   * POSTed by Story title. Indexing by the payload's own title rather than by
+   * call position keeps the assertions readable regardless of the
+   * dependency-first create order.
+   *
+   * @param {object[]} tickets
+   * @returns {Promise<{ posted: Map<string, string>, stories: object[] }>}
+   */
+  async function persist(tickets) {
+    const { stories } = assemblePlanStories(tickets, {
+      provenanceSource: auditSeed,
+    });
+    const provider = makeMirrorProvider();
+    await createStoryIssues({
+      provider,
+      stories,
+      opts: { planRunId: 'provenance-carry' },
+    });
+    return {
+      posted: new Map(
+        provider.createPayloads.map((payload) => [payload.title, payload.body]),
+      ),
+      stories,
+    };
+  }
+
+  it('AC-1: the body POSTed for a dependent Story carries both footers', async () => {
+    // Fails against the pre-#5056 implementation: the dependency branch
+    // rebuilds the body from `story.bodyObject`, which never held the footers.
+    const { posted } = await persist([dependentTicket, rootTicket]);
+    const body = posted.get('Build on the foundation');
+
+    assert.match(
+      body,
+      /<!--\s*audit-fingerprints:/,
+      'a dependent Story must POST its fingerprint footer, not just assemble it',
+    );
+    assert.ok(
+      body.includes(SHA_ROOT) && body.includes(SHA_DEP),
+      'the un-attributed union fallback must survive the re-serialization',
+    );
+    assert.ok(
+      body.includes(KEY_ROOT) && body.includes(KEY_DEP),
+      'and the semantic keys must survive it too',
+    );
+  });
+
+  it('AC-2: the re-carried footers coexist with the blocked-by footer', async () => {
+    // The two live in the same trailing region of the body, so a carry that
+    // clobbered the ordering footer would trade one silent loss for another.
+    const { posted } = await persist([dependentTicket, rootTicket]);
+    const body = posted.get('Build on the foundation');
+
+    assert.deepEqual(
+      parse(body).body.depends_on,
+      ['#201'],
+      'the resolved blocked-by edge still round-trips out of the posted body',
+    );
+    assert.match(body, /blocked by #201/);
+    assert.ok(body.includes(SHA_DEP), 'and the provenance rides alongside it');
+  });
+
+  it('AC-4: an attributed dependent Story POSTs exactly its owned identities', async () => {
+    // Sourcing the re-carry `from: story.body` rather than from the seed is
+    // what keeps Story #5045 attribution intact. Re-carrying from the seed
+    // would look identical on AC-1 and silently reintroduce the union here.
+    const { posted } = await persist([
+      {
+        ...dependentTicket,
+        provenance: { fingerprints: [SHA_DEP], semanticKeys: [KEY_DEP] },
+      },
+      rootTicket,
+    ]);
+    const body = posted.get('Build on the foundation');
+
+    assert.ok(body.includes(SHA_DEP), 'the owned fingerprint is posted');
+    assert.ok(body.includes(KEY_DEP), 'the owned semantic key is posted');
+    assert.ok(
+      !body.includes(SHA_ROOT),
+      "the seed's union must not be reintroduced through the dependent path",
+    );
+    assert.ok(!body.includes(KEY_ROOT), "nor the sibling group's semantic key");
+  });
+
+  it('AC-5: the re-carry adds no duplicate sha to the posted body', async () => {
+    // `carryProvenanceFooters` is additive and idempotent; the dependent path
+    // applies it a second time over an already-carried body, so a regression
+    // in those properties would surface as stacked footers here.
+    const { posted } = await persist([dependentTicket, rootTicket]);
+    const body = posted.get('Build on the foundation');
+
+    assert.equal(
+      (body.match(new RegExp(SHA_DEP, 'g')) ?? []).length,
+      1,
+      'each sha appears exactly once in the posted body',
+    );
+    assert.equal(
+      (body.match(/<!--\s*audit-fingerprints:/g) ?? []).length,
+      1,
+      'exactly one fingerprint footer, not a stacked pair',
+    );
+  });
+
+  it('AC-6: a Story with no depends_on is unaffected', async () => {
+    const { posted, stories } = await persist([dependentTicket, rootTicket]);
+    const root = stories.find((s) => s.slug === 'lay-the-foundation');
+    const body = posted.get('Lay the foundation');
+
+    assert.ok(
+      body.startsWith(`${root.body}\n\n<!--`),
+      'the edge-free branch still posts the assembled body verbatim',
+    );
+    assert.ok(
+      body.includes(root.fingerprint),
+      'and stamps the same plan fingerprint it was assembled with',
+    );
+    assert.ok(body.includes(SHA_ROOT) && body.includes(SHA_DEP));
+  });
+
+  it('AC-7: every Story in an N>1 cohort with edges POSTs the provenance', async () => {
+    // The durable guard. A future refactor of `renderStoryBodyForCreate` that
+    // drops the carry cannot leave this green, however it rebuilds the body —
+    // this reads the persisted artifact for every Story in the chain.
+    const mid = {
+      ...dependentTicket,
+      acceptance: ['The middle layer reads the seam.'],
+    };
+    const leaf = {
+      slug: 'cap-the-stack',
+      type: 'story',
+      title: 'Cap the stack',
+      goal: 'Expose the stack to callers.',
+      changes: [{ path: 'lib/cap.js', assumption: 'creates' }],
+      acceptance: ['The cap exposes the stack and fails without the middle.'],
+      verify: ['npm test (unit)'],
+      depends_on: ['build-on-the-foundation'],
+    };
+    const { posted } = await persist([leaf, mid, rootTicket]);
+
+    assert.equal(posted.size, 3);
+    for (const [title, body] of posted) {
+      assert.match(
+        body,
+        /<!--\s*audit-fingerprints:/,
+        `Story "${title}" POSTed a body with no fingerprint footer`,
+      );
+      assert.match(
+        body,
+        /<!--\s*audit-semantic-keys:/,
+        `Story "${title}" POSTed a body with no semantic-key footer`,
+      );
+    }
   });
 });
