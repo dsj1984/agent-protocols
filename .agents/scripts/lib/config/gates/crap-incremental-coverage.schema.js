@@ -10,20 +10,23 @@
  * spread into.
  *
  * Default (key absent) preserves today's full-repo behaviour byte-for-byte.
- * When `enabled: true`, `coverage-capture.js` scopes `npm run test:coverage`
- * to the files changed against `baseRef` (default: the gate's own `--ref` /
- * `main`), and the CRAP join treats a method in a file the diff did not
- * touch as resolved by its committed baseline row instead of requiring
- * fresh coverage for it.
+ * When `enabled: true`, the changed-file set against `baseRef` (default: the
+ * gate's own `--ref` / `main`) decides **whether** to capture — no changed
+ * file under `crap.targetDirs` means no capture at all — and the CRAP join
+ * treats a method in a file the diff did not touch as resolved by its
+ * committed baseline row instead of requiring fresh coverage for it. It does
+ * not narrow the capture run itself: a capture that does happen is the
+ * ordinary full `npm run test:coverage` (Story #5065).
  */
 export const INCREMENTAL_COVERAGE_SCHEMA = {
   type: 'object',
   description:
-    'Story #4981 — opt-in incremental coverage-capture + CRAP-join scoping. Default (key absent) preserves today’s full-repo behaviour byte-for-byte. When `enabled: true`, `coverage-capture.js` scopes `npm run test:coverage` to the files changed against `baseRef` (default: the gate’s own `--ref` / `main`), and the CRAP join treats a method in a file the diff did not touch as resolved by its committed baseline row instead of requiring fresh coverage for it.',
+    'Story #4981 — opt-in incremental coverage-capture + CRAP-join scoping. Default (key absent) preserves today’s full-repo behaviour byte-for-byte. When `enabled: true`, the changed-file set against `baseRef` (default: the gate’s own `--ref` / `main`) decides WHETHER to capture — no changed file under `crap.targetDirs` means no capture at all — and the CRAP join treats a method in a file the diff did not touch as resolved by its committed baseline row instead of requiring fresh coverage for it. It does NOT narrow the capture run itself: a capture that does happen is the ordinary full `npm run test:coverage` (Story #5065).',
   properties: {
     enabled: {
       type: 'boolean',
-      description: 'Master switch for incremental capture + join scoping.',
+      description:
+        'Master switch for the capture skip and the baseline-resolved CRAP join.',
     },
     baseRef: {
       type: 'string',

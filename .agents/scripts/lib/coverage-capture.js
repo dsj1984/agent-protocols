@@ -363,20 +363,21 @@ export const COVERAGE_TIMEOUT_EXIT_CODE = 124;
  * `timeout(1)` convention exit code 124 so callers can pattern-match a
  * runaway runner without inspecting signal names.
  *
- * `files` (Story #4981) scopes the spawn to a file list — `npm run
- * test:coverage -- <files...>`, the standard npm convention for forwarding
- * argv to the underlying script (which most test runners, including Node's
- * own, treat as positional file filters). Omitted or empty means the
- * default full-scope invocation, byte-identical to the pre-#4981 argv
- * (AC-5); a non-empty list makes the scope observable on the emitted
- * command line (AC-1).
+ * The spawn takes **no positional file arguments**. Story #4981 forwarded the
+ * changed-file list as `npm run test:coverage -- <files...>` on the premise
+ * that a test runner treats trailing positionals as filters over the suite.
+ * Node's runner does not: it treats each path as a test file to execute, so a
+ * forwarded *source* file runs as a trivially-passing test and the real suite
+ * never runs. `run-coverage.js` discarded the list, which is the only reason
+ * that never bit; Story #5063 measured it and Story #5065 removed the
+ * plumbing rather than leave a parameter whose obvious "fix" empties the
+ * coverage artifact.
  *
  * @param {{
  *   cwd: string,
  *   timeoutMs?: number,
  *   runner?: typeof spawnSync,
  *   log?: (m: string) => void,
- *   files?: string[] | null,
  * }} opts
  * @returns {number}
  */
@@ -385,14 +386,8 @@ export function runCapture({
   timeoutMs,
   runner = spawnSync,
   log = () => {},
-  files = null,
 } = {}) {
-  const scopedFiles = Array.isArray(files) && files.length > 0 ? files : null;
-  const args = [
-    'run',
-    'test:coverage',
-    ...(scopedFiles ? ['--', ...scopedFiles] : []),
-  ];
+  const args = ['run', 'test:coverage'];
   log(`[coverage-capture] ▶ npm ${args.join(' ')}`);
   const spawnOpts = {
     cwd,

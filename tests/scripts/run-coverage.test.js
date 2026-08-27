@@ -43,6 +43,46 @@ test('buildCoverageTestArgs carries the shared runner flags, not a literal 8', (
   );
 });
 
+// Story #5065 — the coverage spawn runs the FULL tier, always. Story #4981
+// forwarded the changed-file set as `npm run test:coverage -- <files>` on the
+// premise that trailing positionals filter the suite; this script has always
+// discarded them, which is the only reason that never caused damage. Honouring
+// them would be actively harmful, so the behaviour is pinned here rather than
+// left looking like an oversight for someone to "fix".
+test('buildCoverageTestArgs runs the full tier and ignores positional file arguments', () => {
+  const baseline = buildCoverageTestArgs();
+
+  // The globs it runs are the full-tier SSOT, not a caller-supplied subset.
+  for (const glob of FULL_TIER_GLOBS) {
+    assert.ok(
+      baseline.includes(glob),
+      `coverage argv must run the full tier glob ${glob}`,
+    );
+  }
+
+  // Positionals reaching this process (npm forwards everything after `--`)
+  // must not alter the argv. Node's runner treats a path as a test file to
+  // EXECUTE, not a filter: forwarding a source file would run it as a
+  // trivially-passing test, skip the real suite, and hand a near-empty
+  // coverage artifact to the coverage baseline and the CRAP join.
+  const argvBefore = process.argv;
+  try {
+    process.argv = [
+      ...argvBefore.slice(0, 2),
+      '.agents/scripts/coverage-capture.js',
+      '.agents/scripts/run-coverage.js',
+    ];
+    assert.deepEqual(
+      buildCoverageTestArgs(),
+      baseline,
+      'coverage argv must not change when positional file arguments are present — ' +
+        'honouring them would execute those source files as tests instead of running the suite',
+    );
+  } finally {
+    process.argv = argvBefore;
+  }
+});
+
 test('buildCoverageTestArgs concurrency equals the shared resolver output and is clamped', () => {
   const args = buildCoverageTestArgs();
   const flag = args.find((a) => a.startsWith('--test-concurrency='));

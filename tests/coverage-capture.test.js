@@ -261,7 +261,11 @@ describe('runCoverageCapture', () => {
       incrementalCoverage: { enabled: true, baseRef: 'origin/main' },
     };
 
-    it('AC-1: captures scoped to the changed-file set and stamps scope: incremental', () => {
+    // Story #5065 — the changed-file set decides WHETHER to capture and is
+    // recorded on the stamp; it is never forwarded to the capture spawn. The
+    // spawn takes no positional file arguments, because Node's runner would
+    // execute those source files as tests instead of running the suite.
+    it('captures on a changed target-dir file and stamps scope: incremental', () => {
       const h = harness({
         crap: INCREMENTAL_CRAP,
         changed: ['.agents/scripts/a.js', 'README.md'],
@@ -269,7 +273,11 @@ describe('runCoverageCapture', () => {
       });
       assert.equal(runCoverageCapture(argv('--cwd', '/repo'), h.deps), 0);
       assert.equal(h.calls.changed[0].ref, 'origin/main');
-      assert.deepEqual(h.calls.capture[0].files, ['.agents/scripts/a.js']);
+      assert.equal(
+        h.calls.capture[0].files,
+        undefined,
+        'the capture spawn must receive no file list',
+      );
       assert.deepEqual(h.calls.stamp[0], {
         cwd: '/repo',
         coveragePath: CRAP.coveragePath,

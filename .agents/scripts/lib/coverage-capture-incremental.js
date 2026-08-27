@@ -14,6 +14,14 @@ import path from 'node:path';
  * Run the incremental capture path when
  * `delivery.quality.gates.crap.incrementalCoverage.enabled` is true.
  *
+ * **This does not shorten the capture run.** The changed-file set decides
+ * *whether* to capture, never *what* the capture executes: when nothing under
+ * `crap.targetDirs` changed there is no capture at all, and otherwise the
+ * ordinary full `npm run test:coverage` runs. The saving that makes the mode
+ * worth having is the skip; the other half is the CRAP join, which resolves
+ * methods in untouched files from the committed baseline row
+ * (`crap-baseline-join.js`) instead of demanding fresh coverage for them.
+ *
  * Returns the process exit code when incremental mode handled the run
  * (skip, capture, or a capture failure), or `null` when the caller should
  * fall through to the full-scope path — either incremental mode is
@@ -81,13 +89,12 @@ export function tryIncrementalCapture({
   }
 
   logger.info(
-    `[coverage-capture] Incremental mode: capturing coverage scoped to ${scopedFiles.length} changed file(s) under [${crap.targetDirs.join(', ')}]…`,
+    `[coverage-capture] Incremental mode: ${scopedFiles.length} changed file(s) under [${crap.targetDirs.join(', ')}] — capturing…`,
   );
   const code = runCaptureImpl({
     cwd: args.cwd,
     timeoutMs: coverage?.timeoutMs,
     log: (m) => logger.info(m),
-    files: scopedFiles,
   });
   if (code !== 0) {
     logger.error(
