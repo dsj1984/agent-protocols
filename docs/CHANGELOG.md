@@ -15,6 +15,16 @@ All notable changes to this project will be documented in this file.
 -->
 <!-- markdownlint-disable-file MD004 MD012 MD037 -->
 
+## [2.34.0](https://github.com/dsj1984/mandrel/compare/mandrel-v2.33.0...mandrel-v2.34.0) (2026-08-27)
+
+
+### Fixed
+
+* **baselines:** weight the mutation rollup by mutant count and gate the migration (refs [#5058](https://github.com/dsj1984/mandrel/issues/5058)) ([#5062](https://github.com/dsj1984/mandrel/issues/5062)) ([a645d30](https://github.com/dsj1984/mandrel/commit/a645d3085450b4dae39ae5d0a9b9844014535f84))
+* **coverage:** describe incrementalCoverage honestly, drop inert forwarding (refs [#5065](https://github.com/dsj1984/mandrel/issues/5065)) ([#5066](https://github.com/dsj1984/mandrel/issues/5066)) ([04ff450](https://github.com/dsj1984/mandrel/commit/04ff450cb1774a1faa0b4f901f1e09261b0ae00a))
+* delivery lifecycle: credit the Step 1 full-suite run to close and enable incremental coverage by default ([#5063](https://github.com/dsj1984/mandrel/issues/5063)) ([#5064](https://github.com/dsj1984/mandrel/issues/5064)) ([39b1ea4](https://github.com/dsj1984/mandrel/commit/39b1ea421c9a8a43f35ad4c8cbc082e1f2ead8c4))
+* **plan-persist:** re-carry audit provenance onto dependent Stories (refs [#5056](https://github.com/dsj1984/mandrel/issues/5056)) ([#5060](https://github.com/dsj1984/mandrel/issues/5060)) ([548cc8a](https://github.com/dsj1984/mandrel/commit/548cc8a46afc5b643452060cc3a03bf71a874b89))
+
 ## [2.33.0](https://github.com/dsj1984/mandrel/compare/mandrel-v2.32.0...mandrel-v2.33.0) (2026-08-07)
 
 
