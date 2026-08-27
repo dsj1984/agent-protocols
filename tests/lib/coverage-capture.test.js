@@ -471,43 +471,30 @@ describe('runCapture', () => {
     );
   });
 
-  // Story #4981 (AC-1, AC-5) — incremental mode scopes the spawn to the
-  // changed-file set, observable on the emitted command line; the default
-  // (no `files`) argv stays byte-identical to every test above.
-  describe('files scope (Story #4981)', () => {
-    it('AC-1: appends `-- <files...>` when a non-empty file scope is given', () => {
+  // Story #5065 — the spawn takes NO positional file arguments. Story #4981
+  // appended `-- <files...>` believing a test runner would read them as
+  // filters over the suite; Node's runner executes each path as a test file,
+  // so a forwarded source file runs as a trivially-passing test and the real
+  // suite never runs. `run-coverage.js` discarded the list, which is the only
+  // reason it never bit. The argv is pinned here so the plumbing cannot come
+  // back by way of an `opts.files` that looks harmless.
+  describe('no positional file scope (Story #5065)', () => {
+    it('spawns the bare `npm run test:coverage` argv, whatever opts are passed', () => {
       const calls = [];
-      const runner = (cmd, args, opts) => {
-        calls.push({ cmd, args, opts });
+      const runner = (cmd, args) => {
+        calls.push({ cmd, args });
         return { status: 0 };
       };
-      const code = runCapture({
-        cwd: '/repo',
-        runner,
-        files: ['src/a.js', 'src/b.js'],
-      });
-      assert.equal(code, 0);
-      assert.equal(calls[0].cmd, 'npm');
-      assert.deepEqual(calls[0].args, [
-        'run',
-        'test:coverage',
-        '--',
-        'src/a.js',
-        'src/b.js',
-      ]);
-    });
-
-    it('AC-5: an empty/omitted file scope reproduces the exact default argv', () => {
-      const calls = [];
-      const runner = (_cmd, args) => {
-        calls.push(args);
-        return { status: 0 };
-      };
-      runCapture({ cwd: '/repo', runner, files: [] });
-      runCapture({ cwd: '/repo', runner, files: null });
       runCapture({ cwd: '/repo', runner });
-      for (const args of calls) {
-        assert.deepEqual(args, ['run', 'test:coverage']);
+      runCapture({ cwd: '/repo', runner, files: ['src/a.js', 'src/b.js'] });
+      runCapture({ cwd: '/repo', runner, files: [] });
+      for (const call of calls) {
+        assert.equal(call.cmd, 'npm');
+        assert.deepEqual(
+          call.args,
+          ['run', 'test:coverage'],
+          'the capture spawn must never carry positional file arguments',
+        );
       }
     });
   });

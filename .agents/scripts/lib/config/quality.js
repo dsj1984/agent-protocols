@@ -78,6 +78,13 @@ const DEFAULT_MI_FLOORS = Object.freeze({
  * `enabled: true`. `baseRef: null` means "use the caller's own ref
  * resolution" (the gate's `--ref` flag / `main`) rather than a second,
  * possibly-conflicting default.
+ *
+ * Story #5065 — what `enabled: true` actually buys, measured: the capture is
+ * **skipped entirely** when no changed file lives under `crap.targetDirs`,
+ * and the CRAP join resolves methods in untouched files from the committed
+ * baseline row instead of requiring fresh coverage. It does **not** shorten
+ * the capture run — when a capture does happen it is the ordinary full
+ * `npm run test:coverage`.
  */
 const DEFAULT_INCREMENTAL_COVERAGE = Object.freeze({
   enabled: false,
