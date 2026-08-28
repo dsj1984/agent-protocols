@@ -1,7 +1,7 @@
 {
   "$schema": ".agents/schemas/baselines/maintainability.schema.json",
   "kernelVersion": "0.1.0",
-  "generatedAt": "2026-08-26T23:19:37.252Z",
+  "generatedAt": "2026-08-28T16:44:20.899Z",
   "rollup": {
     "*": {
       "min": 76.381,
@@ -364,7 +364,7 @@
     },
     {
       "path": ".agents/scripts/lib/baselines/kernel.js",
-      "mi": 91.495
+      "mi": 93.439
     },
     {
       "path": ".agents/scripts/lib/baselines/kinds/_crap-new-method-gate.js",
@@ -412,7 +412,7 @@
     },
     {
       "path": ".agents/scripts/lib/baselines/kinds/mutation.js",
-      "mi": 98.807
+      "mi": 105.341
     },
     {
       "path": ".agents/scripts/lib/baselines/maintainability-baseline-io.js",
