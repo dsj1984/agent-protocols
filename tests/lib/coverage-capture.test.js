@@ -6,6 +6,7 @@ import {
   COVERAGE_TIMEOUT_EXIT_CODE,
   captureStampPath,
   computeContentDigest,
+  describeFreshness,
   filterFilesUnderTargets,
   isCoverageFresh,
   newestSourceMtime,
@@ -62,12 +63,12 @@ function makeFsStub({ files, dirs }) {
 }
 
 describe('newestSourceMtime', () => {
-  it('returns the newest .js/.mjs mtime under any target dir', () => {
+  it('returns the newest scorable-source mtime under any target dir', () => {
     const fs = makeFsStub({
       files: {
         [repoPath('src/a.js')]: 100,
         [repoPath('src/nested/b.mjs')]: 500,
-        [repoPath('src/c.txt')]: 9999, // ignored — not .js/.mjs
+        [repoPath('src/c.txt')]: 9999, // ignored — not a scorable source
         [repoPath('lib/d.js')]: 200,
       },
       dirs: {
@@ -82,6 +83,30 @@ describe('newestSourceMtime', () => {
     });
     const result = newestSourceMtime(FAKE_REPO, ['src', 'lib'], fs);
     assert.equal(result, 500);
+  });
+
+  it('walks TypeScript sources, not just .js/.mjs (Story #5076)', () => {
+    const fs = makeFsStub({
+      files: {
+        [repoPath('src/a.ts')]: 100,
+        [repoPath('src/b.tsx')]: 700,
+        [repoPath('src/c.mts')]: 300,
+        [repoPath('src/d.cts')]: 200,
+        [repoPath('src/e.cjs')]: 150,
+        [repoPath('src/page.astro')]: 9999, // the engines cannot score it
+      },
+      dirs: {
+        [repoPath('src')]: [
+          { name: 'a.ts', kind: 'file' },
+          { name: 'b.tsx', kind: 'file' },
+          { name: 'c.mts', kind: 'file' },
+          { name: 'd.cts', kind: 'file' },
+          { name: 'e.cjs', kind: 'file' },
+          { name: 'page.astro', kind: 'file' },
+        ],
+      },
+    });
+    assert.equal(newestSourceMtime(FAKE_REPO, ['src'], fs), 700);
   });
 
   it('skips node_modules and dotfiles', () => {
@@ -148,13 +173,36 @@ describe('isCoverageFresh', () => {
     assert.deepEqual(r, { fresh: false, reason: 'stale' });
   });
 
-  it("flags 'no-sources' (fresh) when target dirs are empty", () => {
+  it("fails closed with 'no-sources' when discovery finds nothing (Story #5076)", () => {
+    // "The walk found no source" is an absence of evidence, not a freshness
+    // guarantee: trusting it silently disabled the capture — and with it the
+    // CRAP gate — for every tree the selector could not see.
     const fs = makeFsStub({
       files: { [repoPath('coverage/coverage-final.json')]: 100 },
       dirs: {},
     });
     const r = isCoverageFresh({ coveragePath, targetDirs, cwd, ...fs });
-    assert.deepEqual(r, { fresh: true, reason: 'no-sources' });
+    assert.deepEqual(r, { fresh: false, reason: 'no-sources' });
+  });
+
+  it('sees TypeScript sources, so a TS consumer is not permanently fresh (Story #5076)', () => {
+    // The regression that filed #5075: a `js|mjs`-only selector matched
+    // nothing in a TS tree, so this returned fresh and no capture ever ran.
+    const fs = makeFsStub({
+      files: {
+        [repoPath('coverage/coverage-final.json')]: 100,
+        [repoPath('src/a.ts')]: 500,
+        [repoPath('src/Component.tsx')]: 400,
+      },
+      dirs: {
+        [repoPath('src')]: [
+          { name: 'a.ts', kind: 'file' },
+          { name: 'Component.tsx', kind: 'file' },
+        ],
+      },
+    });
+    const r = isCoverageFresh({ coveragePath, targetDirs, cwd, ...fs });
+    assert.deepEqual(r, { fresh: false, reason: 'stale' });
   });
 
   describe('content-digest stamp (Story #3982)', () => {
@@ -303,6 +351,47 @@ describe('computeContentDigest', () => {
     assert.equal(d1, d2);
   });
 
+  it('digests TypeScript sources (Story #5076)', () => {
+    const tsLs =
+      '100644 aaa111 0\tsrc/a.ts\n100644 bbb222 0\tsrc/Component.tsx\n';
+    const d1 = computeContentDigest(FAKE_REPO, ['src'], {
+      spawnSync: makeSpawn({ ls: tsLs }),
+    });
+    const d2 = computeContentDigest(FAKE_REPO, ['src'], {
+      spawnSync: makeSpawn({ ls: tsLs.replace('aaa111', 'ccc333') }),
+    });
+    assert.equal(typeof d1, 'string');
+    assert.notEqual(d1, d2);
+  });
+
+  it('returns null — never a digest of nothing — when no source matches (Story #5076)', () => {
+    // The primary freshness path. Hashing an empty file list yields the
+    // SHA-256 of the empty string: a real, stable digest that can never go
+    // stale, which pins the artifact permanently fresh and makes the mtime
+    // path's fail-closed verdict unreachable.
+    const SHA256_OF_EMPTY =
+      'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
+    const digest = computeContentDigest(FAKE_REPO, ['src'], {
+      spawnSync: makeSpawn({
+        ls: '100644 aaa111 0\tsrc/page.astro\n100644 bbb222 0\tsrc/readme.md\n',
+        status: ' M src/page.astro\n',
+      }),
+      readFileSync: () => 'markup',
+    });
+    assert.notEqual(digest, SHA256_OF_EMPTY);
+    assert.equal(digest, null);
+  });
+
+  it('still digests when only a dirty scorable file exists (Story #5076)', () => {
+    // The empty-set guard must key on "no scorable file at all", not on an
+    // empty tracked listing: a brand-new untracked source is real evidence.
+    const digest = computeContentDigest(FAKE_REPO, ['src'], {
+      spawnSync: makeSpawn({ ls: '', status: '?? src/new.ts\n' }),
+      readFileSync: () => 'export const a = 1;',
+    });
+    assert.equal(typeof digest, 'string');
+  });
+
   it('returns null when git fails or target dirs are empty', () => {
     assert.equal(
       computeContentDigest(FAKE_REPO, ['src'], {
@@ -311,6 +400,31 @@ describe('computeContentDigest', () => {
       null,
     );
     assert.equal(computeContentDigest(FAKE_REPO, [], {}), null);
+  });
+});
+
+describe('describeFreshness (Story #5076)', () => {
+  it('annotates a no-sources verdict with the dirs it walked', () => {
+    const line = describeFreshness({ reason: 'no-sources' }, ['src', 'lib']);
+    assert.match(line, /^no-sources —/);
+    assert.match(line, /\[src, lib\]/);
+    assert.match(line, /quality\.gates\.crap\.targetDirs/);
+  });
+
+  it('tolerates a missing verdict or dir list rather than throwing', () => {
+    // The renderer sits on the capture path's log line; a shape surprise
+    // there must not take down the capture it is describing.
+    assert.match(
+      describeFreshness({ reason: 'no-sources' }, undefined),
+      /\[\]/,
+    );
+    assert.equal(describeFreshness(undefined, ['src']), 'undefined');
+  });
+
+  it('passes every self-explaining reason through unchanged', () => {
+    for (const reason of ['stale', 'missing', 'fresh', 'scope-mismatch']) {
+      assert.equal(describeFreshness({ reason }, ['src']), reason);
+    }
   });
 });
 

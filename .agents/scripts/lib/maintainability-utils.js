@@ -6,6 +6,7 @@ import { POOL_SERIAL_THRESHOLD, runOnPool } from './cpu-pool.js';
 import { Logger } from './Logger.js';
 import { scoreFile } from './maintainability-engine.js';
 import { isScored, reportUnscorable } from './maintainability-unscorable.js';
+import { isScorableSourceFile } from './source-extensions.js';
 
 const MAINTAINABILITY_WORKER_URL = new URL(
   './workers/maintainability-worker.js',
@@ -15,17 +16,6 @@ const MAINTAINABILITY_WORKER_URL = new URL(
 // Pool-vs-serial cutover — single-sourced in cpu-pool.js (see the
 // POOL_SERIAL_THRESHOLD docstring for the tuning rationale).
 const SERIAL_THRESHOLD = POOL_SERIAL_THRESHOLD;
-
-const JS_EXTS = new Set(['.js', '.mjs', '.cjs']);
-const TS_EXTS = new Set(['.ts', '.tsx', '.mts', '.cts']);
-const SUPPORTED_EXTS = new Set([...JS_EXTS, ...TS_EXTS]);
-
-/**
- * @returns {boolean} True when the path's extension is one the engines score.
- */
-function isSupportedSourceFile(filePath) {
-  return SUPPORTED_EXTS.has(path.extname(String(filePath)).toLowerCase());
-}
 
 const IGNORED_DIRS = new Set([
   'node_modules',
@@ -68,8 +58,10 @@ export function isIgnoredByGlobs(filePath, ignoreGlobs = [], cwd) {
 }
 
 /**
- * Recursively scans a directory for JS/TS source files. Accepts `.js`,
- * `.mjs`, `.cjs`, `.ts`, `.tsx`, `.mts`, and `.cts`. Directories listed
+ * Recursively scans a directory for JS/TS source files, selecting them by
+ * the shared `SCORABLE_SOURCE_EXTENSIONS` set (`source-extensions.js`) so the
+ * walk, the coverage-freshness check and the close-validation CRAP projection
+ * cannot drift apart. Directories listed
  * in `IGNORED_DIRS` (including `coverage` and `.next`, added in 5.29.0
  * to skip vitest's istanbul HTML scaffolding and Next.js build output)
  * are skipped.
@@ -101,7 +93,7 @@ export function scanDirectory(dir, fileList = [], opts = {}) {
       if (!IGNORED_DIRS.has(entry.name)) {
         scanDirectory(filePath, fileList, opts);
       }
-    } else if (entry.isFile() && isSupportedSourceFile(entry.name)) {
+    } else if (entry.isFile() && isScorableSourceFile(entry.name)) {
       if (isIgnoredByGlobs(filePath, ignoreGlobs, matchCwd)) {
         continue;
       }

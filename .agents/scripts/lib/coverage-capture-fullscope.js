@@ -8,7 +8,10 @@
  * logic; behaviour is byte-for-byte the pre-#4981 body.
  */
 import path from 'node:path';
-import { anyChangedUnderTargets } from './coverage-capture.js';
+import {
+  anyChangedUnderTargets,
+  describeFreshness,
+} from './coverage-capture.js';
 
 /**
  * Run the `--skip-when-no-crap-files` check (when requested), the
@@ -72,7 +75,7 @@ export function runFullScopeCapture({
   }
 
   logger.info(
-    `[coverage-capture] Coverage at ${crap.coveragePath} is ${freshness.reason}; running npm run test:coverage…`,
+    `[coverage-capture] Coverage at ${crap.coveragePath} is ${describeFreshness(freshness, crap.targetDirs)}; running npm run test:coverage…`,
   );
   const code = runCaptureImpl({
     cwd: args.cwd,
