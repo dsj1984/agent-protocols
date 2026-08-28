@@ -13,9 +13,13 @@
  *
  *  1. The canonical ADR section list and both layout names are stated by the
  *     skill and honoured by the lens (AC-6).
- *  2. The lens keeps the shared-machinery contract every lens carries — one
+ *  2. The ADR *status* vocabulary is likewise stated by the skill and honoured
+ *     by the lens. This one drifted for real: the lens inherited a three-word
+ *     list while the log had been using `Reverted (<date>)` for months, so the
+ *     lens would have graded a conforming entry as a free-invented status.
+ *  3. The lens keeps the shared-machinery contract every lens carries — one
  *     substitution fence, the core reference, its own report path (AC-1).
- *  3. The lens's five dimensions are its finding vocabulary, and the
+ *  4. The lens's five dimensions are its finding vocabulary, and the
  *     Accepted-only scoping of the drift claim-check survives (AC-3).
  */
 
@@ -51,6 +55,27 @@ const CANONICAL_SECTIONS = [
   'Consequences',
 ];
 
+/**
+ * The ADR status vocabulary, as the documentation-and-adrs Policy Capsule
+ * names it. Pinned by the substring both surfaces share: the skill writes
+ * `Superseded by ADR-XXX` and the lens `Superseded by <ref>`, so only
+ * `Superseded by` is common to the two.
+ */
+const STATUS_VOCABULARY = [
+  'Accepted',
+  'Superseded by',
+  'Deprecated',
+  'Reverted (<date>)',
+];
+
+/**
+ * The clause separating a reverted decision from a superseded one. Without it
+ * the two statuses read as synonyms and an auditor demands a successor
+ * reference from an entry that correctly has none.
+ */
+const REVERTED_GLOSS =
+  /reverted decision was \*\*undone\*\*\s+rather than replaced/i;
+
 /** The five dimensions that make up this lens's finding vocabulary. */
 const DIMENSIONS = [
   'Decision Drift',
@@ -81,6 +106,44 @@ describe('audit-adrs is pinned to the documentation-and-adrs contract', () => {
         `${LENS_PATH} does not mention the canonical ADR section "${section}", ` +
           'so its structure sweep would grade ADRs against a narrower ' +
           'vocabulary than the skill mandates.',
+      );
+    }
+  });
+
+  it('the skill still owns the ADR status vocabulary', () => {
+    const skill = read(SKILL_PATH);
+    for (const status of STATUS_VOCABULARY) {
+      assert.ok(
+        skill.includes(status),
+        `${SKILL_PATH} no longer names the ADR status "${status}". The skill ` +
+          'is the SSOT for the status vocabulary — if a status moved, update ' +
+          'this list and the lens together, never one alone.',
+      );
+    }
+  });
+
+  it('the lens accepts every status the skill defines', () => {
+    const lens = read(LENS_PATH);
+    for (const status of STATUS_VOCABULARY) {
+      assert.ok(
+        lens.includes(status),
+        `${LENS_PATH} does not name the ADR status "${status}", so its ` +
+          'Status-vocabulary sweep would grade a conforming entry as a ' +
+          'free-invented status and manufacture a finding from it.',
+      );
+    }
+  });
+
+  it('skill and lens both gloss Reverted as undone rather than replaced', () => {
+    for (const [rel, surface] of [
+      [SKILL_PATH, read(SKILL_PATH)],
+      [LENS_PATH, read(LENS_PATH)],
+    ]) {
+      assert.ok(
+        REVERTED_GLOSS.test(surface),
+        `${rel} must distinguish Reverted from Superseded: a reverted ` +
+          'decision was undone, not replaced, so it has no successor to ' +
+          'point at and its missing "by <ref>" is correct.',
       );
     }
   });

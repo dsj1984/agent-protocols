@@ -108,7 +108,8 @@ below to the detected layout (or the `--dir` / `--paths` override):
 ls docs/decisions.md docs/decisions/*.md 2>/dev/null
 
 # Status lines and their spelling — the vocabulary is Accepted / Superseded
-# by … / Deprecated; anything else is a Structure & Status Hygiene finding.
+# by … / Deprecated / Reverted (…); anything else is a Structure & Status
+# Hygiene finding.
 grep -rn '^\*\*Status:\*\*\|^- \*\*Status:\*\*' docs/decisions.md docs/decisions/ 2>/dev/null
 
 # Entry headings, for the id/date/uniqueness checks in Step 1's list below.
@@ -128,8 +129,11 @@ From that output, resolve deterministically — each of these is a
    finding, and a missing `Status` is the most severe of them because every
    other dimension keys off it.
 2. **Status vocabulary.** Each status reads `Accepted`, `Superseded by <ref>`,
-   or `Deprecated`. A free-invented status word leaves the entry unclassifiable
-   by this lens and by every reader.
+   `Deprecated`, or `Reverted (<date>)` — a reverted decision was **undone**
+   rather than replaced, so unlike a superseded one it has no successor to
+   point at, and its missing `by <ref>` is correct rather than a defect. A
+   free-invented status word — anything outside those four — leaves the entry
+   unclassifiable by this lens and by every reader.
 3. **Unique, stable ids.** No two entries share an id/anchor; MADR files use
    zero-padded sequential numbering matching their heading id.
 4. **Parseable dates.** Every `Date` parses, and no entry is dated in the
@@ -260,7 +264,7 @@ so a reader can see what was claim-checked versus what was only chain-checked:
 
 ## Decision Coverage
 
-| ADR         | Status                              | Checked                        |
-| ----------- | ----------------------------------- | ------------------------------ |
-| [id, title] | [Accepted · Superseded · Deprecated] | [Claims + chain · Chain only] |
+| ADR         | Status                                          | Checked                       |
+| ----------- | ----------------------------------------------- | ----------------------------- |
+| [id, title] | [Accepted · Superseded · Deprecated · Reverted] | [Claims + chain · Chain only] |
 ```
