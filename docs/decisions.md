@@ -24,7 +24,20 @@ explicit `**Materially dead:**` line — grep for it.
 identifier, and the same contract test rejects a collision. Story #4786 resolved
 seven: the freshness-gate entry moved from `20260507-1114a` to `-1114b`, and the
 six date-only `ADR-20260421` / `ADR-20260422` entries gained their Epic suffix
-(`-321a/b`, `-380a/b`, `-413a/b`). Renumber, never reuse.
+(`-321a/b`, `-380a/b`, `-413a/b`). Story #5077 resolved the last two entries
+that carried no identifier at all: the facade entry became `20260420-297` and
+the `drain-pending-cleanup` overturn became `20260607-3706`. Renumber, never
+reuse.
+
+**Every entry carries `**Status:**`, `**Date:**` and — while in force —
+`**Surface:**` as block lines directly under its heading.** Story #5077
+normalized the eleven 2026-04/05 entries that carried those fields as list
+items instead, where the contract test's ADR predicate could not be pinned to
+them; their bodies keep the older bullet layout. The contract test now derives
+the ADR set structurally (every `## ` entry below `<!-- ADR-INDEX:END -->`
+except the explicitly-declared non-ADR ones), so an entry missing a `Status`
+line or a `<date>-<ticket>` identifier fails rather than being silently
+reclassified as not-an-ADR.
 
 Backticked paths **inside an entry's body are not maintained**. An ADR records
 what was true when it was written, so roughly 60% of them point at files later
@@ -56,7 +69,7 @@ the floor-vs-ratchet policy are tooling commitments rather than ADRs and live in
 | [`20260726-v2-story-collapse`](#adr-20260726-v2-story-collapse-story-only-ticket-model-one-plan-one-deliver-one-engine) | Story-only ticket model; one /plan, one /deliver, one engine | `.agents/workflows/deliver.md` |
 | [`20260624-loop-units-division-of-labor`](#adr-20260624-loop-units-division-of-labor-mandrel-owns-content--oracle--contract-the-host-owns-cadence--iteration) | mandrel owns content + oracle + contract; the host owns cadence +… | `.agents/scripts/sync-claude-commands.js` |
 | [`20260610-planning-determinism-dispositions`](#adr-20260610-planning-determinism-dispositions-per-layer-dispositions-for-the-deterministic-planning-proxies) | Per-layer dispositions for the deterministic planning proxies | `.agents/scripts/lib/orchestration/ticket-validator.js` |
-| [`Overturn`](#overturn-drain-pending-cleanup-demoted-to-a-helper) | `drain-pending-cleanup` demoted to a helper | `.agents/scripts/drain-pending-cleanup.js` |
+| [`20260607-3706`](#adr-20260607-3706-drain-pending-cleanup-demoted-to-a-helper) | `drain-pending-cleanup` demoted to a helper | `.agents/scripts/drain-pending-cleanup.js` |
 | [`20260604-flat-command-projection-revert`](#adr-20260604-flat-command-projection-revert-revert-the-plugin-cutover--project-workflows-as-flat-name-commands) | Revert the plugin cutover — project workflows as flat `/<name>` c… | `.agents/scripts/sync-claude-commands.js` |
 | [`20260519-adapter-layer-removed`](#adr-20260519-adapter-layer-removed-delete-the-iexecutionadapter-abstraction) | Delete the `IExecutionAdapter` abstraction | `.agents/scripts/providers/github.js` |
 | [`20260514-drop-churn-idle`](#adr-20260514-drop-churn-idle-drop-churn--idle-from-active-perf-signal-taxonomy) | Drop `churn` + `idle` from active perf-signal taxonomy | `.agents/schemas/agentrc.schema.json` |
@@ -71,7 +84,7 @@ the floor-vs-ratchet policy are tooling commitments rather than ADRs and live in
 | [`20260424-702a`](#adr-20260424-702a-retire-mandrel-mcp) | Retire mandrel MCP | `.agents/scripts/post-structured-comment.js` |
 | [`20260424-668a`](#adr-20260424-668a-resolve-worktreeisolationenabled-from-environment-not-config) | Resolve `worktreeIsolation.enabled` from environment, not config | `.agents/scripts/lib/config/runtime.js` |
 | [`004`](#adr-004-gherkin-standards-as-sole-ssot-for-bdd-tags--forbidden-patterns) | Gherkin Standards as Sole SSOT for BDD Tags & Forbidden Patterns | `.agents/rules/gherkin-standards.md` |
-| [`ADR: Decompose oversized orchestration modules via facade pattern`](#adr-decompose-oversized-orchestration-modules-via-facade-pattern) | Decompose oversized orchestration modules via facade pattern | `.agents/scripts/lib/worktree-manager.js` |
+| [`20260420-297`](#adr-20260420-297-decompose-oversized-orchestration-modules-via-facade-pattern) | Decompose oversized orchestration modules via facade pattern | `.agents/scripts/lib/worktree-manager.js` |
 | [`20260421-321b`](#adr-20260421-321b-retire-riskhigh-runtime-gating) | Retire `risk::high` runtime gating | `.agents/instructions.md` |
 | [`20260422-380a`](#adr-20260422-380a-two-stage-windows-worktree-reap-fsrm-retry--deferred-sweep) | Two-stage Windows worktree reap (fs.rm retry + deferred sweep) | `.agents/scripts/lib/worktree/lifecycle-manager.js` |
 | [`20260422-441a`](#adr-20260422-441a-force-reap-worktrees-whose-story-branch-is-already-merged) | Force-reap worktrees whose Story branch is already merged | `.agents/scripts/boot-sweep.js` |
@@ -509,17 +522,20 @@ and the change set stays reviewable.
 
 ---
 
-## Overturn: `drain-pending-cleanup` demoted to a helper
+## ADR 20260607-3706: `drain-pending-cleanup` demoted to a helper
 
-**Status:** Accepted (overturns the `drain-pending-cleanup` row of the
-recategorization matrix above).
+**Status:** Accepted — overturns the `drain-pending-cleanup` row of the
+recategorization matrix in
+[`20260513-command-naming-discipline`](#adr-20260513-command-naming-discipline-domain-vocabulary-command-names-single-mandrel-prefixed-discoverability-entry).
 **Date:** 2026-06-07
 **Surface:** `.agents/scripts/drain-pending-cleanup.js`
 **Story:** #3706
 
 ### Context
 
-The matrix row above kept `/drain-pending-cleanup` as a top-level slash
+The `drain-pending-cleanup` row of the recategorization matrix in
+[`20260513-command-naming-discipline`](#adr-20260513-command-naming-discipline-domain-vocabulary-command-names-single-mandrel-prefixed-discoverability-entry)
+kept `/drain-pending-cleanup` as a top-level slash
 command on the rationale that "the manual path is load-bearing — an operator
 hitting a wedged worktree types `/drain-pending-cleanup` directly." A wiring
 audit conducted for Story #3706 tested that assumption against the actual
@@ -1763,7 +1779,7 @@ tests rather than encoding them in `.feature` files.
 
 ---
 
-## ADR: Decompose oversized orchestration modules via facade pattern
+## ADR 20260420-297: Decompose oversized orchestration modules via facade pattern
 
 **Status:** Accepted
 **Date:** 2026-04-20
@@ -1840,16 +1856,18 @@ Triggered Epic-level orchestration from a GitHub label via `epic-orchestrator.ym
 
 ## ADR-20260421-321b: Retire `risk::high` runtime gating
 
--   **Status:** Accepted (Epic #321 Story #334, v5.14.0).
--   **Surface:** `.agents/instructions.md`
--   **Materially dead:** the outcome holds — no runtime `risk::high` gate
-    exists — but every mechanism below is gone and the Surface is a doc file
-    that cannot witness it either way. `risk-gate-handler.js`,
-    `wave-dispatcher.js`, `story-close.js` are absent;
-    `handleRiskHighGate` / `handleHighRiskGate` occur nowhere but here; and
-    `hitl.riskHighApproval` / `hitl.riskHighRuntimeGate` are not config keys —
-    the escape hatch this ADR preserved went with the in-process stratum.
-    Read the Decision as a 2026-04 record, not as live wiring.
+**Status:** Accepted (Epic #321 Story #334, v5.14.0).
+**Date:** 2026-04-21
+**Surface:** `.agents/instructions.md`
+**Materially dead:** the outcome holds — no runtime `risk::high` gate
+exists — but every mechanism below is gone and the Surface is a doc file
+that cannot witness it either way. `risk-gate-handler.js`,
+`wave-dispatcher.js`, `story-close.js` are absent;
+`handleRiskHighGate` / `handleHighRiskGate` occur nowhere but here; and
+`hitl.riskHighApproval` / `hitl.riskHighRuntimeGate` are not config keys —
+the escape hatch this ADR preserved went with the in-process stratum.
+Read the Decision as a 2026-04 record, not as live wiring.
+
 -   **Context:** `risk-gate-handler.js` halted the dispatcher on
     `risk::high` tasks, and `story-close.js` halted close for
     `risk::high` stories. In the new HITL-minimal model this becomes
@@ -1879,8 +1897,10 @@ Triggered Epic-level orchestration from a GitHub label via `epic-orchestrator.ym
 
 ## ADR-20260422-380a: Two-stage Windows worktree reap (fs.rm retry + deferred sweep)
 
--   **Status:** Accepted (Epic #380 Story #386, v5.15.1).
--   **Surface:** `.agents/scripts/lib/worktree/lifecycle-manager.js`
+**Status:** Accepted (Epic #380 Story #386, v5.15.1).
+**Date:** 2026-04-22
+**Surface:** `.agents/scripts/lib/worktree/lifecycle-manager.js`
+
 -   **Context:** The v5.7.0 worktree-per-story model ships a clean
     `reap` path for POSIX, but on Windows `git worktree remove` + the
     follow-up `fs.rm` routinely fail with `EBUSY` / `ENOTEMPTY` because
@@ -1956,13 +1976,15 @@ Made `sprint-story-close` recovery explicit via `--resume` / `--restart` rather 
 
 ## ADR-20260422-441a: Force-reap worktrees whose Story branch is already merged
 
--   **Status:** Accepted (Epic #441 Story #451, v5.15.3) — rule stands; the
-    `/sprint-close` Phase 4 mechanics below are superseded. The
-    force-reap-when-already-merged rule now lives in the protected boot sweep
-    (`boot-sweep.js`), which reaps a local branch only when its PR is MERGED
-    and HEAD matches the merged `headRefOid`; content-merged branches are
-    report-only.
--   **Surface:** `.agents/scripts/boot-sweep.js`
+**Status:** Accepted (Epic #441 Story #451, v5.15.3) — rule stands; the
+`/sprint-close` Phase 4 mechanics below are superseded. The
+force-reap-when-already-merged rule now lives in the protected boot sweep
+(`boot-sweep.js`), which reaps a local branch only when its PR is MERGED
+and HEAD matches the merged `headRefOid`; content-merged branches are
+report-only.
+**Date:** 2026-04-22
+**Surface:** `.agents/scripts/boot-sweep.js`
+
 -   **Context:** Epic #413's `/sprint-close` Phase 4 reaper left 3 of 6
     worktrees orphaned (`story-420`, `story-423`, `story-424`) with
     `reap-skipped: uncommitted-changes`, even though every Story branch
@@ -2026,9 +2048,10 @@ Kept Feature tickets inside the completion cascade while excluding Epics and pla
 
 ## ADR-20260423-511b: `transitionTicketState.fromState` lookup keeps its swallow, now with a debug log
 
--   **Status:** Accepted
--   **Date:** 2026-04-23
--   **Surface:** `.agents/scripts/providers/github/tickets.js`
+**Status:** Accepted
+**Date:** 2026-04-23
+**Surface:** `.agents/scripts/providers/github/tickets.js`
+
 -   **Epic:** #511
 -   **Context:** `transitionTicketState()` wraps the prior-state label
     lookup in a silent try/catch — any error leaves `fromState` as `null`
@@ -2080,9 +2103,10 @@ Made per-phase timing a first-class Epic-runner surface, posting a `phase-timing
 
 ## ADR-20260424-596a: CRAP as a sibling gate, not a replacement for MI
 
--   **Status:** Accepted
--   **Date:** 2026-04-24
--   **Surface:** `baselines/maintainability.json`
+**Status:** Accepted
+**Date:** 2026-04-24
+**Surface:** `baselines/maintainability.json`
+
 -   **Epic:** #596
 -   **Context:** The maintainability (MI) gate ratchets a per-file composite
     score, but is coverage-blind: a 30-branch function scores identically
@@ -2124,9 +2148,10 @@ Read quality-gate thresholds from the base branch rather than the PR branch, so 
 
 ## ADR-20260424-596c: Kernel-version stamp on the CRAP baseline
 
--   **Status:** Accepted
--   **Date:** 2026-04-24
--   **Surface:** `baselines/crap.json`
+**Status:** Accepted
+**Date:** 2026-04-24
+**Surface:** `baselines/crap.json`
+
 -   **Epic:** #596
 -   **Context:** `typhonjs-escomplex` makes scoring decisions that change
     between minor versions. Without a version stamp, an upstream dependency
@@ -2156,9 +2181,10 @@ Read quality-gate thresholds from the base branch rather than the PR branch, so 
 
 ## ADR-20260424-638a: `story-566` reap recovery is a self-inflicted dirty-tree bug
 
--   **Status:** Accepted
--   **Date:** 2026-04-24
--   **Surface:** `.agents/scripts/lib/worktree/bootstrapper.js`
+**Status:** Accepted
+**Date:** 2026-04-24
+**Surface:** `.agents/scripts/lib/worktree/bootstrapper.js`
+
 -   **Epic:** #638 (Story #648)
 -   **Context:** Epic #553 close fired the `worktree.reap recovered via
     fs-rm-retry … attempts=1 lockReason=contains modified or untracked
@@ -2207,8 +2233,10 @@ Read quality-gate thresholds from the base branch rather than the PR branch, so 
 
 ## ADR-20260426-817a: Validation evidence is keyed by commit SHA, not by build ID
 
--   **Status:** Accepted (Epic #817, v5.28.0).
--   **Surface:** `.agents/scripts/evidence-gate.js`
+**Status:** Accepted (Epic #817, v5.28.0).
+**Date:** 2026-04-26
+**Surface:** `.agents/scripts/evidence-gate.js`
+
 -   **Context:** Epic #817's hot-path audit found lint and tests running
     five-plus times per Story against the same tree (sprint-execute Step 2,
     story-close, sprint-code-review, sprint-close Phase 4, pre-push, CI).
@@ -2249,8 +2277,10 @@ Named `sprint-story-close` the single canonical local Story validation gate, so 
 
 ## ADR-20260426-817c: Soft-failing gates surface degraded state explicitly, not silently
 
--   **Status:** Accepted (Epic #817, v5.28.0).
--   **Surface:** `.agents/scripts/lib/degraded-mode.js`
+**Status:** Accepted (Epic #817, v5.28.0).
+**Date:** 2026-04-26
+**Surface:** `.agents/scripts/lib/degraded-mode.js`
+
 -   **Context:** `select-audits.js` (diff timeout fallback to keyword-only),
     `lint-baseline.js` (zero-error fallback on JSON parse failure), and
     `baseline-refresh-guardrail.js` (empty-changed-files on `git diff`
@@ -2275,8 +2305,10 @@ Named `sprint-story-close` the single canonical local Story validation gate, so 
 
 ## ADR-20260426-817d: CLI entrypoints carry `node:coverage ignore file`; their `main()` is exercised via integration tests, not unit-line coverage
 
--   **Status:** Accepted (Epic #817 follow-on, v5.28.1).
--   **Surface:** `.agents/scripts/notify.js`
+**Status:** Accepted (Epic #817 follow-on, v5.28.1).
+**Date:** 2026-04-26
+**Surface:** `.agents/scripts/notify.js`
+
 -   **Context:** Story #816's long-tail CRAP cleanup attempted to score
     `run-audit-suite.js::main`, only to find the file was silently dropped
     from the CRAP scan because its first comment line is
@@ -2331,8 +2363,10 @@ Named `sprint-story-close` the single canonical local Story validation gate, so 
 
 ## ADR-20260502-960a: Production code is not shaped by test internals — tests import helpers directly with an explicit `ctx` bag
 
--   **Status:** Accepted (Epic #946, Stories C1+C2 → #960).
--   **Surface:** `.agents/scripts/lib/worktree/bootstrapper.js`
+**Status:** Accepted (Epic #946, Stories C1+C2 → #960).
+**Date:** 2026-05-02
+**Surface:** `.agents/scripts/lib/worktree/bootstrapper.js`
+
 -   **Context:** `WorktreeManager` historically grew a "Backwards-compat
     delegates for tests that probe private helpers" block — five
     `_`-prefixed methods (`_copyBootstrapFiles`, `_provisionWorkspace`,
@@ -2547,7 +2581,7 @@ The seven-row recategorization matrix from the Epic body (#1184) codifies the sp
 | `epic-plan` / `epic-deliver` → `mandrel-plan` / `mandrel-deliver` | **Keep as `epic-*`** | "Epic" is the domain concept the framework operates on. `mandrel-plan` is strictly less informative ("plan what?"). The noun the workflow acts on is the right primary axis for the name. |
 | `story-deliver` → helper | **Keep as command** | Operator-facing for individual story re-runs and debugging. The documented argument is a Story ID; the workflow is intended to be human-invocable, not just a fan-out target. |
 | `worktree-lifecycle` → helper | **Move to `.agents/workflows/helpers/`** | The file self-describes as "operator and reviewer reference" — it is documentation, not an executable workflow. It is already path-included from `story-deliver.md`. It should not appear in the `/` menu as runnable. After the move, `sync-claude-commands.js` automatically drops `.claude/commands/worktree-lifecycle.md` because the sync filter excludes the `helpers/` subdirectory. |
-| `drain-pending-cleanup` → helper | ~~**Keep as command**~~ → **Overturned: moved to `helpers/`** (Story #3706) | Original rationale assumed the manual path was load-bearing as a slash command. A later wiring audit (Story #3706) found it is **not** — see [§ Overturn: `drain-pending-cleanup` demoted to a helper](#overturn-drain-pending-cleanup-demoted-to-a-helper) below. |
+| `drain-pending-cleanup` → helper | ~~**Keep as command**~~ → **Overturned: moved to `helpers/`** (Story #3706) | Original rationale assumed the manual path was load-bearing as a slash command. A later wiring audit (Story #3706) found it is **not** — see [`20260607-3706`](#adr-20260607-3706-drain-pending-cleanup-demoted-to-a-helper). |
 
 ### Consequences
 
