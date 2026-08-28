@@ -363,6 +363,33 @@
         "**/openapi/**",
         "**/graphql/**"
       ]
+    },
+    "deploy-runtime": {
+      "description": "Deployment and runtime topology: the CI/CD pipeline, infrastructure-as-code, container images, and the server/serverless entrypoint with its platform and build config. A change here alters how the product is built, bound, and run in production without necessarily touching application logic. Build configs are enumerated by name rather than matched with a blanket `**/*.config.*` glob, which would swallow the test and lint configs and flip nearly every change set to high.",
+      "filePatterns": [
+        ".github/workflows/**",
+        ".github/actions/**",
+        "**/Dockerfile",
+        "**/docker-compose*.yml",
+        "**/docker-compose*.yaml",
+        "infra/**",
+        "**/*.tf",
+        "**/*.tfvars",
+        "**/wrangler.json",
+        "**/wrangler.jsonc",
+        "**/wrangler.toml",
+        "**/worker-entry.ts",
+        "**/worker-entry.js",
+        "**/astro.config.*",
+        "**/next.config.*",
+        "**/nuxt.config.*",
+        "**/svelte.config.*",
+        "**/fly.toml",
+        "**/vercel.json",
+        "**/netlify.toml",
+        "**/serverless.yml",
+        "**/serverless.yaml"
+      ]
     }
   }
 }
