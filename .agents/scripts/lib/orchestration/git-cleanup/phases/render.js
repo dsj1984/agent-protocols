@@ -62,6 +62,41 @@ function contentMergedNote(candidate) {
 }
 
 /**
+ * Pure: render a single behind-the-merged-head candidate annotation.
+ *
+ * A branch whose tip is a strict ancestor of its merged PR head is a
+ * stale pre-merge snapshot — reapable, because every commit on it landed
+ * with the PR, but reapable for a different reason than a branch whose
+ * tip *matches* the merged head. It used to be skipped outright as a
+ * post-merge force-push; the note keeps the two visibly distinct in the
+ * dry-run list and the confirmation prompt so the operator can see why a
+ * branch that is not at the merged head is nonetheless offered.
+ */
+function behindMergeNote(candidate) {
+  return candidate.behindMerge
+    ? ' (tip behind the merged head — content already landed)'
+    : '';
+}
+
+/** Pure: every provenance annotation a candidate row carries, in order. */
+function candidateNotes(candidate) {
+  return `${contentMergedNote(candidate)}${behindMergeNote(candidate)}`;
+}
+
+/**
+ * Pure: one candidate row — its detection provenance, worktree, locality
+ * and annotations. Split out of {@link renderDryRun} so that renderer
+ * stays a loop over rows rather than growing a fourth inline ternary
+ * every time a candidate gains a new dimension.
+ */
+function renderCandidateRow(c) {
+  const pr = c.prNumber ? `PR #${c.prNumber}` : c.detectedBy;
+  const wt = c.hasWorktree ? ` (worktree: ${c.worktreePath})` : '';
+  const remoteOnly = c.localExists === false ? ' (remote-only)' : '';
+  return `  • ${c.branch} — ${pr}${wt}${remoteOnly}${candidateNotes(c)}`;
+}
+
+/**
  * Pure: render the branch-phase candidate list as the operator-facing text
  * block.
  *
@@ -87,14 +122,7 @@ export function renderDryRun(plan, opts = {}) {
   if (plan.candidates.length === 0) {
     lines.push('  (no merged branches to clean up)');
   } else {
-    for (const c of plan.candidates) {
-      const pr = c.prNumber ? `PR #${c.prNumber}` : c.detectedBy;
-      const wt = c.hasWorktree ? ` (worktree: ${c.worktreePath})` : '';
-      const remoteOnly = c.localExists === false ? ' (remote-only)' : '';
-      lines.push(
-        `  • ${c.branch} — ${pr}${wt}${remoteOnly}${contentMergedNote(c)}`,
-      );
-    }
+    for (const c of plan.candidates) lines.push(renderCandidateRow(c));
   }
   const skipped = plan.skipped ?? [];
   const currentHeadSkip = skipped.find((s) => s.reason === 'current-head');
@@ -142,13 +170,24 @@ export function renderCandidateList({ plan, opts = {}, baseBranch = null }) {
 }
 
 /**
+ * Pure: the tip / merged short-SHA pair both merged-tip skip lines quote,
+ * with a placeholder for either side the planner could not resolve.
+ */
+function shortShaPair(skip) {
+  return {
+    tip: skip.tipSha ? skip.tipSha.slice(0, 7) : '<unknown>',
+    merged: skip.mergedSha ? skip.mergedSha.slice(0, 7) : '<unknown>',
+  };
+}
+
+/**
  * Pure: render a single latest-PR-state skip line. Returns null when the
  * skip reason is not one of the latest-PR family — `renderDryRun` filters
  * by truthy return value so unrelated skip reasons (`protected`,
  * `current-head`, `filtered`) stay quiet here. `not-merged` gets its own
  * renderer ({@link renderNotMergedSkipLine}).
  *
- * @param {{ branch: string, reason: string, prNumber?: number, tipSha?: string, mergedSha?: string }} skip
+ * @param {{ branch: string, reason: string, prNumber?: number, tipSha?: string, mergedSha?: string, detail?: string }} skip
  * @returns {string | null}
  */
 export function renderLatestPrSkipLine(skip) {
@@ -161,11 +200,17 @@ export function renderLatestPrSkipLine(skip) {
     return `${TAG} ⏭️  ${skip.branch} skipped — ${prRef} is still open`;
   }
   if (skip.reason === 'tip-diverged-from-merge') {
-    const tip = skip.tipSha ? skip.tipSha.slice(0, 7) : '<unknown>';
-    const merged = skip.mergedSha ? skip.mergedSha.slice(0, 7) : '<unknown>';
+    const { tip, merged } = shortShaPair(skip);
     return (
       `${TAG} ⏭️  ${skip.branch} skipped — tip ${tip} diverges from ${prRef}'s merged ${merged} (post-merge force-push); ` +
       `resolve by deleting manually (\`git branch -D ${skip.branch}\`) or pushing the follow-up commit`
+    );
+  }
+  if (skip.reason === 'unverifiable') {
+    const { tip, merged } = shortShaPair(skip);
+    return (
+      `${TAG} ⏭️  ${skip.branch} skipped — cannot verify tip ${tip} against ${prRef}'s merged ${merged}${skip.detail ? `: ${skip.detail}` : ''}; ` +
+      `fetch the missing commit or inspect the branch by hand before deleting it`
     );
   }
   if (skip.reason === 'latest-pr-unknown-state') {

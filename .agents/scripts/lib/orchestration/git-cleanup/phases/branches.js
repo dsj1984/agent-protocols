@@ -37,15 +37,19 @@ import {
   removeWorktree,
   worktreesByBranch,
 } from './git-probes.js';
+import { probeAncestry } from './merged-tip.js';
 import { parsePrunedRefs } from './prune.js';
 
 const TAG = '[git-cleanup]';
 
+/** Fields a planner verdict forwards onto its `skipped[]` entry. */
+const SKIP_DETAIL_FIELDS = ['prNumber', 'tipSha', 'mergedSha', 'detail'];
+
 function skipEntryFromVerdict(branch, verdict) {
   const entry = { branch, reason: verdict.reason };
-  if (verdict.prNumber != null) entry.prNumber = verdict.prNumber;
-  if (verdict.tipSha) entry.tipSha = verdict.tipSha;
-  if (verdict.mergedSha) entry.mergedSha = verdict.mergedSha;
+  for (const field of SKIP_DETAIL_FIELDS) {
+    if (verdict[field] != null) entry[field] = verdict[field];
+  }
   return entry;
 }
 
@@ -88,6 +92,7 @@ function evaluateLocalBranch({
   wtMap,
   remoteName,
   branchTipShaFn,
+  ancestryFn,
   contentEquivalentFn,
   branchLastCommitFn,
 }) {
@@ -102,6 +107,7 @@ function evaluateLocalBranch({
     remoteName,
     localExists: true,
     branchTipShaFn,
+    ancestryFn,
   });
   if (verdict.kind === 'skip') {
     return { skip: skipEntryFromVerdict(branch, verdict) };
@@ -134,6 +140,7 @@ function evaluateLocalBranch({
       worktreePath: wt?.path ?? null,
       detectedBy,
       localExists: true,
+      behindMerge: verdict.reason === 'tip-behind-merge',
     },
   };
 }
@@ -147,6 +154,7 @@ function collectRemoteOnlyCandidates({
   filter,
   prProbe,
   branchTipShaFn,
+  ancestryFn,
   skipped,
 }) {
   const out = [];
@@ -162,6 +170,7 @@ function collectRemoteOnlyCandidates({
       remoteName,
       localExists: false,
       branchTipShaFn,
+      ancestryFn,
     });
     if (verdict.kind === 'no-pr') continue;
     if (verdict.kind === 'skip') {
@@ -176,6 +185,7 @@ function collectRemoteOnlyCandidates({
       worktreePath: null,
       detectedBy: 'remote-only',
       localExists: false,
+      behindMerge: verdict.reason === 'tip-behind-merge',
     });
   }
   return out;
@@ -187,10 +197,12 @@ function collectRemoteOnlyCandidates({
  * The PR probe classifies each candidate by the **latest** PR on the head
  * ref rather than any historical merge. Branches whose latest PR is OPEN
  * or CLOSED-not-merged are skipped with `reason: 'latest-pr-open'` /
- * `reason: 'latest-pr-closed-not-merged'`. When the latest PR is MERGED
- * but the branch tip has diverged from the PR's `headRefOid` (post-merge
- * force-push), the branch is skipped with
- * `reason: 'tip-diverged-from-merge'`.
+ * `reason: 'latest-pr-closed-not-merged'`. A MERGED PR whose `headRefOid`
+ * differs from the branch tip is resolved by ancestry in
+ * `merged-tip.js` — a tip *behind* the merged head becomes a candidate
+ * carrying `behindMerge: true`, a tip *ahead* of it keeps the
+ * `tip-diverged-from-merge` force-push skip, and an unresolvable rev
+ * skips as `unverifiable`.
  *
  * Performance (Story #3333): when the caller does not inject its own
  * `prProbe`, the planner fires **one** bulk `gh pr list --state all`
@@ -250,6 +262,7 @@ export function planCleanup(ctx) {
     prIndexFn = probeAllPrs,
     prFallback = probeLatestPr,
     branchTipShaFn = branchTipSha,
+    ancestryFn = probeAncestry,
     contentEquivalentFn = probeContentEquivalent,
     branchLastCommitFn = branchLastCommitAt,
     refExistsFn = refExists,
@@ -301,6 +314,7 @@ export function planCleanup(ctx) {
       wtMap,
       remoteName,
       branchTipShaFn,
+      ancestryFn,
       contentEquivalentFn,
       branchLastCommitFn,
     });
@@ -318,6 +332,7 @@ export function planCleanup(ctx) {
         filter,
         prProbe,
         branchTipShaFn,
+        ancestryFn,
         skipped,
       }),
     );
