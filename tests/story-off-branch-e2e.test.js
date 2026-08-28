@@ -1,11 +1,12 @@
 /**
- * Off-branch end-to-end regression baseline (Story #676 / Task #687).
+ * Off-branch end-to-end regression tests (Story #676 / Task #687).
  *
  * Exercises the worktreeIsolation=false codepath through the checkpoints the
  * task description calls out as "must-not-regress":
  *
- *   1. Story init startup log emits the env-aware [ENV] lines and routes
- *      through bootstrapBranch (not bootstrapWorktree).
+ *   1. Both routes onto the off-branch resolve to worktreeEnabled=false with
+ *      the right provenance — the AP_WORKTREE_ENABLED env override and the
+ *      CLAUDE_CODE_REMOTE auto-detect.
  *   2. WorktreeManager lifecycle methods short-circuit with no fs/git calls
  *      when constructed with `enabled: false`.
  *
@@ -13,11 +14,18 @@
  * dropped in Story #4545 along with that phase directory — it had no
  * production importer, so the test was the module's only caller.
  *
- * The captured log lines form the regression baseline — any future change
- * that lets an undefined-path warning or orphan-worktree message leak onto
- * the off-branch will fail the corresponding assertion below. The test does
- * not require a real GitHub provider or a live git repo; mocks isolate the
- * branch under test.
+ * A fourth case once claimed to hold a "regression baseline" of the operator
+ * log shape against `tests/fixtures/off-branch-baseline.md`. It never
+ * compared anything: it built a Set of expected prefixes and asserted only
+ * that the Set was non-empty, and the fixture it named had no reader. Both
+ * were deleted — the tokens were retired v1 vocabulary (`[CONTEXT] Epic:`,
+ * `[TASKS] Found`) describing a log surface the v2 cutover replaced. The
+ * cases below are what actually exercise the off-branch path. See ADR
+ * 20260424-668a in `docs/decisions.md`; do not restore a log-shape
+ * assertion without a real capture-and-compare behind it.
+ *
+ * The tests do not require a real GitHub provider or a live git repo; mocks
+ * isolate the branch under test.
  */
 
 import assert from 'node:assert/strict';
@@ -88,30 +96,4 @@ test('off-branch e2e: WorktreeManager lifecycle methods perform zero git/fs work
     skipped: [],
     skippedReason: 'isolation-disabled',
   });
-});
-
-test('off-branch e2e: regression baseline log shape matches expected operator surface', () => {
-  // The baseline is the exact set of leading log tokens an operator should
-  // see during a fresh /deliver run with AP_WORKTREE_ENABLED=false.
-  // Future changes that add per-call noise or undefined-path warnings will
-  // fail this membership check.
-  const expectedLogPrefixes = new Set([
-    '[ENV] worktreeIsolation=off',
-    '[ENV] sessionId=',
-    '[INIT] Initializing Story',
-    '[CONTEXT] Epic:',
-    '[CONTEXT] PRD:',
-    '[BLOCKERS]',
-    '[TASKS] Found',
-    '[GIT] Fetching remote refs',
-    '[GIT] Epic branch ref',
-    '[GIT] ✅ On branch:',
-    '[TICKETS] Transitioning',
-    '[DONE]',
-  ]);
-  // No assertion bodies — this token list is the captured baseline. The set
-  // is referenced by story-init's progress emitter; if a contributor
-  // renames a phase tag they must update this set in the same PR so the
-  // baseline tracks the operator-visible log shape.
-  assert.ok(expectedLogPrefixes.size > 0);
 });
