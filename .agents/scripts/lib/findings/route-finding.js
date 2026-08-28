@@ -13,14 +13,15 @@
  *      stamped into Issue bodies.
  *   3. `routeFinding(finding, { searchIssues, searchCandidates })` — classify a
  *      finding against existing Issues into one of `new | update-existing |
- *      duplicate | regression-of-closed`. Routing is a two-stage pass: a
- *      meaning-first **semantic candidate** pass runs FIRST (when a
- *      `searchCandidates` port is injected, e.g. wired to
- *      `semantic-issue-search.js`), then the exact **fingerprint
- *      confirmation** pass runs SECOND over that candidate pool. When no
- *      semantic port is injected the helper falls back to a fingerprint-only
- *      lookup via the `searchIssues` port. Either way the ports query BOTH
- *      open and closed issues; a closed fingerprint match yields
+ *      duplicate | regression-of-closed`. Routing gathers a candidate pool,
+ *      then confirms identity against it. **Every wired port runs, and their
+ *      results union** (Story #5079): the exact `searchIssues(sha)` lookup is
+ *      what reliably retrieves an Issue by its footer sha, while the
+ *      meaning-first `searchCandidates` pass (wired to
+ *      `semantic-issue-search.js`) widens that pool to catch a reworded
+ *      finding whose sha has drifted. The semantic pass **adds** to the
+ *      fingerprint lookup; it never replaces it. Whichever ports are wired
+ *      query BOTH open and closed issues; a closed fingerprint match yields
  *      `regression-of-closed`.
  *
  * Pure orchestration: no network I/O lives here. The `searchIssues` /
@@ -455,36 +456,97 @@ function confirmCandidates(hits, { sha, semanticKey = '' }) {
 }
 
 /**
- * Route a finding against existing Issues with a two-stage pass.
+ * Union candidate pools into one flat pool, keeping first-seen order and
+ * dropping an issue number an earlier pool already contributed.
  *
- * **Stage 1 — semantic candidate search (first).** When a `searchCandidates`
- * port is injected, it runs first to surface issues that *describe the same
- * problem by meaning* across BOTH open and closed issues (and, when the
- * caller wires it, an Epic's sub-issues). This widens the net beyond an exact
- * fingerprint so a reworded title or a moved file does not hide a real
- * duplicate. When no `searchCandidates` port is supplied the helper skips
- * straight to Stage 2 over the `searchIssues` lookup — the legacy
- * fingerprint-only behaviour, preserved verbatim.
+ * The fingerprint pool is passed first, so when both ports return the same
+ * Issue it is that pool's record — the one retrieved by exact identity — that
+ * survives into confirmation. Records without a usable number are left for
+ * {@link confirmCandidates} to reject, exactly as a single port's would be.
  *
- * **Stage 2 — fingerprint confirmation (second).** Whatever candidates Stage 1
- * produced are filtered down to those that actually carry the finding's
- * fingerprint footer, then resolved:
+ * @param {Array<unknown>} pools
+ * @returns {Array<object>}
+ */
+function unionCandidatePools(pools) {
+  const seen = new Set();
+  return pools.flat().filter((issue) => {
+    const number = issue?.number;
+    if (typeof number !== 'number') return true;
+    const fresh = !seen.has(number);
+    seen.add(number);
+    return fresh;
+  });
+}
+
+/**
+ * Gather the candidate pool for a finding from every wired port.
+ *
+ * A run with a single wired port returns that port's result **verbatim**, so
+ * the fingerprint-only wiring (`qa-explore`, and every caller that injects no
+ * semantic port) keeps its behaviour exactly — including how a non-array
+ * return is handled downstream by {@link confirmCandidates}.
+ *
+ * Both ports are awaited together; a rejection from either propagates rather
+ * than degrading silently to a partial pool.
+ *
+ * @param {object} finding
+ * @param {string} sha — the finding's full fingerprint.
+ * @param {{ searchIssues?: Function, searchCandidates?: Function }} ports
+ * @returns {Promise<Array<object>|unknown>}
+ */
+async function gatherCandidates(finding, sha, ports) {
+  const call = (port, arg) => (typeof port === 'function' ? [port(arg)] : []);
+  const pools = await Promise.all([
+    ...call(ports.searchIssues, sha),
+    ...call(ports.searchCandidates, finding),
+  ]);
+  return pools.length === 1 ? pools[0] : unionCandidatePools(pools);
+}
+
+/**
+ * Route a finding against existing Issues: gather candidates, then confirm.
+ *
+ * **Gather — every wired port runs, and their pools union (Story #5079).** The
+ * two ports answer different questions and neither subsumes the other:
+ *
+ * - `searchIssues(sha)` is the **exact** lookup. A fingerprint sha is one
+ *   high-signal term, so it retrieves the Issue whose footer carries it.
+ * - `searchCandidates(finding)` is the **meaning-first** pass. It widens the
+ *   pool to Issues describing the same problem under a different title, so a
+ *   reworded finding or a moved file still confirms by semantic key.
+ *
+ * This was a ternary until Story #5079: an injected semantic port *replaced*
+ * the fingerprint lookup instead of widening it. Production always injects
+ * one, so `searchIssues` was dead code on the live path and dedup rested
+ * entirely on a ~20-token bag-of-words query that does not reliably retrieve
+ * the Issue. The audit loop consequently re-filed Stories it had already
+ * filed, against the workflow's "Never open a duplicate Issue" constraint.
+ * Running both ports and unioning their pools is what closes that loop.
+ *
+ * A port that rejects **propagates**. A pool gathered from only some of its
+ * sources is not a smaller pool, it is an unknown one, so the caller
+ * (`classifyGroupsAgainstGitHub`) must record a degraded lookup rather than
+ * report a confident `new`.
+ *
+ * **Confirm.** The pooled candidates are filtered down to those that actually
+ * carry the finding's fingerprint footer — or, when `semanticKeyConfirm` is
+ * on, its location-based semantic-key footer — then resolved:
  *   - An open match → `update-existing` (or `duplicate` when more than one
  *     open issue carries the fingerprint).
  *   - A closed match (no open match) → `regression-of-closed`.
  *   - No confirmed match → `new`.
  *
- * The decision enum is identical on both paths.
+ * The decision enum is identical however the candidates were gathered.
  *
  * @param {object} finding
  * @param {object} ports
  * @param {(sha: string) => Promise<Array<{ number: number, state: string, body?: string }>>} [ports.searchIssues]
- *   Fingerprint-keyed lookup over open+closed issues. Required when
- *   `searchCandidates` is not supplied.
+ *   Fingerprint-keyed lookup over open+closed issues. Runs whenever it is
+ *   supplied. Required when `searchCandidates` is not.
  * @param {(finding: object) => Promise<Array<{ number: number, state: string, title?: string, body?: string }>>} [ports.searchCandidates]
  *   Meaning-first candidate search over open+closed issues (and Epic
- *   sub-issues). When supplied, runs FIRST; its candidates are then
- *   fingerprint-confirmed.
+ *   sub-issues). Runs whenever it is supplied, alongside `searchIssues` rather
+ *   than instead of it; the union is then confirmed by footer.
  * @param {object} [options]
  * @param {boolean} [options.semanticKeyConfirm=false] — also confirm a
  *   candidate by the location-based semantic-key footer, not the fingerprint
@@ -510,15 +572,14 @@ export async function routeFinding(
   const { full: sha } = fingerprintFinding(finding);
   const semanticKey = options.semanticKeyConfirm ? semanticKeyFor(finding) : '';
 
-  // Stage 1: semantic candidate pass first (when wired); else fingerprint
-  // lookup. Both yield a candidate pool drawn from open AND closed issues.
-  const hits =
-    typeof searchCandidates === 'function'
-      ? await searchCandidates(finding)
-      : await searchIssues(sha);
+  // Gather: every wired port runs, and their pools union (Story #5079).
+  const hits = await gatherCandidates(finding, sha, {
+    searchIssues,
+    searchCandidates,
+  });
 
-  // Stage 2: confirm identity by fingerprint footer (and, when opted in, the
-  // location-based semantic-key footer) over the candidate pool.
+  // Confirm identity by fingerprint footer (and, when opted in, the
+  // location-based semantic-key footer) over the pooled candidates.
   const confirmed = confirmCandidates(hits, { sha, semanticKey });
 
   return decideFromConfirmed(confirmed, sha);
@@ -526,6 +587,8 @@ export async function routeFinding(
 
 export const __testing = {
   MARKER,
+  gatherCandidates,
+  unionCandidatePools,
   SEMANTIC_MARKER,
   SEP,
   confirmCandidates,
