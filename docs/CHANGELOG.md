@@ -15,6 +15,21 @@ All notable changes to this project will be documented in this file.
 -->
 <!-- markdownlint-disable-file MD004 MD012 MD037 -->
 
+## [2.35.0](https://github.com/dsj1984/mandrel/compare/mandrel-v2.34.0...mandrel-v2.35.0) (2026-08-28)
+
+
+### Added
+
+* add /audit-adrs — global decisions-log audit lens (decision drift, supersede-chain integrity, structure, missing decisions) ([#5072](https://github.com/dsj1984/mandrel/issues/5072)) ([#5073](https://github.com/dsj1984/mandrel/issues/5073)) ([5757e6a](https://github.com/dsj1984/mandrel/commit/5757e6ae3da471713dcdb4ac8b6d8093ea36d6f4))
+
+
+### Fixed
+
+* **adrs:** add Reverted to the ADR status vocabulary and pin it to the skill (refs [#5078](https://github.com/dsj1984/mandrel/issues/5078)) ([#5083](https://github.com/dsj1984/mandrel/issues/5083)) ([d498575](https://github.com/dsj1984/mandrel/commit/d49857573725d8241d7083ad4579583b47af4935))
+* **audit-rules:** register a deploy-runtime sensitive-path class (refs [#5069](https://github.com/dsj1984/mandrel/issues/5069)) ([#5070](https://github.com/dsj1984/mandrel/issues/5070)) ([da7f9f3](https://github.com/dsj1984/mandrel/commit/da7f9f3969aa14afa45a89d1ee4973248268a7cd))
+* **findings:** union the fingerprint lookup with the semantic pass in routeFinding (refs [#5079](https://github.com/dsj1984/mandrel/issues/5079)) ([#5082](https://github.com/dsj1984/mandrel/issues/5082)) ([fd82de3](https://github.com/dsj1984/mandrel/commit/fd82de3496b4fe02cf29bead27957ce82ef7a0b2))
+* fix coverage-capture freshness: derive the scorable-source extension set from the CRAP scanner and fail closed when discovery finds nothing ([#5076](https://github.com/dsj1984/mandrel/issues/5076)) ([#5081](https://github.com/dsj1984/mandrel/issues/5081)) ([09f89c0](https://github.com/dsj1984/mandrel/commit/09f89c0bd39adde9936ebd6c47fb4c2a5c3ee4cd))
+
 ## [2.34.0](https://github.com/dsj1984/mandrel/compare/mandrel-v2.33.0...mandrel-v2.34.0) (2026-08-27)
 
 
