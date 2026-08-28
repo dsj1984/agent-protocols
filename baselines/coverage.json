@@ -1,12 +1,12 @@
 {
   "$schema": ".agents/schemas/baselines/coverage.schema.json",
   "kernelVersion": "1.0.0",
-  "generatedAt": "2026-08-26T23:20:26.711Z",
+  "generatedAt": "2026-08-28T18:23:00.640Z",
   "rollup": {
     "*": {
-      "lines": 95.94,
-      "branches": 86.71,
-      "functions": 88.91
+      "lines": 95.95,
+      "branches": 86.73,
+      "functions": 88.93
     }
   },
   "rows": [
@@ -894,8 +894,8 @@
     },
     {
       "path": ".agents/scripts/lib/close-validation/projections/crap.js",
-      "lines": 90.43,
-      "branches": 82,
+      "lines": 90.49,
+      "branches": 84.31,
       "functions": 88.89
     },
     {
@@ -1147,7 +1147,7 @@
     {
       "path": ".agents/scripts/lib/coverage-capture-fullscope.js",
       "lines": 100,
-      "branches": 93.75,
+      "branches": 93.33,
       "functions": 100
     },
     {
@@ -1164,8 +1164,8 @@
     },
     {
       "path": ".agents/scripts/lib/coverage-capture.js",
-      "lines": 97.99,
-      "branches": 88.24,
+      "lines": 98.28,
+      "branches": 89.09,
       "functions": 100
     },
     {
@@ -1542,8 +1542,8 @@
     },
     {
       "path": ".agents/scripts/lib/maintainability-utils.js",
-      "lines": 93.75,
-      "branches": 85.71,
+      "lines": 93.48,
+      "branches": 85.37,
       "functions": 100
     },
     {
@@ -2594,6 +2594,12 @@
       "path": ".agents/scripts/lib/skills/walk-skill-files.js",
       "lines": 96.43,
       "branches": 78.57,
+      "functions": 100
+    },
+    {
+      "path": ".agents/scripts/lib/source-extensions.js",
+      "lines": 100,
+      "branches": 100,
       "functions": 100
     },
     {

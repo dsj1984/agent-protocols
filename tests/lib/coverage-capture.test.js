@@ -411,6 +411,16 @@ describe('describeFreshness (Story #5076)', () => {
     assert.match(line, /quality\.gates\.crap\.targetDirs/);
   });
 
+  it('tolerates a missing verdict or dir list rather than throwing', () => {
+    // The renderer sits on the capture path's log line; a shape surprise
+    // there must not take down the capture it is describing.
+    assert.match(
+      describeFreshness({ reason: 'no-sources' }, undefined),
+      /\[\]/,
+    );
+    assert.equal(describeFreshness(undefined, ['src']), 'undefined');
+  });
+
   it('passes every self-explaining reason through unchanged', () => {
     for (const reason of ['stale', 'missing', 'fresh', 'scope-mismatch']) {
       assert.equal(describeFreshness({ reason }, ['src']), reason);
