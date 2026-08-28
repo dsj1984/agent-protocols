@@ -92,6 +92,41 @@ export function captureStampPath(cwd, coveragePath) {
 }
 
 /**
+ * Fold every dirty scorable working-tree file under the scanned dirs into
+ * `hash`, and report how many there were.
+ *
+ * Dirty files are not represented by their index blob SHA, so their on-disk
+ * bytes (or absence) go in explicitly. Split out of
+ * {@link computeContentDigest} to keep that function's complexity at its
+ * committed CRAP floor.
+ *
+ * @param {{
+ *   hash: import('node:crypto').Hash,
+ *   cwd: string,
+ *   readFileSync: typeof fs.readFileSync,
+ *   porcelain: string,
+ * }} opts `porcelain` is raw `git status --porcelain` output.
+ * @returns {number} Count of scorable dirty files folded in.
+ */
+function foldDirtySources({ hash, cwd, readFileSync, porcelain }) {
+  let count = 0;
+  for (const line of porcelain.split('\n').filter((l) => l.length > 3)) {
+    let file = line.slice(3).trim();
+    if (file.includes(' -> ')) file = file.split(' -> ').pop();
+    file = file.replace(/^"|"$/g, '');
+    if (!SCORABLE_SOURCE_EXT_RE.test(file)) continue;
+    count += 1;
+    hash.update(`\0${file}\0`);
+    try {
+      hash.update(readFileSync(path.resolve(cwd, file)));
+    } catch {
+      hash.update('<absent>');
+    }
+  }
+  return count;
+}
+
+/**
  * Compute a stable content digest of the scorable sources
  * (`source-extensions.js`) under `targetDirs`: the `git ls-files -s` listing (mode + blob SHA + path) of
  * tracked content, plus the on-disk bytes of any dirty working-tree files.
@@ -134,29 +169,16 @@ export function computeContentDigest(cwd, targetDirs, io = {}) {
       .filter((line) => SCORABLE_SOURCE_EXT_RE.test(line.trimEnd()));
     hash.update(tracked.join('\n'));
 
-    // Dirty working-tree files are not represented by their index blob SHA,
-    // so fold in their on-disk bytes (or absence) explicitly.
-    const dirty = git('status', '--porcelain', '--', ...dirs)
-      .split('\n')
-      .filter((line) => line.length > 3);
-    let scorableDirty = 0;
-    for (const line of dirty) {
-      let file = line.slice(3).trim();
-      if (file.includes(' -> ')) file = file.split(' -> ').pop();
-      file = file.replace(/^"|"$/g, '');
-      if (!SCORABLE_SOURCE_EXT_RE.test(file)) continue;
-      scorableDirty += 1;
-      hash.update(`\0${file}\0`);
-      try {
-        hash.update(readFileSync(path.resolve(cwd, file)));
-      } catch {
-        hash.update('<absent>');
-      }
-    }
+    const scorableDirty = foldDirtySources({
+      hash,
+      cwd,
+      readFileSync,
+      porcelain: git('status', '--porcelain', '--', ...dirs),
+    });
     // Discovery found nothing to digest: hashing the empty input would yield
     // a constant that can never go stale, so report "unavailable" instead and
     // let the caller's fail-closed mtime path decide.
-    if (tracked.length === 0 && scorableDirty === 0) return null;
+    if (tracked.length + scorableDirty === 0) return null;
     return hash.digest('hex');
   } catch {
     return null;
