@@ -34,7 +34,7 @@ reuse.
 normalized the eleven 2026-04/05 entries that carried those fields as list
 items instead, where the contract test's ADR predicate could not be pinned to
 them; their bodies keep the older bullet layout. The contract test now derives
-the ADR set structurally — every `## ` entry below the Index block, minus the
+the ADR set structurally — every level-two entry below the Index block, minus
 one the Index declares under "Not ADR entries" — so an entry missing a `Status`
 line or a `<date>-<ticket>` identifier fails rather than being silently
 reclassified as not-an-ADR.
@@ -317,7 +317,7 @@ to **not** build one is deliberate.
 > `run-lint` gate that called it. `.agents/docs/workflows.md` reads "Loops
 > namespace (0)". Read the frontmatter contract above as the shape a consumer
 > authors to, not as files this repository carries.
-
+>
 > **Full ADR:**
 > [`decisions/loop-units-division-of-labor.md`](decisions/loop-units-division-of-labor.md).
 
@@ -2271,8 +2271,8 @@ GitHub creation happens.
 Add `validateAcFreshness({ tickets, baseBranchRef, gitRunner })` to
 `.agents/scripts/lib/orchestration/ticket-validator.js`. The check runs
 ~~**only** on tickets whose `type === 'task'` (Features/Stories carry
-narrative copy that routinely names docs and templates)~~ — *amended, Story
-#5077: the predicate is `t.type === 'story'` (`ticket-validator.js`, whose own
+narrative copy that routinely names docs and templates)~~ — *amended by
+Story #5077 — the predicate is `t.type === 'story'` (`ticket-validator.js`, whose own
 JSDoc reads "Only Stories are scanned"), because the v2 cutover removed the
 `task` type entirely; the parenthetical exempting Stories now describes the
 exact population being gated* — and scans every
