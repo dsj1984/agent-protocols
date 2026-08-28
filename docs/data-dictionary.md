@@ -265,10 +265,10 @@ ratchet.
 | `AP_WORKTREE_ENABLED`             | Env var       | Operator override for the worktree resolver. Strict string match: `"true"` forces worktrees on; `"false"` forces worktrees off. Wins over the `CLAUDE_CODE_REMOTE` auto-detect and the committed config.            |
 | `CLAUDE_CODE_REMOTE`              | Env var       | Web-session marker set automatically inside claude.ai/code. When `=== "true"` and `AP_WORKTREE_ENABLED` is unset, the resolver disables worktrees. Also drives `runtime.isRemote`.                                  |
 | `CLAUDE_CODE_REMOTE_SESSION_ID`   | Env var       | Anthropic-provided web session id. Preferred input to `runtime.sessionId`; sanitised to `[a-z0-9]` and truncated to 12 chars.                                                                                       |
-| `runtime.sessionId`               | Runtime field | Process-local identity surfaced in the startup `[ENV] sessionId=…` log line for operator correlation. Prefers `CLAUDE_CODE_REMOTE_SESSION_ID`; falls back to a hostname+pid+random short-id. Stable across the run. |
+| `runtime.sessionId`               | Runtime field | Process-local identity, **computed but not surfaced** — no `[ENV] sessionId=…` line is emitted and the field has no consumer outside `resolveRuntime` (Story #5077). Prefers `CLAUDE_CODE_REMOTE_SESSION_ID`; falls back to a hostname+pid+random short-id. Stable across the run. |
 | `resolveWorktreeEnabled(opts, env)` | Helper      | `lib/config-resolver.js`. Returns the resolved boolean (env override → web auto-detect → committed config).                                                                                                          |
-| `resolveSessionId(env)`           | Helper        | `lib/config-resolver.js`. Returns the sanitised, 12-char session-id used in the startup log line.                                                                                                                    |
-| `resolveRuntime(opts, env)`       | Helper        | `lib/config-resolver.js`. Returns `{ worktreeEnabled, sessionId, isRemote }` plus the source attribution string used in the startup log line.                                                                        |
+| `resolveSessionId(env)`           | Helper        | `lib/config-resolver.js`. Returns the sanitised, 12-char session-id behind `runtime.sessionId`. Nothing logs or otherwise consumes it today.                                                                         |
+| `resolveRuntime(opts, env)`       | Helper        | `lib/config-resolver.js`. Returns `{ worktreeEnabled, sessionId, isRemote }` plus the source attribution string. Only the worktree half reaches the startup log.                                                    |
 
 ---
 
