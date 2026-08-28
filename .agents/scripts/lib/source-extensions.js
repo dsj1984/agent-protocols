@@ -37,9 +37,13 @@ import path from 'node:path';
  * deliberately absent: this set selects what the scanner already scores, not
  * every source file that exists in a consumer's tree.
  *
+ * Module-private: production consumers select through {@link
+ * SCORABLE_SOURCE_EXT_RE} or {@link isScorableSourceFile}, so exporting the
+ * raw list would be a dead production export.
+ *
  * @type {readonly string[]}
  */
-export const SCORABLE_SOURCE_EXTENSIONS = Object.freeze([
+const SCORABLE_SOURCE_EXTENSIONS = Object.freeze([
   '.js',
   '.mjs',
   '.cjs',

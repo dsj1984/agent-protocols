@@ -23,7 +23,6 @@ import { computeContentDigest } from '../../.agents/scripts/lib/coverage-capture
 import {
   isScorableSourceFile,
   SCORABLE_SOURCE_EXT_RE,
-  SCORABLE_SOURCE_EXTENSIONS,
 } from '../../.agents/scripts/lib/source-extensions.js';
 import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
 
@@ -39,13 +38,15 @@ const EXPECTED = ['.js', '.mjs', '.cjs', '.ts', '.tsx', '.mts', '.cts'];
 /** Extensions no consumer may treat as scorable. */
 const NOT_SCORABLE = ['.astro', '.vue', '.svelte', '.md', '.json', '.txt'];
 
-describe('SCORABLE_SOURCE_EXTENSIONS', () => {
-  it('is exactly the set the CRAP/maintainability engines score', () => {
-    assert.deepEqual([...SCORABLE_SOURCE_EXTENSIONS], EXPECTED);
-  });
-
-  it('is frozen so a consumer cannot mutate the shared set in place', () => {
-    assert.equal(Object.isFrozen(SCORABLE_SOURCE_EXTENSIONS), true);
+describe('the scorable-source extension set', () => {
+  it('accepts exactly the set the CRAP/maintainability engines score', () => {
+    // Asserted through the public predicate rather than an exported array:
+    // production selects via the predicate and the regex, so the list itself
+    // stays module-private (a test-only export is a dead production export).
+    const accepted = [...EXPECTED, ...NOT_SCORABLE].filter((ext) =>
+      isScorableSourceFile(`src/a${ext}`),
+    );
+    assert.deepEqual(accepted, EXPECTED);
   });
 
   it('derives its regex from the list, so there is one definition', () => {
