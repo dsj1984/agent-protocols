@@ -199,9 +199,9 @@ test('routeFinding exposes the fingerprint it routed on', async () => {
   assert.equal(result.fingerprint, sha);
 });
 
-// --- Two-stage routing: semantic candidate pass FIRST, fingerprint SECOND ---
+// --- Routing: gather from every wired port, then confirm by footer ---
 
-test('routeFinding runs the semantic candidate pass first when a searchCandidates port is supplied', async () => {
+test('routeFinding runs BOTH ports and unions their pools (Story #5079)', async () => {
   const calls = [];
   const { full: sha } = fingerprintFinding(baseFinding);
   const result = await routeFinding(baseFinding, {
@@ -210,16 +210,86 @@ test('routeFinding runs the semantic candidate pass first when a searchCandidate
       assert.equal(finding.title, baseFinding.title);
       return [{ number: 42, state: 'open', body: fingerprintFooter(sha) }];
     },
-    searchIssues: async () => {
+    searchIssues: async (queried) => {
       calls.push('fingerprint');
+      assert.equal(queried, sha);
       return [];
     },
   });
-  // Semantic port ran; the fingerprint-only lookup did NOT (candidates came
-  // from the semantic pass, then were confirmed by footer in-process).
-  assert.deepEqual(calls, ['semantic']);
+  // The semantic pass WIDENS the exact lookup; it does not replace it. Both
+  // ports run, fingerprint first, and confirmation reads their union.
+  assert.deepEqual(calls, ['fingerprint', 'semantic']);
   assert.equal(result.decision, 'update-existing');
   assert.equal(result.matchedIssue.number, 42);
+});
+
+test('routeFinding confirms an Issue only the fingerprint port returns (Story #5079)', async () => {
+  // The measured shape behind #5079: the filed Story carries the finding's
+  // fingerprint footer, but the semantic bag-of-words query does not retrieve
+  // it (GitHub returned total_count: 0 for the real query). Before the union
+  // the whole pool was that empty semantic result, so the finding routed
+  // `new` and the audit loop re-filed an Issue that already existed.
+  const { full: sha } = fingerprintFinding(baseFinding);
+  const result = await routeFinding(baseFinding, {
+    searchCandidates: async () => [],
+    searchIssues: async () => [
+      { number: 5077, state: 'open', body: fingerprintFooter(sha) },
+    ],
+  });
+  assert.equal(result.decision, 'update-existing');
+  assert.equal(result.matchedIssue.number, 5077);
+});
+
+test('routeFinding routes a closed fingerprint-only match to regression-of-closed (Story #5079)', async () => {
+  const { full: sha } = fingerprintFinding(baseFinding);
+  const result = await routeFinding(baseFinding, {
+    searchCandidates: async () => [],
+    searchIssues: async () => [
+      { number: 4321, state: 'closed', body: fingerprintFooter(sha) },
+    ],
+  });
+  assert.equal(result.decision, 'regression-of-closed');
+  assert.equal(result.matchedIssue.number, 4321);
+});
+
+test('routeFinding de-duplicates an Issue both ports return (Story #5079)', async () => {
+  const { full: sha } = fingerprintFinding(baseFinding);
+  const hit = { number: 77, state: 'open', body: fingerprintFooter(sha) };
+  const result = await routeFinding(baseFinding, {
+    searchCandidates: async () => [{ ...hit }],
+    searchIssues: async () => [{ ...hit }],
+  });
+  // One Issue confirming twice must not read as two open matches.
+  assert.equal(result.decision, 'update-existing');
+  assert.equal(result.matchedIssue.number, 77);
+});
+
+test('routeFinding propagates a searchIssues failure even when the semantic pass succeeds (Story #5079)', async () => {
+  // A pool gathered from only some of its sources is unknown, not smaller —
+  // the caller must degrade rather than report a confident decision.
+  await assert.rejects(
+    () =>
+      routeFinding(baseFinding, {
+        searchCandidates: async () => [],
+        searchIssues: async () => {
+          throw new Error('rate limit still exhausted after cooldown');
+        },
+      }),
+    /rate limit/,
+  );
+});
+
+test('routeFinding propagates a searchCandidates failure even when the fingerprint pass succeeds (Story #5079)', async () => {
+  await assert.rejects(
+    () =>
+      routeFinding(baseFinding, {
+        searchCandidates: async () => {
+          throw new Error('search query rejected (HTTP 422)');
+        },
+        searchIssues: async () => [],
+      }),
+    /422/,
+  );
 });
 
 test('routeFinding fingerprint-confirms the semantic candidate pool (drops a similar-but-unrelated hit)', async () => {

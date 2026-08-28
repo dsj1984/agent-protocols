@@ -146,3 +146,54 @@ test('classifyGroupsAgainstGitHub throws on non-array groups', async () => {
     }),
   );
 });
+
+// ---------------------------------------------------------------------------
+// Story #5079 — the semantic port widens the fingerprint lookup, never
+// replaces it. Production always injects `searchCandidates`, so before the
+// union the exact `findIssuesByFingerprint` lookup never ran on the live path
+// and already-filed groups re-classified `create`.
+// ---------------------------------------------------------------------------
+
+test('classifyGroupsAgainstGitHub skips an open match the semantic port does not return (Story #5079)', async () => {
+  const groups = [fakeGroup([FINDING_A])];
+  const provider = inMemoryProvider([
+    { number: 5077, state: 'open', body: `prelude\n${footerFor(FINDING_A)}\n` },
+  ]);
+  const { classifications, summary } = await classifyGroupsAgainstGitHub({
+    groups,
+    provider,
+    // The measured shape: the bag-of-words query retrieves nothing.
+    searchCandidates: async () => [],
+  });
+  assert.equal(classifications[0].action, 'skip-open');
+  assert.deepEqual(classifications[0].matchedIssues, [
+    { number: 5077, state: 'open' },
+  ]);
+  assert.equal(summary.skipOpen, 1);
+  assert.equal(summary.create, 0);
+  assert.equal(summary.dedupDegraded.count, 0);
+});
+
+test('classifyGroupsAgainstGitHub degrades when the fingerprint lookup fails under a healthy semantic pass (Story #5079)', async () => {
+  const groups = [fakeGroup([FINDING_A])];
+  const provider = {
+    async findIssuesByFingerprint() {
+      throw new Error('rate limit still exhausted after cooldown');
+    },
+  };
+  const degraded = [];
+  const { classifications, summary } = await classifyGroupsAgainstGitHub({
+    groups,
+    provider,
+    searchCandidates: async () => [],
+    onDegraded: (entry) => degraded.push(entry),
+  });
+  // A half-gathered pool must never be reported as a confident `create`.
+  assert.equal(classifications[0].action, 'create');
+  assert.equal(summary.dedupDegraded.count, 1);
+  assert.equal(
+    summary.dedupDegraded.groups[0].reason,
+    'rate limit still exhausted after cooldown',
+  );
+  assert.equal(degraded.length, 1);
+});

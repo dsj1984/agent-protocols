@@ -7,15 +7,21 @@ import { fileURLToPath } from 'node:url';
 /**
  * Story #4786 — contract tests for the decision log and the pattern archive.
  *
- * These pin the three invariants the ADR pruning depends on:
+ * These pin the four invariants the ADR pruning depends on:
  *
- *   1. An `Accepted` ADR names a `**Surface:**` path that exists on disk. An
+ *   1. Every entry below the ADR index carries a `**Status:**` line and a
+ *      `<date>-<ticket>` identifier. Story #5077 made this the enabling
+ *      invariant: the ADR predicate used to be `statusLine !== ''`, so an
+ *      entry missing the very field these assertions validate was
+ *      reclassified as not-an-ADR and skipped by all of them, while the index
+ *      went on counting it as in force.
+ *   2. An `Accepted` ADR names a `**Surface:**` path that exists on disk. An
  *      ADR is a claim about the current system; a decision cannot be in force
  *      while the file it decided is gone. Body paths are deliberately NOT
  *      checked — an ADR legitimately records what was true when written.
- *   2. Every ADR identifier in `docs/decisions.md` is unique, so a
+ *   3. Every ADR identifier in `docs/decisions.md` is unique, so a
  *      cross-reference by identifier resolves to exactly one entry.
- *   3. Every section archived out of `docs/patterns.md` leaves a pointer line
+ *   4. Every section archived out of `docs/patterns.md` leaves a pointer line
  *      behind in the live doc, so relocated history is never orphaned.
  */
 
@@ -28,9 +34,18 @@ const DECISIONS = path.join(REPO_ROOT, 'docs', 'decisions.md');
 const PATTERNS = path.join(REPO_ROOT, 'docs', 'patterns.md');
 const ARCHIVE = path.join(REPO_ROOT, 'docs', 'archive', 'patterns-2026-07.md');
 
+/**
+ * Headings below the index block that are deliberately not ADR entries. The
+ * index declares the same set under its "Not ADR entries" heading; keep the
+ * two in step. Everything else below `<!-- ADR-INDEX:END -->` is an ADR and is
+ * held to the full contract.
+ */
+const NON_ADR_HEADINGS = new Set(['Earlier ADRs (001 / 002 / 003)']);
+
 /** Split a decision log into `## `-delimited entries. */
 export function parseAdrs(source) {
   const lines = source.split('\n');
+  const indexEnd = lines.findIndex((l) => l.includes('<!-- ADR-INDEX:END -->'));
   const starts = [];
   lines.forEach((line, i) => {
     if (line.startsWith('## ')) starts.push(i);
@@ -48,7 +63,14 @@ export function parseAdrs(source) {
       status,
       surface: surfaceLine.match(/`([^`]+)`/)?.[1] ?? null,
       isAccepted: /^Accepted/i.test(status),
-      isAdr: statusLine !== '',
+      hasStatus: statusLine !== '',
+      // Structural, NOT `statusLine !== ''`. Keying the ADR predicate on a
+      // field these tests validate makes an entry that omits it disappear
+      // from the contract instead of failing it (Story #5077). A log with no
+      // index block yields no ADRs at all, which the populated-log assertion
+      // below turns into a failure rather than a silent pass.
+      isAdr:
+        indexEnd !== -1 && start > indexEnd && !NON_ADR_HEADINGS.has(title),
     };
   });
 }
@@ -67,6 +89,23 @@ export function adrIdentifier(title) {
   const match = title.match(/^ADR[- ]+([\w-]+)\s*:/);
   return match ? match[1] : null;
 }
+
+test('every decision-log entry declares a Status line', () => {
+  const adrs = parseAdrs(fs.readFileSync(DECISIONS, 'utf8')).filter(
+    (a) => a.isAdr,
+  );
+  assert.ok(
+    adrs.length > 20,
+    `expected a populated decision log, saw ${adrs.length} entries`,
+  );
+
+  const statusless = adrs.filter((a) => !a.hasStatus);
+  assert.deepEqual(
+    statusless.map((a) => `${DECISIONS}:${a.line} ${a.title}`),
+    [],
+    'every entry below the ADR index must declare **Status:** — the log reads an unmarked entry as in force, so the absent field is the case that must fail loudly',
+  );
+});
 
 test('every Accepted ADR names a Surface path that exists on disk', () => {
   const adrs = parseAdrs(fs.readFileSync(DECISIONS, 'utf8')).filter(
@@ -100,13 +139,25 @@ test('every ADR identifier in docs/decisions.md is unique', () => {
   );
   const seen = new Map();
   const duplicates = [];
+  const unidentified = [];
   for (const adr of adrs) {
     const id = adrIdentifier(adr.title);
-    if (!id) continue;
+    // An entry with no identifier used to `continue` here, so "no id at all"
+    // passed the identifier contract silently — and nothing could supersede
+    // the entry by reference, because there was no name to cite (#5077).
+    if (!id) {
+      unidentified.push(`${DECISIONS}:${adr.line} ${adr.title}`);
+      continue;
+    }
     if (seen.has(id))
       duplicates.push(`${id}: L${seen.get(id)} and L${adr.line}`);
     else seen.set(id, adr.line);
   }
+  assert.deepEqual(
+    unidentified,
+    [],
+    'every entry must carry a `<date>-<ticket>` identifier so another entry can supersede it by reference',
+  );
   assert.deepEqual(
     duplicates,
     [],
