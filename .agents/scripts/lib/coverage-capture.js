@@ -14,12 +14,20 @@ import { spawnSync } from 'node:child_process';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
+import {
+  isScorableSourceFile,
+  SCORABLE_SOURCE_EXT_RE,
+} from './source-extensions.js';
 
 /**
  * Walk a directory tree and return the newest mtime (ms since epoch) seen
- * across `.js` and `.mjs` files. Symlinks, missing dirs, and unreadable nodes
- * resolve to 0 so the caller treats "no sources" the same as "ancient sources"
- * — both mean "any existing coverage is fresh enough".
+ * across the scorable source files (`source-extensions.js`) — the same set
+ * the CRAP scanner walks, so freshness tracks exactly what the gate scores.
+ * Symlinks, missing dirs, and unreadable nodes resolve to 0.
+ *
+ * A 0 return means "discovery found nothing", which {@link isCoverageFresh}
+ * treats as an absence of evidence rather than as freshness — see its
+ * `no-sources` contract.
  *
  * Exported for unit testing.
  *
@@ -48,7 +56,7 @@ export function newestSourceMtime(cwd, targetDirs, io = {}) {
         continue;
       }
       if (!entry.isFile()) continue;
-      if (!entry.name.endsWith('.js') && !entry.name.endsWith('.mjs')) continue;
+      if (!isScorableSourceFile(entry.name)) continue;
       try {
         const m = statSync(childAbs).mtimeMs;
         if (m > newest) newest = m;
@@ -83,17 +91,55 @@ export function captureStampPath(cwd, coveragePath) {
   );
 }
 
-const SOURCE_EXT_RE = /\.(?:js|mjs)$/;
+/**
+ * Fold every dirty scorable working-tree file under the scanned dirs into
+ * `hash`, and report how many there were.
+ *
+ * Dirty files are not represented by their index blob SHA, so their on-disk
+ * bytes (or absence) go in explicitly. Split out of
+ * {@link computeContentDigest} to keep that function's complexity at its
+ * committed CRAP floor.
+ *
+ * @param {{
+ *   hash: import('node:crypto').Hash,
+ *   cwd: string,
+ *   readFileSync: typeof fs.readFileSync,
+ *   porcelain: string,
+ * }} opts `porcelain` is raw `git status --porcelain` output.
+ * @returns {number} Count of scorable dirty files folded in.
+ */
+function foldDirtySources({ hash, cwd, readFileSync, porcelain }) {
+  let count = 0;
+  for (const line of porcelain.split('\n').filter((l) => l.length > 3)) {
+    let file = line.slice(3).trim();
+    if (file.includes(' -> ')) file = file.split(' -> ').pop();
+    file = file.replace(/^"|"$/g, '');
+    if (!SCORABLE_SOURCE_EXT_RE.test(file)) continue;
+    count += 1;
+    hash.update(`\0${file}\0`);
+    try {
+      hash.update(readFileSync(path.resolve(cwd, file)));
+    } catch {
+      hash.update('<absent>');
+    }
+  }
+  return count;
+}
 
 /**
- * Compute a stable content digest of the `.js`/`.mjs` sources under
- * `targetDirs`: the `git ls-files -s` listing (mode + blob SHA + path) of
+ * Compute a stable content digest of the scorable sources
+ * (`source-extensions.js`) under `targetDirs`: the `git ls-files -s` listing (mode + blob SHA + path) of
  * tracked content, plus the on-disk bytes of any dirty working-tree files.
  * Checkout/branch churn leaves blob SHAs untouched, so the digest only moves
  * when content actually changes.
  *
  * Returns `null` when the digest cannot be computed (git unavailable, not a
  * repo, empty target list) so callers can fall back to the mtime heuristic.
+ * A target list that matches **no** scorable file is the same "unavailable"
+ * case, not a digest over zero files: this path is the primary freshness
+ * test, so returning a real hash of empty input would pin the artifact
+ * permanently fresh and make the mtime path's fail-closed verdict
+ * unreachable (Story #5076).
  *
  * @param {string} cwd Absolute repo root.
  * @param {string[]} targetDirs Repo-relative directories to digest.
@@ -120,26 +166,19 @@ export function computeContentDigest(cwd, targetDirs, io = {}) {
     const hash = crypto.createHash('sha256');
     const tracked = git('ls-files', '-s', '--', ...dirs)
       .split('\n')
-      .filter((line) => SOURCE_EXT_RE.test(line.trimEnd()));
+      .filter((line) => SCORABLE_SOURCE_EXT_RE.test(line.trimEnd()));
     hash.update(tracked.join('\n'));
 
-    // Dirty working-tree files are not represented by their index blob SHA,
-    // so fold in their on-disk bytes (or absence) explicitly.
-    const dirty = git('status', '--porcelain', '--', ...dirs)
-      .split('\n')
-      .filter((line) => line.length > 3);
-    for (const line of dirty) {
-      let file = line.slice(3).trim();
-      if (file.includes(' -> ')) file = file.split(' -> ').pop();
-      file = file.replace(/^"|"$/g, '');
-      if (!SOURCE_EXT_RE.test(file)) continue;
-      hash.update(`\0${file}\0`);
-      try {
-        hash.update(readFileSync(path.resolve(cwd, file)));
-      } catch {
-        hash.update('<absent>');
-      }
-    }
+    const scorableDirty = foldDirtySources({
+      hash,
+      cwd,
+      readFileSync,
+      porcelain: git('status', '--porcelain', '--', ...dirs),
+    });
+    // Discovery found nothing to digest: hashing the empty input would yield
+    // a constant that can never go stale, so report "unavailable" instead and
+    // let the caller's fail-closed mtime path decide.
+    if (tracked.length + scorableDirty === 0) return null;
     return hash.digest('hex');
   } catch {
     return null;
@@ -231,6 +270,13 @@ function readStampForScope(stamp, requireScope) {
  * under `targetDirs`. Missing files, missing target dirs, or any IO error
  * resolve to `false` so the caller captures rather than trusting stale data.
  *
+ * **Both paths fail closed on an empty source set (Story #5076).** Finding no
+ * scorable source under `targetDirs` means the check learned nothing, so it
+ * reports `{ fresh: false, reason: 'no-sources' }` and the caller captures.
+ * The alternative — treating "found nothing" as "nothing changed" — is how a
+ * `js|mjs`-only selector left the CRAP gate green while measuring nothing in
+ * every TypeScript consumer.
+ *
  * **Scope asymmetry (Story #4981, AC-4).** A stamp written by an incremental
  * capture (`scope: 'incremental'`) only covers the files the diff touched —
  * it must never satisfy a caller that requires the full-scope guarantee
@@ -299,10 +345,34 @@ export function isCoverageFresh({
     statSync,
     readdirSync,
   });
-  if (newestSrc === 0) return { fresh: true, reason: 'no-sources' };
+  // Source discovery found nothing. That is an absence of evidence, never a
+  // freshness guarantee — trusting it silently disables the capture (and with
+  // it the CRAP gate) for any tree the walk cannot see (Story #5076).
+  if (newestSrc === 0) return { fresh: false, reason: 'no-sources' };
   return coverageMtime >= newestSrc
     ? { fresh: true, reason: 'fresh' }
     : { fresh: false, reason: 'stale' };
+}
+
+/**
+ * Render a freshness verdict for the operator-facing capture log.
+ *
+ * Every reason but `no-sources` speaks for itself. That one does not: failing
+ * closed on an empty source walk is correct, but bare it reads as an
+ * unexplained full capture on every run, and the cause is far more often a
+ * `targetDirs` that does not name the project's sources than a genuine
+ * recapture — so the walked dirs and the key to fix are named inline
+ * (Story #5076).
+ *
+ * @param {{ reason?: string }} freshness Verdict from {@link isCoverageFresh}.
+ * @param {string[]} targetDirs The CRAP scan scope that was walked.
+ * @returns {string} The reason, annotated when it needs explaining.
+ */
+export function describeFreshness(freshness, targetDirs) {
+  const reason = freshness?.reason;
+  if (reason !== 'no-sources') return String(reason);
+  const dirs = (targetDirs ?? []).join(', ');
+  return `${reason} — no scorable source file found under [${dirs}]; if that does not name this project's sources, fix quality.gates.crap.targetDirs`;
 }
 
 /**

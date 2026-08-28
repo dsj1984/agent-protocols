@@ -1,11 +1,11 @@
 {
   "$schema": ".agents/schemas/baselines/maintainability.schema.json",
   "kernelVersion": "0.1.0",
-  "generatedAt": "2026-08-28T16:44:20.899Z",
+  "generatedAt": "2026-08-28T18:21:30.134Z",
   "rollup": {
     "*": {
       "min": 76.381,
-      "p50": 98.61,
+      "p50": 98.699,
       "p95": 125.857
     }
   },
@@ -1705,6 +1705,10 @@
     {
       "path": ".agents/scripts/lib/skills/walk-skill-files.js",
       "mi": 98.558
+    },
+    {
+      "path": ".agents/scripts/lib/source-extensions.js",
+      "mi": 123.338
     },
     {
       "path": ".agents/scripts/lib/stdio-flush.js",

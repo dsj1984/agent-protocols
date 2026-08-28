@@ -424,6 +424,36 @@ refresh-guardrail accepts it on the next PR.
 If your test runner doesn't produce per-method coverage, see "Disabling the
 gate" below.
 
+### Coverage freshness — what triggers a capture
+
+The CRAP scorer treats "no coverage" as "skip the method", so a missing or
+stale `coverage/coverage-final.json` silently weakens the gate.
+`coverage-capture.js` closes that hole by capturing coverage in-band, and
+decides whether it needs to by two rules (Story #5076):
+
+- **The source set is derived, not configured.** Freshness is measured over
+  exactly the extensions the CRAP scanner walks — `.js`, `.mjs`, `.cjs`,
+  `.ts`, `.tsx`, `.mts`, `.cts` — defined once in
+  `.agents/scripts/lib/source-extensions.js`. There is deliberately no
+  `.agentrc.json` key for this: a consumer-settable list would be a second
+  way to mis-scope the same gate. Formats the engines cannot parse
+  (`.astro`, `.vue`, `.svelte`) are not part of it — a project written in
+  those still has its `.ts`/`.tsx` measured.
+- **Both freshness paths fail closed on an empty source set.** Finding no
+  scorable source under `crap.targetDirs` means the check learned nothing,
+  so it captures rather than assuming coverage is current, and warns naming
+  the configured dirs. If you see that warning, `targetDirs` almost
+  certainly does not point at your sources — fix it rather than living with
+  a full capture on every run.
+
+**Upgrading from a version before this fix:** a TypeScript project's sources
+matched neither path, so the capture was skipped on every run and
+`crap:check` compared the committed baseline against itself. The first run
+after upgrading captures for real and measures your committed floors for the
+first time, which may surface breaches that were always there. That is a
+one-off re-baseline (`npm run crap:update`, committed with a
+`baseline-refresh:` subject), not a regression.
+
 ### Disabling the gate (single-flag opt-out)
 
 If your repo doesn't run coverage, set `enabled: false` in your
