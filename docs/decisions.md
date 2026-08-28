@@ -34,8 +34,8 @@ reuse.
 normalized the eleven 2026-04/05 entries that carried those fields as list
 items instead, where the contract test's ADR predicate could not be pinned to
 them; their bodies keep the older bullet layout. The contract test now derives
-the ADR set structurally (every `## ` entry below `<!-- ADR-INDEX:END -->`
-except the explicitly-declared non-ADR ones), so an entry missing a `Status`
+the ADR set structurally — every `## ` entry below the Index block, minus the
+one the Index declares under "Not ADR entries" — so an entry missing a `Status`
 line or a `<date>-<ticket>` identifier fails rather than being silently
 reclassified as not-an-ADR.
 
