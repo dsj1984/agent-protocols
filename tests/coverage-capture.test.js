@@ -318,4 +318,36 @@ describe('runCoverageCapture', () => {
       assert.equal(h.log.warn.length, 0);
     });
   });
+
+  describe("'no-sources' is diagnosable, not a silent slow path (Story #5076)", () => {
+    it('names the configured targetDirs and captures anyway', () => {
+      const h = harness({ fresh: { fresh: false, reason: 'no-sources' } });
+      assert.equal(runCoverageCapture(argv(), h.deps), 0);
+
+      // Fail closed: an empty source walk must still capture.
+      assert.equal(h.calls.capture.length, 1);
+
+      // And say why — an empty walk is far more often a mis-scoped
+      // `targetDirs` than a genuine recapture, so the dirs must be named or
+      // it reads as an unexplained slow path on every single run.
+      const logged = h.log.info.join('\n');
+      assert.match(logged, /no scorable source file found/i);
+      for (const dir of CRAP.targetDirs) {
+        assert.ok(
+          logged.includes(dir),
+          `expected the capture log to name target dir ${dir}`,
+        );
+      }
+      assert.match(logged, /quality\.gates\.crap\.targetDirs/);
+    });
+
+    it('leaves an ordinary stale recapture unannotated', () => {
+      const h = harness({ fresh: { fresh: false, reason: 'stale' } });
+      runCoverageCapture(argv(), h.deps);
+      assert.equal(h.calls.capture.length, 1);
+      const logged = h.log.info.join('\n');
+      assert.match(logged, /is stale; running/);
+      assert.doesNotMatch(logged, /targetDirs/);
+    });
+  });
 });

@@ -109,6 +109,26 @@ describe('projectCrapBreaches', () => {
     assert.equal(res.skipped, 'no-scorable-files');
   });
 
+  it('scores changed .mts / .cts files instead of dropping them (Story #5076)', async () => {
+    // The projection carried its own extension literal, narrower than the
+    // set the CRAP scanner actually walks, so a changed `.mts`/`.cts` file
+    // was silently excluded from the pre-merge projection.
+    let scored = null;
+    const res = await projectCrapBreaches({
+      ...baseOpts,
+      git: makeFakeGit({
+        files: ['src/a.mts', 'src/b.cts', 'docs/readme.md'],
+      }),
+      scoreFiles: async (files) => {
+        scored = files;
+        return [];
+      },
+    });
+    assert.equal(res.ok, true);
+    assert.notEqual(res.skipped, 'no-scorable-files');
+    assert.deepEqual(scored, ['src/a.mts', 'src/b.cts']);
+  });
+
   it('self-skips with "no-coverage" when the scorer reports no coverage artifact', async () => {
     const res = await projectCrapBreaches({
       ...baseOpts,
