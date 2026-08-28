@@ -211,6 +211,23 @@ findings land as actionable, tracked work rather than a report nobody reads.
 Run the deterministic checkers in `--check` mode only; the single write is the
 report artifact. Do not edit any documentation or code.
 
+### Boundary with the ADR lens
+
+**Decision-log semantics belong to [`audit-adrs`](audit-adrs.md)**, not to this
+lens: whether an `Accepted` ADR's claims still match the tree, whether its
+supersede chain resolves, whether the index and the entry bodies agree on a
+status, and whether a directional change landed with no decision recorded. That
+lens reads the whole decisions log as a graph; this one would only ever see the
+decisions file as one more prose doc.
+
+This lens keeps its **generic** coverage of that file — link integrity, command
+and path claims, and the History Bloat / Contradiction / Authority Drift
+categories above — and both lenses may legitimately touch `decisions.md`. When
+a finding turns on an ADR's **status, chain, or decided contract**, leave it to
+`audit-adrs` rather than reporting it here, so the two lenses do not
+double-report the same defect. The History Bloat remediation is unchanged and
+still applies: never prune an ADR by archiving — supersede it in place.
+
 ## Report additions
 
 Beyond the shared skeleton (Executive Summary + Detailed Findings from the

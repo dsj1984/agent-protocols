@@ -32,11 +32,12 @@ by `node .agents/scripts/generate-workflows-doc.js`; `npm run docs:check`
 fails when it drifts from the on-disk workflow set. To change a command’s
 description, edit the workflow file’s front-matter and regenerate.
 
-## Commands (27)
+## Commands (28)
 
 | Command | Description |
 | --- | --- |
 | `/audit-accessibility` | Audit WCAG accessibility conformance (static-first) with an optional runtime verification pass, and produce a structured findings report |
+| `/audit-adrs` | Audit the decisions log as a live contract — Accepted ADRs whose claims the tree has outgrown, broken supersede chains, structural gaps, and directional changes that landed with no decision recorded. A deliberately-global lens over whichever decisions-log layout the consumer ships. |
 | `/audit-architecture` | Audit architectural boundaries, module coupling, layering violations, and shipped-but-uncalled seams; emit a structured findings report keyed to the canonical severity scale. |
 | `/audit-baselines` | Audit the committed baseline surface — dead instruments, stale baselines, cross-gate hotspot clusters, trend drift, and floor-tightening headroom — and emit findings whose remediation burns the measured debt down and tightens the ratchet behind it. |
 | `/audit-clean-code` | Audit code smells, dead code, complexity hotspots, and maintainability-index outliers; emit a structured findings report. |
