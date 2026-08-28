@@ -19,6 +19,7 @@ import {
   planFastForward,
   planStashes,
   probeAllPrs,
+  probeAncestry,
   probeLatestPr,
   probeMergedPr,
   renderDryRun,
@@ -1902,6 +1903,10 @@ describe('git-cleanup.classifyLatestPr (four-state matrix)', () => {
     remoteName: 'origin',
     localExists: true,
     branchTipShaFn: () => null,
+    // Placeholder SHAs never resolve against a real object DB, so every
+    // case injects its ancestry outcome rather than letting the default
+    // probe spawn git and fail closed to `unverifiable`.
+    ancestryFn: () => ({ outcome: 'not-ancestor' }),
     ...overrides,
   });
 
@@ -1941,7 +1946,10 @@ describe('git-cleanup.classifyLatestPr (four-state matrix)', () => {
 
   it('emits skip with tip-diverged-from-merge when MERGED but tip moved', () => {
     const v = classifyLatestPr({
-      ...baseArgs({ branchTipShaFn: () => 'newshaXYZ' }),
+      ...baseArgs({
+        branchTipShaFn: () => 'newshaXYZ',
+        ancestryFn: () => ({ outcome: 'not-ancestor' }),
+      }),
       prInfo: {
         number: 2447,
         state: 'MERGED',
@@ -1977,6 +1985,147 @@ describe('git-cleanup.classifyLatestPr (four-state matrix)', () => {
     });
     assert.equal(v.kind, 'skip');
     assert.equal(v.reason, 'latest-pr-unknown-state');
+  });
+});
+
+describe('git-cleanup.probeAncestry (tri-state, fails closed)', () => {
+  const spawnStub =
+    (plan) =>
+    (_cwd, ...args) => {
+      if (args[0] === 'rev-parse') {
+        return (
+          plan.revParse?.(args.at(-1)) ?? { status: 0, stdout: '', stderr: '' }
+        );
+      }
+      return plan.isAncestor ?? { status: 0, stdout: '', stderr: '' };
+    };
+
+  it('maps git exit 0 to ancestor', () => {
+    const out = probeAncestry({
+      cwd: '/repo',
+      ancestorSha: 'aaaaaaa',
+      descendantSha: 'bbbbbbb',
+      spawn: spawnStub({ isAncestor: { status: 0, stdout: '', stderr: '' } }),
+    });
+    assert.deepEqual(out, { outcome: 'ancestor' });
+  });
+
+  it('maps git exit 1 to not-ancestor', () => {
+    const out = probeAncestry({
+      cwd: '/repo',
+      ancestorSha: 'aaaaaaa',
+      descendantSha: 'bbbbbbb',
+      spawn: spawnStub({ isAncestor: { status: 1, stdout: '', stderr: '' } }),
+    });
+    assert.deepEqual(out, { outcome: 'not-ancestor' });
+  });
+
+  it('maps git exit 128 to error, never to not-ancestor', () => {
+    const out = probeAncestry({
+      cwd: '/repo',
+      ancestorSha: 'aaaaaaa',
+      descendantSha: 'bbbbbbb',
+      spawn: spawnStub({
+        isAncestor: {
+          status: 128,
+          stdout: '',
+          stderr: 'fatal: Not a valid commit name bbbbbbb\n',
+        },
+      }),
+    });
+    assert.equal(out.outcome, 'error');
+    assert.notEqual(out.outcome, 'not-ancestor');
+    assert.match(out.reason, /Not a valid commit name/);
+  });
+
+  it('fails closed when the merged SHA is absent from the local object DB', () => {
+    const seen = [];
+    const out = probeAncestry({
+      cwd: '/repo',
+      ancestorSha: 'aaaaaaa',
+      descendantSha: 'deadbee',
+      spawn: (_cwd, ...args) => {
+        seen.push(args[0]);
+        if (args[0] === 'rev-parse') {
+          return args.at(-1).startsWith('deadbee')
+            ? { status: 1, stdout: '', stderr: '' }
+            : { status: 0, stdout: '', stderr: '' };
+        }
+        return { status: 0, stdout: '', stderr: '' };
+      },
+    });
+    assert.equal(out.outcome, 'error');
+    assert.match(out.reason, /unresolvable rev deadbee/);
+    // The guard runs BEFORE the comparison — a missing rev never reaches
+    // `merge-base`, whose empty-stdout 128 is what misreads as "no delta".
+    assert.ok(
+      !seen.includes('merge-base'),
+      'merge-base must not run once a rev fails to resolve',
+    );
+  });
+
+  it('guards both revs with rev-parse before comparing', () => {
+    const verified = [];
+    probeAncestry({
+      cwd: '/repo',
+      ancestorSha: 'aaaaaaa',
+      descendantSha: 'bbbbbbb',
+      spawn: (_cwd, ...args) => {
+        if (args[0] === 'rev-parse') verified.push(args.at(-1));
+        return { status: 0, stdout: '', stderr: '' };
+      },
+    });
+    assert.deepEqual(verified, ['aaaaaaa^{commit}', 'bbbbbbb^{commit}']);
+  });
+});
+
+describe('git-cleanup.classifyLatestPr ancestry taxonomy', () => {
+  const args = (ancestryFn) => ({
+    branch: 'story-1',
+    cwd: '/repo',
+    remoteName: 'origin',
+    localExists: true,
+    branchTipShaFn: () => 'tipsha1',
+    ancestryFn,
+    prInfo: { number: 1840, state: 'MERGED', headRefOid: 'mergedsha1' },
+  });
+
+  it('reaps a tip that is a strict ancestor of the merged head', () => {
+    const v = classifyLatestPr(args(() => ({ outcome: 'ancestor' })));
+    assert.equal(v.kind, 'candidate');
+    assert.equal(v.reason, 'tip-behind-merge');
+    assert.equal(v.tipSha, 'tipsha1');
+    assert.equal(v.mergedSha, 'mergedsha1');
+  });
+
+  it('keeps the force-push skip when the tip is not an ancestor', () => {
+    const v = classifyLatestPr(args(() => ({ outcome: 'not-ancestor' })));
+    assert.equal(v.kind, 'skip');
+    assert.equal(v.reason, 'tip-diverged-from-merge');
+  });
+
+  it('skips unverifiable — not tip-diverged — when ancestry errors', () => {
+    const v = classifyLatestPr(
+      args(() => ({ outcome: 'error', reason: 'unresolvable rev mergedsha1' })),
+    );
+    assert.equal(v.kind, 'skip');
+    assert.equal(v.reason, 'unverifiable');
+    assert.notEqual(v.reason, 'tip-diverged-from-merge');
+    assert.equal(v.detail, 'unresolvable rev mergedsha1');
+    assert.equal(v.prNumber, 1840);
+  });
+
+  it('passes the tip and merged head to the probe in ancestor->descendant order', () => {
+    let seen = null;
+    classifyLatestPr(
+      args((a) => {
+        seen = a;
+        return { outcome: 'ancestor' };
+      }),
+    );
+    assert.equal(seen.ancestorSha, 'tipsha1');
+    assert.equal(seen.descendantSha, 'mergedsha1');
+    assert.equal(seen.cwd, '/repo');
   });
 });
 
@@ -2023,6 +2172,7 @@ describe('git-cleanup.planCleanup latest-PR-state integration', () => {
           headRefOid: 'sha-merged',
         }),
         branchTipShaFn: () => 'sha-newer',
+        ancestryFn: () => ({ outcome: 'not-ancestor' }),
       }),
     );
     assert.equal(plan.candidates.length, 0);
@@ -2033,6 +2183,71 @@ describe('git-cleanup.planCleanup latest-PR-state integration', () => {
     assert.equal(skip.branch, 'release-please/foo');
     assert.equal(skip.tipSha, 'sha-newer');
     assert.equal(skip.mergedSha, 'sha-merged');
+  });
+
+  it('reaps a MERGED-latest branch whose tip is behind the merged head', () => {
+    const plan = planCleanup(
+      baseCtx({
+        localLister: () => ['story-1840'],
+        prProbe: () => ({
+          number: 1840,
+          state: 'MERGED',
+          mergedAt: '2026-08-27T10:00:00Z',
+          headRefOid: 'sha-merged',
+        }),
+        branchTipShaFn: () => 'sha-stale',
+        ancestryFn: () => ({ outcome: 'ancestor' }),
+      }),
+    );
+    assert.equal(plan.skipped.length, 0);
+    assert.equal(plan.candidates.length, 1);
+    assert.equal(plan.candidates[0].branch, 'story-1840');
+    assert.equal(plan.candidates[0].prNumber, 1840);
+    assert.equal(plan.candidates[0].behindMerge, true);
+  });
+
+  it('marks a tip-matching candidate as not behind the merged head', () => {
+    const plan = planCleanup(
+      baseCtx({
+        localLister: () => ['story-1841'],
+        prProbe: () => ({
+          number: 1841,
+          state: 'MERGED',
+          headRefOid: 'sha-merged',
+        }),
+        branchTipShaFn: () => 'sha-merged',
+      }),
+    );
+    assert.equal(plan.candidates.length, 1);
+    assert.equal(plan.candidates[0].behindMerge, false);
+  });
+
+  it('skips as unverifiable when the merged head is absent locally', () => {
+    const plan = planCleanup(
+      baseCtx({
+        localLister: () => ['story-1842'],
+        prProbe: () => ({
+          number: 1842,
+          state: 'MERGED',
+          headRefOid: 'sha-gone',
+        }),
+        branchTipShaFn: () => 'sha-stale',
+        ancestryFn: () => ({
+          outcome: 'error',
+          reason: 'unresolvable rev sha-gone',
+        }),
+      }),
+    );
+    assert.equal(plan.candidates.length, 0);
+    const skip = plan.skipped.find((sk) => sk.reason === 'unverifiable');
+    assert.ok(skip, 'expected an unverifiable skip');
+    assert.equal(skip.branch, 'story-1842');
+    assert.equal(skip.detail, 'unresolvable rev sha-gone');
+    assert.equal(
+      plan.skipped.find((sk) => sk.reason === 'tip-diverged-from-merge'),
+      undefined,
+      'an unresolvable merged head must never be labelled a force-push',
+    );
   });
 
   it('skips a CLOSED-not-merged branch (the 2026-05-18 release-please case)', () => {
@@ -2324,6 +2539,34 @@ describe('git-cleanup.renderLatestPrSkipLine', () => {
     assert.match(line, /PR #9 is still open/);
   });
 
+  it('renders unverifiable with short SHAs and the probe detail', () => {
+    const line = renderLatestPrSkipLine({
+      branch: 'story-1842',
+      reason: 'unverifiable',
+      prNumber: 1842,
+      tipSha: 'abcdef1234567890',
+      mergedSha: '1234567abcdef000',
+      detail: 'unresolvable rev 1234567abcdef000',
+    });
+    assert.match(line, /story-1842 skipped/);
+    assert.match(line, /cannot verify tip abcdef1/);
+    assert.match(line, /PR #1842's merged 1234567/);
+    assert.match(line, /unresolvable rev 1234567abcdef000/);
+    // It must never borrow the force-push diagnosis or its remedy.
+    assert.doesNotMatch(line, /force-push/);
+    assert.doesNotMatch(line, /follow-up commit/);
+  });
+
+  it('renders unverifiable without a detail', () => {
+    const line = renderLatestPrSkipLine({
+      branch: 'story-1843',
+      reason: 'unverifiable',
+      tipSha: 'abcdef1234567890',
+      mergedSha: '1234567abcdef000',
+    });
+    assert.match(line, /cannot verify tip abcdef1 against latest PR's merged/);
+  });
+
   it('renders tip-diverged-from-merge with short SHAs', () => {
     const line = renderLatestPrSkipLine({
       branch: 'release-please/foo',
@@ -2585,6 +2828,54 @@ describe('git-cleanup.renderCandidateList — header states the run mode', () =>
     assert.match(
       lines.find((l) => /current HEAD/.test(l)),
       /checkout main first/,
+    );
+  });
+});
+
+describe('git-cleanup.renderDryRun behind-merge annotation', () => {
+  const behind = {
+    branch: 'story-1840',
+    prNumber: 1840,
+    hasWorktree: false,
+    worktreePath: null,
+    detectedBy: 'gh',
+    localExists: true,
+    behindMerge: true,
+  };
+
+  it('annotates a behind-the-merged-head candidate', () => {
+    const lines = renderDryRun({ candidates: [behind], skipped: [] });
+    const row = lines.find((l) => l.includes('story-1840'));
+    assert.match(row, /PR #1840/);
+    assert.match(row, /tip behind the merged head — content already landed/);
+  });
+
+  it('leaves a tip-matching candidate unannotated', () => {
+    const lines = renderDryRun({
+      candidates: [{ ...behind, behindMerge: false }],
+      skipped: [],
+    });
+    const row = lines.find((l) => l.includes('story-1840'));
+    assert.doesNotMatch(row, /tip behind the merged head/);
+  });
+
+  it('surfaces an unverifiable skip in the dry-run block', () => {
+    const lines = renderDryRun({
+      candidates: [],
+      skipped: [
+        {
+          branch: 'story-1842',
+          reason: 'unverifiable',
+          prNumber: 1842,
+          tipSha: 'abcdef1234567890',
+          mergedSha: '1234567abcdef000',
+          detail: 'unresolvable rev 1234567abcdef000',
+        },
+      ],
+    });
+    assert.ok(
+      lines.some((l) => l.includes('cannot verify tip abcdef1')),
+      'expected the unverifiable skip line in the dry-run block',
     );
   });
 });

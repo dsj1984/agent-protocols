@@ -64,6 +64,7 @@ import {
   probeMergedPr,
   refExists,
 } from './lib/orchestration/git-cleanup/phases/git-probes.js';
+import { probeAncestry } from './lib/orchestration/git-cleanup/phases/merged-tip.js';
 import { parseCleanupArgs } from './lib/orchestration/git-cleanup/phases/parse-args.js';
 import {
   executePrune,
@@ -110,6 +111,7 @@ export {
   planFastForward,
   planStashes,
   probeAllPrs,
+  probeAncestry,
   probeContentEquivalent,
   probeLatestPr,
   probeMergedPr,

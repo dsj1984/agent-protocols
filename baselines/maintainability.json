@@ -1,11 +1,11 @@
 {
   "$schema": ".agents/schemas/baselines/maintainability.schema.json",
   "kernelVersion": "0.1.0",
-  "generatedAt": "2026-08-28T18:21:30.134Z",
+  "generatedAt": "2026-08-28T20:13:32.778Z",
   "rollup": {
     "*": {
       "min": 76.381,
-      "p50": 98.699,
+      "p50": 98.772,
       "p95": 125.857
     }
   },
@@ -1172,7 +1172,11 @@
     },
     {
       "path": ".agents/scripts/lib/orchestration/git-cleanup/phases/git-probes.js",
-      "mi": 98.12
+      "mi": 98.969
+    },
+    {
+      "path": ".agents/scripts/lib/orchestration/git-cleanup/phases/merged-tip.js",
+      "mi": 91.243
     },
     {
       "path": ".agents/scripts/lib/orchestration/git-cleanup/phases/parse-args.js",
@@ -1192,7 +1196,7 @@
     },
     {
       "path": ".agents/scripts/lib/orchestration/git-cleanup/phases/render.js",
-      "mi": 97.118
+      "mi": 99.521
     },
     {
       "path": ".agents/scripts/lib/orchestration/git-cleanup/phases/stashes.js",

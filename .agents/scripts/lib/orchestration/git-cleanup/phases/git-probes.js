@@ -17,6 +17,7 @@ import { execFileSync } from 'node:child_process';
 
 import { gitSpawn } from '../../../git-utils.js';
 import { parseWorktreePorcelain } from '../../../worktree-manager.js';
+import { resolveMergedTip } from './merged-tip.js';
 
 export {
   canFastForward,
@@ -452,6 +453,12 @@ export const __testing = { validSha, firstLsRemoteSha, firstStdoutLine };
  *     into `skipped[]` and continues.
  *   - `{ kind: 'no-pr' }` — caller continues without skipping.
  *
+ * A MERGED PR whose `headRefOid` differs from the branch tip is handed
+ * to {@link resolveMergedTip}, which resolves it by ancestry — see that
+ * module for the `tip-behind-merge` / `tip-diverged-from-merge` /
+ * `unverifiable` taxonomy and why a bare SHA inequality could not
+ * express it.
+ *
  * @param {{
  *   prInfo: { number?: number, state?: string, mergedAt?: string|null, headRefOid?: string|null } | null,
  *   branch: string,
@@ -459,8 +466,10 @@ export const __testing = { validSha, firstLsRemoteSha, firstStdoutLine };
  *   remoteName: string,
  *   localExists: boolean,
  *   branchTipShaFn: (args: { cwd: string, branch: string, remoteName: string, localExists: boolean }) => string | null,
+ *   ancestryFn?: Function,
+ *   mergedTipFn?: typeof resolveMergedTip,
  * }} args
- * @returns {{ kind: 'candidate', prInfo: object } | { kind: 'skip', reason: string, prNumber?: number, tipSha?: string|null, mergedSha?: string|null } | { kind: 'no-pr' }}
+ * @returns {{ kind: 'candidate', prInfo: object, reason?: string, tipSha?: string, mergedSha?: string } | { kind: 'skip', reason: string, prNumber?: number, tipSha?: string|null, mergedSha?: string|null, detail?: string } | { kind: 'no-pr' }}
  */
 export function classifyLatestPr({
   prInfo,
@@ -469,6 +478,8 @@ export function classifyLatestPr({
   remoteName,
   localExists,
   branchTipShaFn,
+  ancestryFn,
+  mergedTipFn = resolveMergedTip,
 }) {
   if (!prInfo) return { kind: 'no-pr' };
   const state =
@@ -494,17 +505,14 @@ export function classifyLatestPr({
       prNumber: prInfo.number ?? null,
     };
   }
-  if (prInfo.headRefOid) {
-    const tipSha = branchTipShaFn({ cwd, branch, remoteName, localExists });
-    if (tipSha && tipSha !== prInfo.headRefOid) {
-      return {
-        kind: 'skip',
-        reason: 'tip-diverged-from-merge',
-        prNumber: prInfo.number ?? null,
-        tipSha,
-        mergedSha: prInfo.headRefOid,
-      };
-    }
-  }
-  return { kind: 'candidate', prInfo };
+  const tipVerdict = mergedTipFn({
+    prInfo,
+    branch,
+    cwd,
+    remoteName,
+    localExists,
+    branchTipShaFn,
+    ancestryFn,
+  });
+  return tipVerdict ?? { kind: 'candidate', prInfo };
 }
