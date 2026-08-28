@@ -24,7 +24,20 @@ explicit `**Materially dead:**` line — grep for it.
 identifier, and the same contract test rejects a collision. Story #4786 resolved
 seven: the freshness-gate entry moved from `20260507-1114a` to `-1114b`, and the
 six date-only `ADR-20260421` / `ADR-20260422` entries gained their Epic suffix
-(`-321a/b`, `-380a/b`, `-413a/b`). Renumber, never reuse.
+(`-321a/b`, `-380a/b`, `-413a/b`). Story #5077 resolved the last two entries
+that carried no identifier at all: the facade entry became `20260420-297` and
+the `drain-pending-cleanup` overturn became `20260607-3706`. Renumber, never
+reuse.
+
+**Every entry carries `**Status:**`, `**Date:**` and — while in force —
+`**Surface:**` as block lines directly under its heading.** Story #5077
+normalized the eleven 2026-04/05 entries that carried those fields as list
+items instead, where the contract test's ADR predicate could not be pinned to
+them; their bodies keep the older bullet layout. The contract test now derives
+the ADR set structurally — every level-two entry below the Index block, minus
+one the Index declares under "Not ADR entries" — so an entry missing a `Status`
+line or a `<date>-<ticket>` identifier fails rather than being silently
+reclassified as not-an-ADR.
 
 Backticked paths **inside an entry's body are not maintained**. An ADR records
 what was true when it was written, so roughly 60% of them point at files later
@@ -47,51 +60,59 @@ the floor-vs-ratchet policy are tooling commitments rather than ADRs and live in
 
 <!-- ADR-INDEX:START -->
 
-**In force (35).** Each governs the surface named beside it.
+**In force (37).** Each governs the surface named beside it.
+A `Status` of `Accepted in part` means some clause of the entry has been
+superseded — open it before citing it.
 
-| Decision | Governs | Surface |
-| --- | --- | --- |
-| [`20260806-lifecycle-bus-retired`](#adr-20260806-lifecycle-bus-retired-delete-the-lifecycle-bus-the-close-path-owns-its-side-effects-directly) | Delete the lifecycle bus; the close path owns its side effects directly | `.agents/scripts/lib/orchestration/lifecycle/emit-ledger-event.js` |
-| [`20260802-4938-schema-compilers`](#adr-20260802-4938-schema-compilers-a-schema-is-compiled-by-code-or-declares-in-file-why-not) | A schema is compiled by code, or declares in-file why not | `.agents/scripts/check-schema-references.js` |
-| [`20260726-v2-story-collapse`](#adr-20260726-v2-story-collapse-story-only-ticket-model-one-plan-one-deliver-one-engine) | Story-only ticket model; one /plan, one /deliver, one engine | `.agents/workflows/deliver.md` |
-| [`20260624-loop-units-division-of-labor`](#adr-20260624-loop-units-division-of-labor-mandrel-owns-content--oracle--contract-the-host-owns-cadence--iteration) | mandrel owns content + oracle + contract; the host owns cadence +… | `.agents/scripts/sync-claude-commands.js` |
-| [`20260610-planning-determinism-dispositions`](#adr-20260610-planning-determinism-dispositions-per-layer-dispositions-for-the-deterministic-planning-proxies) | Per-layer dispositions for the deterministic planning proxies | `.agents/scripts/lib/orchestration/ticket-validator.js` |
-| [`Overturn`](#overturn-drain-pending-cleanup-demoted-to-a-helper) | `drain-pending-cleanup` demoted to a helper | `.agents/scripts/drain-pending-cleanup.js` |
-| [`20260604-flat-command-projection-revert`](#adr-20260604-flat-command-projection-revert-revert-the-plugin-cutover--project-workflows-as-flat-name-commands) | Revert the plugin cutover — project workflows as flat `/<name>` c… | `.agents/scripts/sync-claude-commands.js` |
-| [`20260519-adapter-layer-removed`](#adr-20260519-adapter-layer-removed-delete-the-iexecutionadapter-abstraction) | Delete the `IExecutionAdapter` abstraction | `.agents/scripts/providers/github.js` |
-| [`20260514-drop-churn-idle`](#adr-20260514-drop-churn-idle-drop-churn--idle-from-active-perf-signal-taxonomy) | Drop `churn` + `idle` from active perf-signal taxonomy | `.agents/schemas/agentrc.schema.json` |
-| [`20260512-coupling-stance`](#adr-20260512-coupling-stance-two-surface-coupling-stance) | Two-surface coupling stance | `.agents/scripts/providers/github.js` |
-| [`20260507-1072a`](#adr-20260507-1072a-bounded-fanout-tightened-module-boundaries-dead-module-sweep) | Bounded fanout, tightened module boundaries, dead-module sweep | `.agents/scripts/lib/branch-name-guard.js` |
-| [`20260507-1030a`](#adr-20260507-1030a-performance-signal-telemetry--events-local-summaries-on-tickets) | Performance-signal telemetry — events local, summaries on tickets | `.agents/scripts/diagnose-friction.js` |
-| [`20260505-990a`](#adr-20260505-990a-audit-remediation--agents-framework-hardening--concept-removal) | Audit remediation — `.agents` framework hardening + concept removal | `.agents/schemas/audit-rules.json` |
-| [`20260426-829a`](#adr-20260426-829a-strip-then-analyze-for-typescript-scoring-keep-typhonjs-escomplex) | Strip-then-analyze for TypeScript scoring; keep typhonjs-escomplex | `.agents/scripts/lib/transpile.js` |
-| [`20260425-773a`](#adr-20260425-773a-crap-gate-becomes-hard-enforcing) | CRAP gate becomes hard-enforcing | `baselines/crap.json` |
-| [`20260425-773b`](#adr-20260425-773b-decompose-two-further-large-modules-behind-byte-identical-facades) | Decompose two further large modules behind byte-identical facades | `.agents/scripts/lib/worktree/lifecycle-manager.js` |
-| [`20260425-730a`](#adr-20260425-730a-consolidate-agentsettings-into-a-grouped-schema-validated-contract) | Consolidate `agentSettings` into a grouped, schema-validated cont… | `.agents/scripts/lib/config-settings-schema.js` |
-| [`20260424-702a`](#adr-20260424-702a-retire-mandrel-mcp) | Retire mandrel MCP | `.agents/scripts/post-structured-comment.js` |
-| [`20260424-668a`](#adr-20260424-668a-resolve-worktreeisolationenabled-from-environment-not-config) | Resolve `worktreeIsolation.enabled` from environment, not config | `.agents/scripts/lib/config/runtime.js` |
-| [`004`](#adr-004-gherkin-standards-as-sole-ssot-for-bdd-tags--forbidden-patterns) | Gherkin Standards as Sole SSOT for BDD Tags & Forbidden Patterns | `.agents/rules/gherkin-standards.md` |
-| [`ADR: Decompose oversized orchestration modules via facade pattern`](#adr-decompose-oversized-orchestration-modules-via-facade-pattern) | Decompose oversized orchestration modules via facade pattern | `.agents/scripts/lib/worktree-manager.js` |
-| [`20260421-321b`](#adr-20260421-321b-retire-riskhigh-runtime-gating) | Retire `risk::high` runtime gating | `.agents/instructions.md` |
-| [`20260422-380a`](#adr-20260422-380a-two-stage-windows-worktree-reap-fsrm-retry--deferred-sweep) | Two-stage Windows worktree reap (fs.rm retry + deferred sweep) | `.agents/scripts/lib/worktree/lifecycle-manager.js` |
-| [`20260422-441a`](#adr-20260422-441a-force-reap-worktrees-whose-story-branch-is-already-merged) | Force-reap worktrees whose Story branch is already merged | `.agents/scripts/boot-sweep.js` |
-| [`20260423-511b`](#adr-20260423-511b-transitionticketstatefromstate-lookup-keeps-its-swallow-now-with-a-debug-log) | `transitionTicketState.fromState` lookup keeps its swallow, now w… | `.agents/scripts/providers/github/tickets.js` |
-| [`20260424-596a`](#adr-20260424-596a-crap-as-a-sibling-gate-not-a-replacement-for-mi) | CRAP as a sibling gate, not a replacement for MI | `baselines/maintainability.json` |
-| [`20260424-596c`](#adr-20260424-596c-kernel-version-stamp-on-the-crap-baseline) | Kernel-version stamp on the CRAP baseline | `baselines/crap.json` |
-| [`20260424-638a`](#adr-20260424-638a-story-566-reap-recovery-is-a-self-inflicted-dirty-tree-bug) | `story-566` reap recovery is a self-inflicted dirty-tree bug | `.agents/scripts/lib/worktree/bootstrapper.js` |
-| [`20260426-817a`](#adr-20260426-817a-validation-evidence-is-keyed-by-commit-sha-not-by-build-id) | Validation evidence is keyed by commit SHA, not by build ID | `.agents/scripts/evidence-gate.js` |
-| [`20260426-817c`](#adr-20260426-817c-soft-failing-gates-surface-degraded-state-explicitly-not-silently) | Soft-failing gates surface degraded state explicitly, not silently | `.agents/scripts/lib/degraded-mode.js` |
-| [`20260426-817d`](#adr-20260426-817d-cli-entrypoints-carry-nodecoverage-ignore-file-their-main-is-exercised-via-integration-tests-not-unit-line-coverage) | CLI entrypoints carry `node:coverage ignore file`; their `main()`… | `.agents/scripts/notify.js` |
-| [`20260502-960a`](#adr-20260502-960a-production-code-is-not-shaped-by-test-internals--tests-import-helpers-directly-with-an-explicit-ctx-bag) | Production code is not shaped by test internals — tests import he… | `.agents/scripts/lib/worktree/bootstrapper.js` |
-| [`20260507-1114b`](#adr-20260507-1114b-freshness-gate-on-decompose--fail-fast-on-stale-path-references) | Freshness gate on decompose — fail fast on stale path references | `.agents/scripts/lib/orchestration/ticket-validator.js` |
-| [`20260512-loop-adoption`](#adr-20260512-loop-adoption-adopt-built-in-loop-no-homegrown-surface-to-reconcile) | Adopt built-in `/loop`; no homegrown surface to reconcile | `.agents/scripts/lib/util/poll-loop.js` |
-| [`20260513-command-naming-discipline`](#adr-20260513-command-naming-discipline-domain-vocabulary-command-names-single-mandrel-prefixed-discoverability-entry) | Domain-vocabulary command names; single Mandrel-prefixed discover… | `.agents/scripts/sync-claude-commands.js` |
+| Decision | Governs | Surface | Status |
+| --- | --- | --- | --- |
+| [`20260828-5077a`](#adr-20260828-5077a-the-dispatch-record-is-the-story-github-surface-not-a-manifest-artifact) | The dispatch record is the Story's GitHub surface | `.agents/scripts/lib/orchestration/ticketing.js` | Accepted |
+| [`20260828-5077b`](#adr-20260828-5077b-the-wired-detector-set-is-rework--retry-and-unknown-deliverysignals-keys-are-rejected) | Wired detector set is `{rework, retry}`; `delivery.signals` is closed | `.agents/scripts/lib/config/limits.js` | Accepted |
+| [`20260828-5077c`](#adr-20260828-5077c-performance-signal-telemetry-is-local-only--no-summary-comment-reaches-a-ticket) | Perf-signal telemetry is local-only — no ticket summaries | `.agents/scripts/lib/signals/write.js` | Accepted |
+| [`20260828-5077d`](#adr-20260828-5077d-agentsreadmemd-is-the-bundles-single-homed-reference-not-a-150-line-pointer) | `.agents/README.md` is single-homed; no line ceiling | `.agents/README.md` | Accepted |
+| [`20260828-5077e`](#adr-20260828-5077e-agentrcjson-has-a-closed-five-block-top-level-there-is-no-agentsettings-namespace) | `.agentrc.json` has a closed five-block top level | `.agents/schemas/agentrc.schema.json` | Accepted |
+| [`20260828-5077f`](#adr-20260828-5077f-dependency-ordering-has-two-channels--declared-edges-and-the-delivery-time-footprint-guard) | Two ordering channels — declared edges + footprint guard | `.agents/scripts/stories-wave-tick.js` | Accepted |
+| [`20260806-lifecycle-bus-retired`](#adr-20260806-lifecycle-bus-retired-delete-the-lifecycle-bus-the-close-path-owns-its-side-effects-directly) | Delete the lifecycle bus; the close path owns its side effects directly | `.agents/scripts/lib/orchestration/lifecycle/emit-ledger-event.js` | Accepted |
+| [`20260802-4938-schema-compilers`](#adr-20260802-4938-schema-compilers-a-schema-is-compiled-by-code-or-declares-in-file-why-not) | A schema is compiled by code, or declares in-file why not | `.agents/scripts/check-schema-references.js` | Accepted |
+| [`20260726-v2-story-collapse`](#adr-20260726-v2-story-collapse-story-only-ticket-model-one-plan-one-deliver-one-engine) | Story-only ticket model; one /plan, one /deliver, one engine | `.agents/workflows/deliver.md` | Accepted |
+| [`20260624-loop-units-division-of-labor`](#adr-20260624-loop-units-division-of-labor-mandrel-owns-content--oracle--contract-the-host-owns-cadence--iteration) | mandrel owns content + oracle + contract; the host owns cadence +… | `.agents/scripts/sync-claude-commands.js` | Accepted |
+| [`20260610-planning-determinism-dispositions`](#adr-20260610-planning-determinism-dispositions-per-layer-dispositions-for-the-deterministic-planning-proxies) | Per-layer dispositions for the deterministic planning proxies | `.agents/scripts/lib/orchestration/ticket-validator.js` | Accepted in part |
+| [`20260607-3706`](#adr-20260607-3706-drain-pending-cleanup-demoted-to-a-helper) | `drain-pending-cleanup` demoted to a helper | `.agents/scripts/drain-pending-cleanup.js` | Accepted |
+| [`20260604-flat-command-projection-revert`](#adr-20260604-flat-command-projection-revert-revert-the-plugin-cutover--project-workflows-as-flat-name-commands) | Revert the plugin cutover — project workflows as flat `/<name>` c… | `.agents/scripts/sync-claude-commands.js` | Accepted |
+| [`20260512-coupling-stance`](#adr-20260512-coupling-stance-two-surface-coupling-stance) | Two-surface coupling stance | `.agents/scripts/providers/github.js` | Accepted |
+| [`20260507-1072a`](#adr-20260507-1072a-bounded-fanout-tightened-module-boundaries-dead-module-sweep) | Bounded fanout, tightened module boundaries, dead-module sweep | `.agents/scripts/lib/branch-name-guard.js` | Accepted |
+| [`20260505-990a`](#adr-20260505-990a-audit-remediation--agents-framework-hardening--concept-removal) | Audit remediation — `.agents` framework hardening + concept removal | `.agents/schemas/audit-rules.json` | Accepted in part |
+| [`20260426-829a`](#adr-20260426-829a-strip-then-analyze-for-typescript-scoring-keep-typhonjs-escomplex) | Strip-then-analyze for TypeScript scoring; keep typhonjs-escomplex | `.agents/scripts/lib/transpile.js` | Accepted |
+| [`20260425-773a`](#adr-20260425-773a-crap-gate-becomes-hard-enforcing) | CRAP gate becomes hard-enforcing | `baselines/crap.json` | Accepted |
+| [`20260425-773b`](#adr-20260425-773b-decompose-two-further-large-modules-behind-byte-identical-facades) | Decompose two further large modules behind byte-identical facades | `.agents/scripts/lib/worktree/lifecycle-manager.js` | Accepted |
+| [`20260424-702a`](#adr-20260424-702a-retire-mandrel-mcp) | Retire mandrel MCP | `.agents/scripts/post-structured-comment.js` | Accepted |
+| [`20260424-668a`](#adr-20260424-668a-resolve-worktreeisolationenabled-from-environment-not-config) | Resolve `worktreeIsolation.enabled` from environment, not config | `.agents/scripts/lib/config/runtime.js` | Accepted |
+| [`004`](#adr-004-gherkin-standards-as-sole-ssot-for-bdd-tags--forbidden-patterns) | Gherkin Standards as Sole SSOT for BDD Tags & Forbidden Patterns | `.agents/rules/gherkin-standards.md` | Accepted |
+| [`20260420-297`](#adr-20260420-297-decompose-oversized-orchestration-modules-via-facade-pattern) | Decompose oversized orchestration modules via facade pattern | `.agents/scripts/lib/worktree-manager.js` | Accepted |
+| [`20260421-321b`](#adr-20260421-321b-retire-riskhigh-runtime-gating) | Retire `risk::high` runtime gating | `.agents/instructions.md` | Accepted |
+| [`20260422-380a`](#adr-20260422-380a-two-stage-windows-worktree-reap-fsrm-retry--deferred-sweep) | Two-stage Windows worktree reap (fs.rm retry + deferred sweep) | `.agents/scripts/lib/worktree/lifecycle-manager.js` | Accepted |
+| [`20260422-441a`](#adr-20260422-441a-force-reap-worktrees-whose-story-branch-is-already-merged) | Force-reap worktrees whose Story branch is already merged | `.agents/scripts/boot-sweep.js` | Accepted in part |
+| [`20260423-511b`](#adr-20260423-511b-transitionticketstatefromstate-lookup-keeps-its-swallow-now-with-a-debug-log) | `transitionTicketState.fromState` lookup keeps its swallow, now w… | `.agents/scripts/providers/github/tickets.js` | Accepted |
+| [`20260424-596a`](#adr-20260424-596a-crap-as-a-sibling-gate-not-a-replacement-for-mi) | CRAP as a sibling gate, not a replacement for MI | `baselines/maintainability.json` | Accepted |
+| [`20260424-596c`](#adr-20260424-596c-kernel-version-stamp-on-the-crap-baseline) | Kernel-version stamp on the CRAP baseline | `baselines/crap.json` | Accepted |
+| [`20260424-638a`](#adr-20260424-638a-story-566-reap-recovery-is-a-self-inflicted-dirty-tree-bug) | `story-566` reap recovery is a self-inflicted dirty-tree bug | `.agents/scripts/lib/worktree/bootstrapper.js` | Accepted |
+| [`20260426-817a`](#adr-20260426-817a-validation-evidence-is-keyed-by-commit-sha-not-by-build-id) | Validation evidence is keyed by commit SHA, not by build ID | `.agents/scripts/evidence-gate.js` | Accepted |
+| [`20260426-817c`](#adr-20260426-817c-soft-failing-gates-surface-degraded-state-explicitly-not-silently) | Soft-failing gates surface degraded state explicitly, not silently | `.agents/scripts/lib/degraded-mode.js` | Accepted |
+| [`20260426-817d`](#adr-20260426-817d-cli-entrypoints-carry-nodecoverage-ignore-file-their-main-is-exercised-via-integration-tests-not-unit-line-coverage) | CLI entrypoints carry `node:coverage ignore file`; their `main()`… | `.agents/scripts/notify.js` | Accepted |
+| [`20260502-960a`](#adr-20260502-960a-production-code-is-not-shaped-by-test-internals--tests-import-helpers-directly-with-an-explicit-ctx-bag) | Production code is not shaped by test internals — tests import he… | `.agents/scripts/lib/worktree/bootstrapper.js` | Accepted |
+| [`20260507-1114b`](#adr-20260507-1114b-freshness-gate-on-decompose--fail-fast-on-stale-path-references) | Freshness gate on decompose — fail fast on stale path references | `.agents/scripts/lib/orchestration/ticket-validator.js` | Accepted |
+| [`20260512-loop-adoption`](#adr-20260512-loop-adoption-adopt-built-in-loop-no-homegrown-surface-to-reconcile) | Adopt built-in `/loop`; no homegrown surface to reconcile | `.agents/scripts/lib/util/poll-loop.js` | Accepted |
+| [`20260513-command-naming-discipline`](#adr-20260513-command-naming-discipline-domain-vocabulary-command-names-single-mandrel-prefixed-discoverability-entry) | Domain-vocabulary command names; single Mandrel-prefixed discover… | `.agents/scripts/sync-claude-commands.js` | Accepted in part |
 
-**Closed (22).** Body collapsed to a one-line outcome; full text
+**Closed (26).** Body collapsed to a one-line outcome; full text
 at the release tag named in the entry.
 
 | Decision | Recorded | Status |
 | --- | --- | --- |
+| [`20260519-adapter-layer-removed`](#adr-20260519-adapter-layer-removed-delete-the-iexecutionadapter-abstraction-superseded) | Delete the `IExecutionAdapter` abstraction (superseded) | Superseded |
+| [`20260514-drop-churn-idle`](#adr-20260514-drop-churn-idle-drop-churn--idle-from-active-perf-signal-taxonomy-superseded) | Drop `churn` + `idle` from active perf-signal taxonomy (superseded) | Superseded |
+| [`20260507-1030a`](#adr-20260507-1030a-performance-signal-telemetry--events-local-summaries-on-tickets-superseded) | Performance-signal telemetry — events local, summaries on tickets (superseded) | Superseded |
+| [`20260425-730a`](#adr-20260425-730a-consolidate-agentsettings-into-a-grouped-schema-validated-contract-superseded) | Consolidate `agentSettings` into a grouped, schema-validated cont… (superseded) | Superseded |
 | [`20260610-lifecycle-bus-retained`](#adr-20260610-lifecycle-bus-retained-keep-the-lifecycle-bus-collapse-by-deletion-is-already-done-superseded) | Keep the lifecycle bus (superseded) | Superseded |
 | [`20260611-two-tier-hierarchy`](#adr-20260611-two-tier-hierarchy-remove-the-feature-tier-epic--story-superseded) | Remove the Feature tier (Epic → Story) (superseded) | Superseded |
 | [`20260603-plugin-namespace-cutover`](#adr-20260603-plugin-namespace-cutover-project-workflows-as-a-claude-code-plugin-mandrelname-superseded) | Project workflows as a Claude Code plugin (`/mandrel:<name>`) (su… | Superseded |
@@ -273,11 +294,11 @@ is the only merge surface.
 and
 [ADR 20260512-loop-adoption](#adr-20260512-loop-adoption-adopt-built-in-loop-no-homegrown-surface-to-reconcile).
 
-Loop units (`.agents/workflows/loops/*.md`) ship the **content and contract** of
-recurring work — the action, the goal, the runnable `verify` oracle (required
-for `self-paced`, optional for `interval` / `cron`), and the
-observability/escalation contract (`maxRounds` / `onExhaust` + explicit
-stop-and-escalate conditions). The **host owns cadence and iteration**: the
+A loop unit ships the **content and contract** of recurring work — the action,
+the goal, the runnable `verify` oracle (required for `self-paced`, optional for
+`interval` / `cron`), and the observability/escalation contract (`maxRounds` /
+`onExhaust` + explicit stop-and-escalate conditions). The **host owns cadence
+and iteration**: the
 built-in `/loop` drives self-paced and interval loops, `/schedule` drives cron
 loops. Mandrel ships **no `/goal` command and no `/loop` runner** — building one
 would duplicate a Claude Code built-in and create a homegrown surface to
@@ -285,6 +306,18 @@ reconcile, which the coupling stance forbids. Read the full ADR before adding a
 runner, scheduler, or definition-of-done command to the framework — the decision
 to **not** build one is deliberate.
 
+> **Retirement addendum (mirrored here by Story #5077, 2026-08-28 — the
+> companion carried it and this summary did not).** The **division of labor
+> stands**, and so does the prohibition: mandrel still ships no `/goal` and no
+> `/loop` runner, and `sync-claude-commands.js` still projects
+> consumer-authored units from `.agents/local/workflows/loops/`. What the
+> framework no longer ships is the *supporting surface*: Story #4482 (commit
+> `cd3ccf73`) deleted the starter units under `.agents/workflows/loops/`,
+> `.agents/schemas/loop-unit.schema.json`, `check-loop-units.js` and the
+> `run-lint` gate that called it. `.agents/docs/workflows.md` reads "Loops
+> namespace (0)". Read the frontmatter contract above as the shape a consumer
+> authors to, not as files this repository carries.
+>
 > **Full ADR:**
 > [`decisions/loop-units-division-of-labor.md`](decisions/loop-units-division-of-labor.md).
 
@@ -421,7 +454,9 @@ is now the sole production wiring path).
 
 ## ADR 20260610-planning-determinism-dispositions: Per-layer dispositions for the deterministic planning proxies
 
-**Status:** Accepted — dispositions stand; the `/epic-plan` rows are superseded
+**Status:** Accepted in part — the dispositions stand; the `/epic-plan` rows are
+superseded, and three of the four "simplification deferred" rows were executed
+by deletion (see the superseding notes below).
 **Date:** 2026-06-10
 **Surface:** `.agents/scripts/lib/orchestration/ticket-validator.js`
 **Scope:** Story #3910 (audit findings — see git history at `409e0529`).
@@ -431,9 +466,9 @@ is now the sole production wiring path).
 > `lib/orchestration/ticket-validator*.js`, `lib/duplicate-search.js`, and the
 > evidence-gate skip cache. The rows scoped to the retired `/epic-plan` surface
 > — the clarity gate (`lib/epic-plan-clarity.js`), the consolidate critic's
-> scope-preservation claim, and `assertNoSingleStoryFeature` — went with the v2
-> Story collapse and are historical; read them as rationale, not as a live
-> contract.
+> scope-preservation claim, and `assertNoSingleStoryFeature` — went with
+> [`20260726-v2-story-collapse`](#adr-20260726-v2-story-collapse-story-only-ticket-model-one-plan-one-deliver-one-engine)
+> and are historical; read them as rationale, not as a live contract.
 
 ### Context
 
@@ -488,16 +523,25 @@ hallucinations):**
 deletion/refactor beyond a prose-and-guarantee sweep, and several touch live
 test surfaces or the dead-stratum boundary owned by #3908/#3909/#3911):**
 
-- **Spec-freshness "net-new cue" keyword classifier** — the decompose-side git
-  probes are the real gate; the cue classifier is a candidate for deletion.
-- **BDD `findBestScenarioMatch` Jaccard matcher** — keep the scanner index;
-  the model authors the Disposition column either way, so the matcher is
-  removable.
-- **Risk-verdict derivation/routing (~180 LOC)** — the schema + audit comment
-  stay; the model authors the axes, so the derivation/routing collapse is a
-  follow-up.
-- **Phase 7.5 section gate** — right check, wrong altitude: fold the one-line
-  call inside `runSpecPhase` and delete the standalone CLI + manual phase.
+> **Superseding note (Story #5077, 2026-08-28).** Three of the four deferrals
+> below were **executed by deletion** and are struck; only the BDD matcher is
+> still deferred. Left unmarked, this block reads as a live inventory and sends
+> a reader hunting ~180 LOC and a CLI that no longer exist.
+
+- ~~**Spec-freshness "net-new cue" keyword classifier**~~ — **done by deletion**
+  (#4811 deleted `spec-freshness.js`; see
+  `lib/orchestration/file-assumptions.js`). The decompose-side git probes were
+  the real gate, as this row predicted.
+- **BDD `findBestScenarioMatch` Jaccard matcher** — **still deferred, and the
+  only survivor of this block** (`lib/bdd-scenario-scanner.js`). Keep the
+  scanner index; the model authors the Disposition column either way, so the
+  matcher is removable.
+- ~~**Risk-verdict derivation/routing (~180 LOC)**~~ — **done by deletion**
+  (#4542). No risk-verdict schema remains; `lib/orchestration/ceremony-routing.js`
+  records that it *previously* consumed the planner's own risk verdict and now
+  derives the level from the change set.
+- ~~**Phase 7.5 section gate**~~ — **done by deletion**
+  (`lib/orchestration/spec-section-validator.js`, commit `a62efd5d`).
 
 ### Consequences
 
@@ -509,17 +553,20 @@ and the change set stays reviewable.
 
 ---
 
-## Overturn: `drain-pending-cleanup` demoted to a helper
+## ADR 20260607-3706: `drain-pending-cleanup` demoted to a helper
 
-**Status:** Accepted (overturns the `drain-pending-cleanup` row of the
-recategorization matrix above).
+**Status:** Accepted — overturns the `drain-pending-cleanup` row of the
+recategorization matrix in
+[`20260513-command-naming-discipline`](#adr-20260513-command-naming-discipline-domain-vocabulary-command-names-single-mandrel-prefixed-discoverability-entry).
 **Date:** 2026-06-07
 **Surface:** `.agents/scripts/drain-pending-cleanup.js`
 **Story:** #3706
 
 ### Context
 
-The matrix row above kept `/drain-pending-cleanup` as a top-level slash
+The `drain-pending-cleanup` row of the recategorization matrix in
+[`20260513-command-naming-discipline`](#adr-20260513-command-naming-discipline-domain-vocabulary-command-names-single-mandrel-prefixed-discoverability-entry)
+kept `/drain-pending-cleanup` as a top-level slash
 command on the rationale that "the manual path is load-bearing — an operator
 hitting a wedged worktree types `/drain-pending-cleanup` directly." A wiring
 audit conducted for Story #3706 tested that assumption against the actual
@@ -655,160 +702,23 @@ Removed the Task tier, leaving Epic → Feature → Story. Both remaining tiers 
 
 ---
 
-## ADR 20260519-adapter-layer-removed: Delete the `IExecutionAdapter` abstraction
+## ADR 20260519-adapter-layer-removed: Delete the `IExecutionAdapter` abstraction (superseded)
 
-**Status:** Accepted
+**Status:** Superseded by [ADR 20260828-5077a](#adr-20260828-5077a-the-dispatch-record-is-the-story-github-surface-not-a-manifest-artifact)
 **Date:** 2026-05-19
-**Surface:** `.agents/scripts/providers/github.js`
-**Epic:** [#2646](https://github.com/dsj1984/mandrel/issues/2646) —
-hard-cutover cleanup pass
-**Story:** [#2688](https://github.com/dsj1984/mandrel/issues/2688) —
-Story A: Delete the IExecutionAdapter abstraction
-**Supersedes (in part):**
-[ADR 20260512-coupling-stance](#adr-20260512-coupling-stance-two-surface-coupling-stance) —
-keeps the two-surface stance but retires the "runtime-pluggable
-dispatcher" framing in favor of the dispatch manifest as the
-cross-runtime contract.
+**Full text:** `git show mandrel-v2.34.0:docs/decisions.md`
 
-### Context
-
-The shipped `IExecutionAdapter` interface
-(`.agents/scripts/lib/IExecutionAdapter.js`), `ManualDispatchAdapter`
-(`.agents/scripts/adapters/manual.js`), and `adapter-factory.js`
-existed to keep the dispatcher runtime-neutral so future adapters
-(Codex, Antigravity, subprocess, MCP) could plug in without
-rewriting the orchestration core. In practice:
-
-- The only concrete adapter ever shipped was `manual`. It was
-  hardcoded as the factory default.
-- The adapter return values (`dispatchId`, in-memory registry,
-  `getTaskStatus`, `cancelTask`) were **never observed at runtime** —
-  completion is tracked via GitHub `agent::*` labels, not by polling
-  the adapter.
-- The dispatch *manifest* (the `.md` artifact written under `temp/`
-  and the `dispatch-manifest` structured comment posted on the Epic)
-  is the load-bearing artifact downstream tooling and operators read.
-
-### Decision
-
-Delete the adapter layer:
-
-- `.agents/scripts/adapters/manual.js` — gone.
-- `.agents/scripts/lib/IExecutionAdapter.js` — gone.
-- `.agents/scripts/lib/adapter-factory.js` — gone.
-- `tests/execution-adapter.test.js` and adapter-coupled assertions in
-  `tests/lib/dispatcher-worktree.test.js` — deleted / re-pointed to
-  the inline dispatch-record shape.
-
-Inline the trivial dispatch-record shape `{ taskId, dispatchId,
-status }` at the two consuming call sites
-(`wave-dispatcher.js`, `manifest-builder.js`). The manifest's
-`executor` field is fixed to the string literal `'claude-code'`.
-
-The **dispatch manifest** (md + structured comment, formerly schema-backed)
-is the cross-runtime contract. Any future host that wants to replay,
-audit, or interoperate with a Mandrel dispatch consumes the manifest,
-not an in-process interface.
-
-### Consequences
-
-- **Smaller orchestrator surface.** Fewer files, fewer dual-shape
-  readers, no factory indirection on the dispatch hot path.
-- **Schema-level breaking change.** The legacy `executor` key under
-  the pre-reshape `orchestration` block in `.agentrc.json` becomes a
-  no-op. Per the "no shim layer / hard
-  cutovers only" policy (codified by Epic #2646 in
-  [`git-conventions.md`](../.agents/rules/git-conventions.md)),
-  consumers who still set it will fail validation on upgrade — the
-  PR diff is the migration.
-- **Dispatch manifest is byte-stable.** Story A preserved the
-  manifest md and structured-comment payload byte-for-byte; the
-  only field that changed is `executor` (now always `'claude-code'`).
-- **Future runtimes still in scope.** Adding a non-Claude-Code
-  runtime later is not blocked — the new host owns the dispatch
-  manifest contract directly. There is no in-process interface that
-  must be retrofitted.
+Deleted the `IExecutionAdapter` abstraction — that half holds and is not revisited — and named the dispatch manifest as the replacement cross-runtime contract. No producer ever wrote one; the Story's own GitHub surface is the dispatch record.
 
 ---
 
-## ADR 20260514-drop-churn-idle: Drop `churn` + `idle` from active perf-signal taxonomy
+## ADR 20260514-drop-churn-idle: Drop `churn` + `idle` from active perf-signal taxonomy (superseded)
 
-**Status:** Accepted
+**Status:** Superseded by [ADR 20260828-5077b](#adr-20260828-5077b-the-wired-detector-set-is-rework--retry-and-unknown-deliverysignals-keys-are-rejected)
 **Date:** 2026-05-14
-**Surface:** `.agents/schemas/agentrc.schema.json`
-**Epic:** [#1721](https://github.com/dsj1984/mandrel/issues/1721) —
-performance-signal detectors
-**Supersedes (in part):**
-[ADR 20260507-1030a — Performance-signal telemetry](#adr-20260507-1030a-performance-signal-telemetry--events-local-summaries-on-tickets)
-(updates the active-detector subset; the events-local / summaries-on-
-tickets architecture is unchanged)
+**Full text:** `git show mandrel-v2.34.0:docs/decisions.md`
 
-### Context
-
-ADR 20260507-1030a pinned a seven-kind perf-signal taxonomy
-(`friction`, `hotspot`, `rework`, `churn`, `idle`, `retry`, `trace`)
-and reserved a slot in `SIGNALS_DEFAULTS` for each of the five
-detectors. When Epic #1721 sat down to actually ship the missing three
-(`hotspot`, `rework`, `retry`), the design review for `churn` and
-`idle` exposed two problems:
-
-- **`churn` semantically duplicates `rework` + `retry`.** The original
-  intent was "the same surface keeps getting touched" — but rework
-  already counts file edits past a per-file threshold, and retry
-  counts repeated failed Bash invocations. Whatever a hypothetical
-  churn detector would surface is either a strict subset of one of
-  those two, or a noisier rollup that would mostly fire as a duplicate
-  of an event that already landed.
-- **`idle` (gap between tool calls) is too noisy to act on.** The
-  signal as specified — fire when the gap exceeds
-  `idle.gapSeconds` — has no meaningful denominator. Plan-mode
-  pauses, model thinking time, deliberate human-in-the-loop pauses,
-  and the seconds-long startup of a `gh` spawn all look identical to
-  the detector. Without a way to distinguish "agent stalled" from
-  "agent waiting on an external process or operator", the signal
-  generates more friction than it surfaces.
-
-### Decision
-
-1. **Drop `churn` and `idle` from the active detector set.** Neither
-   ships a detector module; neither carries a config key on
-   `delivery.signals`. The wired detector set is exactly
-   `{ rework, retry, hotspot }`.
-2. **Keep `CHURN` and `IDLE` in the
-   [`EVENT_KINDS`](../.agents/scripts/lib/signals/schema.js)
-   enumeration.** The schema entries remain reserved for future use so
-   a re-introduction does not need a schema bump or a coordinated
-   producer/consumer migration. The aggregator's `signalCounts`
-   surface continues to carry both keys at zero so a downstream
-   consumer that referenced them does not break.
-3. **Drop the unused config keys.** `delivery.signals.churn` and
-   `delivery.signals.idle` are removed from `SIGNALS_DEFAULTS` and the
-   `agentrc.schema.json` validation block. Operators who carried them
-   in `.agentrc.json` from a pre-Epic-#1721 template see them ignored,
-   not rejected — the schema is permissive on unknown nested keys
-   under `delivery.signals` to keep the migration silent.
-4. **Update `docs/architecture.md`** to name the three shipped
-   detectors explicitly (no "future" qualifier) and to note that the
-   schema retains the two reserved kinds.
-
-### Consequences
-
-- **Smaller shipping surface, same architecture.** The events-local /
-  summaries-on-tickets contract from ADR 20260507-1030a is unchanged;
-  only the active-detector subset narrows.
-- **Detector set is now provable end-to-end.** Each shipped detector
-  has a pure module under `lib/signals/detectors/`, a wiring layer in
-  the orchestrator (`post-merge-pipeline.js` for rework + retry,
-  `epic-runner/progress-reporter.js` for hotspot), and a render-surface
-  test in `tests/lib/observability/render/`.
-- **Operators with leftover config keys are not punished.** Carrying
-  `delivery.signals.churn` or `.idle` in a project's `.agentrc.json`
-  is a no-op rather than an error. The next operator-friendly
-  template refresh removes the stale keys without an audible failure.
-- **Reintroducing churn or idle later is cheap.** The schema entries
-  remain; only a detector module + a wiring layer + a render test
-  would be required, with no coordination across the producer ↔
-  consumer boundary.
+Dropped `churn` and `idle` from the active perf-signal taxonomy, pinned the wired set as `{rework, retry, hotspot}`, and promised leftover config keys would be ignored rather than rejected. `hotspot` went with Epic #4406 and the `delivery.signals` block is now closed, so those keys fail AJV validation.
 
 ---
 
@@ -826,7 +736,12 @@ Retired `delete-epic.js` in favour of a declarative `epic.yaml` edited then reco
 
 **Status:** Accepted
 **Date:** 2026-05-12
-**Surface:** `.agents/scripts/providers/github.js`
+**Surface:** `.agents/scripts/sync-claude-commands.js`
+<!-- Story #5077 repointed the Surface. It named `providers/github.js`, a
+     ticketing-provider facade whose only related line concerns *provider*
+     coupling — it could not witness whether the workflow surface stayed
+     Claude Code-first either way. `sync-claude-commands.js` is the projection
+     this decision governs: reverse the stance and its contents change. -->
 **Supersedes:**
 
 - Implicit assumption that the entire framework — dispatcher, workflow,
@@ -914,12 +829,26 @@ name without rewriting this ADR text.
   the agent's tool surface and cannot be invoked from a workflow body.
 - **The overlap matrix is mandatory.** Each overlapping responsibility
   between a Claude Code built-in and a homegrown surface element must
-  be recorded in `docs/decisions.md` with: wrapper name, built-in
-  name, exact sub-step delegation point, post-return validation, and
-  rationale. Unrecorded overlaps are treated as drift and addressed in
-  the next maintenance pass. The catalog of Claude Code commands
-  itself is a maintained artifact (`docs/claude-code-catalog.md`) with
-  a refresh cadence pinned to Claude Code minor version bumps.
+  be recorded — wrapper name, built-in name, exact sub-step delegation
+  point, post-return validation, and rationale. Unrecorded overlaps are
+  treated as drift and addressed in the next maintenance pass. The
+  catalog of Claude Code commands itself is a maintained artifact
+  (`docs/claude-code-catalog.md`) with a refresh cadence pinned to
+  Claude Code minor version bumps.
+
+  > **Amendment (Story #5077, 2026-08-28) — the matrix lives here, and it has
+  > one row.** The clause said "recorded in `docs/decisions.md`" and no matrix
+  > was ever written, so the obligation governed nothing for three months. It
+  > is discharged in place rather than relocated: this table *is* the matrix,
+  > and a new overlap adds a row to it.
+  >
+  > | Wrapper | Built-in | Delegation point | Post-return validation | Rationale |
+  > | --- | --- | --- | --- | --- |
+  > | `/mandrel-update` | `/fewer-permission-prompts` | `.agents/workflows/mandrel-update.md` Step 3.6 | Operator confirms the refreshed allowlist before the step completes; nothing downstream depends on its output | Refreshing the harness permission allowlist is host-shaped work the built-in already does; wrapping it would duplicate a Claude Code primitive, which this stance forbids. |
+  >
+  > The other built-ins named above (`/simplify`, `/security-review`, `/loop`,
+  > `/insights`) remain candidates with no wiring, so they are not overlaps and
+  > have no row.
 - **Portability of the workflow surface is a non-goal.** Proposals to
   abstract the slash-command, hook, or skill surface away from Claude
   Code primitives are rejected by default. If a future runtime
@@ -985,10 +914,16 @@ Treat the cleanup as a single coherent Epic rather than fan-out across
 maintenance work:
 
 1. **Bounded concurrency is the default.** Every `Promise.all` over
-   GitHub or fs work flows through `concurrentMap` with a story-specific
-   cap (3 for mutation paths, 8 for sibling-read fan-outs, 64 for fs
-   scans), with tests that assert `maxInFlight ≤ cap` rather than just
-   correctness.
+   GitHub or fs work flows through `concurrentMap` with a call-site cap,
+   ~~(3 for mutation paths, 8 for sibling-read fan-outs, 64 for fs
+   scans)~~, with tests that assert `maxInFlight ≤ cap` rather than just
+   correctness. *(Amended, Story #5077: of the three caps only the 8
+   survives, as `SUBTICKET_HYDRATION_CONCURRENCY` in
+   `providers/github/issues.js`. The shared default is now
+   `FANOUT_CONCURRENCY = 4` in `lib/util/concurrent-map.js`, and no
+   `concurrency: 3` or `concurrency: 64` site exists outside tests. The rule —
+   bounded by default, capped at the call site — is what governs; the
+   numbers were a snapshot.)*
 2. **Module boundaries are one-way.** `lib/orchestration/index.js` no
    longer re-exports providers or scripts; the audit-suite has its own
    `lib/audit-suite/` SDK exporting `runAuditSuite` / `selectAudits`;
@@ -1008,105 +943,33 @@ maintenance work:
   not pull in the scripts CLI surface or providers, which keeps test
   doubles small.
 - Operators have [`.agents/scripts/README.md`](../.agents/scripts/README.md)
-  as the operator-scripts catalog. The file documents the optional
-  scripts that are not wired into `package.json` / Husky / CI (see
-  Story #3048); it is intentionally **not** an exhaustive index of the
-  ~90 top-level entrypoints — for those, `package.json` scripts and
-  `.agents/workflows/` remain the canonical surface.
+  as an orientation pointer. It is intentionally **not** an exhaustive index of
+  the ~90 top-level entrypoints — for those, `package.json` scripts and
+  `.agents/workflows/` remain the canonical surface. ~~The file documents the
+  optional scripts that are not wired into `package.json` / Husky / CI (see
+  Story #3048).~~ *(Amended, Story #5077: that "operator-only" tier was
+  abolished, and the named file now says the opposite in its own words —
+  `check-knip-entries.js` derives the caller set mechanically, so a CLI no
+  invoker names is **dead, not operator-only**. `docs/architecture.md` repeats
+  it. This is not a moved path: the file exists and contradicts the bullet in
+  place.)*
 
-## ADR 20260507-1030a: Performance-signal telemetry — events local, summaries on tickets
+## ADR 20260507-1030a: Performance-signal telemetry — events local, summaries on tickets (superseded)
 
-**Status:** Accepted
+**Status:** Superseded by [ADR 20260828-5077c](#adr-20260828-5077c-performance-signal-telemetry-is-local-only--no-summary-comment-reaches-a-ticket)
 **Date:** 2026-05-07
-**Surface:** `.agents/scripts/diagnose-friction.js`
-**Epic:** #1030
+**Full text:** `git show mandrel-v2.34.0:docs/decisions.md`
 
-### Context
-
-Before Epic #1030 the framework had a single observability surface:
-`diagnose-friction.js` posted one structured comment per friction event
-directly onto the originating Task ticket. As the orchestrator grew —
-hotspots, rework, churn, idle, retry, plus raw tool-call traces — that
-fan-out hit two ceilings simultaneously. Tickets accumulated dozens of
-machine-noise comments per Story, drowning the human review surface.
-And every event paid a synchronous round-trip through the GitHub API,
-forcing detectors to either rate-limit (losing signal) or batch in
-process (losing tail records when sub-agents exit abruptly).
-
-A separate gap sat next to that: detector thresholds were hard-coded in
-each module. Operators tuning hotspot sensitivity for their own repo
-had no override surface, and the framework had no canonical place to
-declare default values that the `.agentrc.json` template could mirror.
-
-### Decision
-
-1. **Split events from summaries.** Detectors and the runtime trace hook
-   write append-only NDJSON to local disk under
-   `temp/epic-<eid>/story-<sid>/signals.ndjson` (and a sibling
-   `traces.ndjson` for `kind: trace`). GitHub tickets receive **summary
-   payloads only** — one
-   `structured:story-perf-summary`
-   comment per Story at close, one
-   `structured:epic-perf-report`
-   per Epic alongside the retro. The seven-kind taxonomy
-   (`friction`, `hotspot`, `rework`, `churn`, `idle`, `retry`, `trace`)
-   is the closed enum on
-   [`signal-event.schema.json`](../.agents/schemas/signal-event.schema.json).
-2. **Per-Epic temp tree, reaped with the worktree.** The on-disk layout
-   `temp/epic-<eid>/story-<sid>/` lets the analyzer scan a single
-   Story's stream cheaply and lets `WorktreeManager.reap` clean every
-   in-flight artifact in one sweep when the Epic closes. Lazy directory
-   creation on first write keeps zero-signal Stories from touching the
-   disk at all.
-3. **Best-effort, unbuffered writer.** `signals-writer.js` opens, writes
-   one newline-terminated JSON line, and closes per call. fs / JSON
-   failures are swallowed via `Logger.warn` so observability MUST NOT
-   take down a wave. In-process buffering is forbidden by the Tech Spec
-   because per-Story sub-agents may exit abruptly and a buffered tail
-   would silently disappear on `process.exit`.
-4. **Detector thresholds are operator-tunable.**
-   `delivery.signals` is the single declarative surface;
-   `SIGNALS_DEFAULTS` in `.agents/scripts/lib/config/limits.js` is the
-   canonical default block (`hotspot.p95Multiplier=1.25`,
-   `rework.editsPerFile=5`, `churn.repeatCount=4`,
-   `idle.gapSeconds=120`, `retry.repeatCount=3`). The resolver
-   shallow-merges per-detector overrides so an operator can re-tune a
-   single key without re-listing the others, and `getSignals(config)` is
-   the runtime accessor the detector layer imports.
-
-### Consequences
-
-- **Bounded ticket surface.** A Story carries at most one perf summary
-  comment regardless of how many signals fired; an Epic carries one
-  perf report. Reviewers see one consolidated table per closure boundary
-  instead of an event log.
-- **Detectors can fire freely.** Local NDJSON writes are bounded by
-  disk I/O, not GitHub rate limits, so detectors no longer self-throttle.
-  Raw tool-call traces become economically viable as a data source.
-- **Reap is observability cleanup too.** Closing an Epic and reaping its
-  worktrees deletes the corresponding NDJSON streams. There is no
-  separate retention policy and no orphan-data risk.
-- **Schema rejections become loud at the ticket boundary.** The closed
-  `signal-event.schema.json` enum and the `additionalProperties: false`
-  guards on the summary schemas mean a producer drift fails AJV at
-  close time, not at consumer parse time.
-- **Operator overrides survive template re-bootstraps.**
-  `.agents/docs/agentrc-reference.json` mirrors `SIGNALS_DEFAULTS` exactly
-  (the `tests/config/limits-template-drift.test.js` guard fails on any
-  divergence), so an operator who copied the template wholesale and one
-  who merged it on top of an existing block resolve to the same
-  thresholds.
-- **Documentation lock-in.** The Friction Telemetry section of
-  `docs/architecture.md` is rewritten to the events-local /
-  summaries-on-tickets model; `docs/data-dictionary.md` carries
-  field-level rows for `signals.ndjson`, `story-perf-summary`, and
-  `epic-perf-report`; this ADR is the canonical why.
+Split perf-signal telemetry into local events plus `structured:story-perf-summary` / `structured:epic-perf-report` comments on tickets. Story #4545 deleted both analyzers; telemetry is local-only and the retro proposal composer is its one consumer.
 
 ---
 
 ## ADR 20260505-990a: Audit remediation — `.agents` framework hardening + concept removal
 
-**Status:** Accepted
+**Status:** Accepted in part — decisions 1, 2, 4–8 stand. Decision 3's
+`.agents/README.md` ≤ 150-line cap is **Superseded by**
+[ADR 20260828-5077d](#adr-20260828-5077d-agentsreadmemd-is-the-bundles-single-homed-reference-not-a-150-line-pointer);
+the rest of decision 3 (moving reference content to `.agents/docs/`) holds.
 **Date:** 2026-05-05
 **Surface:** `.agents/schemas/audit-rules.json`
 **Epic:** #990
@@ -1145,7 +1008,10 @@ inline so the Epic could complete.
 2. **Reject auto-spec.** Audit findings 8 and 10 proposed an
    `epic::auto-spec` autonomous-planning branch. The plan-then-confirm
    STOP gate is preserved unchanged.
-3. **Slim `.agents/README.md`** to ≤ 150 lines: activation + a single
+3. ~~**Slim `.agents/README.md`** to ≤ 150 lines~~ — **Superseded by**
+   [ADR 20260828-5077d](#adr-20260828-5077d-agentsreadmemd-is-the-bundles-single-homed-reference-not-a-150-line-pointer):
+   the file is deliberately 835 lines and carries no ceiling. The rest of
+   this item stands: activation + a single
    "where to look" pointer table. Detailed reference content moves to
    `.agents/docs/configuration.md`, new `.agents/docs/quality-gates.md`, and the
    root `.agents/README.md` sections for distributed-submodule
@@ -1189,9 +1055,12 @@ inline so the Epic could complete.
   longer crashes on the gitlink, and format drift carried in from
   upstream waves is committed automatically as a `style:` fixup. The
   `/epic-execute` loop runs hands-off when no real failure occurs.
-- **README halved.** The slim version (≤ 150 lines) is the entry point;
-  detail lives at stable canonical URLs that downstream consumers can
-  bookmark.
+- ~~**README halved.** The slim version (≤ 150 lines) is the entry
+  point~~ — **Superseded by**
+  [ADR 20260828-5077d](#adr-20260828-5077d-agentsreadmemd-is-the-bundles-single-homed-reference-not-a-150-line-pointer).
+  Detail still lives at stable canonical URLs that downstream consumers can
+  bookmark, but `.agents/README.md` itself was re-consolidated by Story #4675
+  and is now the bundle's single-homed reference.
 - **Audit-rules tooling can validate the manifest.** Future audit
   additions are type-checked against the new manifest schema.
 
@@ -1285,13 +1154,27 @@ Rationale for keeping escomplex rather than swapping kernels:
    on a battle-tested kernel and ships in a single point release.
 
 `tsTranspilerVersion` is added to the CRAP baseline envelope so
-consumers can detect transpiler drift. Both `kernelVersion` and
-`tsTranspilerVersion` mismatches **warn**, not fail — consumers
+consumers can detect transpiler drift. ~~Both `kernelVersion` and
+`tsTranspilerVersion` mismatches **warn**, not fail~~ — consumers
 pin-and-bump and need runway to refresh deliberately rather than
 discovering the version bump from a hard CI red. `escomplexVersion`
 mismatch continues to fail closed: a different kernel can change
 scoring semantics without warning, which is exactly the silent drift
 the gate exists to catch.
+
+> **Amendment (Story #5077, 2026-08-28) — the two halves split.**
+> `kernelVersion` still warns (`kernelDriftAxis`,
+> `lib/baselines/envelope.js`, `severity: 'warn'`). `tsTranspilerVersion`
+> now **fails closed**: the `ts-transpiler-drift` axis in
+> `lib/baselines/kinds/crap.js` is `severity: 'fatal'` and short-circuits to
+> `exitCode: 1`. The escalation is deliberate and argued in place — Story
+> #4866 made a TS row's `startLine` an *original-source* coordinate resolved
+> through the transpiler's sourcemap, and `startLine` is half the row identity
+> key, so rows scored under a different transpiler are not comparable at all.
+> Two guards bound the blast radius: an unstamped baseline is exempt (nothing
+> to compare), and `hasTranspiledRows` exempts a pure-JavaScript tree, whose
+> two coordinate systems coincide. A consumer bumping `typescript` in a
+> TS-bearing repo gets a red gate and a re-seed instruction, not a warning.
 
 ### Alternatives considered
 
@@ -1319,8 +1202,19 @@ existing `compareCrap` line-drift fallback (same file + method, nearest
 startLine wins) absorbs this for baseline comparison; per-method
 coverage values may resolve to null on the first scan of a new TS
 method, in which case the row is skipped from the baseline rather than
-scored as zero. Sourcemap-based line remapping is a future enhancement
-and out of scope for 5.29.0.
+scored as zero. ~~Sourcemap-based line remapping is a future enhancement
+and out of scope for 5.29.0.~~
+
+> **Amendment (Story #5077, 2026-08-28) — the remap shipped.**
+> `lib/transpile.js` requests `sourceMap` from `ts.transpileModule`, builds a
+> `transpiledLine → originalLine` resolver over Node's built-in `SourceMap`,
+> and strips the trailing `sourceMappingURL` so the MI emit stays
+> byte-identical. What still falls back: a generated line with no mapping
+> resolves to `null`, and the nearest-`startLine` drift fallback described
+> above absorbs that case. Story #4866 records the consequence — a TS row's
+> `startLine` is an original-source coordinate, which is why
+> `tsTranspilerVersion` joined the stamp set and why its drift axis is fatal
+> rather than a warning.
 
 ### Consequences
 
@@ -1391,111 +1285,13 @@ Same pattern as v5.13.0, three more concrete applications. Future growth
 in either area lands in a focused submodule rather than re-bloating the
 facade. Tests pass unchanged because the public surface is preserved.
 
-## ADR 20260425-730a: Consolidate `agentSettings` into a grouped, schema-validated contract
+## ADR 20260425-730a: Consolidate `agentSettings` into a grouped, schema-validated contract (superseded)
 
-**Status:** Accepted
+**Status:** Superseded by [ADR 20260828-5077e](#adr-20260828-5077e-agentrcjson-has-a-closed-five-block-top-level-there-is-no-agentsettings-namespace)
 **Date:** 2026-04-25
-**Surface:** `.agents/scripts/lib/config-settings-schema.js`
-**Epic:** #730
+**Full text:** `git show mandrel-v2.34.0:docs/decisions.md`
 
-### Context
-
-`.agentrc.json` had accumulated a flat `agentSettings` namespace with ~25
-peer keys spanning paths, commands, quality gates, limits, and friction
-thresholds. The shape made three problems compounded over time:
-
-1. **Discoverability.** A new operator could not tell which keys were
-   required, which had defaults, or how related keys grouped — there was no
-   typed surface for tooling and no canonical reference for humans.
-2. **Validation gaps.** `agentSettings` was schema-permissive; typos in
-   optional keys (e.g. `riskGates.heuristics`) silently disappeared during
-   the previous template-diff sync, and the resolver's code-level fallbacks
-   masked missing required values until a script blew up downstream.
-3. **Baseline drift.** Three canonical ratchet baselines lived in three
-   different locations under three different naming conventions, and the
-   epic-runner's per-wave drift snapshots collided in repo-wide greps with
-   the canonical files.
-
-### Decision
-
-Reorganise `agentSettings` into four typed sub-blocks
-(`paths`, `commands`, `quality`, `limits`), unify the canonical ratchet
-baselines under `/baselines/`, and drive the sync helper from the schema
-instead of a structural diff against the template.
-
-Concretely:
-
-- **Grouped contract.** Every former flat key moves under one of the four
-  sub-blocks. There are no flat-key reads anywhere in the resolver or in any
-  consumer; each sub-block is read through a typed accessor (`getPaths`,
-  `getCommands`, `getQuality`, `getLimits`).
-- **Hard-required `paths`.** `paths.agentRoot`, `paths.docsRoot`, and
-  `paths.tempRoot` are schema-required. The resolver no longer applies
-  code-level `?? '.agents'` / `?? 'docs'` / `?? 'temp'` fallbacks; a missing
-  value is a validation error with a clear `instancePath`.
-- **`null` for disabled commands.** `commands.typecheck` and `commands.build`
-  accept `string | null`; an empty string is rejected. `null` is the
-  canonical "not applicable" value.
-- **Conditional `github` block requirement.** The `github` block (with
-  required `owner` and `repo`) is schema-required at the top level
-  post-reshape; pre-reshape this was a conditional under the legacy
-  `orchestration` umbrella, gated by a `provider` selector.
-- **Generated JSON Schema mirror.** Both shipped configs declare
-  `"$schema": "./.agents/schemas/agentrc.schema.json"`. The runtime AJV
-  schema in `lib/config-settings-schema.js` is authoritative; the mirror
-  exists for editor tooling and human readers. Story #5007 made it a
-  serialization of that schema rather than a hand-kept copy reconciled by a
-  drift test — along with the defaults inventory
-  `.agents/docs/agentrc-reference.json` and the `configuration.md` key
-  table, all three emitted by `generate-config-docs.js` from `description` /
-  `default` annotations on the schema literals.
-- **Schema-driven sync helper.** `mandrel-sync-config` now validates the
-  project config against the schema, adds template-introduced keys, and
-  preserves every project-side key that validates — including optional keys
-  absent from the template (e.g. the legacy `concurrency`, `closeRetry`,
-  `poolMode` blocks). Validation failures abort with a diagnostic instead of
-  silently stripping unknown keys.
-- **Canonical baselines under `/baselines/`.** `baselines/lint.json`,
-  `baselines/crap.json`, and `baselines/maintainability.json` are the
-  default-configured paths. The epic-runner's per-wave drift snapshots use
-  intentionally distinct filenames (`wave-mi-snapshot.json`,
-  `wave-crap-snapshot.json`) under `.agents/state/` so a repo-wide grep
-  never confuses one with the other.
-- **New configuration reference doc.** `.agents/docs/configuration.md` documents
-  every configurable key, its default, whether it is required, and the
-  baseline conventions. The `.agents/README.md` "Key Settings" table is
-  the high-traffic subset; the doc is the canonical source.
-
-### Consequences
-
-- **Breaking for consumers carrying flat-shaped configs.** Migration is
-  mechanical (every former flat key has a single grouped equivalent) and
-  documented in the v5.26.0 changelog entry. Validation now fails closed,
-  so operators learn about misconfiguration at startup instead of at the
-  call site that needed the missing value.
-- **Editor support comes for free.** Any editor with JSON Schema support
-  picks up autocomplete and inline validation from the `$schema` pointer.
-- **Future schema changes are cheaper.** Adding a new sub-block in the
-  grouped shape is a localised change (one schema edit, one resolver
-  accessor, one row in the reference doc); previously the same change
-  threaded through multiple flat-key sites.
-- **Sync helper trades silent strip for loud abort.** A typo in an optional
-  key now aborts the sync with a diagnostic instead of vanishing on round-
-  trip. Operators see misconfiguration; the rare false-positive abort is
-  the right trade.
-
-### Alternatives considered
-
-- **Keep the flat shape, add a doc.** Rejected: documentation alone does
-  not fix the validation gap or the silent-strip behaviour, and the
-  resolver's flat-key fallbacks would still mask missing required values.
-- **Split `.agentrc.json` into multiple files** (one per concern).
-  Rejected: increases the surface operators must reason about and the sync
-  helper must reconcile. A single file with a typed grouped shape captures
-  the same separation without the file-count tax.
-- **Keep `crap-baseline.json` and `maintainability-baseline.json` at repo
-  root.** Rejected: collides in greps with the per-wave drift snapshots
-  and offers no upside over the unified `/baselines/` directory.
+Reorganised an `agentSettings` namespace into four typed sub-blocks (`paths`, `commands`, `quality`, `limits`). The namespace is now rejected by the schema and the four blocks did not survive as a group; `.agentrc.json` has a closed five-block top level.
 
 ---
 
@@ -1599,8 +1395,16 @@ removal, not a logic change.
   orchestration; operators provision secrets in `.env` (local) or the
   Claude Code web env-var UI (web); `.mcp.json` is reserved for the
   MCP host's own discovery of third-party servers.
-- **Positive:** Worktree bootstrap drops `.mcp.json` from its copy list;
-  one fewer file to keep in sync across isolated trees.
+- ~~**Positive:** Worktree bootstrap drops `.mcp.json` from its copy list;
+  one fewer file to keep in sync across isolated trees.~~ *(Amended, Story
+  #5077: it did not. `.mcp.json` is still listed in
+  `WORKTREE_ISOLATION_DEFAULTS.bootstrapFiles`
+  (`lib/config/worktree-isolation.js`), mirrored by `DEFAULT_WORKSPACE_FILES`
+  in `lib/workspace-provisioner.js`, and is copied into every worktree. The
+  retention is deliberate and consistent with the bullet above: the file may
+  carry third-party MCP secrets an isolated tree needs, so it stopped being
+  load-bearing for framework orchestration without ceasing to be an operator
+  secrets file.)*
 - **Negative (breaking):** Operators who previously relied on the IDE
   invoking tools natively must now invoke the Node CLIs directly (or let
   the `/sprint-*` workflows invoke them, which they already did). The
@@ -1672,20 +1476,32 @@ config is read-only at runtime; no workflow writes it.
   history thrash. Web sessions auto-disable worktrees; local sessions retain
   the v5.7.0 isolation behaviour. Operators can force either mode locally with
   one env var.
-- **Positive:** `runtime.sessionId` is available as a stable per-process
-  identity surfaced in the startup `[ENV] sessionId=…` log line for
-  operator log-correlation, with no separate identity layer required.
-  *(The original consumer of this id — the claim-protocol pool mode —
-  was retired in story #909; the field is preserved for diagnostics
-  only.)*
+- **Positive:** `runtime.sessionId` is a stable per-process identity, resolved
+  alongside the worktree flag with no separate identity layer required.
+  *Amended (Story #5077, 2026-08-28):* it is **computed but not surfaced**.
+  The bullet used to claim a startup `[ENV] sessionId=…` log line; no such line
+  is emitted — the startup emitter prints only the worktree line, and the
+  `[ENV] sessionId=` literal survives nowhere in `.agents/scripts`, `lib` or
+  `bin`. `resolveRuntime` still computes the value
+  (`lib/config/runtime.js`), but it has no consumer outside that module: the
+  original one, the claim-protocol pool mode, was retired in Story #909, and
+  the diagnostics justification for keeping the field is itself unrealized.
+  Read the field as reserved, not as an operator-visible correlation id.
 - **Negative:** The resolver consumes process environment, not config — typos
   in env var names fall through silently to the next rule. Mitigated by
   string-equality matching (`'true'` / `'false'` literal) so `"0"` / `""` /
   truthy-but-non-matching values cannot accidentally flip the flag.
 - **Negative:** The worktree-off path is exercised less often than the
-  worktree-on path on local machines. Mitigated by a diff test that runs the
+  worktree-on path on local machines. ~~Mitigated by a diff test that runs the
   same fixture both ways and asserts the on-branch logs are byte-identical to
-  a saved baseline.
+  a saved baseline.~~ *Amended (Story #5077, 2026-08-28):* no such comparison
+  exists. `tests/story-off-branch-e2e.test.js` builds a `Set` of expected log
+  prefixes and then asserts only that the set is non-empty — an assertion that
+  cannot fail — and the named baseline `tests/fixtures/off-branch-baseline.md`
+  has no reader anywhere in the repo. What genuinely covers the path is the
+  file's other cases, which drive the off-branch flow directly. Do not judge a
+  log-shape change safe on the strength of the mitigation as originally
+  written.
 
 ### Alternatives considered
 
@@ -1732,7 +1548,12 @@ made Cucumber suites unmaintainable in earlier industry cycles.
 `.agents/rules/gherkin-standards.md` is the **sole** SSOT for:
 
 - the canonical tag taxonomy (`@smoke`, `@risk-high`, `@platform-*`,
-  `@domain-*`, `@flaky`);
+  `@domain-*`, `@flaky`, `@skip`) — *`@skip` was added to the rule after this
+  ADR was written (Story #5077 records it here); it is a scaffold-gating tag
+  for behavior planned but not yet implemented, deliberately distinct from
+  `@flaky`, which marks a stability problem. Its arrival by an amendment to
+  the rule rather than to this entry is the SSOT protocol below working as
+  designed — read the rule for the live set, never this list;*
 - the forbidden-pattern list (SQL/ORM calls, status codes, DOM selectors, raw
   URLs, payloads, framework names, explicit waits);
 - Scenario Outline conventions, selector discipline, and the step-reuse
@@ -1763,7 +1584,7 @@ tests rather than encoding them in `.feature` files.
 
 ---
 
-## ADR: Decompose oversized orchestration modules via facade pattern
+## ADR 20260420-297: Decompose oversized orchestration modules via facade pattern
 
 **Status:** Accepted
 **Date:** 2026-04-20
@@ -1799,6 +1620,20 @@ file to a **thin facade** that re-exports the same public symbols.
 
 The facade files are the **only** part of the stable public surface;
 submodule paths are internal implementation detail.
+
+> **Amendment (Story #5077, 2026-08-28) — two of the three targets are gone.**
+> The v2.0.0 Story-only cutover (commit `c9491739`) deleted
+> `lib/orchestration/dispatch-engine.js` and
+> `lib/presentation/manifest-renderer.js`, and with them the whole
+> `lib/presentation/` directory; the callers the Positive consequence names —
+> `dispatcher.js`, `sprint-story-init.js`, `sprint-story-close.js` — went the
+> same way. **The stable-public-surface clause now scopes to one file:**
+> `.agents/scripts/lib/worktree-manager.js`, which still composes its
+> `lib/worktree/` submodules and still carries the backwards-compat `_*`
+> delegates flagged as debt below. The pattern itself is unaffected and is
+> documented in `docs/patterns.md`; what changed is the set of files it is
+> currently applied to. The Decision text above is left intact as the 2026-04
+> record.
 
 ### Consequences
 
@@ -1840,16 +1675,18 @@ Triggered Epic-level orchestration from a GitHub label via `epic-orchestrator.ym
 
 ## ADR-20260421-321b: Retire `risk::high` runtime gating
 
--   **Status:** Accepted (Epic #321 Story #334, v5.14.0).
--   **Surface:** `.agents/instructions.md`
--   **Materially dead:** the outcome holds — no runtime `risk::high` gate
-    exists — but every mechanism below is gone and the Surface is a doc file
-    that cannot witness it either way. `risk-gate-handler.js`,
-    `wave-dispatcher.js`, `story-close.js` are absent;
-    `handleRiskHighGate` / `handleHighRiskGate` occur nowhere but here; and
-    `hitl.riskHighApproval` / `hitl.riskHighRuntimeGate` are not config keys —
-    the escape hatch this ADR preserved went with the in-process stratum.
-    Read the Decision as a 2026-04 record, not as live wiring.
+**Status:** Accepted (Epic #321 Story #334, v5.14.0).
+**Date:** 2026-04-21
+**Surface:** `.agents/instructions.md`
+**Materially dead:** the outcome holds — no runtime `risk::high` gate
+exists — but every mechanism below is gone and the Surface is a doc file
+that cannot witness it either way. `risk-gate-handler.js`,
+`wave-dispatcher.js`, `story-close.js` are absent;
+`handleRiskHighGate` / `handleHighRiskGate` occur nowhere but here; and
+`hitl.riskHighApproval` / `hitl.riskHighRuntimeGate` are not config keys —
+the escape hatch this ADR preserved went with the in-process stratum.
+Read the Decision as a 2026-04 record, not as live wiring.
+
 -   **Context:** `risk-gate-handler.js` halted the dispatcher on
     `risk::high` tasks, and `story-close.js` halted close for
     `risk::high` stories. In the new HITL-minimal model this becomes
@@ -1879,8 +1716,10 @@ Triggered Epic-level orchestration from a GitHub label via `epic-orchestrator.ym
 
 ## ADR-20260422-380a: Two-stage Windows worktree reap (fs.rm retry + deferred sweep)
 
--   **Status:** Accepted (Epic #380 Story #386, v5.15.1).
--   **Surface:** `.agents/scripts/lib/worktree/lifecycle-manager.js`
+**Status:** Accepted (Epic #380 Story #386, v5.15.1).
+**Date:** 2026-04-22
+**Surface:** `.agents/scripts/lib/worktree/lifecycle-manager.js`
+
 -   **Context:** The v5.7.0 worktree-per-story model ships a clean
     `reap` path for POSIX, but on Windows `git worktree remove` + the
     follow-up `fs.rm` routinely fail with `EBUSY` / `ENOTEMPTY` because
@@ -1956,13 +1795,17 @@ Made `sprint-story-close` recovery explicit via `--resume` / `--restart` rather 
 
 ## ADR-20260422-441a: Force-reap worktrees whose Story branch is already merged
 
--   **Status:** Accepted (Epic #441 Story #451, v5.15.3) — rule stands; the
-    `/sprint-close` Phase 4 mechanics below are superseded. The
-    force-reap-when-already-merged rule now lives in the protected boot sweep
-    (`boot-sweep.js`), which reaps a local branch only when its PR is MERGED
-    and HEAD matches the merged `headRefOid`; content-merged branches are
-    report-only.
--   **Surface:** `.agents/scripts/boot-sweep.js`
+**Status:** Accepted in part (Epic #441 Story #451, v5.15.3) — the rule stands;
+the `/sprint-close` Phase 4 mechanics below are superseded by
+[`20260726-v2-story-collapse`](#adr-20260726-v2-story-collapse-story-only-ticket-model-one-plan-one-deliver-one-engine),
+which retired the `sprint-*` surface outright. The
+force-reap-when-already-merged rule now lives in the protected boot sweep
+(`boot-sweep.js`), which reaps a local branch only when its PR is MERGED
+and HEAD matches the merged `headRefOid`; content-merged branches are
+report-only.
+**Date:** 2026-04-22
+**Surface:** `.agents/scripts/boot-sweep.js`
+
 -   **Context:** Epic #413's `/sprint-close` Phase 4 reaper left 3 of 6
     worktrees orphaned (`story-420`, `story-423`, `story-424`) with
     `reap-skipped: uncommitted-changes`, even though every Story branch
@@ -2026,9 +1869,10 @@ Kept Feature tickets inside the completion cascade while excluding Epics and pla
 
 ## ADR-20260423-511b: `transitionTicketState.fromState` lookup keeps its swallow, now with a debug log
 
--   **Status:** Accepted
--   **Date:** 2026-04-23
--   **Surface:** `.agents/scripts/providers/github/tickets.js`
+**Status:** Accepted
+**Date:** 2026-04-23
+**Surface:** `.agents/scripts/providers/github/tickets.js`
+
 -   **Epic:** #511
 -   **Context:** `transitionTicketState()` wraps the prior-state label
     lookup in a silent try/catch — any error leaves `fromState` as `null`
@@ -2080,9 +1924,10 @@ Made per-phase timing a first-class Epic-runner surface, posting a `phase-timing
 
 ## ADR-20260424-596a: CRAP as a sibling gate, not a replacement for MI
 
--   **Status:** Accepted
--   **Date:** 2026-04-24
--   **Surface:** `baselines/maintainability.json`
+**Status:** Accepted
+**Date:** 2026-04-24
+**Surface:** `baselines/maintainability.json`
+
 -   **Epic:** #596
 -   **Context:** The maintainability (MI) gate ratchets a per-file composite
     score, but is coverage-blind: a 30-branch function scores identically
@@ -2124,9 +1969,10 @@ Read quality-gate thresholds from the base branch rather than the PR branch, so 
 
 ## ADR-20260424-596c: Kernel-version stamp on the CRAP baseline
 
--   **Status:** Accepted
--   **Date:** 2026-04-24
--   **Surface:** `baselines/crap.json`
+**Status:** Accepted
+**Date:** 2026-04-24
+**Surface:** `baselines/crap.json`
+
 -   **Epic:** #596
 -   **Context:** `typhonjs-escomplex` makes scoring decisions that change
     between minor versions. Without a version stamp, an upstream dependency
@@ -2156,9 +2002,10 @@ Read quality-gate thresholds from the base branch rather than the PR branch, so 
 
 ## ADR-20260424-638a: `story-566` reap recovery is a self-inflicted dirty-tree bug
 
--   **Status:** Accepted
--   **Date:** 2026-04-24
--   **Surface:** `.agents/scripts/lib/worktree/bootstrapper.js`
+**Status:** Accepted
+**Date:** 2026-04-24
+**Surface:** `.agents/scripts/lib/worktree/bootstrapper.js`
+
 -   **Epic:** #638 (Story #648)
 -   **Context:** Epic #553 close fired the `worktree.reap recovered via
     fs-rm-retry … attempts=1 lockReason=contains modified or untracked
@@ -2207,8 +2054,10 @@ Read quality-gate thresholds from the base branch rather than the PR branch, so 
 
 ## ADR-20260426-817a: Validation evidence is keyed by commit SHA, not by build ID
 
--   **Status:** Accepted (Epic #817, v5.28.0).
--   **Surface:** `.agents/scripts/evidence-gate.js`
+**Status:** Accepted (Epic #817, v5.28.0).
+**Date:** 2026-04-26
+**Surface:** `.agents/scripts/evidence-gate.js`
+
 -   **Context:** Epic #817's hot-path audit found lint and tests running
     five-plus times per Story against the same tree (sprint-execute Step 2,
     story-close, sprint-code-review, sprint-close Phase 4, pre-push, CI).
@@ -2249,8 +2098,10 @@ Named `sprint-story-close` the single canonical local Story validation gate, so 
 
 ## ADR-20260426-817c: Soft-failing gates surface degraded state explicitly, not silently
 
--   **Status:** Accepted (Epic #817, v5.28.0).
--   **Surface:** `.agents/scripts/lib/degraded-mode.js`
+**Status:** Accepted (Epic #817, v5.28.0).
+**Date:** 2026-04-26
+**Surface:** `.agents/scripts/lib/degraded-mode.js`
+
 -   **Context:** `select-audits.js` (diff timeout fallback to keyword-only),
     `lint-baseline.js` (zero-error fallback on JSON parse failure), and
     `baseline-refresh-guardrail.js` (empty-changed-files on `git diff`
@@ -2275,8 +2126,10 @@ Named `sprint-story-close` the single canonical local Story validation gate, so 
 
 ## ADR-20260426-817d: CLI entrypoints carry `node:coverage ignore file`; their `main()` is exercised via integration tests, not unit-line coverage
 
--   **Status:** Accepted (Epic #817 follow-on, v5.28.1).
--   **Surface:** `.agents/scripts/notify.js`
+**Status:** Accepted (Epic #817 follow-on, v5.28.1).
+**Date:** 2026-04-26
+**Surface:** `.agents/scripts/notify.js`
+
 -   **Context:** Story #816's long-tail CRAP cleanup attempted to score
     `run-audit-suite.js::main`, only to find the file was silently dropped
     from the CRAP scan because its first comment line is
@@ -2331,8 +2184,10 @@ Named `sprint-story-close` the single canonical local Story validation gate, so 
 
 ## ADR-20260502-960a: Production code is not shaped by test internals — tests import helpers directly with an explicit `ctx` bag
 
--   **Status:** Accepted (Epic #946, Stories C1+C2 → #960).
--   **Surface:** `.agents/scripts/lib/worktree/bootstrapper.js`
+**Status:** Accepted (Epic #946, Stories C1+C2 → #960).
+**Date:** 2026-05-02
+**Surface:** `.agents/scripts/lib/worktree/bootstrapper.js`
+
 -   **Context:** `WorktreeManager` historically grew a "Backwards-compat
     delegates for tests that probe private helpers" block — five
     `_`-prefixed methods (`_copyBootstrapFiles`, `_provisionWorkspace`,
@@ -2415,8 +2270,12 @@ GitHub creation happens.
 
 Add `validateAcFreshness({ tickets, baseBranchRef, gitRunner })` to
 `.agents/scripts/lib/orchestration/ticket-validator.js`. The check runs
-**only** on tickets whose `type === 'task'` (Features/Stories carry
-narrative copy that routinely names docs and templates) and scans every
+~~**only** on tickets whose `type === 'task'` (Features/Stories carry
+narrative copy that routinely names docs and templates)~~ — *amended by
+Story #5077 — the predicate is `t.type === 'story'` (`ticket-validator.js`, whose own
+JSDoc reads "Only Stories are scanned"), because the v2 cutover removed the
+`task` type entirely; the parenthetical exempting Stories now describes the
+exact population being gated* — and scans every
 `body.{goal,changes,acceptance,verify}` string plus a defensive
 top-level `acceptance` array. Path references are matched by a single
 regex anchored to three repository roots:
@@ -2454,6 +2313,12 @@ honoured.
     (`baselines/`), and fixture data are deliberately out of scope —
     they change frequently and a planner naming a docs path is not a
     structural failure mode worth blocking the decompose pass on.
+-   **Net-new paths are whitelisted, not probed** *(added by Story #5077 —
+    the gate grew this and the ADR never recorded it)*. `validateAcFreshness`
+    unions each Story's `body.changes` and `body.references` into an
+    `expectedNewPaths` set and skips the git probe for anything in it: a Story
+    that declares it will create a file must not fail a gate asserting the file
+    does not yet exist.
 -   **Probe results are cached per path** within a single decompose
     run. Sibling Tasks that cite the same helper module hit the cache
     instead of re-spawning git, keeping the gate's overhead linear in
@@ -2518,6 +2383,15 @@ namespace, then
 [`20260604-flat-command-projection-revert`](#adr-20260604-flat-command-projection-revert-revert-the-plugin-cutover--project-workflows-as-flat-name-commands)
 reverted that cutover without restoring the catalog command; no `mandrel.md`
 workflow exists. Defer to `20260604` on the projection axis.
+**What survives (scoped by Story #5077, 2026-08-28 — "the rest holds" was too
+broad):** the abstract rule in Decision item 1 (domain-vocabulary names, no
+brand prefix), which visibly governs all 28 flat commands; and two matrix rows
+whose subject is still live — `agents-update → mandrel-update`
+(`.agents/workflows/mandrel-update.md`) and `worktree-lifecycle → helper`
+(`.agents/workflows/helpers/worktree-lifecycle.md`). **Four rows are overturned
+or historical** and are struck in place in the matrix below; the noun taxonomy
+in Decision item 1 is likewise annotated. Do not settle a naming question from
+a struck row.
 **Date:** 2026-05-13
 **Surface:** `.agents/scripts/sync-claude-commands.js`
 **Epic:** #1184 (v6.0.0 Epic F — Cut-over + Mandrel rebrand)
@@ -2534,27 +2408,27 @@ Brand-prefixing every command is reverse-coupling: it makes the consumer's `/` m
 
 Adopt a two-part naming-discipline rule for the slash-command surface:
 
-1. **Per-command names describe what the command does** in the harness's domain vocabulary. The framework's domain has a small, stable noun-verb taxonomy: `epic-*`, `story-*`, `audit-*`, `worktree-*`, `git-*`, `agents-*` (the last reserved for operations scoped to the `.agents/` directory itself). A new command picks the noun that describes its surface and a verb that describes its action. No brand prefix.
+1. **Per-command names describe what the command does** in the harness's domain vocabulary. The framework's domain has a small, stable noun-verb taxonomy: ~~`epic-*`, `story-*`,~~ `audit-*`, ~~`worktree-*`,~~ `git-*`, ~~`agents-*`~~ (the last reserved for operations scoped to the `.agents/` directory itself). A new command picks the noun that describes its surface and a verb that describes its action. No brand prefix. *(Amended, Story #5077: of the six prefixes only `audit-*` and `git-*` still have commands — see the "Commands (28)" inventory in `.agents/docs/workflows.md`. The rule itself is unaffected; the taxonomy it drew from was a snapshot, not a closed set.)*
 2. **One Mandrel-prefixed discoverability entry, `/mandrel`,** prints the auto-generated catalog of Mandrel-owned commands. The brand prefix exists exactly once in the runnable surface — at the entry point a consumer types to learn the surface. Day-to-day commands stay descriptive.
 
 The seven-row recategorization matrix from the Epic body (#1184) codifies the specific decisions that flow from the rule. Each row is reproduced below with its rationale so future contributors can resolve the same ambiguities without reopening them:
 
 | Item | Decision | Rationale |
 | --- | --- | --- |
-| `agents-bootstrap-*` → `mandrel-bootstrap-*` | **Keep `agents-bootstrap-*`** | The name describes what it bootstraps — the `.agents/` directory, which the rebrand explicitly preserves as a stable filename. Brand-prefixing where the artifact name is already more self-describing is reverse-coupling. |
+| `agents-bootstrap-*` → `mandrel-bootstrap-*` | ~~**Keep `agents-bootstrap-*`**~~ → **Historical: the commands were folded into one bootstrap script** (Story #5077) | Retired by commit `85436774`; no `agents-bootstrap-*.md` remains. Original rationale, still the precedent for naming any future `.agents/`-scoped command: the name describes what it bootstraps — the `.agents/` directory, which the rebrand explicitly preserves as a stable filename. Brand-prefixing where the artifact name is already more self-describing is reverse-coupling. |
 | `agents-update` → `mandrel-update` | **Rename to `mandrel-update`** | The command now runs `npx mandrel update` — it upgrades the `mandrel` **npm package**, then re-materializes `.agents/`. `mandrel-update` names exactly that, and reads as unambiguously "update the framework" from a consumer's seat (the consumer never thinks of `.agents/` by that name). *(Supersedes the original rebrand-era call to keep `agents-update`, whose rationale — "updates the `.agents/` submodule pointer" — was made obsolete by the move from the Git-submodule distribution model to the npm package.)* The sibling `agents-bootstrap-*` row still stands — those commands genuinely scaffold the `.agents/` directory. |
-| `delete-epic-*` workflows → scripts-only | **Keep as workflows** | Destructive operations benefit from slash-command discoverability and the workflow-level confirmation step. The scripts are thin, but the operator's entry point and confirmation home is the workflow file. |
-| `epic-plan` / `epic-deliver` → `mandrel-plan` / `mandrel-deliver` | **Keep as `epic-*`** | "Epic" is the domain concept the framework operates on. `mandrel-plan` is strictly less informative ("plan what?"). The noun the workflow acts on is the right primary axis for the name. |
-| `story-deliver` → helper | **Keep as command** | Operator-facing for individual story re-runs and debugging. The documented argument is a Story ID; the workflow is intended to be human-invocable, not just a fan-out target. |
+| `delete-epic-*` workflows → scripts-only | ~~**Keep as workflows**~~ → **Overturned: the commands no longer exist** (Story #5077) | Retired with the v1 surface by [`20260726-v2-story-collapse`](#adr-20260726-v2-story-collapse-story-only-ticket-model-one-plan-one-deliver-one-engine); no `delete-epic*.md` remains under `.agents/workflows/`. Original rationale, kept as precedent for *other* destructive commands: destructive operations benefit from slash-command discoverability and the workflow-level confirmation step. The scripts are thin, but the operator's entry point and confirmation home is the workflow file. |
+| `epic-plan` / `epic-deliver` → `mandrel-plan` / `mandrel-deliver` | ~~**Keep as `epic-*`**~~ → **Overturned: collapsed to `/plan` + `/deliver`** (Story #5077) | [`20260726-v2-story-collapse`](#adr-20260726-v2-story-collapse-story-only-ticket-model-one-plan-one-deliver-one-engine) retired the Epic tier and made `/plan` and `/deliver` the whole SDLC surface; no `epic-plan.md` or `epic-deliver.md` exists. The row's reasoning — name the workflow after the noun it acts on — is what *produced* `/plan` and `/deliver`, so the rule survives its own example. |
+| `story-deliver` → helper | ~~**Keep as command**~~ → **Overturned: moved to `helpers/`** (Story #5077) | The same collapse made delivery one engine: `deliver-story.md` is now `.agents/workflows/helpers/deliver-story.md`, invoked by `/deliver` rather than typed. Original rationale (operator-facing single-Story re-runs) is served by `/deliver <id>`. |
 | `worktree-lifecycle` → helper | **Move to `.agents/workflows/helpers/`** | The file self-describes as "operator and reviewer reference" — it is documentation, not an executable workflow. It is already path-included from `story-deliver.md`. It should not appear in the `/` menu as runnable. After the move, `sync-claude-commands.js` automatically drops `.claude/commands/worktree-lifecycle.md` because the sync filter excludes the `helpers/` subdirectory. |
-| `drain-pending-cleanup` → helper | ~~**Keep as command**~~ → **Overturned: moved to `helpers/`** (Story #3706) | Original rationale assumed the manual path was load-bearing as a slash command. A later wiring audit (Story #3706) found it is **not** — see [§ Overturn: `drain-pending-cleanup` demoted to a helper](#overturn-drain-pending-cleanup-demoted-to-a-helper) below. |
+| `drain-pending-cleanup` → helper | ~~**Keep as command**~~ → **Overturned: moved to `helpers/`** (Story #3706) | Original rationale assumed the manual path was load-bearing as a slash command. A later wiring audit (Story #3706) found it is **not** — see [`20260607-3706`](#adr-20260607-3706-drain-pending-cleanup-demoted-to-a-helper). |
 
 ### Consequences
 
 - **`/mandrel` becomes the canonical discoverability entry.** A new workflow at `.agents/workflows/mandrel.md` (landed by the companion Task #1619) prints the catalog auto-generated from the on-disk workflow set. The catalog is never stored on disk — generation happens at invocation time, so adding or renaming a workflow is reflected without a sync step.
 - **`worktree-lifecycle` is removed from the runnable `/` menu.** The file moves to `.agents/workflows/helpers/worktree-lifecycle.md`; `story-deliver.md`'s path-include is updated to the new location; the next `npm run sync:commands` drops the orphan slash-command file.
 - **Future commands inherit the rule.** When introducing a new workflow, the contributor picks the descriptive noun-verb pair and skips the brand prefix unless ambiguity is real. The one place ambiguity is real is the entry point itself, and that slot is now claimed by `/mandrel`.
-- **Adopters reading `docs/decisions.md`** can resolve "why isn't this `mandrel-*`?" without reopening the matrix. The seven rows are the load-bearing precedents.
+- **Adopters reading `docs/decisions.md`** can resolve "why isn't this `mandrel-*`?" without reopening the matrix. ~~The seven rows are the load-bearing precedents.~~ *(Amended, Story #5077: the load-bearing precedent is the **rule** — descriptive noun-verb, no brand prefix, one discoverability entry. Five of the seven rows decide the fate of commands that no longer exist and are struck above; read a struck row for its reasoning, never for its verdict.)*
 
 ### Alternatives considered
 
@@ -2658,3 +2532,327 @@ that retired `story.heartbeat` (A22).
   ledger, not the notify path. Unlike `loop.tick` they have a live producer, so
   whether to wire the dispatch or drop the allowlist entries is a decision, not
   dead code, and it is not taken here.
+
+---
+
+## ADR 20260828-5077a: The dispatch record is the Story GitHub surface, not a manifest artifact
+
+**Status:** Accepted
+**Date:** 2026-08-28
+**Surface:** `.agents/scripts/lib/orchestration/ticketing.js`
+**Story:** #5077
+**Supersedes:** [ADR 20260519-adapter-layer-removed](#adr-20260519-adapter-layer-removed-delete-the-iexecutionadapter-abstraction-superseded)
+
+### Context
+
+`20260519-adapter-layer-removed` deleted the `IExecutionAdapter` abstraction and
+named a replacement cross-runtime contract in the same breath: "the **dispatch
+manifest** (md + structured comment…) is the cross-runtime contract. Any future
+host that wants to replay, audit, or interoperate with a Mandrel dispatch
+consumes the manifest, not an in-process interface."
+
+The deletion half held — `.agents/scripts/adapters/`, `lib/IExecutionAdapter.js`,
+`lib/adapter-factory.js` and `tests/execution-adapter.test.js` are all absent.
+The replacement half never shipped a producer. Nothing writes a
+`dispatch-manifest` structured comment; `storyManifestPath`
+(`lib/config/temp-paths.js`) has no non-test caller; and `docs/architecture.md`
+names a different record entirely — "the dispatch record is the Story's own
+GitHub surface (labels, structured comments, `story-<id>` PR)". An agent
+retrieving 20260519 as authority for a cross-runtime integration would target
+an artifact nothing writes: the quiet failure this log's preamble describes.
+
+### Decision
+
+The cross-runtime dispatch record is **the Story's own GitHub surface** — its
+`agent::*` labels, its structured comments (`upsertStructuredComment` in
+`lib/orchestration/ticketing.js` is the canonical writer), and its `story-<id>`
+pull request. A host that wants to
+replay, audit, or interoperate with a Mandrel delivery reads those, and only
+those.
+
+The local `temp/**/manifest.md` paths remain a **run artifact**: a debugging
+convenience on the machine that ran the delivery. They are not a contract, are
+not required to exist, and nothing may be built on their presence.
+
+### Consequences
+
+- The interop surface is one an external host can already read without running
+  Mandrel at all: the GitHub Issues, Labels and Projects API.
+- `storyManifestPath` and its siblings stay as path helpers for artifacts the
+  runtime may choose to write; their absence is not a degraded state.
+- The adapter-layer deletion recorded by 20260519 is unaffected and is not
+  revisited here — only its replacement-contract clause is.
+
+---
+
+## ADR 20260828-5077b: The wired detector set is rework + retry, and unknown `delivery.signals` keys are rejected
+
+**Status:** Accepted
+**Date:** 2026-08-28
+**Surface:** `.agents/scripts/lib/config/limits.js`
+**Story:** #5077
+**Supersedes:** [ADR 20260514-drop-churn-idle](#adr-20260514-drop-churn-idle-drop-churn--idle-from-active-perf-signal-taxonomy-superseded)
+
+### Context
+
+`20260514-drop-churn-idle` pinned the active detector set as exactly
+`{ rework, retry, hotspot }` — enumerating the set was the entry's whole
+purpose — and promised that operators carrying `churn` / `idle` in
+`.agentrc.json` would see them "**ignored, not rejected** — the schema is
+permissive on unknown nested keys under `delivery.signals` to keep the
+migration silent."
+
+Both clauses are now wrong, and the second inverted in the dangerous direction
+because it is a consumer-facing upgrade contract. `hotspot` was retired with
+its detector in Epic #4406: `SIGNALS_DEFAULTS` (`lib/config/limits.js`) carries
+two blocks, `.agents/schemas/agentrc.schema.json` carries the same two, and the
+`signals` block is closed with `additionalProperties: false` — so
+`delivery.signals.churn`, `.idle` and `.hotspot` all fail AJV validation, pinned
+by `tests/config-settings-schema.test.js`.
+
+### Decision
+
+1. **The wired detector set is exactly `{ rework, retry }`.** `SIGNALS_DEFAULTS`
+   is the SSOT and `agentrc.schema.json` mirrors it; a detector is wired only
+   when both carry it.
+2. **`delivery.signals` is a closed block.** A leftover `churn`, `idle` or
+   `hotspot` key is a hard validation failure at config load, not a silent
+   no-op. This is deliberate and replaces the opposite guarantee 20260514 gave:
+   a silently-ignored threshold key reads as configured and is not, which is a
+   worse outcome than an upgrade error naming the offending key.
+3. **`CHURN` and `IDLE` stay reserved in the signal-kind enum**
+   (`lib/signals/schema.js`, `.agents/schemas/signal-event.schema.json`) so an
+   archived NDJSON stream written before the drop still parses. Reservation in
+   the *event* enum and rejection in the *config* schema are different surfaces
+   and do not conflict.
+
+### Consequences
+
+- Upgrading consumers get a named AJV error rather than a silent behaviour
+  change; the remedy is to delete the key.
+- Re-wiring a retired detector requires touching `SIGNALS_DEFAULTS` and the
+  schema together, so the two cannot drift apart.
+- Historical signal streams stay readable.
+
+---
+
+## ADR 20260828-5077c: Performance-signal telemetry is local-only — no summary comment reaches a ticket
+
+**Status:** Accepted
+**Date:** 2026-08-28
+**Surface:** `.agents/scripts/lib/signals/write.js`
+**Story:** #5077
+**Supersedes:** [ADR 20260507-1030a](#adr-20260507-1030a-performance-signal-telemetry--events-local-summaries-on-tickets-superseded)
+
+### Context
+
+`20260507-1030a` was titled "events local, **summaries on tickets**" and decided
+that "GitHub tickets receive **summary payloads only** — one
+`structured:story-perf-summary` comment per Story at close, one
+`structured:epic-perf-report` per Epic". Story #4545 deleted both analyzers.
+Neither literal has a producer; `docs/architecture.md` and
+`docs/archive/data-dictionary-2026-08.md` both record their absence. Half the
+entry's title described a surface that no longer exists, on one of the log's
+most-cited telemetry entries.
+
+Three enumerations in the same entry had also drifted — the signal-kind enum,
+the on-disk layout, and the threshold defaults — so they are restated here
+rather than left for the next reader to re-derive.
+
+### Decision
+
+Performance-signal telemetry is **local-only**. `lib/signals/write.js` appends
+NDJSON records to the run's temp tree; nothing writes a telemetry summary to a
+GitHub ticket, and no such structured-comment type exists. The single consumer
+is the retro proposal composer (`lib/orchestration/retro-proposals.js`), which
+reads the local stream and routes recurring friction into framework / consumer /
+discarded proposals.
+
+The current enumerations:
+
+- **Signal kinds — 13**, the closed enum on
+  `.agents/schemas/signal-event.schema.json`, asserted by
+  `tests/contract/docs-reference-sync.test.js`.
+- **Layout —** `temp/run-<eid>/stories/story-<sid>/signals.ndjson`, with
+  standalone Stories under `temp/standalone/stories/story-<sid>/`
+  (`lib/config/temp-paths.js`). Under the Story-only model `epicId` is always
+  `null`, so the Epic-keyed segment is never populated.
+- **Thresholds —** `SIGNALS_DEFAULTS` is
+  `{ rework: { editsPerFile: 5 }, retry: { repeatCount: 3 } }`
+  (`lib/config/limits.js`) — see [ADR 20260828-5077b](#adr-20260828-5077b-the-wired-detector-set-is-rework--retry-and-unknown-deliverysignals-keys-are-rejected).
+
+### Consequences
+
+- Carried forward from 1030a and still true: `getSignals` is the accessor,
+  `agentrc-reference.json` mirrors the thresholds,
+  `tests/config/limits-template-drift.test.js` guards the mirror, the writer is
+  best-effort and unbuffered, and reaping the temp tree is the cleanup path.
+- A Story's comment surface carries state and evidence, never telemetry
+  rollups. Re-introducing a rollup comment is a new decision, not a restoration
+  of this one.
+
+---
+
+## ADR 20260828-5077d: `.agents/README.md` is the bundle's single-homed reference, not a 150-line pointer
+
+**Status:** Accepted
+**Date:** 2026-08-28
+**Surface:** `.agents/README.md`
+**Story:** #5077
+**Supersedes:** the `.agents/README.md` clause of [ADR 20260505-990a](#adr-20260505-990a-audit-remediation--agents-framework-hardening--concept-removal)
+
+### Context
+
+`20260505-990a` decision item 3 set a hard numeric constraint on a file that
+still exists — "**Slim `.agents/README.md`** to ≤ 150 lines" — with the matching
+consequence "The slim version (≤ 150 lines) is the entry point". The file is
+835 lines.
+
+The overshoot is a deliberate reversal, not decay: Story #4675 (commit
+`1b2dca7f`) single-homed the configuration, README, SDLC and quality-gates
+content into it, and the file's own header claims the broader charter. Left
+standing, the clause invites a maintenance pass either to "fix" a deliberately
+consolidated file or to file a phantom finding against it — a live constraint
+the tree intentionally violates 5.5×.
+
+### Decision
+
+`.agents/README.md` is the consumer-facing reference for the distributed
+bundle, not a pointer page, and carries **no line ceiling**. What governs it is
+single-homing: a topic lives in exactly one place, and the README is that place
+for the bundle's cross-directory authoring conventions.
+
+Every other decision and consequence of `20260505-990a` is unaffected and stays
+in force; that entry is marked `Accepted in part` with this clause struck in
+place.
+
+### Consequences
+
+- What bounds the always-loaded surface is the context-budget ratchet, not a
+  hand-set line count. `.agents/README.md` is read on demand and is not part of
+  the always-loaded closure, so its length costs nothing per session.
+- A future decision to split it must argue from the ratchet or from
+  single-homing, not from a restored 150-line number.
+
+---
+
+## ADR 20260828-5077e: `.agentrc.json` has a closed five-block top level; there is no `agentSettings` namespace
+
+**Status:** Accepted
+**Date:** 2026-08-28
+**Surface:** `.agents/schemas/agentrc.schema.json`
+**Story:** #5077
+**Supersedes:** [ADR 20260425-730a](#adr-20260425-730a-consolidate-agentsettings-into-a-grouped-schema-validated-contract-superseded)
+
+### Context
+
+`20260425-730a` decided to "reorganise `agentSettings` into four typed
+sub-blocks (`paths`, `commands`, `quality`, `limits`)", with "every former flat
+key moves under one of the four sub-blocks". No such namespace exists, and its
+name is now a hard validation failure rather than a detail drift:
+`.agents/schemas/agentrc.schema.json` declares its top level as
+`['$schema', 'project', 'github', 'planning', 'delivery', 'qa']` with
+`additionalProperties: false`, and `tests/config-settings-schema.test.js` pins
+that a legacy `agentSettings` block is rejected (Epic #2880). The four
+sub-blocks did not survive as a group either — `paths` and `commands` sit under
+`project`, `quality` under `delivery.quality`, and `limits` is synthesized in
+`lib/config/limits.js` rather than configured at all.
+
+The *intent* survived: typed sub-blocks reached through accessors rather than a
+flat bag. Only the decided container did not, and an agent retrieving 730a as
+authority on `.agentrc.json` shape is handed a shape the validator rejects.
+
+### Decision
+
+The top level of `.agentrc.json` is the closed set `$schema`, `project`,
+`github`, `planning`, `delivery`, `qa`. `additionalProperties: false` at that
+level is deliberate: an unknown top-level block is a typo, and a typo that
+validates is a setting that silently does nothing.
+
+Carried forward from 730a because each still holds:
+
+- `project.paths.{agentRoot,docsRoot,tempRoot}` are schema-required.
+- `project.commands.typecheck` is `string | null` — `null` means "this project
+  has no typecheck", not "unset". There is no `commands.build` key; 730a named
+  one that never existed.
+- `github` is **optional** at the top level (730a called it required); when
+  present it requires `owner`, `repo` **and** `operatorHandle`.
+- Config is read through the typed accessors — `getPaths`, `getCommands`,
+  `getQuality`, `getLimits` — never by reaching into the resolved object.
+- `baselines/` at the repository root is the canonical baseline location, and
+  `generate-config-docs.js` emits the documentation mirror from the schema.
+
+### Consequences
+
+- A config carrying `agentSettings` fails validation with a named error rather
+  than being half-honoured.
+- Adding a configuration surface means placing it under one of the five blocks,
+  or making the case for a sixth in a new ADR.
+
+---
+
+## ADR 20260828-5077f: Dependency ordering has two channels — declared edges and the delivery-time footprint guard
+
+**Status:** Accepted
+**Date:** 2026-08-28
+**Surface:** `.agents/scripts/stories-wave-tick.js`
+**Story:** #5077
+
+### Context
+
+`/deliver` decides what to dispatch on a given beat from two independent
+sources of ordering authority, and this log recorded neither. The first is
+planning-time: a Story's declared `depends_on` edges. The second is
+delivery-time: a file-footprint guard that withholds a Story whose changed-file
+footprint would race a peer admitted this beat or one still in flight.
+
+Commit `6bd0653e` introduced `delivery.deliverRunner.footprintGuard` to
+arbitrate between the two. The mechanism is documented — `docs/architecture.md`,
+`.agents/docs/SDLC.md`, `.agents/docs/configuration.md`, and
+`helpers/deliver-reference.md` all describe it. What was missing is the recorded
+*decision*: which channel wins, why the default is what it is, and what an
+operator gives up by changing it. The quality-gates carve-out in this log's
+preamble covers absolute quality floors and the floor-vs-ratchet policy only,
+so it does not exempt delivery routing; and this log already carries delivery-
+model decisions, `20260726-v2-story-collapse` among them.
+
+### Decision
+
+Both channels stay, and `delivery.deliverRunner.footprintGuard` selects what a
+collision does:
+
+| Mode | Effect |
+| --- | --- |
+| `enforce` (default) | A footprint collision **withholds** the Story. Keep this unless there is a reason not to — the guard encodes delivery-time-only knowledge (open implementation windows, foreign leases, ground that moved since the plan was written) that no `depends_on` edge could have carried. |
+| `advisory` | Collisions are still **detected** and every would-be withhold is reported in the tick envelope, but dispatch follows the declared `depends_on` edges alone. A deliberate throughput trade for a run whose ordering is fully declared. |
+
+**Detection is unconditional in both modes.** `advisory` changes what a
+collision does, never whether it is seen: a mode that also stopped detecting
+would make an unfilled dispatch slot indistinguishable from a cap that was
+never reached.
+
+A footprint is derived from each Story's declared `changes[]` (a
+`declared-overlap`) and from a text scrape of the Story body (a
+`scraped-overlap`). The scrape excludes exactly three token sources, each
+structurally incapable of naming an edit target: the `audit-fingerprints` /
+`audit-semantic-keys` provenance footers, paths under `project.paths.tempRoot`,
+and markdown-link URL interiors.
+
+### Alternatives considered
+
+- **Declared edges only.** Rejected — a plan is authored before delivery, so it
+  cannot name a collision that exists only because a sibling landed first or a
+  lease is held elsewhere.
+- **Footprint guard only.** Rejected — the scrape is a heuristic, and
+  `scraped-overlap` is the class where a false positive is possible. A declared
+  edge is the operator's explicit statement and must not be overridable by
+  inference.
+
+### Consequences
+
+- The default is safe and the escape hatch is explicit: a run that wants maximum
+  throughput opts in per project and keeps full visibility of what it traded.
+- Two Stories rewriting the same generated baseline serialize even when neither
+  declares an edge — the case `enforce` exists for.
+- A false `scraped-overlap` costs a beat, never correctness. The remedy is to
+  declare the real footprint in `changes[]`, not to disable the guard.
