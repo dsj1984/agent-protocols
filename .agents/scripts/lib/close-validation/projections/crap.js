@@ -36,6 +36,7 @@ import { loadCoverage } from '../../coverage-utils.js';
 import { scanAndScore } from '../../crap-utils.js';
 import { cachedGitFetchSync } from '../../git/cached-fetch.js';
 import { gitSpawn as defaultGitSpawn } from '../../git-utils.js';
+import { SCORABLE_SOURCE_EXT_RE } from '../../source-extensions.js';
 import { MISSING_ARG_REASONS, validateProjectionInputs } from './inputs.js';
 
 /**
@@ -47,9 +48,6 @@ export const DEFAULT_CRAP_TOLERANCE = 0.001;
 
 /** Framework default for the new-method ceiling (`gates.crap.newMethodCeiling`). */
 export const DEFAULT_NEW_METHOD_CEILING = 30;
-
-/** Extensions the CRAP scanner can score. */
-const SCORABLE = /\.(?:js|mjs|cjs|ts|tsx)$/;
 
 /**
  * Map the shared predicate's fine-grained `missing-*` reason onto the
@@ -155,8 +153,9 @@ function refreshBaseRef(cwd, baseBranch, git) {
 }
 
 /**
- * Enumerate the Story branch's changed files, narrowed to the extensions
- * the CRAP scanner can score.
+ * Enumerate the Story branch's changed files, narrowed by the shared
+ * scorable-source extension set (`source-extensions.js`) so the projection
+ * selects exactly the files the CRAP scanner walks.
  *
  * @param {{ cwd: string, baseBranch: string, storyBranch: string, git: { gitSpawn: typeof defaultGitSpawn } }} opts
  * @returns {{ ok: true, files: string[] } | { ok: false, detail: string }}
@@ -168,7 +167,10 @@ function diffScorableFiles({ cwd, baseBranch, storyBranch, git }) {
       cwd,
       gitSpawn: git.gitSpawn,
     });
-    return { ok: true, files: files.filter((f) => SCORABLE.test(f)) };
+    return {
+      ok: true,
+      files: files.filter((f) => SCORABLE_SOURCE_EXT_RE.test(f)),
+    };
   } catch (err) {
     return { ok: false, detail: err.message };
   }
