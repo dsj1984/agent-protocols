@@ -13,7 +13,7 @@ description:
 - Document the **why**, not the what. Capture context, constraints, alternatives considered, and trade-offs — code already shows what was built.
 - Write an ADR for any decision that would be expensive to reverse (framework choice, data model, auth strategy, API architecture, hosting platform).
 - Mandrel ships **two first-class decisions-log layouts** — pick one at onboarding (see [Decisions-log layouts](reference.md#decisions-log-layouts)): the **single-file dated-entry** `docs/decisions.md` (default; best for small projects) or the **index + `docs/decisions/` directory** (MADR-style, one file per ADR; best once the log outgrows a single file). Either way, the canonical ADR sections are **Status, Date, Deciders, Context, Decision, (Alternatives Considered), Consequences**.
-- Mark an ADR's status as `Accepted`, `Superseded by ADR-XXX`, or `Deprecated`. Never silently delete an ADR — supersede it.
+- Mark an ADR's status as `Accepted`, `Superseded by ADR-XXX`, `Deprecated`, or `Reverted (<date>)` — a reverted decision was **undone** rather than replaced, so unlike a superseded one it has no successor to point at. Never silently delete an ADR — supersede it.
 - Do **not** document obvious code; do **not** restate what the code already says. Stale or redundant docs are worse than no docs.
 - Comments explain **non-obvious intent** (the why). If a comment describes what the code does, refactor the code instead.
 - Keep user-facing docs (README, API docs, changelog) updated as part of the change — out-of-date docs are bugs.
