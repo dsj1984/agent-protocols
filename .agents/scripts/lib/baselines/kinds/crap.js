@@ -673,8 +673,13 @@ export function assessComparisonBasis(compareResult, opts = {}) {
  *
  * Story #791 retired the transitional `bootstrap` exit-0 path: a missing
  * baseline still fails closed. Story #829 (5.29.0) softened `kernelVersion`
- * and `tsTranspilerVersion` drift to **warn**, not fail; `escomplexVersion`
- * mismatch continues to fail closed.
+ * drift to **warn**, not fail, and did the same for `tsTranspilerVersion` —
+ * but that second half was re-escalated to **fatal** once Story #4866 made a
+ * TS row's `startLine` an original-source coordinate resolved through the
+ * transpiler's sourcemap. `startLine` is half the row identity key, so a
+ * transpiler change makes the rows incomparable rather than merely stale; see
+ * the `ts-transpiler-drift` axis below for the two exemptions that bound it.
+ * `escomplexVersion` mismatch has always failed closed.
  */
 /**
  * The one re-seed recipe every coordinate-invalidating axis ends on. Three

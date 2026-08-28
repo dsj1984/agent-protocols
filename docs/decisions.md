@@ -294,17 +294,29 @@ is the only merge surface.
 and
 [ADR 20260512-loop-adoption](#adr-20260512-loop-adoption-adopt-built-in-loop-no-homegrown-surface-to-reconcile).
 
-Loop units (`.agents/workflows/loops/*.md`) ship the **content and contract** of
-recurring work — the action, the goal, the runnable `verify` oracle (required
-for `self-paced`, optional for `interval` / `cron`), and the
-observability/escalation contract (`maxRounds` / `onExhaust` + explicit
-stop-and-escalate conditions). The **host owns cadence and iteration**: the
+A loop unit ships the **content and contract** of recurring work — the action,
+the goal, the runnable `verify` oracle (required for `self-paced`, optional for
+`interval` / `cron`), and the observability/escalation contract (`maxRounds` /
+`onExhaust` + explicit stop-and-escalate conditions). The **host owns cadence
+and iteration**: the
 built-in `/loop` drives self-paced and interval loops, `/schedule` drives cron
 loops. Mandrel ships **no `/goal` command and no `/loop` runner** — building one
 would duplicate a Claude Code built-in and create a homegrown surface to
 reconcile, which the coupling stance forbids. Read the full ADR before adding a
 runner, scheduler, or definition-of-done command to the framework — the decision
 to **not** build one is deliberate.
+
+> **Retirement addendum (mirrored here by Story #5077, 2026-08-28 — the
+> companion carried it and this summary did not).** The **division of labor
+> stands**, and so does the prohibition: mandrel still ships no `/goal` and no
+> `/loop` runner, and `sync-claude-commands.js` still projects
+> consumer-authored units from `.agents/local/workflows/loops/`. What the
+> framework no longer ships is the *supporting surface*: Story #4482 (commit
+> `cd3ccf73`) deleted the starter units under `.agents/workflows/loops/`,
+> `.agents/schemas/loop-unit.schema.json`, `check-loop-units.js` and the
+> `run-lint` gate that called it. `.agents/docs/workflows.md` reads "Loops
+> namespace (0)". Read the frontmatter contract above as the shape a consumer
+> authors to, not as files this repository carries.
 
 > **Full ADR:**
 > [`decisions/loop-units-division-of-labor.md`](decisions/loop-units-division-of-labor.md).
@@ -454,9 +466,9 @@ by deletion (see the superseding notes below).
 > `lib/orchestration/ticket-validator*.js`, `lib/duplicate-search.js`, and the
 > evidence-gate skip cache. The rows scoped to the retired `/epic-plan` surface
 > — the clarity gate (`lib/epic-plan-clarity.js`), the consolidate critic's
-> scope-preservation claim, and `assertNoSingleStoryFeature` — went with the v2
-> Story collapse and are historical; read them as rationale, not as a live
-> contract.
+> scope-preservation claim, and `assertNoSingleStoryFeature` — went with
+> [`20260726-v2-story-collapse`](#adr-20260726-v2-story-collapse-story-only-ticket-model-one-plan-one-deliver-one-engine)
+> and are historical; read them as rationale, not as a live contract.
 
 ### Context
 
@@ -511,16 +523,25 @@ hallucinations):**
 deletion/refactor beyond a prose-and-guarantee sweep, and several touch live
 test surfaces or the dead-stratum boundary owned by #3908/#3909/#3911):**
 
-- **Spec-freshness "net-new cue" keyword classifier** — the decompose-side git
-  probes are the real gate; the cue classifier is a candidate for deletion.
-- **BDD `findBestScenarioMatch` Jaccard matcher** — keep the scanner index;
-  the model authors the Disposition column either way, so the matcher is
-  removable.
-- **Risk-verdict derivation/routing (~180 LOC)** — the schema + audit comment
-  stay; the model authors the axes, so the derivation/routing collapse is a
-  follow-up.
-- **Phase 7.5 section gate** — right check, wrong altitude: fold the one-line
-  call inside `runSpecPhase` and delete the standalone CLI + manual phase.
+> **Superseding note (Story #5077, 2026-08-28).** Three of the four deferrals
+> below were **executed by deletion** and are struck; only the BDD matcher is
+> still deferred. Left unmarked, this block reads as a live inventory and sends
+> a reader hunting ~180 LOC and a CLI that no longer exist.
+
+- ~~**Spec-freshness "net-new cue" keyword classifier**~~ — **done by deletion**
+  (#4811 deleted `spec-freshness.js`; see
+  `lib/orchestration/file-assumptions.js`). The decompose-side git probes were
+  the real gate, as this row predicted.
+- **BDD `findBestScenarioMatch` Jaccard matcher** — **still deferred, and the
+  only survivor of this block** (`lib/bdd-scenario-scanner.js`). Keep the
+  scanner index; the model authors the Disposition column either way, so the
+  matcher is removable.
+- ~~**Risk-verdict derivation/routing (~180 LOC)**~~ — **done by deletion**
+  (#4542). No risk-verdict schema remains; `lib/orchestration/ceremony-routing.js`
+  records that it *previously* consumed the planner's own risk verdict and now
+  derives the level from the change set.
+- ~~**Phase 7.5 section gate**~~ — **done by deletion**
+  (`lib/orchestration/spec-section-validator.js`, commit `a62efd5d`).
 
 ### Consequences
 
@@ -715,7 +736,12 @@ Retired `delete-epic.js` in favour of a declarative `epic.yaml` edited then reco
 
 **Status:** Accepted
 **Date:** 2026-05-12
-**Surface:** `.agents/scripts/providers/github.js`
+**Surface:** `.agents/scripts/sync-claude-commands.js`
+<!-- Story #5077 repointed the Surface. It named `providers/github.js`, a
+     ticketing-provider facade whose only related line concerns *provider*
+     coupling — it could not witness whether the workflow surface stayed
+     Claude Code-first either way. `sync-claude-commands.js` is the projection
+     this decision governs: reverse the stance and its contents change. -->
 **Supersedes:**
 
 - Implicit assumption that the entire framework — dispatcher, workflow,
@@ -803,12 +829,26 @@ name without rewriting this ADR text.
   the agent's tool surface and cannot be invoked from a workflow body.
 - **The overlap matrix is mandatory.** Each overlapping responsibility
   between a Claude Code built-in and a homegrown surface element must
-  be recorded in `docs/decisions.md` with: wrapper name, built-in
-  name, exact sub-step delegation point, post-return validation, and
-  rationale. Unrecorded overlaps are treated as drift and addressed in
-  the next maintenance pass. The catalog of Claude Code commands
-  itself is a maintained artifact (`docs/claude-code-catalog.md`) with
-  a refresh cadence pinned to Claude Code minor version bumps.
+  be recorded — wrapper name, built-in name, exact sub-step delegation
+  point, post-return validation, and rationale. Unrecorded overlaps are
+  treated as drift and addressed in the next maintenance pass. The
+  catalog of Claude Code commands itself is a maintained artifact
+  (`docs/claude-code-catalog.md`) with a refresh cadence pinned to
+  Claude Code minor version bumps.
+
+  > **Amendment (Story #5077, 2026-08-28) — the matrix lives here, and it has
+  > one row.** The clause said "recorded in `docs/decisions.md`" and no matrix
+  > was ever written, so the obligation governed nothing for three months. It
+  > is discharged in place rather than relocated: this table *is* the matrix,
+  > and a new overlap adds a row to it.
+  >
+  > | Wrapper | Built-in | Delegation point | Post-return validation | Rationale |
+  > | --- | --- | --- | --- | --- |
+  > | `/mandrel-update` | `/fewer-permission-prompts` | `.agents/workflows/mandrel-update.md` Step 3.6 | Operator confirms the refreshed allowlist before the step completes; nothing downstream depends on its output | Refreshing the harness permission allowlist is host-shaped work the built-in already does; wrapping it would duplicate a Claude Code primitive, which this stance forbids. |
+  >
+  > The other built-ins named above (`/simplify`, `/security-review`, `/loop`,
+  > `/insights`) remain candidates with no wiring, so they are not overlaps and
+  > have no row.
 - **Portability of the workflow surface is a non-goal.** Proposals to
   abstract the slash-command, hook, or skill surface away from Claude
   Code primitives are rejected by default. If a future runtime
@@ -874,10 +914,16 @@ Treat the cleanup as a single coherent Epic rather than fan-out across
 maintenance work:
 
 1. **Bounded concurrency is the default.** Every `Promise.all` over
-   GitHub or fs work flows through `concurrentMap` with a story-specific
-   cap (3 for mutation paths, 8 for sibling-read fan-outs, 64 for fs
-   scans), with tests that assert `maxInFlight ≤ cap` rather than just
-   correctness.
+   GitHub or fs work flows through `concurrentMap` with a call-site cap,
+   ~~(3 for mutation paths, 8 for sibling-read fan-outs, 64 for fs
+   scans)~~, with tests that assert `maxInFlight ≤ cap` rather than just
+   correctness. *(Amended, Story #5077: of the three caps only the 8
+   survives, as `SUBTICKET_HYDRATION_CONCURRENCY` in
+   `providers/github/issues.js`. The shared default is now
+   `FANOUT_CONCURRENCY = 4` in `lib/util/concurrent-map.js`, and no
+   `concurrency: 3` or `concurrency: 64` site exists outside tests. The rule —
+   bounded by default, capped at the call site — is what governs; the
+   numbers were a snapshot.)*
 2. **Module boundaries are one-way.** `lib/orchestration/index.js` no
    longer re-exports providers or scripts; the audit-suite has its own
    `lib/audit-suite/` SDK exporting `runAuditSuite` / `selectAudits`;
@@ -897,11 +943,16 @@ maintenance work:
   not pull in the scripts CLI surface or providers, which keeps test
   doubles small.
 - Operators have [`.agents/scripts/README.md`](../.agents/scripts/README.md)
-  as the operator-scripts catalog. The file documents the optional
-  scripts that are not wired into `package.json` / Husky / CI (see
-  Story #3048); it is intentionally **not** an exhaustive index of the
-  ~90 top-level entrypoints — for those, `package.json` scripts and
-  `.agents/workflows/` remain the canonical surface.
+  as an orientation pointer. It is intentionally **not** an exhaustive index of
+  the ~90 top-level entrypoints — for those, `package.json` scripts and
+  `.agents/workflows/` remain the canonical surface. ~~The file documents the
+  optional scripts that are not wired into `package.json` / Husky / CI (see
+  Story #3048).~~ *(Amended, Story #5077: that "operator-only" tier was
+  abolished, and the named file now says the opposite in its own words —
+  `check-knip-entries.js` derives the caller set mechanically, so a CLI no
+  invoker names is **dead, not operator-only**. `docs/architecture.md` repeats
+  it. This is not a moved path: the file exists and contradicts the bullet in
+  place.)*
 
 ## ADR 20260507-1030a: Performance-signal telemetry — events local, summaries on tickets (superseded)
 
@@ -1103,13 +1154,27 @@ Rationale for keeping escomplex rather than swapping kernels:
    on a battle-tested kernel and ships in a single point release.
 
 `tsTranspilerVersion` is added to the CRAP baseline envelope so
-consumers can detect transpiler drift. Both `kernelVersion` and
-`tsTranspilerVersion` mismatches **warn**, not fail — consumers
+consumers can detect transpiler drift. ~~Both `kernelVersion` and
+`tsTranspilerVersion` mismatches **warn**, not fail~~ — consumers
 pin-and-bump and need runway to refresh deliberately rather than
 discovering the version bump from a hard CI red. `escomplexVersion`
 mismatch continues to fail closed: a different kernel can change
 scoring semantics without warning, which is exactly the silent drift
 the gate exists to catch.
+
+> **Amendment (Story #5077, 2026-08-28) — the two halves split.**
+> `kernelVersion` still warns (`kernelDriftAxis`,
+> `lib/baselines/envelope.js`, `severity: 'warn'`). `tsTranspilerVersion`
+> now **fails closed**: the `ts-transpiler-drift` axis in
+> `lib/baselines/kinds/crap.js` is `severity: 'fatal'` and short-circuits to
+> `exitCode: 1`. The escalation is deliberate and argued in place — Story
+> #4866 made a TS row's `startLine` an *original-source* coordinate resolved
+> through the transpiler's sourcemap, and `startLine` is half the row identity
+> key, so rows scored under a different transpiler are not comparable at all.
+> Two guards bound the blast radius: an unstamped baseline is exempt (nothing
+> to compare), and `hasTranspiledRows` exempts a pure-JavaScript tree, whose
+> two coordinate systems coincide. A consumer bumping `typescript` in a
+> TS-bearing repo gets a red gate and a re-seed instruction, not a warning.
 
 ### Alternatives considered
 
@@ -1137,8 +1202,19 @@ existing `compareCrap` line-drift fallback (same file + method, nearest
 startLine wins) absorbs this for baseline comparison; per-method
 coverage values may resolve to null on the first scan of a new TS
 method, in which case the row is skipped from the baseline rather than
-scored as zero. Sourcemap-based line remapping is a future enhancement
-and out of scope for 5.29.0.
+scored as zero. ~~Sourcemap-based line remapping is a future enhancement
+and out of scope for 5.29.0.~~
+
+> **Amendment (Story #5077, 2026-08-28) — the remap shipped.**
+> `lib/transpile.js` requests `sourceMap` from `ts.transpileModule`, builds a
+> `transpiledLine → originalLine` resolver over Node's built-in `SourceMap`,
+> and strips the trailing `sourceMappingURL` so the MI emit stays
+> byte-identical. What still falls back: a generated line with no mapping
+> resolves to `null`, and the nearest-`startLine` drift fallback described
+> above absorbs that case. Story #4866 records the consequence — a TS row's
+> `startLine` is an original-source coordinate, which is why
+> `tsTranspilerVersion` joined the stamp set and why its drift axis is fatal
+> rather than a warning.
 
 ### Consequences
 
@@ -1319,8 +1395,16 @@ removal, not a logic change.
   orchestration; operators provision secrets in `.env` (local) or the
   Claude Code web env-var UI (web); `.mcp.json` is reserved for the
   MCP host's own discovery of third-party servers.
-- **Positive:** Worktree bootstrap drops `.mcp.json` from its copy list;
-  one fewer file to keep in sync across isolated trees.
+- ~~**Positive:** Worktree bootstrap drops `.mcp.json` from its copy list;
+  one fewer file to keep in sync across isolated trees.~~ *(Amended, Story
+  #5077: it did not. `.mcp.json` is still listed in
+  `WORKTREE_ISOLATION_DEFAULTS.bootstrapFiles`
+  (`lib/config/worktree-isolation.js`), mirrored by `DEFAULT_WORKSPACE_FILES`
+  in `lib/workspace-provisioner.js`, and is copied into every worktree. The
+  retention is deliberate and consistent with the bullet above: the file may
+  carry third-party MCP secrets an isolated tree needs, so it stopped being
+  load-bearing for framework orchestration without ceasing to be an operator
+  secrets file.)*
 - **Negative (breaking):** Operators who previously relied on the IDE
   invoking tools natively must now invoke the Node CLIs directly (or let
   the `/sprint-*` workflows invoke them, which they already did). The
@@ -1392,20 +1476,32 @@ config is read-only at runtime; no workflow writes it.
   history thrash. Web sessions auto-disable worktrees; local sessions retain
   the v5.7.0 isolation behaviour. Operators can force either mode locally with
   one env var.
-- **Positive:** `runtime.sessionId` is available as a stable per-process
-  identity surfaced in the startup `[ENV] sessionId=…` log line for
-  operator log-correlation, with no separate identity layer required.
-  *(The original consumer of this id — the claim-protocol pool mode —
-  was retired in story #909; the field is preserved for diagnostics
-  only.)*
+- **Positive:** `runtime.sessionId` is a stable per-process identity, resolved
+  alongside the worktree flag with no separate identity layer required.
+  *Amended (Story #5077, 2026-08-28):* it is **computed but not surfaced**.
+  The bullet used to claim a startup `[ENV] sessionId=…` log line; no such line
+  is emitted — the startup emitter prints only the worktree line, and the
+  `[ENV] sessionId=` literal survives nowhere in `.agents/scripts`, `lib` or
+  `bin`. `resolveRuntime` still computes the value
+  (`lib/config/runtime.js`), but it has no consumer outside that module: the
+  original one, the claim-protocol pool mode, was retired in Story #909, and
+  the diagnostics justification for keeping the field is itself unrealized.
+  Read the field as reserved, not as an operator-visible correlation id.
 - **Negative:** The resolver consumes process environment, not config — typos
   in env var names fall through silently to the next rule. Mitigated by
   string-equality matching (`'true'` / `'false'` literal) so `"0"` / `""` /
   truthy-but-non-matching values cannot accidentally flip the flag.
 - **Negative:** The worktree-off path is exercised less often than the
-  worktree-on path on local machines. Mitigated by a diff test that runs the
+  worktree-on path on local machines. ~~Mitigated by a diff test that runs the
   same fixture both ways and asserts the on-branch logs are byte-identical to
-  a saved baseline.
+  a saved baseline.~~ *Amended (Story #5077, 2026-08-28):* no such comparison
+  exists. `tests/story-off-branch-e2e.test.js` builds a `Set` of expected log
+  prefixes and then asserts only that the set is non-empty — an assertion that
+  cannot fail — and the named baseline `tests/fixtures/off-branch-baseline.md`
+  has no reader anywhere in the repo. What genuinely covers the path is the
+  file's other cases, which drive the off-branch flow directly. Do not judge a
+  log-shape change safe on the strength of the mitigation as originally
+  written.
 
 ### Alternatives considered
 
@@ -1452,7 +1548,12 @@ made Cucumber suites unmaintainable in earlier industry cycles.
 `.agents/rules/gherkin-standards.md` is the **sole** SSOT for:
 
 - the canonical tag taxonomy (`@smoke`, `@risk-high`, `@platform-*`,
-  `@domain-*`, `@flaky`);
+  `@domain-*`, `@flaky`, `@skip`) — *`@skip` was added to the rule after this
+  ADR was written (Story #5077 records it here); it is a scaffold-gating tag
+  for behavior planned but not yet implemented, deliberately distinct from
+  `@flaky`, which marks a stability problem. Its arrival by an amendment to
+  the rule rather than to this entry is the SSOT protocol below working as
+  designed — read the rule for the live set, never this list;*
 - the forbidden-pattern list (SQL/ORM calls, status codes, DOM selectors, raw
   URLs, payloads, framework names, explicit waits);
 - Scenario Outline conventions, selector discipline, and the step-reuse
@@ -1519,6 +1620,20 @@ file to a **thin facade** that re-exports the same public symbols.
 
 The facade files are the **only** part of the stable public surface;
 submodule paths are internal implementation detail.
+
+> **Amendment (Story #5077, 2026-08-28) — two of the three targets are gone.**
+> The v2.0.0 Story-only cutover (commit `c9491739`) deleted
+> `lib/orchestration/dispatch-engine.js` and
+> `lib/presentation/manifest-renderer.js`, and with them the whole
+> `lib/presentation/` directory; the callers the Positive consequence names —
+> `dispatcher.js`, `sprint-story-init.js`, `sprint-story-close.js` — went the
+> same way. **The stable-public-surface clause now scopes to one file:**
+> `.agents/scripts/lib/worktree-manager.js`, which still composes its
+> `lib/worktree/` submodules and still carries the backwards-compat `_*`
+> delegates flagged as debt below. The pattern itself is unaffected and is
+> documented in `docs/patterns.md`; what changed is the set of files it is
+> currently applied to. The Decision text above is left intact as the 2026-04
+> record.
 
 ### Consequences
 
@@ -2155,8 +2270,12 @@ GitHub creation happens.
 
 Add `validateAcFreshness({ tickets, baseBranchRef, gitRunner })` to
 `.agents/scripts/lib/orchestration/ticket-validator.js`. The check runs
-**only** on tickets whose `type === 'task'` (Features/Stories carry
-narrative copy that routinely names docs and templates) and scans every
+~~**only** on tickets whose `type === 'task'` (Features/Stories carry
+narrative copy that routinely names docs and templates)~~ — *amended, Story
+#5077: the predicate is `t.type === 'story'` (`ticket-validator.js`, whose own
+JSDoc reads "Only Stories are scanned"), because the v2 cutover removed the
+`task` type entirely; the parenthetical exempting Stories now describes the
+exact population being gated* — and scans every
 `body.{goal,changes,acceptance,verify}` string plus a defensive
 top-level `acceptance` array. Path references are matched by a single
 regex anchored to three repository roots:
@@ -2194,6 +2313,12 @@ honoured.
     (`baselines/`), and fixture data are deliberately out of scope —
     they change frequently and a planner naming a docs path is not a
     structural failure mode worth blocking the decompose pass on.
+-   **Net-new paths are whitelisted, not probed** *(added by Story #5077 —
+    the gate grew this and the ADR never recorded it)*. `validateAcFreshness`
+    unions each Story's `body.changes` and `body.references` into an
+    `expectedNewPaths` set and skips the git probe for anything in it: a Story
+    that declares it will create a file must not fail a gate asserting the file
+    does not yet exist.
 -   **Probe results are cached per path** within a single decompose
     run. Sibling Tasks that cite the same helper module hit the cache
     instead of re-spawning git, keeping the gate's overhead linear in
@@ -2258,6 +2383,15 @@ namespace, then
 [`20260604-flat-command-projection-revert`](#adr-20260604-flat-command-projection-revert-revert-the-plugin-cutover--project-workflows-as-flat-name-commands)
 reverted that cutover without restoring the catalog command; no `mandrel.md`
 workflow exists. Defer to `20260604` on the projection axis.
+**What survives (scoped by Story #5077, 2026-08-28 — "the rest holds" was too
+broad):** the abstract rule in Decision item 1 (domain-vocabulary names, no
+brand prefix), which visibly governs all 28 flat commands; and two matrix rows
+whose subject is still live — `agents-update → mandrel-update`
+(`.agents/workflows/mandrel-update.md`) and `worktree-lifecycle → helper`
+(`.agents/workflows/helpers/worktree-lifecycle.md`). **Four rows are overturned
+or historical** and are struck in place in the matrix below; the noun taxonomy
+in Decision item 1 is likewise annotated. Do not settle a naming question from
+a struck row.
 **Date:** 2026-05-13
 **Surface:** `.agents/scripts/sync-claude-commands.js`
 **Epic:** #1184 (v6.0.0 Epic F — Cut-over + Mandrel rebrand)
@@ -2274,18 +2408,18 @@ Brand-prefixing every command is reverse-coupling: it makes the consumer's `/` m
 
 Adopt a two-part naming-discipline rule for the slash-command surface:
 
-1. **Per-command names describe what the command does** in the harness's domain vocabulary. The framework's domain has a small, stable noun-verb taxonomy: `epic-*`, `story-*`, `audit-*`, `worktree-*`, `git-*`, `agents-*` (the last reserved for operations scoped to the `.agents/` directory itself). A new command picks the noun that describes its surface and a verb that describes its action. No brand prefix.
+1. **Per-command names describe what the command does** in the harness's domain vocabulary. The framework's domain has a small, stable noun-verb taxonomy: ~~`epic-*`, `story-*`,~~ `audit-*`, ~~`worktree-*`,~~ `git-*`, ~~`agents-*`~~ (the last reserved for operations scoped to the `.agents/` directory itself). A new command picks the noun that describes its surface and a verb that describes its action. No brand prefix. *(Amended, Story #5077: of the six prefixes only `audit-*` and `git-*` still have commands — see the "Commands (28)" inventory in `.agents/docs/workflows.md`. The rule itself is unaffected; the taxonomy it drew from was a snapshot, not a closed set.)*
 2. **One Mandrel-prefixed discoverability entry, `/mandrel`,** prints the auto-generated catalog of Mandrel-owned commands. The brand prefix exists exactly once in the runnable surface — at the entry point a consumer types to learn the surface. Day-to-day commands stay descriptive.
 
 The seven-row recategorization matrix from the Epic body (#1184) codifies the specific decisions that flow from the rule. Each row is reproduced below with its rationale so future contributors can resolve the same ambiguities without reopening them:
 
 | Item | Decision | Rationale |
 | --- | --- | --- |
-| `agents-bootstrap-*` → `mandrel-bootstrap-*` | **Keep `agents-bootstrap-*`** | The name describes what it bootstraps — the `.agents/` directory, which the rebrand explicitly preserves as a stable filename. Brand-prefixing where the artifact name is already more self-describing is reverse-coupling. |
+| `agents-bootstrap-*` → `mandrel-bootstrap-*` | ~~**Keep `agents-bootstrap-*`**~~ → **Historical: the commands were folded into one bootstrap script** (Story #5077) | Retired by commit `85436774`; no `agents-bootstrap-*.md` remains. Original rationale, still the precedent for naming any future `.agents/`-scoped command: the name describes what it bootstraps — the `.agents/` directory, which the rebrand explicitly preserves as a stable filename. Brand-prefixing where the artifact name is already more self-describing is reverse-coupling. |
 | `agents-update` → `mandrel-update` | **Rename to `mandrel-update`** | The command now runs `npx mandrel update` — it upgrades the `mandrel` **npm package**, then re-materializes `.agents/`. `mandrel-update` names exactly that, and reads as unambiguously "update the framework" from a consumer's seat (the consumer never thinks of `.agents/` by that name). *(Supersedes the original rebrand-era call to keep `agents-update`, whose rationale — "updates the `.agents/` submodule pointer" — was made obsolete by the move from the Git-submodule distribution model to the npm package.)* The sibling `agents-bootstrap-*` row still stands — those commands genuinely scaffold the `.agents/` directory. |
-| `delete-epic-*` workflows → scripts-only | **Keep as workflows** | Destructive operations benefit from slash-command discoverability and the workflow-level confirmation step. The scripts are thin, but the operator's entry point and confirmation home is the workflow file. |
-| `epic-plan` / `epic-deliver` → `mandrel-plan` / `mandrel-deliver` | **Keep as `epic-*`** | "Epic" is the domain concept the framework operates on. `mandrel-plan` is strictly less informative ("plan what?"). The noun the workflow acts on is the right primary axis for the name. |
-| `story-deliver` → helper | **Keep as command** | Operator-facing for individual story re-runs and debugging. The documented argument is a Story ID; the workflow is intended to be human-invocable, not just a fan-out target. |
+| `delete-epic-*` workflows → scripts-only | ~~**Keep as workflows**~~ → **Overturned: the commands no longer exist** (Story #5077) | Retired with the v1 surface by [`20260726-v2-story-collapse`](#adr-20260726-v2-story-collapse-story-only-ticket-model-one-plan-one-deliver-one-engine); no `delete-epic*.md` remains under `.agents/workflows/`. Original rationale, kept as precedent for *other* destructive commands: destructive operations benefit from slash-command discoverability and the workflow-level confirmation step. The scripts are thin, but the operator's entry point and confirmation home is the workflow file. |
+| `epic-plan` / `epic-deliver` → `mandrel-plan` / `mandrel-deliver` | ~~**Keep as `epic-*`**~~ → **Overturned: collapsed to `/plan` + `/deliver`** (Story #5077) | [`20260726-v2-story-collapse`](#adr-20260726-v2-story-collapse-story-only-ticket-model-one-plan-one-deliver-one-engine) retired the Epic tier and made `/plan` and `/deliver` the whole SDLC surface; no `epic-plan.md` or `epic-deliver.md` exists. The row's reasoning — name the workflow after the noun it acts on — is what *produced* `/plan` and `/deliver`, so the rule survives its own example. |
+| `story-deliver` → helper | ~~**Keep as command**~~ → **Overturned: moved to `helpers/`** (Story #5077) | The same collapse made delivery one engine: `deliver-story.md` is now `.agents/workflows/helpers/deliver-story.md`, invoked by `/deliver` rather than typed. Original rationale (operator-facing single-Story re-runs) is served by `/deliver <id>`. |
 | `worktree-lifecycle` → helper | **Move to `.agents/workflows/helpers/`** | The file self-describes as "operator and reviewer reference" — it is documentation, not an executable workflow. It is already path-included from `story-deliver.md`. It should not appear in the `/` menu as runnable. After the move, `sync-claude-commands.js` automatically drops `.claude/commands/worktree-lifecycle.md` because the sync filter excludes the `helpers/` subdirectory. |
 | `drain-pending-cleanup` → helper | ~~**Keep as command**~~ → **Overturned: moved to `helpers/`** (Story #3706) | Original rationale assumed the manual path was load-bearing as a slash command. A later wiring audit (Story #3706) found it is **not** — see [`20260607-3706`](#adr-20260607-3706-drain-pending-cleanup-demoted-to-a-helper). |
 
@@ -2294,7 +2428,7 @@ The seven-row recategorization matrix from the Epic body (#1184) codifies the sp
 - **`/mandrel` becomes the canonical discoverability entry.** A new workflow at `.agents/workflows/mandrel.md` (landed by the companion Task #1619) prints the catalog auto-generated from the on-disk workflow set. The catalog is never stored on disk — generation happens at invocation time, so adding or renaming a workflow is reflected without a sync step.
 - **`worktree-lifecycle` is removed from the runnable `/` menu.** The file moves to `.agents/workflows/helpers/worktree-lifecycle.md`; `story-deliver.md`'s path-include is updated to the new location; the next `npm run sync:commands` drops the orphan slash-command file.
 - **Future commands inherit the rule.** When introducing a new workflow, the contributor picks the descriptive noun-verb pair and skips the brand prefix unless ambiguity is real. The one place ambiguity is real is the entry point itself, and that slot is now claimed by `/mandrel`.
-- **Adopters reading `docs/decisions.md`** can resolve "why isn't this `mandrel-*`?" without reopening the matrix. The seven rows are the load-bearing precedents.
+- **Adopters reading `docs/decisions.md`** can resolve "why isn't this `mandrel-*`?" without reopening the matrix. ~~The seven rows are the load-bearing precedents.~~ *(Amended, Story #5077: the load-bearing precedent is the **rule** — descriptive noun-verb, no brand prefix, one discoverability entry. Five of the seven rows decide the fate of commands that no longer exist and are struck above; read a struck row for its reasoning, never for its verdict.)*
 
 ### Alternatives considered
 
