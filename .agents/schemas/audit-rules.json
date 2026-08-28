@@ -312,6 +312,23 @@
       "target": "web",
       "scope": "global",
       "substitutionKeys": []
+    },
+    "audit-adrs": {
+      "triggers": {
+        "gates": ["gate1", "gate3"],
+        "keywords": [
+          "adr",
+          "adrs",
+          "decision record",
+          "architecture decision",
+          "decisions log",
+          "supersede",
+          "superseded"
+        ],
+        "filePatterns": ["**/decisions.md", "**/decisions/**"]
+      },
+      "scope": "global",
+      "substitutionKeys": []
     }
   },
   "sensitivePaths": {
