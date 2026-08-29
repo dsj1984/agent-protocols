@@ -122,6 +122,7 @@ import {
   STATE_LABELS,
   transitionTicketState,
 } from '../../ticketing.js';
+import { disarmAutoMerge } from './auto-merge.js';
 import { runPostLandTail as defaultRunPostLandTail } from './post-land.js';
 
 /**
@@ -551,32 +552,6 @@ async function blockOnFlipFailed({
  * is best-effort logged rather than thrown — the caller owns surfacing the
  * non-zero exit once this returns.
  */
-async function disarmAutoMerge({ prNumber, gh, ghTimeoutMs, progress }) {
-  try {
-    await withGhTimeout(
-      (gh ?? defaultGh).pr.merge(String(prNumber), ['--disable-auto']),
-      ghTimeoutMs,
-      `gh pr merge ${prNumber} --disable-auto`,
-    );
-    progress?.(
-      'CONFIRM',
-      `🔓 Auto-merge DISARMED on PR #${prNumber} — the PR stays open and hand-mergeable.`,
-    );
-    return true;
-  } catch (err) {
-    // Best-effort, exactly like every other side effect on the block path. A
-    // failed disarm still blocks the Story and still tells the operator; what
-    // it cannot do is stop GitHub from landing the PR, so say so plainly
-    // rather than reporting a disarm that did not happen.
-    progress?.(
-      'CONFIRM',
-      `⚠️ Could not disarm auto-merge on PR #${prNumber} (${err?.message ?? err}) — ` +
-        'GitHub may still land it when the required checks pass. Disarm by hand.',
-    );
-    return false;
-  }
-}
-
 async function blockOnUnlanded({
   storyId,
   prNumber,
@@ -1089,30 +1064,27 @@ export async function runConfirmMergePhase({
       // land the PR the moment the REQUIRED contexts go green. Disarm first,
       // then block: leaving the arm in place would let GitHub merge out from
       // under the block we are about to record.
-      if (!unlanded && blockOnAdvisoryFailure) {
-        if (advisoryCheckFailedBlocksArm(probe, advisoryAllowlist)) {
-          const blockingRuns = selectBlockingRedRuns(
-            probe.redHeadRuns,
-            advisoryAllowlist,
-          );
-          const advisoryReason = formatAdvisoryGateReason(blockingRuns);
-          progress?.('CONFIRM', `🛑 PR #${prNumber}: ${advisoryReason}`);
-          await disarmAutoMergeFn({
-            prNumber,
-            gh: injectedGh,
-            ghTimeoutMs,
-            progress,
-          });
-          unlanded = {
-            prProbe: probe,
-            budget: {
-              exhausted: false,
-              elapsedSeconds: Math.round(waitedMs / 1000),
-            },
-            blockClassOverride: 'advisory-gate-red',
-            reasonOverride: advisoryReason,
-          };
-        }
+      if (
+        !unlanded &&
+        blockOnAdvisoryFailure &&
+        advisoryCheckFailedBlocksArm(probe, advisoryAllowlist)
+      ) {
+        const blockingRuns = selectBlockingRedRuns(
+          probe.redHeadRuns,
+          advisoryAllowlist,
+        );
+        const advisoryReason = formatAdvisoryGateReason(blockingRuns);
+        progress?.('CONFIRM', `🛑 PR #${prNumber}: ${advisoryReason}`);
+        await disarmAutoMergeFn({ prNumber, gh: injectedGh, progress });
+        unlanded = {
+          prProbe: probe,
+          budget: {
+            exhausted: false,
+            elapsedSeconds: Math.round(waitedMs / 1000),
+          },
+          blockClassOverride: 'advisory-gate-red',
+          reasonOverride: advisoryReason,
+        };
       }
     }
 

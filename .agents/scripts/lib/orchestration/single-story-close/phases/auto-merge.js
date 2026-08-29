@@ -65,10 +65,10 @@ import { gh as defaultGh } from '../../../gh-exec.js';
 import { resolveAutoMergeArmCwd } from '../../auto-merge-cwd.js';
 import {
   advisoryCheckFailedBlocksArm,
+  deriveRedHeadRuns,
   formatAdvisoryGateReason,
   selectBlockingRedRuns,
 } from '../../merge-poll.js';
-import { readPrWaitProbe as defaultReadPrWaitProbe } from './confirm-merge.js';
 
 /**
  * Arm reasons that mean **the operator deliberately owns the merge** — the PR
@@ -350,6 +350,53 @@ function makeDefaultGhAutoMergeRunner(gh) {
  * @param {object} args
  * @returns {Promise<{ blocked: boolean, blockingRuns?: Array<object>, reason?: string }>}
  */
+async function readAdvisoryProbe({ prNumber, gh }) {
+  const view = await (gh ?? defaultGh).pr.view(prNumber, [
+    'mergeStateStatus',
+    'statusCheckRollup',
+  ]);
+  return {
+    mergeStateStatus:
+      typeof view?.mergeStateStatus === 'string'
+        ? view.mergeStateStatus
+        : undefined,
+    redHeadRuns: deriveRedHeadRuns(view?.statusCheckRollup),
+  };
+}
+
+/**
+ * Disarm GitHub native auto-merge on a PR (Story #5096).
+ *
+ * Lives here, beside the arm, because `lifecycle-lint`'s merge-lockout rule
+ * confines every `gh pr merge` invocation to this module: auto-merge
+ * enablement — and therefore its reversal — must flow through the Story close
+ * path rather than being spelled out wherever a caller happens to need it.
+ * The merge wait imports this rather than shelling out itself.
+ *
+ * Best-effort by contract: the caller blocks the Story either way, and a
+ * failed disarm is reported rather than thrown, because the one thing it
+ * cannot do is stop GitHub from landing the PR.
+ *
+ * @returns {Promise<boolean>} whether the disarm actually took.
+ */
+export async function disarmAutoMerge({ prNumber, gh, progress }) {
+  try {
+    await (gh ?? defaultGh).pr.merge(String(prNumber), ['--disable-auto']);
+    progress?.(
+      'CONFIRM',
+      `🔓 Auto-merge DISARMED on PR #${prNumber} — the PR stays open and hand-mergeable.`,
+    );
+    return true;
+  } catch (err) {
+    progress?.(
+      'CONFIRM',
+      `⚠️ Could not disarm auto-merge on PR #${prNumber} (${err?.message ?? err}) — ` +
+        'GitHub may still land it when the required checks pass. Disarm by hand.',
+    );
+    return false;
+  }
+}
+
 async function evaluateAdvisoryGate({
   prNumber,
   gh,
@@ -420,7 +467,7 @@ export async function runAutoMergePhase({
   advisoryAllowlist = [],
   gh,
   progress,
-  readPrWaitProbeFn = defaultReadPrWaitProbe,
+  readPrWaitProbeFn = readAdvisoryProbe,
 }) {
   if (noAutoMerge) {
     progress('PR', '⏭  Auto-merge disabled (--no-auto-merge).');
