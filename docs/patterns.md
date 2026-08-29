@@ -454,7 +454,7 @@ surfaced via `Logger.fatal()` at the CLI boundary.
     handler; its `process.exit(exitCode)` implements the contract for
     all entry-point scripts.
 -   **One-shot utility CLIs** (e.g. `update-ticket-state.js`,
-    `generate-lifecycle-docs.js`) may call `Logger.fatal()` explicitly
+    `generate-config-docs.js`) may call `Logger.fatal()` explicitly
     when the error has already been logged in a structured form and a
     raw stack trace would add noise. Orchestration scripts MUST `throw`
     instead — see

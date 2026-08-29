@@ -5,7 +5,7 @@
   "rollup": {
     "*": {
       "min": 76.381,
-      "p50": 98.772,
+      "p50": 98.792,
       "p95": 125.857
     }
   },
@@ -153,10 +153,6 @@
     {
       "path": ".agents/scripts/generate-lens-checklists.js",
       "mi": 99.095
-    },
-    {
-      "path": ".agents/scripts/generate-lifecycle-docs.js",
-      "mi": 96.784
     },
     {
       "path": ".agents/scripts/generate-skills-index.js",

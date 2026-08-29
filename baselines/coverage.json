@@ -4,9 +4,9 @@
   "generatedAt": "2026-08-28T20:14:19.531Z",
   "rollup": {
     "*": {
-      "lines": 95.95,
-      "branches": 86.74,
-      "functions": 88.95
+      "lines": 96.04,
+      "branches": 86.71,
+      "functions": 89.11
     }
   },
   "rows": [
@@ -213,12 +213,6 @@
       "lines": 98.7,
       "branches": 100,
       "functions": 85.71
-    },
-    {
-      "path": ".agents/scripts/generate-lifecycle-docs.js",
-      "lines": 50.63,
-      "branches": 100,
-      "functions": 0
     },
     {
       "path": ".agents/scripts/generate-skills-index.js",

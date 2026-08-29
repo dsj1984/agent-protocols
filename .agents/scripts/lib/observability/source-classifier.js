@@ -113,7 +113,6 @@ const FRAMEWORK_SCRIPT_BASENAMES = Object.freeze([
   'evidence-gate.js',
   'generate-config-docs.js',
   'generate-lens-checklists.js',
-  'generate-lifecycle-docs.js',
   'generate-skills-index.js',
   'generate-workflows-doc.js',
   'git-cleanup.js',

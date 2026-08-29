@@ -55,11 +55,7 @@ and
 
 ## 2. Event taxonomy
 
-Two events are emittable. The roster below is regenerated from
-`.agents/schemas/lifecycle/*.schema.json` by
-[`generate-lifecycle-docs.js`](../.agents/scripts/generate-lifecycle-docs.js);
-run it after adding or editing a lifecycle schema, and
-`node .agents/scripts/generate-lifecycle-docs.js --check` is the drift gate.
+Two events are emittable:
 
 | Event | Emitted when |
 | --- | --- |
@@ -71,22 +67,27 @@ to an unlanded merge sends the operator to branch protection and required checks
 when the real fault is an API failure, remedied by re-running
 `single-story-confirm-merge.js`.
 
-`tests/lifecycle/schema-registry.test.js` checks this list **in both
-directions** — a listed event missing its schema file fails, and so does a
-schema file for an event nobody emits. The one-way version of that assertion is
-what let fifteen emitter-less schemas read green for months.
+This section is **authored**, hand-maintained beside the emitters it
+documents — Story #5089 retired the generator that used to render the roster
+below, along with its drift gate, because the taxonomy is now two events and
+the consumer-side doc mirror it forced nobody read.
+`tests/lifecycle/schema-registry.test.js` is the machine check, and it checks
+the list **in both directions** — a listed event missing its schema file
+fails, and so does a schema file for an event nobody emits. The one-way
+version of that assertion is what let fifteen emitter-less schemas read green
+for months. Update this section by hand whenever you add or edit a lifecycle
+schema; the test fails if you forget.
 
 ### Schema-backed roster
 
-<!-- BEGIN GENERATED:lifecycle-events -->
+The two emittable events above, plus the `ledger-record` envelope § 3
+describes, are the whole shipped schema set:
 
 | Event | Schema | Description | Required fields |
 | --- | --- | --- | --- |
 | `ledger-record` | [`ledger-record.schema.json`](../.agents/schemas/lifecycle/ledger-record.schema.json) | Append-only NDJSON record shape for the per-run lifecycle ledger. Three discriminated kinds keyed on `kind`. Only `emitted` has a writer: Story #5024 retired the lifecycle bus, so the `completed` / `failed` kinds are a READ contract for ledgers archived from the bus era (`failed` requires a `listener`, which only a listener chain could supply). Reading a ledger never consults this schema; validation happens on the write path only. | — |
 | `merge.flip-failed` | [`merge.flip-failed.schema.json`](../.agents/schemas/lifecycle/merge.flip-failed.schema.json) | Emitted when a delivery run observed a CONFIRMED merge but the agent::closing → agent::done label write itself failed. Deliberately distinct from merge.unlanded (Story #4539): the merge landed, so attributing this to an unlanded merge sends the operator to branch protection and required checks when the real fault is an API failure on the label write, remedied by re-running single-story-confirm-merge.js. scope distinguishes the epic-path (ticketId = epicId) from the standalone story-path (ticketId = storyId). | `event`, `scope`, `ticketId`, `prNumber`, `blockClass`, `reason`, `elapsedSeconds` |
 | `merge.unlanded` | [`merge.unlanded.schema.json`](../.agents/schemas/lifecycle/merge.unlanded.schema.json) | Emitted whenever a headless delivery run (the epic-path finalize flow or the standalone single-story-close flow) finishes its work without a confirmed merge, so a work-complete-but-unmerged terminal state is precisely attributable from the lifecycle ledger instead of diffing origin/main after the fact (Epic #4425). scope distinguishes the epic-path (ticketId = epicId) from the standalone story-path (ticketId = storyId); blockClass is produced by the shared classifier in merge-block-class.js. | `event`, `scope`, `ticketId`, `prNumber`, `blockClass`, `reason`, `elapsedSeconds` |
-
-<!-- END GENERATED:lifecycle-events -->
 
 ---
 

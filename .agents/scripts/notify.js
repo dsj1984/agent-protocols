@@ -7,16 +7,10 @@
  * Single dispatch entry point for runtime notifications across two
  * independent channels.
  *
- * Lifecycle-bus integration (Epic #2172): under the Wave-7+ runtime,
- * `notify()` is invoked from the `NotifyDispatcher` listener
- * (`lib/orchestration/lifecycle/listeners/notify-dispatcher.js`),
- * which subscribes to lifecycle events and maps `event.severity` →
- * `notify()` payload. Direct inline calls at phase boundaries are no
- * longer the canonical path — listeners on the bus are. See
- * [`docs/LIFECYCLE.md`](../docs/LIFECYCLE.md) for the bus contract,
- * event taxonomy, and the dispatcher's wiring. Direct CLI / library
- * invocations remain supported for one-shot operator commands and the
- * structured-comment back-channel.
+ * Direct inline calls at phase boundaries are the only path: `notify()`
+ * is invoked from the caller that has something to say. Direct CLI /
+ * library invocations are equally supported, for one-shot operator
+ * commands and the structured-comment back-channel.
  *
  * Channels:
  *

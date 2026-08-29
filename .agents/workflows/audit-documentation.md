@@ -38,8 +38,8 @@ union of:
    key for it.
 
 **Generated docs are excluded from per-doc semantic review.** The output of
-`generate-config-docs.js`, `generate-lifecycle-docs.js`, and
-`generate-workflows-doc.js`, and the synced `.claude/commands/` mirrors, are
+`generate-config-docs.js` and `generate-workflows-doc.js`, and the synced
+`.claude/commands/` mirrors, are
 generator-owned: hand-editing them is never the remediation. Instead, Step 1
 runs the generators' `--check` mode and emits a **single** "generator output
 dirty" finding when their output is stale — the remediation is "rerun the
@@ -79,7 +79,6 @@ are cheap, exact, and de-duplicate the easy findings:
 ```bash
 node .agents/scripts/check-doc-links.js
 node .agents/scripts/generate-config-docs.js --check
-node .agents/scripts/generate-lifecycle-docs.js --check
 node .agents/scripts/generate-workflows-doc.js --check
 node .agents/scripts/resolve-doc-tiers.js --json
 ```
@@ -87,8 +86,8 @@ node .agents/scripts/resolve-doc-tiers.js --json
 Fold the results in as findings:
 
 - **Checker failures** (broken links, generator drift) become individual
-  findings with `Category: Link Integrity` (or `Generator Drift` for the
-  lifecycle gate), citing the checker output verbatim.
+  findings with `Category: Link Integrity`, citing the checker output
+  verbatim.
 - **Generator dirtiness** (any `--check` reporting stale output, including
   a stale `.claude/commands/` mirror) becomes **one single finding** with
   `Category: Generator Drift` — never per-line findings — whose

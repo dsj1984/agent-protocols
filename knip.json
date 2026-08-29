@@ -39,7 +39,6 @@
     ".agents/scripts/evidence-gate.js!",
     ".agents/scripts/generate-config-docs.js!",
     ".agents/scripts/generate-lens-checklists.js!",
-    ".agents/scripts/generate-lifecycle-docs.js!",
     ".agents/scripts/generate-skills-index.js!",
     ".agents/scripts/generate-workflows-doc.js!",
     ".agents/scripts/git-cleanup.js!",
