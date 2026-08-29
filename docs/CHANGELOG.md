@@ -15,6 +15,24 @@ All notable changes to this project will be documented in this file.
 -->
 <!-- markdownlint-disable-file MD004 MD012 MD037 -->
 
+## [2.36.0](https://github.com/dsj1984/mandrel/compare/mandrel-v2.35.0...mandrel-v2.36.0) (2026-08-29)
+
+
+### ⚠ BREAKING CHANGES
+
+* `.agents/scripts/generate-lifecycle-docs.js` is removed from the published payload, and the framework no longer requires a consumer `docs/LIFECYCLE.md`. A consumer that created that file only to stop the generator aborting can delete it as residue — nothing else reads it. A consumer invoking the generator by hand, or chaining it in its own `docs:gen` / `docs:check`, should drop the call. The lifecycle schemas under `.agents/schemas/lifecycle/` still ship unchanged and the emit path is untouched.
+
+### Fixed
+
+* **check-doc-links:** percent-decode relative link targets before the existence check (refs [#5090](https://github.com/dsj1984/mandrel/issues/5090)) ([#5092](https://github.com/dsj1984/mandrel/issues/5092)) ([024afff](https://github.com/dsj1984/mandrel/commit/024afff5aa000ace8e4f8ee2df6bf246acd0ae40))
+* gate auto-merge arming and the merge wait on head-anchored advisory check conclusions ([#5096](https://github.com/dsj1984/mandrel/issues/5096)) ([#5097](https://github.com/dsj1984/mandrel/issues/5097)) ([a6ae194](https://github.com/dsj1984/mandrel/commit/a6ae194349951ab8cc459f9a4d21a46785014ffd))
+* **git-cleanup:** branch the merged-tip skip taxonomy on ancestry instead of SHA inequality ([#5086](https://github.com/dsj1984/mandrel/issues/5086)) ([#5087](https://github.com/dsj1984/mandrel/issues/5087)) ([caf41b0](https://github.com/dsj1984/mandrel/commit/caf41b0a973866ba1035c5c10178eb46e7c1b078))
+
+
+### Changed
+
+* stop requiring consumers to carry docs/LIFECYCLE.md — retire the consumer-side lifecycle doc mirror ([#5089](https://github.com/dsj1984/mandrel/issues/5089)) ([#5091](https://github.com/dsj1984/mandrel/issues/5091)) ([ad16df8](https://github.com/dsj1984/mandrel/commit/ad16df881692fc5dd169bc4f0bcf73191a872345))
+
 ## [2.35.0](https://github.com/dsj1984/mandrel/compare/mandrel-v2.34.0...mandrel-v2.35.0) (2026-08-28)
 
 
