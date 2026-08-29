@@ -1,7 +1,7 @@
 {
   "$schema": ".agents/schemas/baselines/maintainability.schema.json",
   "kernelVersion": "0.1.0",
-  "generatedAt": "2026-08-28T20:13:32.778Z",
+  "generatedAt": "2026-08-29T15:11:43.241Z",
   "rollup": {
     "*": {
       "min": 76.381,
@@ -76,7 +76,7 @@
     },
     {
       "path": ".agents/scripts/check-doc-links.js",
-      "mi": 89.461
+      "mi": 89.966
     },
     {
       "path": ".agents/scripts/check-gherkin-corpus.js",
