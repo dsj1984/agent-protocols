@@ -68,9 +68,10 @@ when the real fault is an API failure, remedied by re-running
 `single-story-confirm-merge.js`.
 
 This section is **authored**, hand-maintained beside the emitters it
-documents — Story #5089 retired the generator that used to render the roster
-below, along with its drift gate, because the taxonomy is now two events and
-the consumer-side doc mirror it forced nobody read.
+documents. Story #5089 retired the schema-driven renderer that used to own the
+roster below, along with its `--check` companion: with the taxonomy down to two
+events, it bought less than it cost, and it forced every consumer repo to carry
+a `docs/LIFECYCLE.md` nothing consumer-side read.
 `tests/lifecycle/schema-registry.test.js` is the machine check, and it checks
 the list **in both directions** — a listed event missing its schema file
 fails, and so does a schema file for an event nobody emits. The one-way

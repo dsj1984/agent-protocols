@@ -39,8 +39,8 @@ union of:
 
 **Generated docs are excluded from per-doc semantic review.** The output of
 `generate-config-docs.js` and `generate-workflows-doc.js`, and the synced
-`.claude/commands/` mirrors, are
-generator-owned: hand-editing them is never the remediation. Instead, Step 1
+`.claude/commands/` mirrors, are generator-owned: hand-editing them is never
+the remediation. Instead, Step 1
 runs the generators' `--check` mode and emits a **single** "generator output
 dirty" finding when their output is stale — the remediation is "rerun the
 generator", not "edit the doc". Auto-generated changelog files
