@@ -105,16 +105,14 @@ import {
 import { emitMergeUnlanded as defaultEmitMergeUnlanded } from '../../lifecycle/emit-merge-unlanded.js';
 import { classifyMergeBlock as defaultClassifyMergeBlock } from '../../merge-block-class.js';
 import {
-  advisoryCheckFailedBlocksArm,
   DEFAULT_INTERVAL_SECONDS,
   DEFAULT_MAX_BUDGET_SECONDS,
+  decideAdvisoryGateBlock,
   decideMergeWaitFailFast,
   deriveChecksStatus,
   deriveRedHeadRuns,
   deriveRequiredRunEvidence,
-  formatAdvisoryGateReason,
   MERGE_WAIT_GH_TIMEOUT_MS,
-  selectBlockingRedRuns,
 } from '../../merge-poll.js';
 import { NEXT_COMMANDS } from '../../story-deliver-terminal.js';
 import {
@@ -552,6 +550,46 @@ async function blockOnFlipFailed({
  * is best-effort logged rather than thrown — the caller owns surfacing the
  * non-zero exit once this returns.
  */
+/**
+ * Story #5096 — resolve the advisory-gate terminal for one poll.
+ *
+ * Takes the poll's current `unlanded` and returns it unchanged when a terminal
+ * is already decided, so the caller is a single assignment with NO added
+ * branch. `runMergePoll` is already above `check-cyclomatic`'s ceiling; the
+ * three decision points this would otherwise cost inline are a real gate
+ * regression, and they belong with the policy either way.
+ *
+ * Disarms BEFORE returning the terminal: an armed PR can merge out from under
+ * the block the caller is about to record.
+ */
+async function resolveAdvisoryUnlanded({
+  unlanded,
+  probe,
+  blockOnAdvisoryFailure,
+  advisoryAllowlist,
+  prNumber,
+  gh,
+  progress,
+  disarmAutoMergeFn,
+  elapsedSeconds,
+}) {
+  if (unlanded) return unlanded;
+  const advisory = decideAdvisoryGateBlock({
+    probe,
+    blockOnAdvisoryFailure,
+    advisoryAllowlist,
+  });
+  if (!advisory) return null;
+  progress?.('CONFIRM', `🛑 PR #${prNumber}: ${advisory.reason}`);
+  await disarmAutoMergeFn({ prNumber, gh, progress });
+  return {
+    prProbe: probe,
+    budget: { exhausted: false, elapsedSeconds },
+    blockClassOverride: 'advisory-gate-red',
+    reasonOverride: advisory.reason,
+  };
+}
+
 async function blockOnUnlanded({
   storyId,
   prNumber,
@@ -1061,31 +1099,18 @@ export async function runConfirmMergePhase({
       // common shape. Close arms immediately after opening the PR, while the
       // gate is still QUEUED, so the pre-arm refusal in `auto-merge.js` sees
       // nothing; the gate reddens here, mid-wait, and native auto-merge would
-      // land the PR the moment the REQUIRED contexts go green. Disarm first,
-      // then block: leaving the arm in place would let GitHub merge out from
-      // under the block we are about to record.
-      if (
-        !unlanded &&
-        blockOnAdvisoryFailure &&
-        advisoryCheckFailedBlocksArm(probe, advisoryAllowlist)
-      ) {
-        const blockingRuns = selectBlockingRedRuns(
-          probe.redHeadRuns,
-          advisoryAllowlist,
-        );
-        const advisoryReason = formatAdvisoryGateReason(blockingRuns);
-        progress?.('CONFIRM', `🛑 PR #${prNumber}: ${advisoryReason}`);
-        await disarmAutoMergeFn({ prNumber, gh: injectedGh, progress });
-        unlanded = {
-          prProbe: probe,
-          budget: {
-            exhausted: false,
-            elapsedSeconds: Math.round(waitedMs / 1000),
-          },
-          blockClassOverride: 'advisory-gate-red',
-          reasonOverride: advisoryReason,
-        };
-      }
+      // land the PR the moment the REQUIRED contexts go green.
+      unlanded = await resolveAdvisoryUnlanded({
+        unlanded,
+        probe,
+        blockOnAdvisoryFailure,
+        advisoryAllowlist,
+        prNumber,
+        gh: injectedGh,
+        progress,
+        disarmAutoMergeFn,
+        elapsedSeconds: Math.round(waitedMs / 1000),
+      });
     }
 
     if (!unlanded) {

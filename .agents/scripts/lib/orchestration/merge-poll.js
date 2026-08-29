@@ -354,6 +354,36 @@ export function advisoryCheckFailedBlocksArm(prProbe, allowlist = []) {
 }
 
 /**
+ * Pure: the merge wait's advisory-gate decision, the sibling of
+ * {@link decideMergeWaitFailFast} (Story #5096).
+ *
+ * Encapsulates the whole policy — the knob, the predicate, and the allowlist
+ * projection — so the poll body carries a single assignment rather than three
+ * decision points. `runMergePoll` sits above `check-cyclomatic`'s ceiling
+ * already; every branch added inline there is a real regression, and this
+ * policy has a natural home beside the predicate it consumes.
+ *
+ * Returns `null` when the wait should keep polling — the knob is off, the PR
+ * is not in the advisory-red state, or every red run is allowlisted.
+ *
+ * @param {object} args
+ * @returns {{ blockingRuns: Array<object>, reason: string } | null}
+ */
+export function decideAdvisoryGateBlock({
+  probe,
+  blockOnAdvisoryFailure,
+  advisoryAllowlist,
+}) {
+  if (!blockOnAdvisoryFailure) return null;
+  if (!advisoryCheckFailedBlocksArm(probe, advisoryAllowlist)) return null;
+  const blockingRuns = selectBlockingRedRuns(
+    probe?.redHeadRuns,
+    advisoryAllowlist,
+  );
+  return { blockingRuns, reason: formatAdvisoryGateReason(blockingRuns) };
+}
+
+/**
  * Format the one-line reason a `merge.unlanded` record and the operator-facing
  * block carry for an `advisory-gate-red` verdict, naming each offending job
  * and its conclusion.

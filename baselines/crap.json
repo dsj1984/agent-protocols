@@ -7000,8 +7000,8 @@
     {
       "path": ".agents/scripts/lib/config/ci.js",
       "method": "getCiDelivery",
-      "startLine": 36,
-      "crap": 7
+      "startLine": 27,
+      "crap": 5
     },
     {
       "path": ".agents/scripts/lib/config/commands.js",
@@ -16277,8 +16277,8 @@
     {
       "path": ".agents/scripts/lib/orchestration/single-story-close/phases/auto-merge.js",
       "method": "runAutoMergePhase",
-      "startLine": 460,
-      "crap": 9
+      "startLine": 344,
+      "crap": 8
     },
     {
       "path": ".agents/scripts/lib/orchestration/single-story-close/phases/base-sync.js",
@@ -16441,8 +16441,8 @@
     {
       "path": ".agents/scripts/lib/orchestration/single-story-close/phases/confirm-merge.js",
       "method": "blockOnUnlanded",
-      "startLine": 555,
-      "crap": 5.077215077507923
+      "startLine": 544,
+      "crap": 4.071658808526337
     },
     {
       "path": ".agents/scripts/lib/orchestration/single-story-close/phases/confirm-merge.js",
@@ -16487,14 +16487,14 @@
     {
       "path": ".agents/scripts/lib/orchestration/single-story-close/phases/confirm-merge.js",
       "method": "runConfirmMergePhase",
-      "startLine": 837,
-      "crap": 4.000047456123966
+      "startLine": 814,
+      "crap": 3.0000388809972947
     },
     {
       "path": ".agents/scripts/lib/orchestration/single-story-close/phases/confirm-merge.js",
       "method": "runMergePoll",
-      "startLine": 942,
-      "crap": 16
+      "startLine": 906,
+      "crap": 13
     },
     {
       "path": ".agents/scripts/lib/orchestration/single-story-close/phases/confirm-merge.js",
@@ -17058,15 +17058,15 @@
     },
     {
       "path": ".agents/scripts/lib/orchestration/single-story-close/runner.js",
-      "method": "reportWaitTerminal",
-      "startLine": 474,
-      "crap": 3.616172051089406
+      "method": "resolveAutoMergeOutcome",
+      "startLine": 453,
+      "crap": 3.0308039068369643
     },
     {
       "path": ".agents/scripts/lib/orchestration/single-story-close/runner.js",
-      "method": "resolveAutoMergeOutcome",
-      "startLine": 481,
-      "crap": 3.185185185185185
+      "method": "reportWaitTerminal",
+      "startLine": 474,
+      "crap": 3.616172051089406
     },
     {
       "path": ".agents/scripts/lib/orchestration/single-story-close/runner.js",
