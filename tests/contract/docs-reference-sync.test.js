@@ -177,9 +177,18 @@ describe('docs in scope — every quoted .agentrc.json key validates (Story #478
     }
   });
 
-  it('pins delivery.ci to its two live keys (the skipForStoryPushes guard)', () => {
+  it('pins delivery.ci to its live keys (the skipForStoryPushes guard)', () => {
+    // Story #5096 added `blockOnAdvisoryFailure` + `advisoryAllowlist`. The
+    // pin is deliberately exact so a RETIRED key (earlyPr, requireChecks,
+    // skipForStoryPushes) cannot creep back unnoticed — extend it when a key
+    // genuinely goes live, never loosen it to a subset check.
     const ci = AGENTRC_SCHEMA.properties.delivery.properties.ci;
-    assert.deepEqual(Object.keys(ci.properties).sort(), ['autoMerge', 'watch']);
+    assert.deepEqual(Object.keys(ci.properties).sort(), [
+      'advisoryAllowlist',
+      'autoMerge',
+      'blockOnAdvisoryFailure',
+      'watch',
+    ]);
     assert.equal(ci.additionalProperties, false);
   });
 });
