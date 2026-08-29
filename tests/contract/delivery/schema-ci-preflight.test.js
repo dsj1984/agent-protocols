@@ -120,6 +120,39 @@ describe('contract/delivery/schema-ci-preflight', () => {
       assert.equal('skipForStoryPushes' in merged, false);
       assert.equal('earlyPr' in merged, false);
       assert.equal('requireChecks' in merged, false);
+      // Story #5096 — the advisory-gate knobs default ON with an empty
+      // allowlist, so an unconfigured consumer is protected by default.
+      assert.equal(
+        merged.blockOnAdvisoryFailure,
+        CI_DELIVERY_DEFAULTS.blockOnAdvisoryFailure,
+      );
+      assert.equal(merged.blockOnAdvisoryFailure, true);
+      assert.deepEqual(merged.advisoryAllowlist, []);
+    });
+
+    it('getCiDelivery honors explicit advisory-gate overrides (Story #5096)', () => {
+      const merged = getCiDelivery({
+        delivery: {
+          ci: {
+            blockOnAdvisoryFailure: false,
+            advisoryAllowlist: ['Bundle-size ratchet'],
+          },
+        },
+      });
+      assert.equal(merged.blockOnAdvisoryFailure, false);
+      assert.deepEqual(merged.advisoryAllowlist, ['Bundle-size ratchet']);
+    });
+
+    it('getCiDelivery coerces a malformed advisory-gate block to the defaults (Story #5096)', () => {
+      const merged = getCiDelivery({
+        delivery: {
+          ci: { blockOnAdvisoryFailure: 'yes', advisoryAllowlist: 'nope' },
+        },
+      });
+      // A non-boolean is not "false" — it is absent, so the protective
+      // default stands rather than being silently disabled by a typo.
+      assert.equal(merged.blockOnAdvisoryFailure, true);
+      assert.deepEqual(merged.advisoryAllowlist, []);
     });
 
     it('getCiDelivery honors an explicit autoMerge strict override', () => {

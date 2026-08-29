@@ -405,4 +405,33 @@ describe('head-anchored required-check gating (Story #4695)', () => {
       assert.match(verdict.reason, new RegExp(`evidence=${evidencePath}`));
     }
   });
+
+  it('advisory-gate-red is a valid attribution but NOT a classifyMergeBlock output (Story #5096)', () => {
+    // Emitted directly by the arm and merge-wait phases. The classifier
+    // cannot produce it: by construction GitHub is NOT gating the merge
+    // (mergeStateStatus=UNSTABLE), which is the entire condition it names.
+    assert.equal(isValidBlockClass('advisory-gate-red'), true);
+    assert.equal(BLOCK_CLASSES.includes('advisory-gate-red'), false);
+    assert.equal(
+      MERGE_UNLANDED_BLOCK_CLASSES.includes('advisory-gate-red'),
+      true,
+    );
+  });
+
+  it('a red ADVISORY check is never classified as checks-failed (Story #5096)', () => {
+    // UNSTABLE means "mergeable with non-passing commit status" — the red run
+    // is not required, so the pre-#5096 classifier reads the PR as healthy.
+    // That is exactly why advisory-gate-red must be emitted directly.
+    const verdict = classifyMergeBlock({
+      prProbe: {
+        checksStatus: 'failure',
+        mergeStateStatus: 'UNSTABLE',
+        requiredRunEvidence: {
+          requiredRunFailed: true,
+          requiredRunInFlight: false,
+        },
+      },
+    });
+    assert.notEqual(verdict.blockClass, 'checks-failed');
+  });
 });

@@ -96,7 +96,15 @@ export const BLOCK_CLASSES = Object.freeze([
  * This is the classifier's four outputs PLUS `predicate-refused` (#4472),
  * emitted DIRECTLY for a headless refusal that never reached the
  * poll-exhaustion classifier — so it is a valid attribution value even though
- * `classifyMergeBlock` never produces it. (The Epic-era listeners that used to
+ * `classifyMergeBlock` never produces it. Story #5096 added
+ * `advisory-gate-red` on the same footing: a genuinely red NON-required check
+ * observed while GitHub reports the PR mergeable anyway
+ * (`mergeStateStatus: UNSTABLE`), which native auto-merge would land straight
+ * past. It is emitted directly by the arm and merge-wait phases — the
+ * classifier cannot produce it, because by construction GitHub is NOT blocking
+ * the merge, which is the entire problem it names. It is deliberately NOT in
+ * `BLOCK_CLASSES`, whose reachability invariant covers only what
+ * `classifyMergeBlock` returns. (The Epic-era listeners that used to
  * emit it, AutomergePredicate and AutomergeArmer, are gone; the value stays
  * because archived `merge.unlanded` records carry it and the schema enum
  * must keep validating them.) `isValidBlockClass` (and the `merge.unlanded` schema enum)
@@ -106,6 +114,7 @@ export const BLOCK_CLASSES = Object.freeze([
 export const MERGE_UNLANDED_BLOCK_CLASSES = Object.freeze([
   ...BLOCK_CLASSES,
   'predicate-refused',
+  'advisory-gate-red',
 ]);
 
 const BLOCK_CLASS_SET = new Set(MERGE_UNLANDED_BLOCK_CLASSES);

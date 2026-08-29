@@ -389,6 +389,19 @@ const CI_DELIVERY_SCHEMA = {
         "Story #4356 (Epic #4355). Merge posture. 'trust-ci' (default) merges once required checks pass; 'strict' additionally requires a clean review gate.",
       default: CI_DELIVERY_DEFAULTS.autoMerge,
     },
+    blockOnAdvisoryFailure: {
+      type: 'boolean',
+      description:
+        'Story #5096. When true (default), delivery refuses to arm — and disarms — GitHub native auto-merge while a non-required (advisory) check is genuinely red on the PR head and GitHub reports the PR mergeable anyway (mergeStateStatus=UNSTABLE). `--auto` waits on REQUIRED contexts only, so without this a red advisory quality gate merges unattended. Set false to restore the pre-#5096 behaviour verbatim.',
+      default: CI_DELIVERY_DEFAULTS.blockOnAdvisoryFailure,
+    },
+    advisoryAllowlist: {
+      type: 'array',
+      items: { type: 'string' },
+      description:
+        'Story #5096. Check-run names exempt from blockOnAdvisoryFailure — a red run whose name matches exactly never blocks arming. Matching is exact; an unnamed run can never match and always blocks.',
+      default: [...CI_DELIVERY_DEFAULTS.advisoryAllowlist],
+    },
   },
   additionalProperties: false,
 };

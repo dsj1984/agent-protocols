@@ -125,6 +125,7 @@
             "arm-failure",
             "api-race-other",
             "predicate-refused",
+            "advisory-gate-red",
             "merged-flip-failed"
           ]
         },

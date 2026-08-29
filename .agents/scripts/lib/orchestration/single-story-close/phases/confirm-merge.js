@@ -90,6 +90,7 @@
  *     confirm.
  */
 
+import { getCiDelivery } from '../../../config/ci.js';
 import { createGh } from '../../../gh-exec.js';
 import {
   confirmStoryMerged as defaultConfirmStoryMerged,
@@ -106,8 +107,10 @@ import { classifyMergeBlock as defaultClassifyMergeBlock } from '../../merge-blo
 import {
   DEFAULT_INTERVAL_SECONDS,
   DEFAULT_MAX_BUDGET_SECONDS,
+  decideAdvisoryGateBlock,
   decideMergeWaitFailFast,
   deriveChecksStatus,
+  deriveRedHeadRuns,
   deriveRequiredRunEvidence,
   MERGE_WAIT_GH_TIMEOUT_MS,
 } from '../../merge-poll.js';
@@ -117,6 +120,7 @@ import {
   STATE_LABELS,
   transitionTicketState,
 } from '../../ticketing.js';
+import { disarmAutoMerge } from './auto-merge.js';
 import { runPostLandTail as defaultRunPostLandTail } from './post-land.js';
 
 /**
@@ -256,6 +260,10 @@ export async function readPrWaitProbe({
       // the aggregate `checksStatus` folds together. `null` when the rollup is
       // absent/empty — the loop's consecutive-probe fallback owns that path.
       requiredRunEvidence: deriveRequiredRunEvidence(view?.statusCheckRollup),
+      // The named red head runs (Story #5096), so an `advisory-gate-red`
+      // verdict can name the offending job and match the allowlist. Same
+      // red-ness test as `requiredRunEvidence`, so the two cannot disagree.
+      redHeadRuns: deriveRedHeadRuns(view?.statusCheckRollup),
     };
   } catch (err) {
     return {
@@ -263,6 +271,7 @@ export async function readPrWaitProbe({
       mergedAt: null,
       createdAt: null,
       checksStatus: 'pending',
+      redHeadRuns: [],
       error: `PR probe failed: ${err?.message ?? err}`,
     };
   }
@@ -541,6 +550,46 @@ async function blockOnFlipFailed({
  * is best-effort logged rather than thrown — the caller owns surfacing the
  * non-zero exit once this returns.
  */
+/**
+ * Story #5096 — resolve the advisory-gate terminal for one poll.
+ *
+ * Takes the poll's current `unlanded` and returns it unchanged when a terminal
+ * is already decided, so the caller is a single assignment with NO added
+ * branch. `runMergePoll` is already above `check-cyclomatic`'s ceiling; the
+ * three decision points this would otherwise cost inline are a real gate
+ * regression, and they belong with the policy either way.
+ *
+ * Disarms BEFORE returning the terminal: an armed PR can merge out from under
+ * the block the caller is about to record.
+ */
+async function resolveAdvisoryUnlanded({
+  unlanded,
+  probe,
+  blockOnAdvisoryFailure,
+  advisoryAllowlist,
+  prNumber,
+  gh,
+  progress,
+  disarmAutoMergeFn,
+  elapsedSeconds,
+}) {
+  if (unlanded) return unlanded;
+  const advisory = decideAdvisoryGateBlock({
+    probe,
+    blockOnAdvisoryFailure,
+    advisoryAllowlist,
+  });
+  if (!advisory) return null;
+  progress?.('CONFIRM', `🛑 PR #${prNumber}: ${advisory.reason}`);
+  await disarmAutoMergeFn({ prNumber, gh, progress });
+  return {
+    prProbe: probe,
+    budget: { exhausted: false, elapsedSeconds },
+    blockClassOverride: 'advisory-gate-red',
+    reasonOverride: advisory.reason,
+  };
+}
+
 async function blockOnUnlanded({
   storyId,
   prNumber,
@@ -552,12 +601,24 @@ async function blockOnUnlanded({
   progress,
   classifyMergeBlockFn,
   emitMergeUnlandedFn,
+  blockClassOverride,
+  reasonOverride,
 }) {
-  const { blockClass, reason } = classifyMergeBlockFn({
-    armResult,
-    prProbe,
-    budget,
-  });
+  // Story #5096 — `advisory-gate-red` is emitted DIRECTLY, never derived.
+  // `classifyMergeBlock` cannot produce it: by construction GitHub is NOT
+  // gating this merge (`mergeStateStatus: UNSTABLE`), which is the entire
+  // condition the class names, so every classifier heuristic reads the PR as
+  // healthy.
+  const { blockClass, reason } = blockClassOverride
+    ? {
+        blockClass: blockClassOverride,
+        reason: reasonOverride ?? blockClassOverride,
+      }
+    : classifyMergeBlockFn({
+        armResult,
+        prProbe,
+        budget,
+      });
   const elapsedSeconds = budget?.elapsedSeconds ?? 0;
   // Which evidence path produced a `checks-failed` verdict (Story #4695):
   // `per-run` (head-anchored required-run evidence) or `consecutive-probe`
@@ -820,6 +881,7 @@ export async function runConfirmMergePhase({
   prUrl,
   autoMergeEnabled,
   autoMergeReason,
+  advisoryGate,
   provider,
   config,
   maxWaitSeconds: maxWaitSecondsOverride,
@@ -834,6 +896,7 @@ export async function runConfirmMergePhase({
   emitMergeUnlandedFn = defaultEmitMergeUnlanded,
   emitMergeFlipFailedFn = defaultEmitMergeFlipFailed,
   runPostLandTailFn = defaultRunPostLandTail,
+  disarmAutoMergeFn = disarmAutoMerge,
   sleepFn = defaultSleep,
   nowMsFn = Date.now,
   ghTimeoutMs = MERGE_WAIT_GH_TIMEOUT_MS,
@@ -857,6 +920,15 @@ export async function runConfirmMergePhase({
       progress,
       classifyMergeBlockFn,
       emitMergeUnlandedFn,
+      // Story #5096 — the arm phase already refused over a red advisory gate;
+      // carry its verdict through instead of letting the classifier read this
+      // as a generic `arm-failure`.
+      ...(autoMergeReason === 'advisory-gate-red'
+        ? {
+            blockClassOverride: 'advisory-gate-red',
+            reasonOverride: advisoryGate?.reason,
+          }
+        : {}),
     });
   }
 
@@ -871,6 +943,8 @@ export async function runConfirmMergePhase({
     maxWaitSecondsOverride,
     mergeWatchModeOverride,
   );
+  // Story #5096 — the advisory-gate knobs, read once for the whole wait.
+  const { blockOnAdvisoryFailure, advisoryAllowlist } = getCiDelivery(config);
   const intervalMs = intervalSeconds * 1000;
   const startedAtMs = nowMsFn();
   let anchorMs = startedAtMs;
@@ -1020,6 +1094,23 @@ export async function runConfirmMergePhase({
           },
         };
       }
+
+      // Story #5096 — the ADVISORY counterpart, and the half that catches the
+      // common shape. Close arms immediately after opening the PR, while the
+      // gate is still QUEUED, so the pre-arm refusal in `auto-merge.js` sees
+      // nothing; the gate reddens here, mid-wait, and native auto-merge would
+      // land the PR the moment the REQUIRED contexts go green.
+      unlanded = await resolveAdvisoryUnlanded({
+        unlanded,
+        probe,
+        blockOnAdvisoryFailure,
+        advisoryAllowlist,
+        prNumber,
+        gh: injectedGh,
+        progress,
+        disarmAutoMergeFn,
+        elapsedSeconds: Math.round(waitedMs / 1000),
+      });
     }
 
     if (!unlanded) {

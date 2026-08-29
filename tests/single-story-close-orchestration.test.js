@@ -616,11 +616,16 @@ describe('runSingleStoryClose orchestration', () => {
     // gate chain did not run and `pre-push` is the only backstop left.
     assert.deepEqual(pushCall.slice(1), ['push', '-u', 'origin', 'story-1234']);
 
-    assert.equal(ghCalls.length, 3);
-    assert.equal(ghCalls[2][1], 'merge');
-    assert.ok(ghCalls[2].includes('--auto'));
-    assert.ok(ghCalls[2].includes('--squash'));
-    assert.ok(ghCalls[2].includes('--delete-branch'));
+    // Story #5096 — the arm now READS the PR's check conclusions before
+    // arming (a `pr view` for `mergeStateStatus` + `statusCheckRollup`), so a
+    // red ADVISORY gate is refused instead of merged straight past. That
+    // probe is the 4th gh call; the arm itself is unchanged and still last.
+    assert.equal(ghCalls.length, 4);
+    assert.equal(ghCalls[2][1], 'view');
+    assert.equal(ghCalls[3][1], 'merge');
+    assert.ok(ghCalls[3].includes('--auto'));
+    assert.ok(ghCalls[3].includes('--squash'));
+    assert.ok(ghCalls[3].includes('--delete-branch'));
 
     // Story #3385 — the close path now rests the Story at `agent::closing`,
     // NOT `agent::done`. The flip still routes through

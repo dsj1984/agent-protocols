@@ -1,7 +1,7 @@
 {
   "$schema": ".agents/schemas/baselines/maintainability.schema.json",
   "kernelVersion": "0.1.0",
-  "generatedAt": "2026-08-29T15:11:43.241Z",
+  "generatedAt": "2026-08-29T15:53:03.889Z",
   "rollup": {
     "*": {
       "min": 76.381,
@@ -656,7 +656,7 @@
     },
     {
       "path": ".agents/scripts/lib/config/ci.js",
-      "mi": 119.834
+      "mi": 112.522
     },
     {
       "path": ".agents/scripts/lib/config/commands.js",
@@ -1236,7 +1236,7 @@
     },
     {
       "path": ".agents/scripts/lib/orchestration/merge-poll.js",
-      "mi": 90.922
+      "mi": 97.312
     },
     {
       "path": ".agents/scripts/lib/orchestration/model-attribution.js",
@@ -1424,7 +1424,7 @@
     },
     {
       "path": ".agents/scripts/lib/orchestration/single-story-close/phases/auto-merge.js",
-      "mi": 90.534
+      "mi": 88.769
     },
     {
       "path": ".agents/scripts/lib/orchestration/single-story-close/phases/base-sync.js",
@@ -1440,7 +1440,7 @@
     },
     {
       "path": ".agents/scripts/lib/orchestration/single-story-close/phases/confirm-merge.js",
-      "mi": 90.578
+      "mi": 89.115
     },
     {
       "path": ".agents/scripts/lib/orchestration/single-story-close/phases/conventional-subject.js",

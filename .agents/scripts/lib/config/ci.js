@@ -5,6 +5,13 @@
  * (default `"trust-ci"`) selects the merge posture — `"trust-ci"` merges once
  * required checks pass, `"strict"` additionally requires a clean review gate.
  *
+ * Story #5096 added `blockOnAdvisoryFailure` (default `true`) and
+ * `advisoryAllowlist` (default `[]`). GitHub native auto-merge waits on
+ * REQUIRED contexts only, so a red ADVISORY gate would otherwise be merged
+ * straight past; these knobs own mandrel's side of that decision. Set
+ * `blockOnAdvisoryFailure: false` to restore the pre-#5096 behaviour verbatim,
+ * or list a job name in `advisoryAllowlist` to exempt just that one.
+ *
  * Retired (no production readers on v2 Story-only delivery): `earlyPr`
  * (Epic early-PR warmup) and `requireChecks` (AutomergePredicate escape hatch
  * whose listener was never landed).
@@ -12,6 +19,8 @@
 
 export const CI_DELIVERY_DEFAULTS = Object.freeze({
   autoMerge: 'trust-ci',
+  blockOnAdvisoryFailure: true,
+  advisoryAllowlist: Object.freeze([]),
 });
 
 /**
@@ -31,6 +40,15 @@ export function getCiDelivery(config) {
       ci.autoMerge === 'trust-ci' || ci.autoMerge === 'strict'
         ? ci.autoMerge
         : CI_DELIVERY_DEFAULTS.autoMerge,
+    blockOnAdvisoryFailure:
+      typeof ci.blockOnAdvisoryFailure === 'boolean'
+        ? ci.blockOnAdvisoryFailure
+        : CI_DELIVERY_DEFAULTS.blockOnAdvisoryFailure,
+    advisoryAllowlist: Array.isArray(ci.advisoryAllowlist)
+      ? ci.advisoryAllowlist.filter(
+          (entry) => typeof entry === 'string' && entry,
+        )
+      : [...CI_DELIVERY_DEFAULTS.advisoryAllowlist],
     watch:
       ci.watch && typeof ci.watch === 'object' ? { ...ci.watch } : undefined,
   };

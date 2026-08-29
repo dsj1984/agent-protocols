@@ -244,6 +244,170 @@ export function requiredCheckFailedBlocksMerge(prProbe) {
 }
 
 /**
+ * The one `mergeStateStatus` value that means the PR is mergeable **despite**
+ * red runs — GitHub's own words are "mergeable with non-passing commit
+ * status". It is the required-vs-advisory discriminator the rollup itself
+ * cannot supply: under `UNSTABLE` the red runs are, by definition, not
+ * required, so native auto-merge will land the PR over them.
+ *
+ * The exact complement of {@link MERGE_GATED_STATE}: `BLOCKED` means the red
+ * run gates the merge (`failingChecksBlockMerge`), `UNSTABLE` means it does
+ * not and only mandrel can stop the landing.
+ */
+const MERGE_ADVISORY_STATE = 'UNSTABLE';
+
+/**
+ * Pure: project the HEAD-ANCHORED runs that genuinely concluded red, naming
+ * each one (Story #5096).
+ *
+ * Same red-ness test as {@link deriveRequiredRunEvidence} — `FAILURE` /
+ * `ERROR` only, never `CANCELLED` / `TIMED_OUT` / `SKIPPED`, which are the
+ * superseded-push and sibling-invalidated runs a bare rollup read miscounts
+ * (the #4695 / #4710 trap) — but it returns the runs rather than a boolean, so
+ * a block summary can name the offending job and the advisory allowlist can
+ * match on it.
+ *
+ * `name` is the CheckRun's `name`, falling back to a legacy StatusContext's
+ * `context`, and is `null` when the projection carries neither. A run with no
+ * readable name can never match an allowlist entry, so it always blocks — the
+ * conservative direction for a gate whose whole purpose is to stop a silent
+ * landing.
+ *
+ * @param {Array<{name?: string, context?: string, status?: string, conclusion?: string, state?: string}>} statusCheckRollup
+ * @returns {Array<{ name: string|null, conclusion: string }>}
+ */
+export function deriveRedHeadRuns(statusCheckRollup) {
+  if (!Array.isArray(statusCheckRollup)) return [];
+  const red = [];
+  for (const check of statusCheckRollup) {
+    const conclusion = String(check?.conclusion ?? '').toUpperCase();
+    const state = String(check?.state ?? '').toUpperCase();
+    const isRed =
+      conclusion === 'FAILURE' ||
+      conclusion === 'ERROR' ||
+      state === 'FAILURE' ||
+      state === 'ERROR';
+    if (!isRed) continue;
+    const name =
+      typeof check?.name === 'string' && check.name
+        ? check.name
+        : typeof check?.context === 'string' && check.context
+          ? check.context
+          : null;
+    red.push({ name, conclusion: conclusion || state });
+  }
+  return red;
+}
+
+/**
+ * Pure: drop the red runs a consumer has exempted via
+ * `delivery.ci.advisoryAllowlist`, returning the ones that still block.
+ *
+ * Matching is exact on the run name. An unnamed run never matches (see
+ * {@link deriveRedHeadRuns}).
+ *
+ * @param {Array<{ name: string|null, conclusion: string }>} redHeadRuns
+ * @param {string[]} [allowlist]
+ * @returns {Array<{ name: string|null, conclusion: string }>}
+ */
+export function selectBlockingRedRuns(redHeadRuns, allowlist = []) {
+  if (!Array.isArray(redHeadRuns) || redHeadRuns.length === 0) return [];
+  const exempt = new Set(
+    (Array.isArray(allowlist) ? allowlist : [])
+      .filter((entry) => typeof entry === 'string' && entry)
+      .map((entry) => entry),
+  );
+  if (exempt.size === 0) return [...redHeadRuns];
+  return redHeadRuns.filter((run) => !(run?.name && exempt.has(run.name)));
+}
+
+/**
+ * Pure: does this PR carry a genuinely red ADVISORY run — one that will NOT
+ * stop GitHub from landing the PR, and therefore one only mandrel can act on?
+ * (Story #5096.)
+ *
+ * The complement of {@link requiredCheckFailedBlocksMerge}. That predicate
+ * answers "is a red REQUIRED check gating the merge" (`BLOCKED`); this one
+ * answers "is a red NON-required check about to be merged straight past"
+ * (`UNSTABLE`). The two are mutually exclusive by construction, so a red
+ * required check keeps its existing `checks-failed` treatment untouched.
+ *
+ * **Fails OPEN by design.** `UNKNOWN`, `CLEAN`, `BEHIND`, or an absent
+ * `mergeStateStatus` all return `false`. The asymmetry is the same one
+ * {@link failingChecksBlockMerge} documents and is deliberate: failing to
+ * block costs an unattended landing the operator can still revert, whereas
+ * blocking wrongly strands a mergeable PR at `agent::blocked` that only an
+ * operator can unpick. A transient `UNKNOWN` must never do the latter.
+ *
+ * @param {{ mergeStateStatus?: string, redHeadRuns?: Array<{name: string|null, conclusion: string}> }} [prProbe]
+ * @param {string[]} [allowlist] `delivery.ci.advisoryAllowlist`.
+ * @returns {boolean}
+ */
+export function advisoryCheckFailedBlocksArm(prProbe, allowlist = []) {
+  if (
+    String(prProbe?.mergeStateStatus ?? '').toUpperCase() !==
+    MERGE_ADVISORY_STATE
+  ) {
+    return false;
+  }
+  return selectBlockingRedRuns(prProbe?.redHeadRuns, allowlist).length > 0;
+}
+
+/**
+ * Pure: the merge wait's advisory-gate decision, the sibling of
+ * {@link decideMergeWaitFailFast} (Story #5096).
+ *
+ * Encapsulates the whole policy — the knob, the predicate, and the allowlist
+ * projection — so the poll body carries a single assignment rather than three
+ * decision points. `runMergePoll` sits above `check-cyclomatic`'s ceiling
+ * already; every branch added inline there is a real regression, and this
+ * policy has a natural home beside the predicate it consumes.
+ *
+ * Returns `null` when the wait should keep polling — the knob is off, the PR
+ * is not in the advisory-red state, or every red run is allowlisted.
+ *
+ * @param {object} args
+ * @returns {{ blockingRuns: Array<object>, reason: string } | null}
+ */
+export function decideAdvisoryGateBlock({
+  probe,
+  blockOnAdvisoryFailure,
+  advisoryAllowlist,
+}) {
+  if (!blockOnAdvisoryFailure) return null;
+  if (!advisoryCheckFailedBlocksArm(probe, advisoryAllowlist)) return null;
+  const blockingRuns = selectBlockingRedRuns(
+    probe?.redHeadRuns,
+    advisoryAllowlist,
+  );
+  return { blockingRuns, reason: formatAdvisoryGateReason(blockingRuns) };
+}
+
+/**
+ * Format the one-line reason a `merge.unlanded` record and the operator-facing
+ * block carry for an `advisory-gate-red` verdict, naming each offending job
+ * and its conclusion.
+ *
+ * @param {Array<{ name: string|null, conclusion: string }>} blockingRuns
+ * @returns {string}
+ */
+export function formatAdvisoryGateReason(blockingRuns) {
+  const named = (Array.isArray(blockingRuns) ? blockingRuns : [])
+    .map(
+      (run) =>
+        `${run?.name ?? '(unnamed run)'} → ${run?.conclusion ?? 'FAILURE'}`,
+    )
+    .join(', ');
+  return (
+    'A non-required (advisory) check concluded red on the PR head, and GitHub ' +
+    'reports the PR mergeable anyway (mergeStateStatus=UNSTABLE) — native ' +
+    'auto-merge would land it over the failure. Red advisory job(s): ' +
+    `${named || '(none named)'}. Merge by hand to land over it deliberately, ` +
+    'or exempt the job via delivery.ci.advisoryAllowlist.'
+  );
+}
+
+/**
  * Pure: the merge wait's single fail-fast decision (Story #4710 — extracted
  * from the two near-verbatim inline blocks in `runConfirmMergePhase`'s poll
  * loop, beside its sibling predicates).
