@@ -4,10 +4,10 @@
   "generatedAt": "2026-08-06T11:38:14.623Z",
   "rollup": {
     "*": {
-      "percentage": 7.82,
-      "duplicatedLines": 1766,
-      "totalLines": 22570,
-      "filesWithDuplication": 79
+      "percentage": 7.7,
+      "duplicatedLines": 1720,
+      "totalLines": 22333,
+      "filesWithDuplication": 78
     }
   },
   "rows": [
@@ -70,12 +70,6 @@
       "duplicatedLines": 9,
       "totalLines": 231,
       "percentage": 3.9
-    },
-    {
-      "path": ".agents/scripts/generate-lifecycle-docs.js",
-      "duplicatedLines": 46,
-      "totalLines": 237,
-      "percentage": 19.41
     },
     {
       "path": ".agents/scripts/generate-skills-index.js",
