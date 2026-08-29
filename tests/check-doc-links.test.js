@@ -406,3 +406,93 @@ test('parseArgs: --scan-root and --exclude are repeatable and --scan-root replac
   assert.deepEqual(parsed.scanRoots, ['.agents', 'handbook']);
   assert.deepEqual(parsed.exclude, ['**/archive/**', '**/tmp/**']);
 });
+
+// --- Percent-encoded link targets (Story #5090) -----------------------------
+
+test('percent-decode: a bracketed dynamic-route target that resolves to a file is clean', () => {
+  const root = makeFakeRepo();
+  write(root, 'src/pages/api/sign/[token]/submit.ts', '// live route\n');
+  write(
+    root,
+    'docs/adr.md',
+    '# ADR\n\nOwned by [the submit handler](../src/pages/api/sign/%5Btoken%5D/submit.ts).\n',
+  );
+  const result = runCheck({ repoRoot: root, scanRoots: ['docs', '.agents'] });
+  assert.equal(
+    result.exitCode,
+    0,
+    `unexpected violations: ${JSON.stringify(result.violations, null, 2)}`,
+  );
+  assert.equal(result.violations.length, 0);
+});
+
+test('percent-decode: a bracketed dynamic-route target that resolves to nothing is still broken', () => {
+  const root = makeFakeRepo();
+  write(
+    root,
+    'docs/adr.md',
+    '# ADR\n\nOwned by [the submit handler](../src/pages/api/sign/%5Btoken%5D/submit.ts).\n',
+  );
+  const result = runCheck({ repoRoot: root, scanRoots: ['docs', '.agents'] });
+  assert.equal(result.exitCode, 1);
+  const v = result.violations.find((x) => x.kind === 'broken-link');
+  assert.ok(
+    v,
+    `expected broken-link violation; got ${JSON.stringify(result.violations)}`,
+  );
+  assert.equal(v.file, 'docs/adr.md');
+  assert.equal(v.line, 3);
+});
+
+test('percent-decode: a malformed escape degrades to the raw target instead of throwing', () => {
+  const root = makeFakeRepo();
+  // An on-disk name that literally carries the undecodable sequence still
+  // resolves — the raw string is what reaches the filesystem.
+  write(root, 'docs/raw%zz.md', '# raw\n');
+  write(
+    root,
+    'docs/intro.md',
+    '# Intro\n\nSee [the raw one](./raw%zz.md).\n\nAnd [a missing one](./gone%zz.md).\n',
+  );
+  const result = runCheck({ repoRoot: root, scanRoots: ['docs', '.agents'] });
+  const broken = result.violations.filter((x) => x.kind === 'broken-link');
+  assert.equal(
+    broken.length,
+    1,
+    `expected exactly one broken-link; got ${JSON.stringify(result.violations)}`,
+  );
+  assert.match(broken[0].message, /gone%zz\.md/);
+});
+
+test('percent-decode: runs after anchor stripping, so an escaped `%23` cannot truncate the target', () => {
+  const root = makeFakeRepo();
+  write(root, 'docs/notes#draft.md', '# draft\n');
+  write(root, 'docs/spec.md', '# Spec\n\n## later\n');
+  write(
+    root,
+    'docs/intro.md',
+    '# Intro\n\nSee [the draft](./notes%23draft.md) and [the spec](./spec.md#later).\n',
+  );
+  const result = runCheck({ repoRoot: root, scanRoots: ['docs', '.agents'] });
+  assert.equal(
+    result.exitCode,
+    0,
+    `unexpected violations: ${JSON.stringify(result.violations, null, 2)}`,
+  );
+});
+
+test('percent-decode: a percent-encoded escape from .agents/** is payload-boundary and prints the decoded target', () => {
+  const root = makeFakeRepo();
+  write(root, 'tests/api/[token]/submit.test.js', '// real file\n');
+  const abs = write(
+    root,
+    '.agents/workflows/helpers/diagnose.md',
+    '# diagnose\n\nSee [the test](../../../tests/api/%5Btoken%5D/submit.test.js).\n',
+  );
+  const v = checkFile(abs, root);
+  assert.equal(v.length, 1);
+  assert.equal(v[0].kind, 'payload-boundary');
+  assert.notEqual(v[0].kind, 'broken-link');
+  assert.match(v[0].message, /tests\/api\/\[token\]\/submit\.test\.js/);
+  assert.doesNotMatch(v[0].message, /→ [^\n]*%5B/);
+});

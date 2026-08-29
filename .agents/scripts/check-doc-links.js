@@ -325,6 +325,22 @@ function stripAnchorAndQuery(target) {
   return t;
 }
 
+// Percent-decode a link target's path portion (Story #5090). A correctly
+// encoded Markdown destination escapes URL-reserved characters — a
+// file-based router's `[token]` segment is written `%5Btoken%5D`, the form
+// CommonMark renderers require — but the filesystem knows only the decoded
+// name. The decode is one-way and total: a malformed escape (`%zz`) degrades
+// to the raw string instead of throwing `URIError`, so an undecodable target
+// is resolved exactly as it was before.
+function decodeLinkPath(pathOnly) {
+  if (!pathOnly.includes('%')) return pathOnly;
+  try {
+    return decodeURIComponent(pathOnly);
+  } catch {
+    return pathOnly;
+  }
+}
+
 // --- Slash-token extraction ------------------------------------------------
 
 // Tokens look like `/<lowercase-alphanum-with-hyphens>`. We exclude tokens
@@ -394,8 +410,13 @@ export function checkFile(absPath, repoRoot) {
   // 2. Relative-link resolution.
   for (const { target, line } of extractLinks(masked)) {
     if (isExternalOrInternalAnchor(target)) continue;
-    const pathOnly = stripAnchorAndQuery(target);
-    if (!pathOnly) continue; // pure anchor that survived earlier check
+    const rawPathOnly = stripAnchorAndQuery(target);
+    if (!rawPathOnly) continue; // pure anchor that survived earlier check
+    // Decode AFTER anchor/query stripping — so an escaped `%23` cannot
+    // collapse into an anchor delimiter and truncate the target — and BEFORE
+    // resolution, so the payload-boundary branch below reports the decoded
+    // path rather than the escaped one.
+    const pathOnly = decodeLinkPath(rawPathOnly);
     let resolved;
     if (pathOnly.startsWith('/')) {
       // Treat root-absolute paths as repo-root relative.
