@@ -485,6 +485,7 @@ async function resolveAutoMergeOutcome({ alreadyMerged, ...phaseArgs }) {
       autoMergeReason: null,
       localCleanupDeferred: false,
       directMerged: false,
+      advisoryGate: null,
     };
   }
   return await runAutoMergePhase(phaseArgs);
@@ -541,6 +542,7 @@ async function finishWithMergeWait(prCtx, deps) {
     prUrl: prCtx.prUrl,
     autoMergeEnabled: prCtx.autoMergeEnabled,
     autoMergeReason: prCtx.autoMergeReason,
+    advisoryGate: prCtx.advisoryGate,
     provider: deps.provider,
     config: prCtx.config,
     maxWaitSeconds: deps.maxWaitSeconds,
@@ -796,18 +798,23 @@ async function runClosePipeline({
     WorktreeManager,
   });
   setPhase('auto-merge');
+  const ciDelivery = getCiDelivery(config);
   const {
     autoMergeEnabled,
     autoMergeReason,
     localCleanupDeferred,
     directMerged,
+    advisoryGate,
   } = await resolveAutoMergeOutcome({
     alreadyMerged,
     cwd: options.cwd,
     prNumber,
     prUrl,
     noAutoMerge: options.noAutoMerge,
-    autoMergePolicy: getCiDelivery(config).autoMerge,
+    autoMergePolicy: ciDelivery.autoMerge,
+    // Story #5096 — the pre-arm advisory-gate refusal.
+    blockOnAdvisoryFailure: ciDelivery.blockOnAdvisoryFailure,
+    advisoryAllowlist: ciDelivery.advisoryAllowlist,
     gh: injectedGh,
     progress,
   });
@@ -866,6 +873,7 @@ async function runClosePipeline({
     prUrl,
     autoMergeEnabled,
     autoMergeReason,
+    advisoryGate,
     worktreeReaped,
     localCleanupDeferred,
     directMerged,

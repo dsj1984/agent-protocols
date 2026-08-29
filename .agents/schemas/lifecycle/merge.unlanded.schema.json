@@ -29,7 +29,8 @@
         "branch-protection-human-required",
         "arm-failure",
         "api-race-other",
-        "predicate-refused"
+        "predicate-refused",
+        "advisory-gate-red"
       ]
     },
     "reason": { "type": "string", "minLength": 1 },

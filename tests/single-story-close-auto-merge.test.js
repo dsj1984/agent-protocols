@@ -15,7 +15,10 @@
 
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { enableAutoMergeWith } from '../.agents/scripts/lib/orchestration/single-story-close/phases/auto-merge.js';
+import {
+  enableAutoMergeWith,
+  runAutoMergePhase,
+} from '../.agents/scripts/lib/orchestration/single-story-close/phases/auto-merge.js';
 import {
   enableAutoMerge,
   parsePrNumber,
@@ -213,5 +216,174 @@ describe('enableAutoMergeWith — worktree-occupied-base-branch robustness (Stor
     });
     assert.equal(result.enabled, false);
     assert.match(result.reason, /already used by worktree/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Story #5096 — the pre-arm advisory-gate refusal.
+//
+// This gate covers the narrow shape: the advisory gate is ALREADY red when
+// close runs (a re-close, or a gate carried over from an earlier push). The
+// common shape — the gate reddening AFTER the arm — belongs to the merge
+// wait, and is covered in tests/single-story-close-confirm-merge.test.js.
+// ---------------------------------------------------------------------------
+
+describe('runAutoMergePhase — advisory gate (Story #5096)', () => {
+  const prNumber = 1850;
+
+  /** A runner that fails the test if the arm is ever attempted. */
+  function armMustNotRun() {
+    return () => {
+      assert.fail('auto-merge was armed over a red advisory gate');
+    };
+  }
+
+  function probeReturning(probe) {
+    return async () => probe;
+  }
+
+  const redProbe = {
+    state: 'OPEN',
+    mergeStateStatus: 'UNSTABLE',
+    redHeadRuns: [{ name: 'Bundle-size ratchet', conclusion: 'FAILURE' }],
+  };
+
+  it('refuses to arm over a red advisory gate, with the advisory attribution', async () => {
+    const result = await runAutoMergePhase({
+      cwd: '/tmp',
+      prNumber,
+      prUrl: `https://github.com/o/r/pull/${prNumber}`,
+      noAutoMerge: false,
+      progress: () => {},
+      readPrWaitProbeFn: probeReturning(redProbe),
+      gh: { pr: { merge: armMustNotRun() } },
+    });
+    assert.equal(result.autoMergeEnabled, false);
+    assert.equal(result.autoMergeReason, 'advisory-gate-red');
+    assert.deepEqual(result.advisoryGate.blockingRuns, redProbe.redHeadRuns);
+    assert.match(result.advisoryGate.reason, /Bundle-size ratchet/);
+  });
+
+  it('does NOT fall through to the direct-merge fallback when it refuses', async () => {
+    // The #4682 fallback is the other way a PR lands from this phase. A
+    // refusal that still reached it would be a way to land red without the
+    // check — `armMustNotRun` covers both call sites, since both go through
+    // the same runner.
+    const result = await runAutoMergePhase({
+      cwd: '/tmp',
+      prNumber,
+      prUrl: `https://github.com/o/r/pull/${prNumber}`,
+      noAutoMerge: false,
+      progress: () => {},
+      readPrWaitProbeFn: probeReturning(redProbe),
+      gh: { pr: { merge: armMustNotRun() } },
+    });
+    assert.equal(result.autoMergeEnabled, false);
+    assert.equal(result.directMerged, undefined);
+  });
+
+  it('arms normally when the red run is allowlisted', async () => {
+    let armed = false;
+    const result = await runAutoMergePhase({
+      cwd: '/tmp',
+      prNumber,
+      prUrl: `https://github.com/o/r/pull/${prNumber}`,
+      noAutoMerge: false,
+      advisoryAllowlist: ['Bundle-size ratchet'],
+      progress: () => {},
+      readPrWaitProbeFn: probeReturning(redProbe),
+      gh: {
+        pr: {
+          merge: async () => {
+            armed = true;
+            return { stdout: '', stderr: '' };
+          },
+        },
+      },
+    });
+    assert.equal(armed, true);
+    assert.equal(result.autoMergeEnabled, true);
+  });
+
+  it('arms normally when the knob is disabled — pre-#5096 behaviour verbatim', async () => {
+    let armed = false;
+    const result = await runAutoMergePhase({
+      cwd: '/tmp',
+      prNumber,
+      prUrl: `https://github.com/o/r/pull/${prNumber}`,
+      noAutoMerge: false,
+      blockOnAdvisoryFailure: false,
+      progress: () => {},
+      readPrWaitProbeFn: () => assert.fail('probe must not run when disabled'),
+      gh: {
+        pr: {
+          merge: async () => {
+            armed = true;
+            return { stdout: '', stderr: '' };
+          },
+        },
+      },
+    });
+    assert.equal(armed, true);
+    assert.equal(result.autoMergeEnabled, true);
+  });
+
+  it('fails OPEN on a probe error or an UNKNOWN merge state', async () => {
+    for (const probe of [
+      { error: 'PR probe failed: boom' },
+      {
+        state: 'OPEN',
+        mergeStateStatus: 'UNKNOWN',
+        redHeadRuns: redProbe.redHeadRuns,
+      },
+      {
+        state: 'OPEN',
+        mergeStateStatus: 'BLOCKED',
+        redHeadRuns: redProbe.redHeadRuns,
+      },
+    ]) {
+      let armed = false;
+      const result = await runAutoMergePhase({
+        cwd: '/tmp',
+        prNumber,
+        prUrl: `https://github.com/o/r/pull/${prNumber}`,
+        noAutoMerge: false,
+        progress: () => {},
+        readPrWaitProbeFn: probeReturning(probe),
+        gh: {
+          pr: {
+            merge: async () => {
+              armed = true;
+              return { stdout: '', stderr: '' };
+            },
+          },
+        },
+      });
+      assert.equal(armed, true, `expected an arm for ${JSON.stringify(probe)}`);
+      assert.equal(result.autoMergeEnabled, true);
+    }
+  });
+
+  it('fails OPEN when the probe itself throws', async () => {
+    let armed = false;
+    await runAutoMergePhase({
+      cwd: '/tmp',
+      prNumber,
+      prUrl: `https://github.com/o/r/pull/${prNumber}`,
+      noAutoMerge: false,
+      progress: () => {},
+      readPrWaitProbeFn: async () => {
+        throw new Error('gh exploded');
+      },
+      gh: {
+        pr: {
+          merge: async () => {
+            armed = true;
+            return { stdout: '', stderr: '' };
+          },
+        },
+      },
+    });
+    assert.equal(armed, true);
   });
 });

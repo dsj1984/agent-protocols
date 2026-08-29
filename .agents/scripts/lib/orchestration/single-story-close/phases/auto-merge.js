@@ -63,6 +63,12 @@
 
 import { gh as defaultGh } from '../../../gh-exec.js';
 import { resolveAutoMergeArmCwd } from '../../auto-merge-cwd.js';
+import {
+  advisoryCheckFailedBlocksArm,
+  formatAdvisoryGateReason,
+  selectBlockingRedRuns,
+} from '../../merge-poll.js';
+import { readPrWaitProbe as defaultReadPrWaitProbe } from './confirm-merge.js';
 
 /**
  * Arm reasons that mean **the operator deliberately owns the merge** — the PR
@@ -322,6 +328,69 @@ function makeDefaultGhAutoMergeRunner(gh) {
 }
 
 /**
+ * Evaluate the pre-arm advisory-gate verdict (Story #5096).
+ *
+ * GitHub native auto-merge is defined to wait on REQUIRED contexts only, so a
+ * red ADVISORY quality gate — a coverage, mutation, duplication, a11y or
+ * bundle-size ratchet a consumer deliberately left non-required — is merged
+ * straight past once the required contexts go green. The arming decision is
+ * mandrel's, not GitHub's, so this is where it has to be made.
+ *
+ * Reads the SAME head-anchored derivation the merge wait uses
+ * (`readPrWaitProbe` → `deriveRedHeadRuns`), so a `CANCELLED` superseded-push
+ * run or a sibling-invalidated run is never mistaken for a red gate (the
+ * #4695 / #4710 trap), and `mergeStateStatus: UNSTABLE` supplies the
+ * required-vs-advisory discrimination the rollup itself lacks.
+ *
+ * **Non-fatal and fail-open in every degraded case.** A probe error, an absent
+ * or `UNKNOWN` merge state, or a disabled knob all return "do not block" — the
+ * arm proceeds exactly as it did before this Story. Only a positive verdict
+ * refuses.
+ *
+ * @param {object} args
+ * @returns {Promise<{ blocked: boolean, blockingRuns?: Array<object>, reason?: string }>}
+ */
+async function evaluateAdvisoryGate({
+  prNumber,
+  gh,
+  blockOnAdvisoryFailure,
+  advisoryAllowlist,
+  readPrWaitProbeFn,
+  progress,
+}) {
+  if (!blockOnAdvisoryFailure) return { blocked: false };
+  let probe;
+  try {
+    probe = await readPrWaitProbeFn({ prNumber, gh });
+  } catch (err) {
+    progress?.(
+      'PR',
+      `⚠️ Advisory-gate probe failed (${err?.message ?? err}) — arming anyway.`,
+    );
+    return { blocked: false };
+  }
+  if (probe?.error) {
+    progress?.(
+      'PR',
+      `⚠️ Advisory-gate probe unavailable (${probe.error}) — arming anyway.`,
+    );
+    return { blocked: false };
+  }
+  if (!advisoryCheckFailedBlocksArm(probe, advisoryAllowlist)) {
+    return { blocked: false };
+  }
+  const blockingRuns = selectBlockingRedRuns(
+    probe.redHeadRuns,
+    advisoryAllowlist,
+  );
+  return {
+    blocked: true,
+    blockingRuns,
+    reason: formatAdvisoryGateReason(blockingRuns),
+  };
+}
+
+/**
  * Dispatch auto-merge enablement based on `--no-auto-merge`, an
  * unparseable PR number, or a `gh` failure. Returns the structured
  * `{ autoMergeEnabled, autoMergeReason }` pair the result envelope needs.
@@ -347,8 +416,11 @@ export async function runAutoMergePhase({
   prUrl,
   noAutoMerge,
   autoMergePolicy = 'trust-ci',
+  blockOnAdvisoryFailure = true,
+  advisoryAllowlist = [],
   gh,
   progress,
+  readPrWaitProbeFn = defaultReadPrWaitProbe,
 }) {
   if (noAutoMerge) {
     progress('PR', '⏭  Auto-merge disabled (--no-auto-merge).');
@@ -379,6 +451,32 @@ export async function runAutoMergePhase({
     return {
       autoMergeEnabled: false,
       autoMergeReason: 'pr-number-unparseable',
+    };
+  }
+  // Story #5096 — refuse to arm over a genuinely red ADVISORY check. This
+  // gate covers the narrow case where the gate is ALREADY red at close time
+  // (a re-close, or a gate carried over from an earlier push); the merge
+  // wait owns the common case, where the gate reddens after arming.
+  const advisory = await evaluateAdvisoryGate({
+    prNumber,
+    gh,
+    blockOnAdvisoryFailure,
+    advisoryAllowlist,
+    readPrWaitProbeFn,
+    progress,
+  });
+  if (advisory.blocked) {
+    progress(
+      'PR',
+      `🛑 Auto-merge NOT armed on PR #${prNumber}: ${advisory.reason}`,
+    );
+    return {
+      autoMergeEnabled: false,
+      autoMergeReason: 'advisory-gate-red',
+      advisoryGate: {
+        blockingRuns: advisory.blockingRuns,
+        reason: advisory.reason,
+      },
     };
   }
   const result = await enableAutoMergeWith({ cwd, prNumber, gh });

@@ -1758,3 +1758,184 @@ describe('argv path — --merge-watch-mode (Story #4959)', () => {
     });
   }
 });
+
+// ---------------------------------------------------------------------------
+// Story #5096 — the IN-POLL advisory disarm.
+//
+// This is the half that catches the real shape. Close arms immediately after
+// opening the PR, while the advisory gate is still QUEUED, so the pre-arm
+// refusal sees a healthy PR; the gate reddens mid-wait and native auto-merge
+// lands it the moment the REQUIRED contexts go green. The wait must disarm
+// FIRST — an armed PR can merge out from under the block being recorded —
+// then block as `advisory-gate-red`.
+// ---------------------------------------------------------------------------
+
+describe('runConfirmMergePhase — in-poll advisory disarm (Story #5096)', () => {
+  const advisoryProbe = (overrides = {}) =>
+    openProbe({
+      mergeStateStatus: 'UNSTABLE',
+      checksStatus: 'failure',
+      redHeadRuns: [{ name: 'Bundle-size ratchet', conclusion: 'FAILURE' }],
+      ...overrides,
+    });
+
+  function runWith(overrides = {}) {
+    const disarms = [];
+    const emitted = [];
+    const lines = [];
+    const args = {
+      cwd: '/repo',
+      storyId: 5096,
+      prNumber: 1850,
+      prUrl: 'https://github.com/o/r/pull/1850',
+      autoMergeEnabled: true,
+      provider: makeFakeProvider(),
+      config: { delivery: { mergeWatch: { intervalSeconds: 5 } } },
+      progress: (tag, msg) => lines.push(`${tag} ${msg}`),
+      confirmStoryMergedFn: async () => ({ merged: true, action: 'flipped' }),
+      runPostLandTailFn: async () => ({}),
+      emitMergeUnlandedFn: (record) => emitted.push(record),
+      disarmAutoMergeFn: async (a) => {
+        disarms.push(a.prNumber);
+        return true;
+      },
+      sleepFn: async () => {},
+      nowMsFn: makeClock(0),
+      ...overrides,
+    };
+    return { args, disarms, emitted, lines };
+  }
+
+  it('disarms and blocks when an advisory gate reddens AFTER the arm', async () => {
+    // Poll 1 healthy (the gate is still running) — exactly the state the
+    // pre-arm gate would have seen. Poll 2 is red.
+    const probes = [openProbe(), advisoryProbe()];
+    let i = 0;
+    const ctx = runWith({
+      readPrWaitProbeFn: async () => probes[i++] ?? advisoryProbe(),
+    });
+    const outcome = await runConfirmMergePhase(ctx.args);
+
+    assert.equal(outcome.confirmed, false);
+    assert.deepEqual(ctx.disarms, [1850], 'auto-merge must be disarmed');
+    assert.equal(ctx.emitted.length, 1);
+    assert.equal(ctx.emitted[0].blockClass, 'advisory-gate-red');
+    assert.match(ctx.emitted[0].reason, /Bundle-size ratchet → FAILURE/);
+  });
+
+  it('disarms BEFORE recording the block, so GitHub cannot land underneath it', async () => {
+    const order = [];
+    const ctx = runWith({
+      readPrWaitProbeFn: async () => advisoryProbe(),
+      disarmAutoMergeFn: async () => {
+        order.push('disarm');
+        return true;
+      },
+      emitMergeUnlandedFn: () => order.push('emit'),
+    });
+    await runConfirmMergePhase(ctx.args);
+    assert.deepEqual(order, ['disarm', 'emit']);
+  });
+
+  it('leaves the PR open — no merge, no post-land tail', async () => {
+    let tailRan = false;
+    const ctx = runWith({
+      readPrWaitProbeFn: async () => advisoryProbe(),
+      runPostLandTailFn: async () => {
+        tailRan = true;
+        return {};
+      },
+    });
+    const outcome = await runConfirmMergePhase(ctx.args);
+    assert.equal(tailRan, false);
+    assert.equal(outcome.confirmed, false);
+  });
+
+  it('keeps waiting when the red run is allowlisted', async () => {
+    const probes = [advisoryProbe(), { state: 'MERGED' }];
+    let i = 0;
+    const ctx = runWith({
+      config: {
+        delivery: {
+          mergeWatch: { intervalSeconds: 5 },
+          ci: { advisoryAllowlist: ['Bundle-size ratchet'] },
+        },
+      },
+      readPrWaitProbeFn: async () => probes[i++] ?? { state: 'MERGED' },
+    });
+    const outcome = await runConfirmMergePhase(ctx.args);
+    assert.equal(outcome.confirmed, true);
+    assert.deepEqual(ctx.disarms, []);
+  });
+
+  it('keeps waiting when the knob is disabled — pre-#5096 behaviour verbatim', async () => {
+    const probes = [advisoryProbe(), { state: 'MERGED' }];
+    let i = 0;
+    const ctx = runWith({
+      config: {
+        delivery: {
+          mergeWatch: { intervalSeconds: 5 },
+          ci: { blockOnAdvisoryFailure: false },
+        },
+      },
+      readPrWaitProbeFn: async () => probes[i++] ?? { state: 'MERGED' },
+    });
+    const outcome = await runConfirmMergePhase(ctx.args);
+    assert.equal(outcome.confirmed, true);
+    assert.deepEqual(ctx.disarms, []);
+  });
+
+  it('never disarms a PR GitHub is already gating (BLOCKED keeps checks-failed)', async () => {
+    const ctx = runWith({
+      readPrWaitProbeFn: async () =>
+        advisoryProbe({
+          mergeStateStatus: 'BLOCKED',
+          requiredRunEvidence: {
+            requiredRunFailed: true,
+            requiredRunInFlight: false,
+          },
+        }),
+    });
+    await runConfirmMergePhase(ctx.args);
+    assert.deepEqual(ctx.disarms, [], 'the required-check path owns this case');
+    assert.equal(ctx.emitted[0].blockClass, 'checks-failed');
+  });
+
+  it('an UNKNOWN merge state never disarms, so a healthy PR still lands', async () => {
+    const probes = [
+      advisoryProbe({ mergeStateStatus: 'UNKNOWN' }),
+      { state: 'MERGED' },
+    ];
+    let i = 0;
+    const ctx = runWith({
+      readPrWaitProbeFn: async () => probes[i++] ?? { state: 'MERGED' },
+    });
+    const outcome = await runConfirmMergePhase(ctx.args);
+    assert.equal(outcome.confirmed, true);
+    assert.deepEqual(ctx.disarms, []);
+  });
+
+  it('still blocks when the disarm itself fails, and says the merge may land', async () => {
+    const ctx = runWith({
+      readPrWaitProbeFn: async () => advisoryProbe(),
+      disarmAutoMergeFn: async () => false,
+    });
+    const outcome = await runConfirmMergePhase(ctx.args);
+    assert.equal(outcome.confirmed, false);
+    assert.equal(ctx.emitted[0].blockClass, 'advisory-gate-red');
+  });
+
+  it('carries the pre-arm refusal through as advisory-gate-red, not arm-failure', async () => {
+    const ctx = runWith({
+      autoMergeEnabled: false,
+      autoMergeReason: 'advisory-gate-red',
+      advisoryGate: {
+        reason: 'Red advisory job(s): Bundle-size ratchet → FAILURE.',
+      },
+      readPrWaitProbeFn: async () => advisoryProbe(),
+    });
+    await runConfirmMergePhase(ctx.args);
+    assert.equal(ctx.emitted[0].blockClass, 'advisory-gate-red');
+    assert.match(ctx.emitted[0].reason, /Bundle-size ratchet/);
+  });
+});

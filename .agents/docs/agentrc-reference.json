@@ -340,7 +340,9 @@
         "maxResumes": 3,
         "attachWindowMs": 1200000
       },
-      "autoMerge": "trust-ci"
+      "autoMerge": "trust-ci",
+      "blockOnAdvisoryFailure": true,
+      "advisoryAllowlist": []
     },
     "routing": {
       "roleScopedAgents": true,

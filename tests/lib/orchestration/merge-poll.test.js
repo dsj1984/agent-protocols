@@ -16,11 +16,15 @@ import { strict as assert } from 'node:assert';
 import { describe, it } from 'node:test';
 
 import {
+  advisoryCheckFailedBlocksArm,
   decideMergeWaitFailFast,
   deriveChecksStatus,
+  deriveRedHeadRuns,
   deriveRequiredRunEvidence,
   failingChecksBlockMerge,
+  formatAdvisoryGateReason,
   requiredCheckFailedBlocksMerge,
+  selectBlockingRedRuns,
 } from '../../../.agents/scripts/lib/orchestration/merge-poll.js';
 
 describe('deriveChecksStatus', () => {
@@ -417,5 +421,187 @@ describe('decideMergeWaitFailFast (Story #4710)', () => {
       consecutiveRequiredFailSnapshots: 1,
     });
     assert.equal(consecutive.failFast, false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Story #5096 — the ADVISORY counterpart of `requiredCheckFailedBlocksMerge`.
+//
+// GitHub native auto-merge waits on REQUIRED contexts only, so a red
+// NON-required gate is merged straight past. `mergeStateStatus` is the
+// discriminator: BLOCKED means the red run gates the merge (already covered
+// above); UNSTABLE means "mergeable with non-passing commit status" — the red
+// run is advisory and only mandrel can stop the landing.
+// ---------------------------------------------------------------------------
+
+describe('deriveRedHeadRuns', () => {
+  it('names each genuinely red run, from CheckRun name or StatusContext context', () => {
+    assert.deepEqual(
+      deriveRedHeadRuns([
+        { name: 'unit', status: 'COMPLETED', conclusion: 'SUCCESS' },
+        {
+          name: 'Bundle-size ratchet',
+          status: 'COMPLETED',
+          conclusion: 'FAILURE',
+        },
+        { context: 'legacy/lint', state: 'ERROR' },
+      ]),
+      [
+        { name: 'Bundle-size ratchet', conclusion: 'FAILURE' },
+        { name: 'legacy/lint', conclusion: 'ERROR' },
+      ],
+    );
+  });
+
+  it('excludes the superseded / sibling-invalidated conclusions (the #4695 trap)', () => {
+    assert.deepEqual(
+      deriveRedHeadRuns([
+        { name: 'a', status: 'COMPLETED', conclusion: 'CANCELLED' },
+        { name: 'b', status: 'COMPLETED', conclusion: 'TIMED_OUT' },
+        { name: 'c', status: 'COMPLETED', conclusion: 'SKIPPED' },
+      ]),
+      [],
+    );
+  });
+
+  it('returns [] for an absent or empty rollup', () => {
+    assert.deepEqual(deriveRedHeadRuns(undefined), []);
+    assert.deepEqual(deriveRedHeadRuns([]), []);
+  });
+
+  it('keeps an unnamed red run, with a null name', () => {
+    assert.deepEqual(
+      deriveRedHeadRuns([{ status: 'COMPLETED', conclusion: 'FAILURE' }]),
+      [{ name: null, conclusion: 'FAILURE' }],
+    );
+  });
+});
+
+describe('selectBlockingRedRuns', () => {
+  const red = [
+    { name: 'Bundle-size ratchet', conclusion: 'FAILURE' },
+    { name: 'coverage', conclusion: 'FAILURE' },
+  ];
+
+  it('drops exactly the allowlisted runs', () => {
+    assert.deepEqual(selectBlockingRedRuns(red, ['coverage']), [
+      { name: 'Bundle-size ratchet', conclusion: 'FAILURE' },
+    ]);
+  });
+
+  it('returns none when every red run is allowlisted', () => {
+    assert.deepEqual(
+      selectBlockingRedRuns(red, ['coverage', 'Bundle-size ratchet']),
+      [],
+    );
+  });
+
+  it('matches exactly — a partial or differently-cased name does not exempt', () => {
+    assert.equal(selectBlockingRedRuns(red, ['coverage-report']).length, 2);
+    assert.equal(selectBlockingRedRuns(red, ['COVERAGE']).length, 2);
+  });
+
+  it('never exempts an unnamed run', () => {
+    assert.deepEqual(
+      selectBlockingRedRuns([{ name: null, conclusion: 'FAILURE' }], ['x']),
+      [{ name: null, conclusion: 'FAILURE' }],
+    );
+  });
+});
+
+describe('advisoryCheckFailedBlocksArm', () => {
+  const redRuns = [{ name: 'Bundle-size ratchet', conclusion: 'FAILURE' }];
+
+  it('blocks a genuinely red run under UNSTABLE', () => {
+    assert.equal(
+      advisoryCheckFailedBlocksArm({
+        mergeStateStatus: 'UNSTABLE',
+        redHeadRuns: redRuns,
+      }),
+      true,
+    );
+  });
+
+  it('does NOT fire under BLOCKED — that is the required-check case', () => {
+    assert.equal(
+      advisoryCheckFailedBlocksArm({
+        mergeStateStatus: 'BLOCKED',
+        redHeadRuns: redRuns,
+      }),
+      false,
+    );
+  });
+
+  it('fails OPEN on UNKNOWN, CLEAN, BEHIND, or an absent merge state', () => {
+    for (const mergeStateStatus of ['UNKNOWN', 'CLEAN', 'BEHIND', undefined]) {
+      assert.equal(
+        advisoryCheckFailedBlocksArm({
+          mergeStateStatus,
+          redHeadRuns: redRuns,
+        }),
+        false,
+        `expected no block for mergeStateStatus=${mergeStateStatus}`,
+      );
+    }
+    assert.equal(advisoryCheckFailedBlocksArm(undefined), false);
+  });
+
+  it('does not fire when the only red runs are superseded noise', () => {
+    assert.equal(
+      advisoryCheckFailedBlocksArm({
+        mergeStateStatus: 'UNSTABLE',
+        redHeadRuns: deriveRedHeadRuns([
+          { name: 'a', status: 'COMPLETED', conclusion: 'CANCELLED' },
+        ]),
+      }),
+      false,
+    );
+  });
+
+  it('does not fire when every red run is allowlisted', () => {
+    assert.equal(
+      advisoryCheckFailedBlocksArm(
+        { mergeStateStatus: 'UNSTABLE', redHeadRuns: redRuns },
+        ['Bundle-size ratchet'],
+      ),
+      false,
+    );
+  });
+
+  it('is mutually exclusive with requiredCheckFailedBlocksMerge', () => {
+    // BLOCKED + evidenced red required run: the required predicate owns it.
+    const requiredCase = {
+      checksStatus: 'failure',
+      mergeStateStatus: 'BLOCKED',
+      requiredRunEvidence: {
+        requiredRunFailed: true,
+        requiredRunInFlight: false,
+      },
+      redHeadRuns: redRuns,
+    };
+    assert.equal(requiredCheckFailedBlocksMerge(requiredCase), true);
+    assert.equal(advisoryCheckFailedBlocksArm(requiredCase), false);
+
+    // UNSTABLE: GitHub is not gating, so only the advisory predicate fires.
+    const advisoryCase = { ...requiredCase, mergeStateStatus: 'UNSTABLE' };
+    assert.equal(requiredCheckFailedBlocksMerge(advisoryCase), false);
+    assert.equal(advisoryCheckFailedBlocksArm(advisoryCase), true);
+  });
+});
+
+describe('formatAdvisoryGateReason', () => {
+  it('names each offending job and its conclusion', () => {
+    const reason = formatAdvisoryGateReason([
+      { name: 'Bundle-size ratchet', conclusion: 'FAILURE' },
+    ]);
+    assert.match(reason, /Bundle-size ratchet → FAILURE/);
+    assert.match(reason, /UNSTABLE/);
+    assert.match(reason, /advisoryAllowlist/);
+  });
+
+  it('degrades without throwing on an empty or malformed list', () => {
+    assert.match(formatAdvisoryGateReason([]), /none named/);
+    assert.match(formatAdvisoryGateReason(undefined), /none named/);
+    assert.match(formatAdvisoryGateReason([{}]), /\(unnamed run\) → FAILURE/);
   });
 });
