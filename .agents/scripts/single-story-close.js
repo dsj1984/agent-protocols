@@ -237,8 +237,6 @@ runAsCli(import.meta.url, main, {
         // the point of this flag is that arming stays on the one code path.
         'Land despite a Story-scope code-review CRITICAL blocker you have reviewed and judged wrong. The reason is mandatory (≥12 chars) and is recorded on the Story, on the PR, and as a `review-block-overridden` friction signal; the terminal envelope reports `gates.codeReview: "overridden"`. Use this instead of merging the PR by hand with the GitHub CLI — a hand-merge bypasses the gate with no record at all.',
       ],
-      ['--no-evidence', 'Do not reuse or write gate evidence stamps.'],
-      ['--dry-run', 'Report the plan; mutate nothing.'],
     ],
     notes: [
       'Exit codes:\n  0  landed\n  1  blocked or failed\n  3  pending (resumable — run the envelope’s nextCommand)',
