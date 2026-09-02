@@ -155,7 +155,7 @@ describe('single-story-close rejects the retired flags instead of ignoring them'
    * CLI reject it — `parseArgs` runs with `strict: false`. This asserts the
    * shape the guard defends against: an argv the parser happily absorbs.
    */
-  it('is non-vacuous: the parser itself absorbs a retired flag silently', async () => {
+  it('the shared parser absorbs a retired flag instead of rejecting it', async () => {
     const { parseSprintArgs } = await import(
       '../.agents/scripts/lib/cli-args.js'
     );
@@ -166,14 +166,62 @@ describe('single-story-close rejects the retired flags instead of ignoring them'
       '5100',
       '--dry-run',
     ]);
+    // The parse SUCCEEDS with a retired flag present: `strict: false` absorbs
+    // it and hands back a valid options bag, so the close would run for real.
+    // That is the hazard `assertNoRetiredFlags` exists to cover.
     assert.equal(parsed.storyId, 5100);
-    assert.ok(
-      !('dryRun' in parsed) || parsed.dryRun === true,
-      'sanity: the parser must not silently rewrite the story id',
+  });
+});
+
+/**
+ * The wiring, not just the helper.
+ *
+ * These drive `parseCloseOptions` through its argv door — the path the CLI
+ * actually takes — so deleting the `assertNoRetiredFlags` call from it fails
+ * here. Asserting only against the exported helper would still pass with the
+ * call site gone, which is a vacuous guard: the helper stays correct and is
+ * simply never consulted. Driving the real CLI as a subprocess would be more
+ * faithful still, but a regression there performs a REAL close, so the hazard
+ * is reproduced in-process where a failure costs nothing.
+ */
+describe('parseCloseOptions rejects retired flags on its argv door', () => {
+  /** Run `fn` with `process.argv` stubbed, always restoring it. */
+  function withArgv(tail, fn) {
+    const saved = process.argv;
+    process.argv = [process.execPath, CLI, ...tail];
+    try {
+      return fn();
+    } finally {
+      process.argv = saved;
+    }
+  }
+
+  for (const flag of RETIRED) {
+    it(`throws when argv carries ${flag}`, () => {
+      assert.throws(
+        () => withArgv(['--story', '5100', flag], () => parseCloseOptions({})),
+        new RegExp(`${flag} was retired`),
+        `parseCloseOptions must reject ${flag}; without this the guard can be ` +
+          'unwired while its unit tests still pass.',
+      );
+    });
+  }
+
+  it('still parses a clean argv through the same door', () => {
+    const options = withArgv(['--story', '5100', '--skip-sync'], () =>
+      parseCloseOptions({}),
     );
-    // The parse SUCCEEDS with the retired flag present — which is exactly why
-    // assertNoRetiredFlags has to exist. Remove it and the close runs for real.
-    assert.throws(() => assertNoRetiredFlags(['--dry-run']));
+    assert.equal(options.storyId, 5100);
+    assert.equal(options.skipSync, true);
+  });
+
+  it('does not consult argv when the caller injects a storyId', () => {
+    // An injecting caller's options must not be poisoned by the host process's
+    // own flags — a test runner's argv is not close's input.
+    const options = withArgv(['--dry-run'], () =>
+      parseCloseOptions({ storyIdParam: 5100 }),
+    );
+    assert.equal(options.storyId, 5100);
   });
 });
 
