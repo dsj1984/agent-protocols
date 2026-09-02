@@ -1,0 +1,159 @@
+name: Dependency Advisory Audit
+
+# Nightly high-severity npm advisory sweep against `main`.
+#
+# ── Why this exists ──────────────────────────────────────────────────────────
+# The `npm audit --audit-level=high` gate is REQUIRED, but it only ever runs on
+# a push or a pull_request — `ci.yml`'s "Dependency Vulnerability Audit (SCA)"
+# step is the single `npm audit` invocation in this directory. Advisories are
+# published against packages that are ALREADY installed, so `main` goes red
+# between PRs without anybody's diff causing it. The first PR opened afterwards
+# is then the discovery mechanism: its required check fails, and its author
+# debugs a supply-chain advisory from inside a failing log that has nothing to
+# do with their change. That has recurred at least six times (commits 86d315ec,
+# 090c4672, issues #4659, #4983, #5042, and the fast-uri set in PR #5103).
+#
+# ── Why Renovate does not already cover it ───────────────────────────────────
+# Renovate remediates declared *ranges*. A transitive-only package — one with
+# no `dependencies` entry and no `overrides` entry — has no range to raise, so
+# only a lockfile refresh can move it. `fast-uri` was exactly that shape: the
+# patched 3.1.6 had been published for ten days, `vulnerabilityAlerts` was
+# enabled with `schedule: ["at any time"]`, GitHub Dependabot alerts were on,
+# a weekly `lockFileMaintenance` window had elapsed, and `main` was still red
+# with zero open dependency PRs. Detection, not remediation, is the gap this
+# job closes.
+#
+# ── Shape ────────────────────────────────────────────────────────────────────
+# Deliberately modelled on `baseline-drift.yml`, the settled in-repo idiom for
+# a scheduled job nobody is watching: one reusable tracking issue keyed by
+# LABEL, closed automatically when the tree comes back clean, and the run
+# failing last so GitHub's scheduled-run failure mail is the notification while
+# the issue is the durable surface.
+#
+# Action pinning mirrors ci.yml: first-party `actions/*` stay on major-version
+# tags so Dependabot's github-actions ecosystem can bump them in place.
+
+on:
+  schedule:
+    # 04:11 UTC nightly — deliberately clear of baseline-drift.yml's 05:43 and
+    # install-matrix.yml's 06:17 so the three nightly jobs do not contend for
+    # the same runner slot.
+    - cron: '11 4 * * *'
+  workflow_dispatch: # Allow manual triggering
+
+concurrency:
+  group: ${{ github.workflow }}
+  # Never cancel in flight: a cancelled run silently skips a night's sweep, and
+  # this job's whole purpose is that nobody is watching it.
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  dependency-advisory-audit:
+    name: High-severity advisory sweep
+    runs-on: ubuntu-latest
+    # The work is checkout plus `npm ci`; the audit itself is seconds. 15
+    # minutes sits inside the 10–30 window `check-workflow-timeouts.js`
+    # enforces and is still tight enough to catch a hung install.
+    timeout-minutes: 15
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node & Install
+        uses: ./.github/actions/setup
+
+      - name: Audit for high-severity advisories
+        id: audit
+        # Same invocation as ci.yml's required SCA step, so this job and the
+        # required check can never disagree about what counts as red.
+        # `pipefail` makes the pipeline carry npm's status rather than tee's,
+        # and `|| code=$?` keeps the step alive so the reporting steps below
+        # still run.
+        run: |
+          set -o pipefail
+          code=0
+          npm audit --audit-level=high 2>&1 | tee audit-report.txt || code=$?
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+
+      - name: Upload audit report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: dependency-audit-report
+          path: audit-report.txt
+          if-no-files-found: warn
+
+      - name: File or update the advisory tracking issue
+        if: steps.audit.outputs.code != '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        # One tracking issue, reused. The label is the lookup key rather than a
+        # title search because `gh issue list --label` hits the list endpoint
+        # directly — GitHub's issue SEARCH index lags, and a lookup that misses
+        # opens a duplicate every night. `--force` makes label creation
+        # idempotent so the workflow is self-sufficient in a fresh clone.
+        run: |
+          set -euo pipefail
+          gh label create meta::dependency-advisory --force \
+            --color 'B60205' \
+            --description 'A high-severity npm advisory is red on main between PRs'
+
+          # Bound the body: GitHub rejects issue bodies over 65536 chars.
+          {
+            echo "The nightly sweep found a high-severity advisory against the dependency tree on \`main\`."
+            echo
+            echo "Run: $RUN_URL"
+            echo
+            echo '```'
+            head -c 30000 audit-report.txt
+            echo
+            echo '```'
+            echo
+            echo "This is red on \`main\` right now, so the next PR opened will fail its required \`Dependency Vulnerability Audit (SCA)\` check on a defect its diff did not cause. Fix it as a standalone \`fix(deps)\` PR against \`main\` rather than spending an unrelated Story's scope on it."
+            echo
+            echo "Read the advisory's own version range before accepting a fix: \`npm audit fix --force\` often proposes a needless semver-major when the parent package's declared range already admits a patched version, in which case the real fix is lockfile-only."
+          } > issue-body.md
+
+          existing="$(gh issue list --label meta::dependency-advisory --state open \
+            --limit 1 --json number --jq '.[0].number // empty')"
+
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --body-file issue-body.md
+            echo "Updated existing advisory issue #$existing"
+          else
+            gh issue create \
+              --title 'Dependency advisory: high-severity finding is red on main' \
+              --label meta::dependency-advisory \
+              --body-file issue-body.md
+          fi
+
+      - name: Close the advisory tracking issue
+        if: steps.audit.outputs.code == '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        # A tracking issue left open after someone landed the bump is the same
+        # rot in a different place — the surface has to be able to go quiet on
+        # its own or it stops being read.
+        run: |
+          set -euo pipefail
+          existing="$(gh issue list --label meta::dependency-advisory --state open \
+            --limit 1 --json number --jq '.[0].number // empty')"
+          if [ -n "$existing" ]; then
+            gh issue close "$existing" \
+              --comment 'npm audit is clean again at the high-severity threshold. Closing automatically.'
+          fi
+
+      - name: Fail on advisory
+        if: steps.audit.outputs.code != '0'
+        # Fail last, so the artifact and the tracking issue both exist before
+        # the run goes red. GitHub emails the repo owner on a failed SCHEDULED
+        # run, which is the second half of "fails loudly" — the issue is the
+        # durable surface, the failed run is the notification.
+        run: |
+          echo "::error::npm audit --audit-level=high exited ${{ steps.audit.outputs.code }} — see the tracking issue and the dependency-audit-report artifact."
+          exit 1
