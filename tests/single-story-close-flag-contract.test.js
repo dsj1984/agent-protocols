@@ -10,13 +10,21 @@
  * nothing read, and silently ignored — so a "dry run" performed a real
  * base-sync merge and could leave the Story `agent::blocked`.
  *
- * The two halves below close that gap for this CLI:
+ * Two halves close that gap here:
  *
  *   1. every advertised flag maps to an option `parseCloseOptions` actually
- *      returns, so re-adding a phantom flag fails here; and
+ *      returns, so re-adding a phantom flag fails; and
  *   2. the retired flags are rejected rather than ignored — `parseSprintArgs`
  *      runs `parseArgs` with `strict: false`, so deletion ALONE would leave
  *      `--dry-run` silently absorbed and the close running for real.
+ *
+ * **Everything drives `parseCloseOptions`, never the guard helper directly.**
+ * The helper is module-private precisely so it cannot be tested in isolation:
+ * an assertion against it would still pass with its call site deleted, which
+ * is a vacuous guard — correct code that is never consulted, the same defect
+ * class this Story fixes. Driving the real CLI as a subprocess would be more
+ * faithful still, but a regression there performs a REAL close against the
+ * Story, so the hazard is reproduced in-process where a failure costs nothing.
  */
 
 import assert from 'node:assert/strict';
@@ -25,16 +33,15 @@ import path from 'node:path';
 import { describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import {
-  assertNoRetiredFlags,
-  parseCloseOptions,
-} from '../.agents/scripts/lib/orchestration/single-story-close/phases/options.js';
+import { parseCloseOptions } from '../.agents/scripts/lib/orchestration/single-story-close/phases/options.js';
 
 const REPO_ROOT = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   '..',
 );
 const CLI = path.join(REPO_ROOT, '.agents/scripts/single-story-close.js');
+
+const RETIRED = ['--dry-run', '--no-evidence'];
 
 /**
  * The advertised surface, read off the real `--help` output rather than the
@@ -52,6 +59,17 @@ function advertisedFlags() {
     .map((line) => /^ {2}(--[a-z][a-z0-9-]*)/.exec(line))
     .filter(Boolean)
     .map((m) => m[1]);
+}
+
+/** Run `fn` with `process.argv` stubbed to a close argv, always restoring it. */
+function withArgv(tail, fn) {
+  const saved = process.argv;
+  process.argv = [process.execPath, CLI, ...tail];
+  try {
+    return fn();
+  } finally {
+    process.argv = saved;
+  }
 }
 
 /**
@@ -78,8 +96,6 @@ const FLAG_TO_OPTION = Object.freeze({
 
 /** Answered by `runAsCli` before `main`, so no pipeline option backs it. */
 const FRAMEWORK_FLAGS = new Set(['--help']);
-
-const RETIRED = ['--dry-run', '--no-evidence'];
 
 describe('single-story-close --help advertises only flags the pipeline honours', () => {
   it('maps every advertised flag to an option parseCloseOptions returns', () => {
@@ -110,11 +126,11 @@ describe('single-story-close --help advertises only flags the pipeline honours',
   }
 });
 
-describe('single-story-close rejects the retired flags instead of ignoring them', () => {
+describe('parseCloseOptions rejects retired flags on its argv door', () => {
   for (const flag of RETIRED) {
-    it(`throws on a bare ${flag}`, () => {
+    it(`throws when argv carries a bare ${flag}`, () => {
       assert.throws(
-        () => assertNoRetiredFlags(['--story', '5100', flag]),
+        () => withArgv(['--story', '5100', flag], () => parseCloseOptions({})),
         (err) =>
           err.message.includes(flag) &&
           /nothing was mutated/i.test(err.message),
@@ -122,87 +138,10 @@ describe('single-story-close rejects the retired flags instead of ignoring them'
       );
     });
 
-    it(`throws on ${flag}=value`, () => {
+    it(`throws when argv carries ${flag}=value`, () => {
       assert.throws(
-        () => assertNoRetiredFlags([`${flag}=true`]),
-        new RegExp(flag),
-      );
-    });
-  }
-
-  it('lets a legitimate close argv through untouched', () => {
-    assert.doesNotThrow(() =>
-      assertNoRetiredFlags([
-        '--story',
-        '5100',
-        '--cwd',
-        '/repo',
-        '--merge-watch-mode',
-        'async',
-        '--no-wait-merge',
-      ]),
-    );
-  });
-
-  it('does not trip on a positional that merely contains the text', () => {
-    assert.doesNotThrow(() =>
-      assertNoRetiredFlags(['--cwd', '/tmp/repo--dry-run/checkout']),
-    );
-  });
-
-  /**
-   * The vacuity guard. Deleting a flag from the descriptor does NOT make the
-   * CLI reject it — `parseArgs` runs with `strict: false`. This asserts the
-   * shape the guard defends against: an argv the parser happily absorbs.
-   */
-  it('the shared parser absorbs a retired flag instead of rejecting it', async () => {
-    const { parseSprintArgs } = await import(
-      '../.agents/scripts/lib/cli-args.js'
-    );
-    const parsed = parseSprintArgs([
-      process.execPath,
-      CLI,
-      '--story',
-      '5100',
-      '--dry-run',
-    ]);
-    // The parse SUCCEEDS with a retired flag present: `strict: false` absorbs
-    // it and hands back a valid options bag, so the close would run for real.
-    // That is the hazard `assertNoRetiredFlags` exists to cover.
-    assert.equal(parsed.storyId, 5100);
-  });
-});
-
-/**
- * The wiring, not just the helper.
- *
- * These drive `parseCloseOptions` through its argv door — the path the CLI
- * actually takes — so deleting the `assertNoRetiredFlags` call from it fails
- * here. Asserting only against the exported helper would still pass with the
- * call site gone, which is a vacuous guard: the helper stays correct and is
- * simply never consulted. Driving the real CLI as a subprocess would be more
- * faithful still, but a regression there performs a REAL close, so the hazard
- * is reproduced in-process where a failure costs nothing.
- */
-describe('parseCloseOptions rejects retired flags on its argv door', () => {
-  /** Run `fn` with `process.argv` stubbed, always restoring it. */
-  function withArgv(tail, fn) {
-    const saved = process.argv;
-    process.argv = [process.execPath, CLI, ...tail];
-    try {
-      return fn();
-    } finally {
-      process.argv = saved;
-    }
-  }
-
-  for (const flag of RETIRED) {
-    it(`throws when argv carries ${flag}`, () => {
-      assert.throws(
-        () => withArgv(['--story', '5100', flag], () => parseCloseOptions({})),
+        () => withArgv([`${flag}=true`], () => parseCloseOptions({})),
         new RegExp(`${flag} was retired`),
-        `parseCloseOptions must reject ${flag}; without this the guard can be ` +
-          'unwired while its unit tests still pass.',
       );
     });
   }
@@ -215,6 +154,14 @@ describe('parseCloseOptions rejects retired flags on its argv door', () => {
     assert.equal(options.skipSync, true);
   });
 
+  it('does not trip on a positional that merely contains the text', () => {
+    const options = withArgv(
+      ['--story', '5100', '--cwd', '/tmp/repo--dry-run/checkout'],
+      () => parseCloseOptions({}),
+    );
+    assert.equal(options.cwd, '/tmp/repo--dry-run/checkout');
+  });
+
   it('does not consult argv when the caller injects a storyId', () => {
     // An injecting caller's options must not be poisoned by the host process's
     // own flags — a test runner's argv is not close's input.
@@ -225,8 +172,25 @@ describe('parseCloseOptions rejects retired flags on its argv door', () => {
   });
 });
 
-describe('the dead no-evidence slot is gone from the shared parser', () => {
-  it('parseSprintArgs no longer surfaces noEvidence', async () => {
+describe('the shared parser cannot be left to reject these on its own', () => {
+  it('absorbs a retired flag instead of rejecting it', async () => {
+    const { parseSprintArgs } = await import(
+      '../.agents/scripts/lib/cli-args.js'
+    );
+    const parsed = parseSprintArgs([
+      process.execPath,
+      CLI,
+      '--story',
+      '5100',
+      '--dry-run',
+    ]);
+    // The parse SUCCEEDS with a retired flag present: `strict: false` absorbs
+    // it and hands back a valid options bag, so the close would run for real.
+    // That is the hazard the guard exists to cover.
+    assert.equal(parsed.storyId, 5100);
+  });
+
+  it('no longer surfaces noEvidence', async () => {
     const { parseSprintArgs } = await import(
       '../.agents/scripts/lib/cli-args.js'
     );

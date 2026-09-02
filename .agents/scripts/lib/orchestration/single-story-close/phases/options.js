@@ -120,7 +120,7 @@ const RETIRED_FLAGS = Object.freeze({
  * @param {string[]} argv argv tail (`process.argv.slice(2)`)
  * @throws {Error} naming the flag, why it is gone, and that nothing was mutated
  */
-export function assertNoRetiredFlags(argv) {
+function assertNoRetiredFlags(argv) {
   for (const [flag, why] of Object.entries(RETIRED_FLAGS)) {
     const present = argv.some((a) => a === flag || a.startsWith(`${flag}=`));
     if (!present) continue;
