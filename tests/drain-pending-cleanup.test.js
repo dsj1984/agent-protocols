@@ -111,21 +111,22 @@ describe('runDrainPendingCleanup', () => {
     );
   });
 
-  it('escalates unless `escalate` is explicitly parsed false', async () => {
-    // Characterisation, not endorsement: `node:util.parseArgs` only honours a
-    // `--no-<flag>` spelling when `allowNegative` is set, which this CLI does
-    // not set. `--no-escalate` therefore lands in `values['no-escalate']` and
-    // leaves `values.escalate` at its `true` default — the documented
-    // passive-drain flag is inert. Pinned here so the pre-existing gap is
-    // visible rather than silently re-introduced; changing it would be an
-    // observable CLI behaviour change, which this Story explicitly excludes.
-    const h = harness({ before: [{ storyId: 1, path: '/w' }] });
-    await runDrainPendingCleanup(['--no-escalate'], h.deps);
-    assert.equal(h.drainArgs[0].escalate, true);
+  it('honours both documented passive-drain spellings', async () => {
+    // Story #5101. Both halves of the opt-out used to be inert:
+    // `node:util.parseArgs` honours `--no-<flag>` only under `allowNegative`,
+    // so `--no-escalate` left `values.escalate` at its `true` default; and
+    // under `strict: false` the `--escalate=false` spelling arrives as the
+    // *string* `'false'`, which is truthy while the engine gates on
+    // `!escalate`. Escalation force-terminates the processes holding handles
+    // inside a worktree, so an inert opt-out performed the destructive act it
+    // promised to suppress. Both spellings must reach the engine as `false`.
+    const negated = harness({ before: [{ storyId: 1, path: '/w' }] });
+    await runDrainPendingCleanup(['--no-escalate'], negated.deps);
+    assert.equal(negated.drainArgs[0].escalate, false);
 
     const explicit = harness({ before: [{ storyId: 1, path: '/w' }] });
     await runDrainPendingCleanup(['--escalate=false'], explicit.deps);
-    assert.equal(explicit.drainArgs[0].escalate, 'false');
+    assert.equal(explicit.drainArgs[0].escalate, false);
   });
 
   it('routes the engine logger through progress and the error sink', async () => {
