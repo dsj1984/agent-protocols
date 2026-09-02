@@ -88,6 +88,50 @@ export function resolveWaitForMerge({
 }
 
 /**
+ * Flags this CLI advertised in its `--help` descriptor and never implemented
+ * (Story #5100). `--dry-run` was transcribed into the usage block by the
+ * #4750 self-describing sweep and read by nothing in this pipeline —
+ * `git log -S dryRun` over it is empty in every revision — so an operator who
+ * trusted it got a real base-sync merge, an `agent::blocked` Story, and a
+ * terminal envelope that then captured `deliver-recover`'s routing.
+ * `--no-evidence` names a working flag on the gate wrappers
+ * (`evidence-gate.js`), but the slot this CLI parsed had no reader at all.
+ *
+ * Deleting them from the descriptor is NOT enough. `parseSprintArgs` runs
+ * `parseArgs` with `strict: false`, so an unknown flag is silently ignored and
+ * the close proceeds for real — the identical injury, now with no help text to
+ * explain it. Fail closed instead, exactly as `parseMergeWatchMode` does for an
+ * unrecognized mode: throw during option parsing, before the first phase, so
+ * the CLI boundary reports `failed` at phase `init` and nothing is mutated.
+ */
+const RETIRED_FLAGS = Object.freeze({
+  '--dry-run':
+    'this pipeline has never had a dry-run mode; it was advertised in error.',
+  '--no-evidence':
+    'per-close evidence control was never wired here; the working flag of that name belongs to the gate wrappers.',
+});
+
+/**
+ * Reject a retired flag before any phase runs.
+ *
+ * Matches `--flag` and `--flag=value`; a bare `--` terminator or a positional
+ * that merely contains the text is not a flag and does not trip it.
+ *
+ * @param {string[]} argv argv tail (`process.argv.slice(2)`)
+ * @throws {Error} naming the flag, why it is gone, and that nothing was mutated
+ */
+function assertNoRetiredFlags(argv) {
+  for (const [flag, why] of Object.entries(RETIRED_FLAGS)) {
+    const present = argv.some((a) => a === flag || a.startsWith(`${flag}=`));
+    if (!present) continue;
+    throw new Error(
+      `${flag} was retired: ${why} Nothing was mutated — no branch, label, ` +
+        `comment, or PR was touched. Re-run without it to close for real.`,
+    );
+  }
+}
+
+/**
  * Parse and resolve all CLI / injection options for `runSingleStoryClose`.
  *
  * `waitForMerge` is deliberately **not** resolved here — see
@@ -116,7 +160,14 @@ export function parseCloseOptions({
   // which is precisely what `resolveFlag` already does below, preferring the
   // param over the parsed slot. One expression per flag now serves both
   // callers, so a new flag is added in one place instead of two that can drift.
-  const parsed = storyIdParam === undefined ? parseSprintArgs() : {};
+  // The guard runs on the argv door only: an injecting caller supplies
+  // `storyIdParam` and never reads argv, so the host process's flags (a test
+  // runner's, say) are none of its business.
+  let parsed = {};
+  if (storyIdParam === undefined) {
+    assertNoRetiredFlags(process.argv.slice(2));
+    parsed = parseSprintArgs();
+  }
   // Preserve undefined so resolveWaitForMerge can apply the closeAndLand
   // config default when neither flag was supplied.
   const waitForMergeExplicit = resolveFlag(
