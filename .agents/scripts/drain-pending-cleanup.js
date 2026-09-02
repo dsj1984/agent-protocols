@@ -40,6 +40,18 @@ const progress = Logger.createProgress('drain-pending-cleanup', {
 });
 
 /**
+ * The escalation posture, as a real boolean. `allowNegative` resolves
+ * `--no-escalate` to boolean `false`, but under `strict: false` the other
+ * documented spelling `--escalate=false` arrives as the *string* `'false'`,
+ * which is truthy while `forceDrainPendingCleanup` gates on `!escalate`.
+ * Both must reach the engine as a boolean or the flag is advertised and inert.
+ *
+ * @param {boolean|string|undefined} value
+ * @returns {boolean}
+ */
+const escalateFrom = (value) => value !== false && value !== 'false';
+
+/**
  * The drain core, extracted from the CLI shell so the whole decision table —
  * empty manifest, dry-run report, drain + escalate reporting — is reachable
  * without a real worktree ledger or a real process kill.
@@ -83,6 +95,11 @@ export async function runDrainPendingCleanup(
       'worktree-root': { type: 'string' },
     },
     strict: false,
+    // `node:util.parseArgs` honours a `--no-<flag>` spelling ONLY when this is
+    // set. Without it `--no-escalate` landed in `values['no-escalate']` and
+    // left `values.escalate` at its `true` default, so the documented passive
+    // drain performed the forced removal it promises to suppress.
+    allowNegative: true,
   });
 
   const config = resolveConfigImpl();
@@ -126,7 +143,7 @@ export async function runDrainPendingCleanup(
     repoRoot: projectRoot,
     worktreeRoot,
     git: gitImpl,
-    escalate: values.escalate,
+    escalate: escalateFrom(values.escalate),
     logger: {
       info: (m) => progressImpl('DRAIN', m),
       warn: (m) => progressImpl('DRAIN', `⚠️ ${m}`),

@@ -263,3 +263,171 @@ describe('baseline updaters answer --help without writing a baseline', () => {
     });
   }
 });
+
+/**
+ * Story #5101 — the descriptor must be TRUTHFUL, not merely present.
+ *
+ * The suite above proves a script *answers* `--help`. It never proved the
+ * answer was true, and that hole shipped an inert flag:
+ * `drain-pending-cleanup.js` advertised `--no-escalate` ("Do not escalate to a
+ * forced removal") while `node:util.parseArgs` silently ignored it, so the
+ * documented passive drain force-terminated the processes holding a worktree's
+ * handles — the exact act the flag promises to suppress.
+ *
+ * ## The invariant
+ *
+ * `parseArgs` has NO native `--no-<flag>` negation. A `--no-<x>` flag is
+ * honoured only if its parser either declares the literal `'no-<x>'` key
+ * (reading `values['no-<x>']` itself) or passes `allowNegative: true`. A
+ * descriptor row with neither is advertised and inert.
+ *
+ * ## Why this arm needs no exemption list
+ *
+ * The check is exact rather than heuristic: it asks a yes/no question about
+ * the parser, not "does this flag look read somewhere". Over the corpus as of
+ * this Story it yields ten passes and one failure, and the failure was the
+ * real defect. A general "every advertised flag has a read" arm was
+ * considered and deliberately dropped — being regex-based it needs a
+ * maintained allowlist plus special cases for template-literal dynamic
+ * imports and camelCase renames, and that allowlist is itself the drift
+ * surface this file exists to remove.
+ *
+ * ## Why the flag list comes from `--help` and not from the source
+ *
+ * `--help` stdout is what an operator actually sees, and `runAsCli` answers it
+ * before `main`, so reading it is side-effect-free by construction. Regexing
+ * the `usage:` descriptor instead would let the guard and the operator
+ * disagree — a second home for the contract, which is the drift class Story
+ * #4750 removed.
+ */
+
+/** Every top-level CLI that declares a usage descriptor. */
+function scriptsWithUsageDescriptor() {
+  return fs
+    .readdirSync(SCRIPTS_DIR, { withFileTypes: true })
+    .filter((e) => e.isFile() && e.name.endsWith('.js'))
+    .map((e) => e.name)
+    .filter((name) => {
+      const src = fs.readFileSync(path.join(SCRIPTS_DIR, name), 'utf8');
+      // Cheap pre-filter: a script advertising `--no-x` must contain that
+      // literal somewhere. It can only shrink the spawn set, never hide an
+      // advertised negation flag — the authoritative list is still `--help`.
+      return /\busage:\s*[{A-Z]/.test(src) && /--no-[a-z]/.test(src);
+    })
+    .sort();
+}
+
+/**
+ * Strip block and line comments.
+ *
+ * Load-bearing, not tidiness. The very comment explaining why a parser passes
+ * `allowNegative` contains the token `allowNegative`, so an un-stripped scan
+ * accepts prose as proof: deleting the real option leaves the explanation
+ * behind and the arm still passes. The mutation check in this suite is what
+ * surfaced that — the guard has to read code, not documentation.
+ *
+ * @param {string} src
+ * @returns {string}
+ */
+function stripComments(src) {
+  return src
+    .replace(/\/\*[\s\S]*?\*\//g, ' ')
+    .split('\n')
+    .map((line) => line.replace(/(^|\s)\/\/.*$/, '$1'))
+    .join('\n');
+}
+
+/** Static + template-literal local import specifiers in one source file. */
+const LOCAL_IMPORT_RE =
+  /(?:import|export)[\s\S]{0,600}?from\s*['"](\.[^'"]+)['"]|import\(\s*['"](\.[^'"]+)['"]\s*\)|import\(\s*`(\.[^`$]+\.js)/g;
+
+/**
+ * Every local module reachable from `entry`. The template-literal form is
+ * load-bearing: `single-story-close.js` reaches the runner that owns its argv
+ * handling via ``import(`./lib/.../runner.js${search}`)``, so a static-only
+ * resolver would miss the parser and red a flag that is honoured.
+ *
+ * @param {string} entry Absolute path to the CLI's entry file.
+ * @returns {string[]} Absolute paths, entry included.
+ */
+function localModuleGraph(entry) {
+  const seen = new Set();
+  const stack = [entry];
+  while (stack.length > 0) {
+    const file = stack.pop();
+    if (seen.has(file) || !file.endsWith('.js') || !fs.existsSync(file)) {
+      continue;
+    }
+    seen.add(file);
+    const src = fs.readFileSync(file, 'utf8');
+    for (const match of src.matchAll(LOCAL_IMPORT_RE)) {
+      const spec = match[1] || match[2] || match[3];
+      if (!spec) continue;
+      let resolved = path.resolve(path.dirname(file), spec);
+      if (!resolved.endsWith('.js')) resolved += '.js';
+      if (resolved.includes('__tests__')) continue;
+      stack.push(resolved);
+    }
+  }
+  return [...seen];
+}
+
+/** The `--no-*` rows a script's own `--help` advertises. */
+function advertisedNegationFlags(script) {
+  const result = spawnSync(
+    process.execPath,
+    [path.join(SCRIPTS_DIR, script), '--help'],
+    {
+      cwd: REPO_ROOT,
+      encoding: 'utf8',
+      timeout: 120_000,
+      env: { ...process.env, AGENT_LOG_LEVEL: 'silent' },
+    },
+  );
+  assert.equal(
+    result.status,
+    0,
+    `${script} --help exited ${result.status}.\nstderr: ${(result.stderr ?? '').slice(0, 800)}`,
+  );
+  const flags = new Set();
+  for (const line of (result.stdout ?? '').split('\n')) {
+    const match = /^\s+(--no-[a-z0-9][a-z0-9-]*)/.exec(line);
+    if (match) flags.add(match[1]);
+  }
+  return [...flags];
+}
+
+describe('advertised --no-* flags are honoured by their parser', () => {
+  const scripts = scriptsWithUsageDescriptor();
+
+  it('finds negation flags to check', () => {
+    assert.ok(
+      scripts.length > 0,
+      'no descriptor-carrying script advertises a --no-* flag — the ' +
+        'derivation that feeds this guard has stopped matching',
+    );
+  });
+
+  for (const script of scripts) {
+    it(`${script}: every --no-* flag has a parser that honours it`, () => {
+      const flags = advertisedNegationFlags(script);
+      if (flags.length === 0) return;
+      const source = localModuleGraph(path.join(SCRIPTS_DIR, script))
+        .map((file) => stripComments(fs.readFileSync(file, 'utf8')))
+        .join('\n');
+      const allowsNegative = /\ballowNegative\b/.test(source);
+      for (const flag of flags) {
+        const key = flag.slice(2); // `--no-escalate` -> `no-escalate`
+        const declaresKey = new RegExp(`['"\`]${key}['"\`]`).test(source);
+        assert.ok(
+          declaresKey || allowsNegative,
+          `${script} advertises ${flag} but no parser honours it. ` +
+            'node:util.parseArgs has no native --no-<flag> negation: declare ' +
+            `the literal '${key}' option key and read values['${key}'], or ` +
+            'pass `allowNegative: true`. Otherwise the flag parses into a ' +
+            'key nothing reads and the command proceeds as if it were absent.',
+        );
+      }
+    });
+  }
+});
