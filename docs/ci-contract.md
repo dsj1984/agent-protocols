@@ -137,6 +137,47 @@ drift. None of the three were ever in the deleted step, which ran
 question — whether the baseline's row set still describes the tree — but not
 whether the recorded numbers are still true.
 
+## Scheduled sweeps that run off the per-PR path
+
+Two gates in this repository are **time-triggered rather than diff-triggered**,
+because the thing they check can go wrong without anybody's diff causing it.
+Both follow the same shape: one reusable tracking issue keyed by **label**
+(never a title search — GitHub's issue search index lags, and a lookup that
+misses opens a duplicate every night), the issue closed automatically once the
+condition clears, and the run failing **last** so a failed scheduled run is the
+notification while the issue is the durable surface.
+
+| Workflow | Cadence | What it catches |
+| --- | --- | --- |
+| [`baseline-drift.yml`](../.github/workflows/baseline-drift.yml) | 05:43 UTC nightly | Baseline rows that no longer describe the tree, in files no recent branch touched — invisible to every diff-scoped enforcement site. |
+| [`dependency-audit-cron.yml`](../.github/workflows/dependency-audit-cron.yml) | 04:11 UTC nightly | A high-severity npm advisory published against an already-installed package, which reds `main` between PRs. |
+
+### Why the dependency sweep is not just the required check
+
+`ci.yml`'s required `Dependency Vulnerability Audit (SCA)` step runs
+`npm audit --audit-level=high`, and it is the only `npm audit` invocation in
+`.github/workflows/`. It runs on push and on pull_request — never in between.
+Advisories, though, are published against packages that are *already*
+installed, so `main` turns red with no commit to blame. The first PR opened
+afterwards becomes the discovery mechanism: its required check fails, and its
+author debugs a supply-chain advisory from inside a log that has nothing to do
+with their change. That has recurred at least six times.
+
+Renovate does not close this class on its own. It remediates declared
+**ranges**, and a transitive-only package — no `dependencies` entry, no
+`overrides` entry — has no range for it to raise, so only a lockfile refresh
+can move one. `fast-uri` was exactly that shape: the patched release had been
+published for ten days, `vulnerabilityAlerts` was enabled at any time, GitHub
+Dependabot alerts were on, a weekly `lockFileMaintenance` window had elapsed,
+and `main` was still red with zero open dependency PRs.
+
+The sweep uses the **same** invocation as the required step, so the two can
+never disagree about what counts as red. It adds detection, not remediation:
+the fix is still a standalone `fix(deps)` PR against `main`, and the advisory's
+own version range should be read before accepting whatever `npm audit fix
+--force` proposes — the parent package's declared range often already admits a
+patched version, making the real fix lockfile-only.
+
 ## `trust-ci` auto-merge prerequisite: configure required checks
 
 Under the default `delivery.ci.autoMerge: "trust-ci"` policy (Story #4361),
