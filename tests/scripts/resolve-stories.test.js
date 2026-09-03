@@ -33,6 +33,7 @@ import {
   planReadySet,
   storiesOverlap,
 } from '../../.agents/scripts/lib/wave-runner/ready-set.js';
+import { TRANSIENT_RETRY_DEFAULTS } from '../../.agents/scripts/providers/github/errors.js';
 import { paginateRest } from '../../.agents/scripts/providers/github/request-helpers.js';
 import {
   readNativeEdges,
@@ -41,6 +42,35 @@ import {
 import { parseDag } from '../../.agents/scripts/stories-wave-tick.js';
 
 const REPO = { owner: 'dsj1984', repo: 'mandrel', issueNumber: 4534 };
+
+/**
+ * The retry seam `paginateRest` already exposes, wired to a no-op clock.
+ *
+ * `paginateRest` wraps every page GET in `withTransientRetry`, whose
+ * production defaults are six attempts of jittered exponential backoff
+ * (0.5s → 8s, ~16s in total). A fixture that throws `HTTP 502` — a
+ * deliberately transient shape — therefore made this file *wait* 16 seconds
+ * to assert a message, holding a test-runner worker slot the whole time.
+ * Injecting `sleep` through the seam keeps the attempt count, the ordering
+ * and the final throw identical, and drops the wall time to nothing. The
+ * production backoff is untouched: this is a test clock, not a new default.
+ */
+const NO_SLEEP = Object.freeze({ sleep: async () => {}, random: () => 0 });
+
+/** `paginateRest` on the injected clock, recording each retry it performs. */
+function makeFastPaginate() {
+  const retries = [];
+  const paginate = (gh, endpoint, opts = {}) =>
+    paginateRest(gh, endpoint, {
+      ...opts,
+      retry: NO_SLEEP,
+      onRetry: (info) => retries.push(info),
+    });
+  return { paginate, retries };
+}
+
+/** Sugar for the many call sites that never exercise the retry path. */
+const fastPaginate = makeFastPaginate().paginate;
 
 /**
  * A `gh` fake for the dependencies endpoint that honours `page` / `per_page`
@@ -250,7 +280,7 @@ describe('readNativeBlockedBy — fails loud (run-breaker #3)', () => {
   it('returns the edges on success', async () => {
     const gh = makeDependenciesGh([{ id: 9, number: 42 }]);
     assert.deepEqual(
-      await readNativeBlockedBy({ gh, ...REPO, paginate: paginateRest }),
+      await readNativeBlockedBy({ gh, ...REPO, paginate: fastPaginate }),
       [42],
     );
   });
@@ -263,16 +293,31 @@ describe('readNativeBlockedBy — fails loud (run-breaker #3)', () => {
       failWith: 'HTTP 403: Resource not accessible by integration',
     });
     await assert.rejects(
-      () => readNativeBlockedBy({ gh, ...REPO, paginate: paginateRest }),
+      () => readNativeBlockedBy({ gh, ...REPO, paginate: fastPaginate }),
       /Refusing to continue.*dispatch gate/s,
     );
   });
 
-  it('throws on a 5xx rather than degrading to no edges', async () => {
+  it('throws on a 5xx rather than degrading to no edges — after exhausting the shared retry', async () => {
+    // A 502 is classified transient, so the read is *retried* before it is
+    // allowed to fail. Both halves matter: the attempt count proves the
+    // shared backoff still runs, and the throw proves an exhausted retry
+    // never degrades into "this Story has no blockers".
     const gh = makeDependenciesGh([], { failWith: 'HTTP 502: Bad Gateway' });
+    const { paginate, retries } = makeFastPaginate();
     await assert.rejects(
-      () => readNativeBlockedBy({ gh, ...REPO, paginate: paginateRest }),
+      () => readNativeBlockedBy({ gh, ...REPO, paginate }),
       /Could not read native blocked_by/,
+    );
+    assert.equal(
+      retries.length,
+      TRANSIENT_RETRY_DEFAULTS.maxAttempts - 1,
+      'every transient attempt but the last is retried',
+    );
+    assert.equal(
+      gh.calls.length,
+      TRANSIENT_RETRY_DEFAULTS.maxAttempts,
+      'the endpoint is hit once per attempt',
     );
   });
 });
@@ -285,7 +330,7 @@ describe('AC-2: a 404 on the native read is an auth failure, not "no edges"', ()
   it('the read no longer resolves edge-free on 404 — it degrades loud, naming the story', async () => {
     const gh = makeDependenciesGh([], { failWith: 'HTTP 404: Not Found' });
     await assert.rejects(
-      () => readNativeBlockedBy({ gh, ...REPO, paginate: paginateRest }),
+      () => readNativeBlockedBy({ gh, ...REPO, paginate: fastPaginate }),
       (err) => {
         assert.match(
           err.message,
@@ -308,7 +353,7 @@ describe('AC-2: a 404 on the native read is an auth failure, not "no edges"', ()
     // the 404 escape hatch costs nothing legitimate.
     const gh = makeDependenciesGh([]);
     assert.deepEqual(
-      await readNativeBlockedBy({ gh, ...REPO, paginate: paginateRest }),
+      await readNativeBlockedBy({ gh, ...REPO, paginate: fastPaginate }),
       [],
     );
   });
@@ -328,7 +373,7 @@ describe('AC-1: native reads are complete — the page walk runs to exhaustion',
     const numbers = await readNativeBlockedBy({
       gh,
       ...REPO,
-      paginate: paginateRest,
+      paginate: fastPaginate,
     });
     assert.equal(numbers.length, 145, 'no edge is dropped past the boundary');
     assert.deepEqual(
@@ -509,7 +554,7 @@ describe('AC-3: a cross-repo edge degrades its own Story, never the whole set', 
       stories: [{ id: 101 }, { id: 102 }, { id: 103 }],
       owner: 'dsj1984',
       repo: 'mandrel',
-      paginate: paginateRest,
+      paginate: fastPaginate,
       warn: (m) => warnings.push(m),
     });
 
@@ -543,7 +588,7 @@ describe('AC-3: a cross-repo edge degrades its own Story, never the whole set', 
           stories: [{ id: 101 }],
           owner: 'dsj1984',
           repo: 'mandrel',
-          paginate: paginateRest,
+          paginate: fastPaginate,
           warn: () => {},
         }),
       /Refusing to continue/,

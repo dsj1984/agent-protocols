@@ -69,11 +69,14 @@ export function runTestProfile({
   const { outDir, topN, testArgv } = parseProfileArgv(argv);
   fsLike.mkdirSync(outDir, { recursive: true });
 
-  const nodeArgs = [
-    ...buildNodeTestArgs({ extraArgs: testArgv }),
-    '--test-reporter',
-    'tap',
-  ];
+  // The reporter is a *builder option*, not a suffix. Appended after the
+  // file targets it was two more positionals to Node, the default reporter
+  // ran, and every profile parsed `Timed entries parsed: 0` off a full
+  // suite run. `buildNodeTestArgs` places it in flag position.
+  const nodeArgs = buildNodeTestArgs({
+    extraArgs: testArgv,
+    reporter: 'tap',
+  });
 
   const started = Date.now();
   const result = spawnChild(process.execPath, nodeArgs, {
