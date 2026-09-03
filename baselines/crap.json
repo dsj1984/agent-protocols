@@ -1,7 +1,7 @@
 {
   "$schema": ".agents/schemas/baselines/crap.schema.json",
   "kernelVersion": "0.1.0",
-  "generatedAt": "2026-08-07T13:57:13.741Z",
+  "generatedAt": "2026-09-03T01:34:01.099Z",
   "scoringSemantics": "method-identity-v3",
   "tsTranspilerVersion": "6.0.3",
   "provenanceStamped": true,
@@ -24651,45 +24651,43 @@
     {
       "path": "lib/cli/migrate.js",
       "method": "parseOption",
-      "startLine": 66,
-      "crap": 4.25
+      "startLine": 67,
+      "crap": 4
     },
     {
       "path": "lib/cli/migrate.js",
-      "method": "parseVersion",
+      "method": "migrateResult",
       "startLine": 87,
-      "crap": 20
+      "crap": 1
     },
     {
       "path": "lib/cli/migrate.js",
-      "method": "compareVersions",
-      "startLine": 103,
-      "crap": 12
+      "method": "reportUsageError",
+      "startLine": 109,
+      "crap": 1
+    },
+    {
+      "path": "lib/cli/migrate.js",
+      "method": "previewMigrations",
+      "startLine": 131,
+      "crap": 4
+    },
+    {
+      "path": "lib/cli/migrate.js",
+      "method": "reportApplied",
+      "startLine": 161,
+      "crap": 3
     },
     {
       "path": "lib/cli/migrate.js",
       "method": "runMigrate",
-      "startLine": 136,
-      "crap": 18.522237527738962
-    },
-    {
-      "path": "lib/cli/migrate.js",
-      "method": "<anon runMigrate/(step)#0>",
-      "startLine": 178,
-      "crap": 2.6576398454836854,
-      "anonymous": true
-    },
-    {
-      "path": "lib/cli/migrate.js",
-      "method": "<anon runMigrate/(a,b)#0>",
-      "startLine": 182,
-      "crap": 1.1644099613709213,
-      "anonymous": true
+      "startLine": 198,
+      "crap": 4
     },
     {
       "path": "lib/cli/migrate.js",
       "method": "run",
-      "startLine": 258,
+      "startLine": 264,
       "crap": 1
     },
     {
@@ -25299,97 +25297,87 @@
       "crap": 1
     },
     {
-      "path": "lib/migrations/index.js",
-      "method": "parseVersion",
-      "startLine": 90,
-      "crap": 4
+      "path": "lib/migrations/helpers/retire-agentrc-key.js",
+      "method": "resolveAgentrcPath",
+      "startLine": 56,
+      "crap": 1
     },
     {
-      "path": "lib/migrations/index.js",
-      "method": "compareVersions",
-      "startLine": 108,
-      "crap": 3
+      "path": "lib/migrations/helpers/retire-agentrc-key.js",
+      "method": "readAgentrcConfig",
+      "startLine": 70,
+      "crap": 1
     },
     {
-      "path": "lib/migrations/index.js",
-      "method": "runMigrations",
-      "startLine": 148,
+      "path": "lib/migrations/helpers/retire-agentrc-key.js",
+      "method": "resolveContainers",
+      "startLine": 88,
+      "crap": 5
+    },
+    {
+      "path": "lib/migrations/helpers/retire-agentrc-key.js",
+      "method": "hasKey",
+      "startLine": 106,
       "crap": 2
     },
     {
+      "path": "lib/migrations/helpers/retire-agentrc-key.js",
+      "method": "stripKey",
+      "startLine": 121,
+      "crap": 5
+    },
+    {
+      "path": "lib/migrations/helpers/retire-agentrc-key.js",
+      "method": "createRetireAgentrcKeyStep",
+      "startLine": 160,
+      "crap": 3
+    },
+    {
+      "path": "lib/migrations/helpers/retire-agentrc-key.js",
+      "method": "<anon createRetireAgentrcKeyStep/(config)#0>",
+      "startLine": 166,
+      "crap": 1,
+      "anonymous": true
+    },
+    {
+      "path": "lib/migrations/helpers/retire-agentrc-key.js",
+      "method": "<anon createRetireAgentrcKeyStep/(config)#0/(key)#0>",
+      "startLine": 167,
+      "crap": 1,
+      "anonymous": true
+    },
+    {
+      "path": "lib/migrations/helpers/retire-agentrc-key.js",
+      "method": "<anon createRetireAgentrcKeyStep/(filename)#0>",
+      "startLine": 174,
+      "crap": 1,
+      "anonymous": true
+    },
+    {
       "path": "lib/migrations/index.js",
-      "method": "<anon runMigrations/(step)#0>",
-      "startLine": 157,
+      "method": "selectStepsInRange",
+      "startLine": 108,
+      "crap": 1
+    },
+    {
+      "path": "lib/migrations/index.js",
+      "method": "<anon selectStepsInRange/(step)#0>",
+      "startLine": 115,
       "crap": 2,
       "anonymous": true
     },
     {
       "path": "lib/migrations/index.js",
-      "method": "<anon runMigrations/(a,b)#0>",
-      "startLine": 161,
+      "method": "<anon selectStepsInRange/(a,b)#0>",
+      "startLine": 119,
       "crap": 1,
       "anonymous": true
     },
     {
-      "path": "lib/migrations/steps/2.1.0-retire-mi-drop-knobs.js",
-      "method": "resolveAgentrcPath",
-      "startLine": 25,
+      "path": "lib/migrations/index.js",
+      "method": "runMigrations",
+      "startLine": 153,
       "crap": 2
-    },
-    {
-      "path": "lib/migrations/steps/2.1.0-retire-mi-drop-knobs.js",
-      "method": "readAgentrcConfig",
-      "startLine": 35,
-      "crap": 2
-    },
-    {
-      "path": "lib/migrations/steps/2.1.0-retire-mi-drop-knobs.js",
-      "method": "hasRetiredKey",
-      "startLine": 48,
-      "crap": 20
-    },
-    {
-      "path": "lib/migrations/steps/2.1.0-retire-verify-concurrency-cap.js",
-      "method": "resolveAgentrcPath",
-      "startLine": 33,
-      "crap": 2
-    },
-    {
-      "path": "lib/migrations/steps/2.1.0-retire-verify-concurrency-cap.js",
-      "method": "readAgentrcConfig",
-      "startLine": 44,
-      "crap": 2
-    },
-    {
-      "path": "lib/migrations/steps/2.1.0-retire-verify-concurrency-cap.js",
-      "method": "hasRetiredKey",
-      "startLine": 57,
-      "crap": 6
-    },
-    {
-      "path": "lib/migrations/steps/2.1.0-retire-verify-concurrency-cap.js",
-      "method": "<anon (filename)#0>",
-      "startLine": 76,
-      "crap": 1.2962962962962963,
-      "anonymous": true
-    },
-    {
-      "path": "lib/migrations/steps/2.11.0-retire-max-seed-words.js",
-      "method": "resolveAgentrcPath",
-      "startLine": 26,
-      "crap": 2
-    },
-    {
-      "path": "lib/migrations/steps/2.11.0-retire-max-seed-words.js",
-      "method": "readAgentrcConfig",
-      "startLine": 36,
-      "crap": 2
-    },
-    {
-      "path": "lib/migrations/steps/2.11.0-retire-max-seed-words.js",
-      "method": "hasRetiredKey",
-      "startLine": 49,
-      "crap": 6
     },
     {
       "path": "lib/migrations/steps/2.2.0-retire-epic-ac-tags.js",
@@ -25429,55 +25417,6 @@
       "startLine": 131,
       "crap": 1,
       "anonymous": true
-    },
-    {
-      "path": "lib/migrations/steps/2.20.0-retire-codebase-snapshot.js",
-      "method": "resolveAgentrcPath",
-      "startLine": 37,
-      "crap": 2
-    },
-    {
-      "path": "lib/migrations/steps/2.20.0-retire-codebase-snapshot.js",
-      "method": "readAgentrcConfig",
-      "startLine": 48,
-      "crap": 2
-    },
-    {
-      "path": "lib/migrations/steps/2.20.0-retire-codebase-snapshot.js",
-      "method": "hasRetiredKey",
-      "startLine": 61,
-      "crap": 6
-    },
-    {
-      "path": "lib/migrations/steps/2.20.0-retire-codebase-snapshot.js",
-      "method": "stripRetiredKey",
-      "startLine": 73,
-      "crap": 6
-    },
-    {
-      "path": "lib/migrations/steps/2.20.0-retire-codebase-snapshot.js",
-      "method": "<anon (filename)#0>",
-      "startLine": 92,
-      "crap": 1.2962962962962963,
-      "anonymous": true
-    },
-    {
-      "path": "lib/migrations/steps/2.32.0-retire-lint-baseline-command.js",
-      "method": "resolveAgentrcPath",
-      "startLine": 38,
-      "crap": 1
-    },
-    {
-      "path": "lib/migrations/steps/2.32.0-retire-lint-baseline-command.js",
-      "method": "readAgentrcConfig",
-      "startLine": 48,
-      "crap": 1
-    },
-    {
-      "path": "lib/migrations/steps/2.32.0-retire-lint-baseline-command.js",
-      "method": "hasRetiredKey",
-      "startLine": 61,
-      "crap": 2
     }
   ]
 }

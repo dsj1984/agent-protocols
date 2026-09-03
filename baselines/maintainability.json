@@ -1,11 +1,11 @@
 {
   "$schema": ".agents/schemas/baselines/maintainability.schema.json",
   "kernelVersion": "0.1.0",
-  "generatedAt": "2026-08-29T15:53:03.889Z",
+  "generatedAt": "2026-09-03T01:33:56.656Z",
   "rollup": {
     "*": {
       "min": 76.381,
-      "p50": 98.792,
+      "p50": 98.797,
       "p95": 125.857
     }
   },
@@ -2168,7 +2168,7 @@
     },
     {
       "path": "lib/cli/migrate.js",
-      "mi": 93.571
+      "mi": 94.74
     },
     {
       "path": "lib/cli/registry.js",
@@ -2203,20 +2203,24 @@
       "mi": 102.29
     },
     {
+      "path": "lib/migrations/helpers/retire-agentrc-key.js",
+      "mi": 102.395
+    },
+    {
       "path": "lib/migrations/index.js",
-      "mi": 108.159
+      "mi": 112.751
     },
     {
       "path": "lib/migrations/steps/2.1.0-retire-mi-drop-knobs.js",
-      "mi": 96.24
+      "mi": 109.447
     },
     {
       "path": "lib/migrations/steps/2.1.0-retire-verify-concurrency-cap.js",
-      "mi": 104.821
+      "mi": 118.106
     },
     {
       "path": "lib/migrations/steps/2.11.0-retire-max-seed-words.js",
-      "mi": 100.321
+      "mi": 115.406
     },
     {
       "path": "lib/migrations/steps/2.2.0-retire-epic-ac-tags.js",
@@ -2224,11 +2228,11 @@
     },
     {
       "path": "lib/migrations/steps/2.20.0-retire-codebase-snapshot.js",
-      "mi": 107.31
+      "mi": 118.106
     },
     {
       "path": "lib/migrations/steps/2.32.0-retire-lint-baseline-command.js",
-      "mi": 105.909
+      "mi": 118.106
     }
   ]
 }

@@ -1,13 +1,13 @@
 {
   "$schema": ".agents/schemas/baselines/duplication.schema.json",
   "kernelVersion": "1.0.0",
-  "generatedAt": "2026-08-06T11:38:14.623Z",
+  "generatedAt": "2026-09-03T01:34:00.670Z",
   "rollup": {
     "*": {
-      "percentage": 7.7,
-      "duplicatedLines": 1720,
-      "totalLines": 22333,
-      "filesWithDuplication": 78
+      "percentage": 6.11,
+      "duplicatedLines": 1324,
+      "totalLines": 21654,
+      "filesWithDuplication": 72
     }
   },
   "rows": [
@@ -415,9 +415,9 @@
     },
     {
       "path": "lib/cli/migrate.js",
-      "duplicatedLines": 66,
-      "totalLines": 260,
-      "percentage": 25.38
+      "duplicatedLines": 7,
+      "totalLines": 266,
+      "percentage": 2.63
     },
     {
       "path": "lib/cli/sync-agents.js",
@@ -442,42 +442,6 @@
       "duplicatedLines": 35,
       "totalLines": 197,
       "percentage": 17.77
-    },
-    {
-      "path": "lib/migrations/index.js",
-      "duplicatedLines": 68,
-      "totalLines": 177,
-      "percentage": 38.42
-    },
-    {
-      "path": "lib/migrations/steps/2.1.0-retire-mi-drop-knobs.js",
-      "duplicatedLines": 53,
-      "totalLines": 100,
-      "percentage": 53
-    },
-    {
-      "path": "lib/migrations/steps/2.1.0-retire-verify-concurrency-cap.js",
-      "duplicatedLines": 55,
-      "totalLines": 101,
-      "percentage": 54.46
-    },
-    {
-      "path": "lib/migrations/steps/2.11.0-retire-max-seed-words.js",
-      "duplicatedLines": 53,
-      "totalLines": 92,
-      "percentage": 57.61
-    },
-    {
-      "path": "lib/migrations/steps/2.20.0-retire-codebase-snapshot.js",
-      "duplicatedLines": 55,
-      "totalLines": 113,
-      "percentage": 48.67
-    },
-    {
-      "path": "lib/migrations/steps/2.32.0-retire-lint-baseline-command.js",
-      "duplicatedLines": 53,
-      "totalLines": 102,
-      "percentage": 51.96
     }
   ]
 }
