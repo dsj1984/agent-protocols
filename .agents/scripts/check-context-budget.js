@@ -481,6 +481,179 @@ export function renderReachable(tierMap, baseline) {
  * @returns {Promise<number>} 0 = clean / within tolerance / shrink-only / no-op;
  *   1 = a gated tier grew beyond tolerance
  */
+/**
+ * Write a fresh budget, preserving the recorded tolerance so `--update` never
+ * silently widens the gate it is refreshing.
+ *
+ * @param {object} params
+ * @returns {0}
+ */
+function writeUpdatedBaseline({ tierMap, resolvedBaselinePath, json, stdout }) {
+  const existing = loadBaseline(resolvedBaselinePath);
+  const tolerance = Number.isFinite(existing?.toleranceBytes)
+    ? existing.toleranceBytes
+    : DEFAULT_TOLERANCE_BYTES;
+  const envelope = buildBaseline(tierMap, tolerance);
+  fs.mkdirSync(path.dirname(resolvedBaselinePath), { recursive: true });
+  fs.writeFileSync(
+    resolvedBaselinePath,
+    `${JSON.stringify(envelope, null, 2)}\n`,
+  );
+  if (!json) {
+    stdout.write(
+      `[context-budget] wrote baseline ${resolvedBaselinePath} (tolerance ${tolerance} bytes)\n`,
+    );
+  } else {
+    stdout.write(
+      `${JSON.stringify({ kind: 'context-budget-update', baselinePath: resolvedBaselinePath, envelope }, null, 2)}\n`,
+    );
+  }
+  return 0;
+}
+
+/**
+ * An absent budget is a no-op, not a failure: a consumer that has never
+ * recorded one has nothing to regress against.
+ *
+ * @param {object} params
+ * @returns {0}
+ */
+function reportMissingBaseline({
+  tierMap,
+  resolvedBaselinePath,
+  json,
+  stdout,
+  stderr,
+}) {
+  if (json) {
+    stdout.write(
+      `${JSON.stringify({ kind: 'context-budget-report', baselinePath: resolvedBaselinePath, tiers: tierMap.tiers, grown: [], shrunk: [], absent: [], skipped: GATED_TIERS, exitCode: 0, noBaseline: true }, null, 2)}\n`,
+    );
+  } else {
+    stderr.write(
+      `[context-budget] ⚠ budget not found at ${resolvedBaselinePath} — skipping (no-op)\n`,
+    );
+  }
+  return 0;
+}
+
+/**
+ * Score the tree against the recorded budget. Pure — every verdict the two
+ * renderers below present is decided here, so they cannot disagree about what
+ * failed or drift apart in which fields they surface.
+ *
+ * @param {{ tierMap: object, baseline: object }} params
+ * @returns {{ diff: object, ceiling: number, bootOverflow: object[], bootDrift: object[], permissiveDrift: object[], exitCode: 0 | 1 }}
+ */
+function evaluateBudget({ tierMap, baseline }) {
+  const diff = diffBudget(tierMap, baseline);
+  const ceiling = Number.isFinite(baseline?.agentBoot?.ceilingBytes)
+    ? baseline.agentBoot.ceilingBytes
+    : AGENT_BOOT_CEILING_BYTES;
+  const bootOverflow = agentBootOverflow(tierMap, ceiling);
+  const bootDrift = agentBootDrift(tierMap, baseline, ceiling);
+  const permissiveDrift = bootDrift.filter((d) => d.direction === 'permissive');
+  const exitCode =
+    budgetFailureCount(diff) > 0 ||
+    bootOverflow.length > 0 ||
+    permissiveDrift.length > 0
+      ? 1
+      : 0;
+  return { diff, ceiling, bootOverflow, bootDrift, permissiveDrift, exitCode };
+}
+
+/**
+ * @param {object} params
+ * @returns {void}
+ */
+function renderJsonReport({
+  tierMap,
+  baseline,
+  resolvedBaselinePath,
+  report,
+  stdout,
+}) {
+  const { diff, ceiling, bootOverflow, bootDrift, exitCode } = report;
+  const envelope = {
+    kind: 'context-budget-report',
+    baselinePath: resolvedBaselinePath,
+    toleranceBytes: Number.isFinite(baseline.toleranceBytes)
+      ? baseline.toleranceBytes
+      : 0,
+    current: Object.fromEntries(
+      GATED_TIERS.map((t) => [t, tierTotalBytes(tierMap.tiers[t] ?? [])]),
+    ),
+    grown: diff.grown,
+    shrunk: diff.shrunk,
+    absent: diff.absent,
+    skipped: diff.skipped,
+    agentBootCeilingBytes: ceiling,
+    agentBootOverflow: bootOverflow,
+    agentBootDrift: bootDrift,
+    workflowReachableBytes: tierMap.workflowClosure?.reachableTotalBytes ?? 0,
+    exitCode,
+  };
+  stdout.write(`${JSON.stringify(envelope, null, 2)}\n`);
+}
+
+/**
+ * Each failing condition gets its own remediation line: they are fixed
+ * differently (trim a role def vs refresh the budget), so a single generic
+ * message would leave the author guessing which applies.
+ *
+ * @param {object} params
+ * @returns {void}
+ */
+function renderFailureDiagnostics({ report, stderr }) {
+  const { diff, ceiling, bootOverflow, permissiveDrift } = report;
+  if (permissiveDrift.length > 0) {
+    stderr.write(
+      `[context-budget] ❌ a recorded agentBoot row understates the file it describes, so it overstates the headroom an author would size an edit against — refresh it with \`node .agents/scripts/check-context-budget.js --update\` (the ceiling is unchanged)\n`,
+    );
+  }
+  if (bootOverflow.length > 0) {
+    stderr.write(
+      `[context-budget] ❌ a role-agent boot context exceeds the ${ceiling}-byte per-agent ceiling — trim the role def (the ceiling is a hard cap, not a starve target)\n`,
+    );
+  }
+  if (diff.grown.length > 0) {
+    stderr.write(
+      `[context-budget] ❌ a documentation tier grew beyond tolerance — refresh the budget consciously with \`node .agents/scripts/check-context-budget.js --update\` once the growth is intentional\n`,
+    );
+  }
+  if (diff.shrunk.length > 0) {
+    stderr.write(
+      `[context-budget] ❌ a documentation tier came in under its recorded total — the ratchet is holding slack the tree no longer spends, so the next growth would be absorbed silently. Lock the gain in with \`node .agents/scripts/check-context-budget.js --update\`\n`,
+    );
+  }
+  if (diff.absent.length > 0) {
+    stderr.write(
+      `[context-budget] ❌ a recorded row names a path the measured tier no longer contains — its bytes inflate the recorded total against nothing. Refresh with \`node .agents/scripts/check-context-budget.js --update\`\n`,
+    );
+  }
+}
+
+/**
+ * @param {object} params
+ * @returns {void}
+ */
+function renderTextReport({ tierMap, baseline, report, stdout, stderr }) {
+  const { diff, bootOverflow, bootDrift, exitCode } = report;
+  stdout.write(`\n--- context-budget preview ---\n`);
+  stdout.write(`${renderDiff(diff)}\n`);
+  const reachable = renderReachable(tierMap, baseline);
+  if (reachable) stdout.write(`${reachable}\n`);
+  for (const o of bootOverflow) {
+    stdout.write(
+      `+ agentBoot: ${o.path} is ${o.bytes} bytes, over the ${o.ceiling}-byte per-agent ceiling\n`,
+    );
+  }
+  for (const line of renderBootDrift(bootDrift)) {
+    stdout.write(`${line}\n`);
+  }
+  if (exitCode === 1) renderFailureDiagnostics({ report, stderr });
+}
+
 export async function runCli({
   argv = process.argv.slice(2),
   cwd = process.cwd(),
@@ -498,120 +671,39 @@ export async function runCli({
   const tierMap = resolveDocTiers(resolvedConfig, { root });
 
   if (update) {
-    const existing = loadBaseline(resolvedBaselinePath);
-    const tolerance = Number.isFinite(existing?.toleranceBytes)
-      ? existing.toleranceBytes
-      : DEFAULT_TOLERANCE_BYTES;
-    const envelope = buildBaseline(tierMap, tolerance);
-    fs.mkdirSync(path.dirname(resolvedBaselinePath), { recursive: true });
-    fs.writeFileSync(
+    return writeUpdatedBaseline({
+      tierMap,
       resolvedBaselinePath,
-      `${JSON.stringify(envelope, null, 2)}\n`,
-    );
-    if (!json) {
-      stdout.write(
-        `[context-budget] wrote baseline ${resolvedBaselinePath} (tolerance ${tolerance} bytes)\n`,
-      );
-    } else {
-      stdout.write(
-        `${JSON.stringify({ kind: 'context-budget-update', baselinePath: resolvedBaselinePath, envelope }, null, 2)}\n`,
-      );
-    }
-    return 0;
+      json,
+      stdout,
+    });
   }
 
   const baseline = loadBaseline(resolvedBaselinePath);
   if (!baseline) {
-    if (json) {
-      stdout.write(
-        `${JSON.stringify({ kind: 'context-budget-report', baselinePath: resolvedBaselinePath, tiers: tierMap.tiers, grown: [], shrunk: [], absent: [], skipped: GATED_TIERS, exitCode: 0, noBaseline: true }, null, 2)}\n`,
-      );
-    } else {
-      stderr.write(
-        `[context-budget] ⚠ budget not found at ${resolvedBaselinePath} — skipping (no-op)\n`,
-      );
-    }
-    return 0;
+    return reportMissingBaseline({
+      tierMap,
+      resolvedBaselinePath,
+      json,
+      stdout,
+      stderr,
+    });
   }
 
-  const diff = diffBudget(tierMap, baseline);
-  const ceiling = Number.isFinite(baseline?.agentBoot?.ceilingBytes)
-    ? baseline.agentBoot.ceilingBytes
-    : AGENT_BOOT_CEILING_BYTES;
-  const bootOverflow = agentBootOverflow(tierMap, ceiling);
-  const bootDrift = agentBootDrift(tierMap, baseline, ceiling);
-  const permissiveDrift = bootDrift.filter((d) => d.direction === 'permissive');
-  const exitCode =
-    budgetFailureCount(diff) > 0 ||
-    bootOverflow.length > 0 ||
-    permissiveDrift.length > 0
-      ? 1
-      : 0;
-
+  const report = evaluateBudget({ tierMap, baseline });
   if (json) {
-    const envelope = {
-      kind: 'context-budget-report',
-      baselinePath: resolvedBaselinePath,
-      toleranceBytes: Number.isFinite(baseline.toleranceBytes)
-        ? baseline.toleranceBytes
-        : 0,
-      current: Object.fromEntries(
-        GATED_TIERS.map((t) => [t, tierTotalBytes(tierMap.tiers[t] ?? [])]),
-      ),
-      grown: diff.grown,
-      shrunk: diff.shrunk,
-      absent: diff.absent,
-      skipped: diff.skipped,
-      agentBootCeilingBytes: ceiling,
-      agentBootOverflow: bootOverflow,
-      agentBootDrift: bootDrift,
-      workflowReachableBytes: tierMap.workflowClosure?.reachableTotalBytes ?? 0,
-      exitCode,
-    };
-    stdout.write(`${JSON.stringify(envelope, null, 2)}\n`);
+    renderJsonReport({
+      tierMap,
+      baseline,
+      resolvedBaselinePath,
+      report,
+      stdout,
+    });
   } else {
-    stdout.write(`\n--- context-budget preview ---\n`);
-    stdout.write(`${renderDiff(diff)}\n`);
-    const reachable = renderReachable(tierMap, baseline);
-    if (reachable) stdout.write(`${reachable}\n`);
-    for (const o of bootOverflow) {
-      stdout.write(
-        `+ agentBoot: ${o.path} is ${o.bytes} bytes, over the ${o.ceiling}-byte per-agent ceiling\n`,
-      );
-    }
-    for (const line of renderBootDrift(bootDrift)) {
-      stdout.write(`${line}\n`);
-    }
-    if (exitCode === 1) {
-      if (permissiveDrift.length > 0) {
-        stderr.write(
-          `[context-budget] ❌ a recorded agentBoot row understates the file it describes, so it overstates the headroom an author would size an edit against — refresh it with \`node .agents/scripts/check-context-budget.js --update\` (the ceiling is unchanged)\n`,
-        );
-      }
-      if (bootOverflow.length > 0) {
-        stderr.write(
-          `[context-budget] ❌ a role-agent boot context exceeds the ${ceiling}-byte per-agent ceiling — trim the role def (the ceiling is a hard cap, not a starve target)\n`,
-        );
-      }
-      if (diff.grown.length > 0) {
-        stderr.write(
-          `[context-budget] ❌ a documentation tier grew beyond tolerance — refresh the budget consciously with \`node .agents/scripts/check-context-budget.js --update\` once the growth is intentional\n`,
-        );
-      }
-      if (diff.shrunk.length > 0) {
-        stderr.write(
-          `[context-budget] ❌ a documentation tier came in under its recorded total — the ratchet is holding slack the tree no longer spends, so the next growth would be absorbed silently. Lock the gain in with \`node .agents/scripts/check-context-budget.js --update\`\n`,
-        );
-      }
-      if (diff.absent.length > 0) {
-        stderr.write(
-          `[context-budget] ❌ a recorded row names a path the measured tier no longer contains — its bytes inflate the recorded total against nothing. Refresh with \`node .agents/scripts/check-context-budget.js --update\`\n`,
-        );
-      }
-    }
+    renderTextReport({ tierMap, baseline, report, stdout, stderr });
   }
 
-  return exitCode;
+  return report.exitCode;
 }
 
 async function main() {

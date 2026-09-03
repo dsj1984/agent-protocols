@@ -488,6 +488,272 @@ async function evaluateGreenWatch({
 }
 
 /**
+ * Resolve the knobs, temp root and working directory one watch run needs.
+ *
+ * Split out of `runPrWatch` because config resolution must not abort the
+ * watch: a broken `.agentrc` should degrade to defaults, not turn a CI probe
+ * into a crash.
+ *
+ * @param {{ config?: object, tempRoot?: string, logger: object, flags: object }} params
+ * @returns {{ knobs: object, effectiveTempRoot: string, cwd: string }}
+ */
+function resolveWatchContext({ config, tempRoot, logger, flags }) {
+  const resolvedConfig =
+    config !== undefined ? config : safeResolveConfig(logger);
+  const knobs = resolveWatchKnobs({ config: resolvedConfig, flags });
+  const effectiveTempRoot =
+    tempRoot ?? resolvedConfig?.project?.paths?.tempRoot ?? 'temp';
+  return { knobs, effectiveTempRoot, cwd: process.cwd() };
+}
+
+/**
+ * Build the argument bag for the underlying watch port.
+ *
+ * Each injectable port is spread in only when supplied so the port keeps its
+ * own default — passing `undefined` explicitly would override a default with
+ * nothing and break every caller that relies on it.
+ *
+ * @param {object} params
+ * @returns {object}
+ */
+function buildWatchArgs({
+  prRef,
+  repo,
+  cwd,
+  knobs,
+  ghPrChecksFn,
+  ghPrViewFn,
+  ghPrUpdateBranchFn,
+  sleepFn,
+  logger,
+}) {
+  return {
+    prUrl: prRef,
+    repo,
+    cwd,
+    maxPolls: knobs.maxPolls,
+    maxUpdates: knobs.maxUpdates,
+    maxResumes: knobs.maxResumes,
+    pollIntervalMs: knobs.pollIntervalMs,
+    ...(ghPrChecksFn ? { ghPrChecksFn } : {}),
+    ...(ghPrViewFn ? { ghPrViewFn } : {}),
+    ...(ghPrUpdateBranchFn ? { ghPrUpdateBranchFn } : {}),
+    ...(sleepFn ? { sleepFn } : {}),
+    logger,
+  };
+}
+
+/**
+ * One terminal outcome of the watch: the attach window is spent and no
+ * required check ever attached, or the pull request could not be read at all.
+ *
+ * The two are distinguished structurally — never against `gh`'s stderr prose
+ * (Story #4890) — because they route oppositely: CI that has not started is
+ * slow (exit 2, keep watching), while an unreadable PR is a `gh` / access
+ * fault (exit 1).
+ *
+ * @param {object} params
+ * @returns {number} exit code
+ */
+function reportUnattachedOrError({
+  result,
+  envelope,
+  prNumber,
+  knobs,
+  logger,
+  print,
+}) {
+  const notYetStarted = Boolean(
+    result.requiredChecksEmpty && result.prResolvable,
+  );
+  print(
+    JSON.stringify({
+      ...envelope,
+      requiredChecksEmpty: Boolean(result.requiredChecksEmpty),
+      notYetStarted,
+    }),
+  );
+  if (notYetStarted) {
+    logger.warn?.(
+      `[pr-watch] no required check has attached to PR #${prNumber} within the ` +
+        `${Math.round(knobs.attachWindowMs / 1000)}s attach window (${result.attachRetries} re-resolutions), ` +
+        'and the pull request still reads back fine — this is CI that has not started, NOT a red check. ' +
+        'Keep polling natively:',
+    );
+    logger.warn?.('[pr-watch]   gh pr checks <pr> --watch');
+    return STILL_RUNNING_EXIT_CODE;
+  }
+  logger.error?.(
+    `[pr-watch] could not resolve required checks: ${result.error} — the pull request itself could ` +
+      'not be read, so this is a `gh` / access fault rather than CI that has not started.',
+  );
+  return 1;
+}
+
+/**
+ * Settle a watch whose observed required checks all came back green.
+ *
+ * Never green on an undercount (Story #4873): the observed set is whatever
+ * `gh pr checks --required` returned on the FIRST probe, so a context a
+ * ruleset attached later can leave every check we knew about green while
+ * GitHub still refuses the merge. An unreconcilable set reports unresolved
+ * (exit 2, keep watching) rather than a false green or a false red.
+ *
+ * @param {object} params
+ * @returns {Promise<number>} exit code
+ */
+async function settleGreenWatch({
+  result,
+  envelope,
+  readMergeState,
+  storyId,
+  prNumber,
+  guardPrRef,
+  effectiveTempRoot,
+  cwd,
+  readDigestFn,
+  retireDigestFn,
+  headShaFn,
+  reArmAutoMergeFn,
+  blockDeliveryFn,
+  logger,
+  print,
+}) {
+  const reconciliation = reconcileGreenVerdict({
+    observedRequired: result.requiredChecks,
+    mergeStateStatus: await readMergeState(),
+  });
+  if (!reconciliation.reconciled) {
+    print(JSON.stringify({ ...envelope, reconciliation }));
+    logger.warn?.(
+      `[pr-watch] withholding the green verdict: ${reconciliation.reason}. ` +
+        'Re-run the watch once the repository settles, or inspect branch protection for a context this watch never saw.',
+    );
+    return STILL_RUNNING_EXIT_CODE;
+  }
+  const guard = await evaluateGreenWatch({
+    storyId,
+    prNumber,
+    prRef: guardPrRef,
+    tempRoot: effectiveTempRoot,
+    cwd,
+    readDigestFn,
+    retireDigestFn,
+    headShaFn,
+    reArmFn: reArmAutoMergeFn,
+    blockFn: blockDeliveryFn,
+    logger,
+  });
+  print(JSON.stringify({ ...envelope, reconciliation, rerunGuard: guard }));
+  if (guard.exitCode === 0) {
+    logger.info?.('[pr-watch] all required checks green.');
+  }
+  return guard.exitCode;
+}
+
+/**
+ * Slow-but-not-red: the poll cap AND the resume budget are exhausted with
+ * checks still pending and none failed. Never exit 1, never `timed_out` —
+ * hand off to the host's interval loop and exit 2.
+ *
+ * @param {object} params
+ * @returns {number} exit code
+ */
+function reportStillRunning({ result, envelope, logger, print }) {
+  print(JSON.stringify(envelope));
+  const stillPending = Object.entries(result.outcomes)
+    .filter(([, v]) => v === 'still-running')
+    .map(([k]) => k)
+    .join(', ');
+  logger.warn?.(
+    `[pr-watch] required check(s) still running after ${result.polls} polls + ${result.resumesApplied} resumes: ${stillPending}. Keep polling natively:`,
+  );
+  logger.warn?.('[pr-watch]   gh pr checks <pr> --watch');
+  return STILL_RUNNING_EXIT_CODE;
+}
+
+/**
+ * The failing checks, excluding every non-failing state **and**
+ * `still-running`: when the cap fires with a mixed failed+pending map,
+ * `promotePendingToStillRunning` has rewritten the pending entries, and a
+ * still-running check is slow, not red — including it here would let it become
+ * the digest's "primary" failing check and mispoint the diagnosis.
+ *
+ * @param {Record<string, string>} outcomes
+ * @returns {Array<{ name: string, outcome: string }>}
+ */
+function collectFailures(outcomes) {
+  return Object.entries(outcomes)
+    .filter(
+      ([, v]) =>
+        v !== 'success' &&
+        v !== 'neutral' &&
+        v !== 'skipped' &&
+        v !== 'still-running',
+    )
+    .map(([name, outcome]) => ({ name, outcome }));
+}
+
+/**
+ * Genuine red check — exit 1 immediately, disarm auto-merge, write the digest,
+ * and surface the fix-loop handoff.
+ *
+ * @param {object} params
+ * @returns {Promise<number>} exit code
+ */
+async function settleRedWatch({
+  result,
+  envelope,
+  storyId,
+  prNumber,
+  guardPrRef,
+  effectiveTempRoot,
+  cwd,
+  writeDigestFn,
+  headShaFn,
+  disarmAutoMergeFn,
+  blockDeliveryFn,
+  logger,
+  print,
+}) {
+  const failures = collectFailures(result.outcomes);
+  const red = failures.map((f) => `${f.name}=${f.outcome}`).join(', ');
+  logger.error?.(`[pr-watch] required check(s) not green: ${red}`);
+  const redOutcome = await handleRedWatch({
+    storyId,
+    prNumber,
+    prRef: guardPrRef,
+    failures,
+    tempRoot: effectiveTempRoot,
+    cwd,
+    writeDigestFn,
+    headShaFn,
+    disarmFn: disarmAutoMergeFn,
+    blockFn: blockDeliveryFn,
+    logger,
+  });
+  print(
+    JSON.stringify({
+      ...envelope,
+      classification: classifyFailure(failures[0]?.name),
+      rerunGuard: {
+        verdict: 'red',
+        headSha: redOutcome.headSha,
+        autoMergeDisarmed: redOutcome.disarm.disarmed,
+        disarmDetail: redOutcome.disarm.detail,
+        digestPath: redOutcome.digestPaths?.jsonPath ?? null,
+        blocked: redOutcome.blocked,
+      },
+    }),
+  );
+  logger.error?.(
+    '[pr-watch] a required check failed. Read the digest, reproduce the failure, and apply the smallest fix at source, ' +
+      'then push a new commit — re-running the failed job is forbidden (`.agents/rules/ci-remediation.md` § Verifier).',
+  );
+  return 1;
+}
+
+/**
  * Run the watch loop and resolve to the exit code. Exported for tests so
  * the green / red / still-running / BEHIND paths can be exercised with
  * injected `gh` spawns and no `process.exit`.
@@ -557,21 +823,12 @@ export async function runPrWatch({
   if (!Number.isInteger(prNumber) || prNumber < 1)
     throw new TypeError('runPrWatch: --pr requires a positive integer');
 
-  const resolvedConfig =
-    config !== undefined ? config : safeResolveConfig(logger);
-  const knobs = resolveWatchKnobs({
-    config: resolvedConfig,
-    flags: {
-      pollIntervalMs,
-      maxPolls,
-      maxResumes,
-      maxUpdates,
-      attachWindowMs,
-    },
+  const { knobs, effectiveTempRoot, cwd } = resolveWatchContext({
+    config,
+    tempRoot,
+    logger,
+    flags: { pollIntervalMs, maxPolls, maxResumes, maxUpdates, attachWindowMs },
   });
-  const effectiveTempRoot =
-    tempRoot ?? resolvedConfig?.project?.paths?.tempRoot ?? 'temp';
-  const cwd = process.cwd();
 
   // `gh` has NO `<owner/repo>#<number>` argument form — it parses that string
   // as a BRANCH NAME, which is why every `--repo` invocation used to fail at
@@ -596,20 +853,17 @@ export async function runPrWatch({
     probeMergeState({ prRef: guardPrRef, prUrl: prRef, repo, cwd, prNumber });
 
   const result = await watchWithAttachWindow({
-    watchArgs: {
-      prUrl: prRef,
+    watchArgs: buildWatchArgs({
+      prRef,
       repo,
       cwd,
-      maxPolls: knobs.maxPolls,
-      maxUpdates: knobs.maxUpdates,
-      maxResumes: knobs.maxResumes,
-      pollIntervalMs: knobs.pollIntervalMs,
-      ...(ghPrChecksFn ? { ghPrChecksFn } : {}),
-      ...(ghPrViewFn ? { ghPrViewFn } : {}),
-      ...(ghPrUpdateBranchFn ? { ghPrUpdateBranchFn } : {}),
-      ...(sleepFn ? { sleepFn } : {}),
+      knobs,
+      ghPrChecksFn,
+      ghPrViewFn,
+      ghPrUpdateBranchFn,
+      sleepFn,
       logger,
-    },
+    }),
     attachWindowMs: knobs.attachWindowMs,
     retryIntervalMs: knobs.pollIntervalMs,
     sleepFn: sleepFn ?? defaultSleep,
@@ -637,141 +891,55 @@ export async function runPrWatch({
   };
 
   if (result.requiredChecksEmpty || result.error) {
-    // The attach window is spent and the required set is still empty. Classify
-    // it structurally — never against `gh`'s stderr prose (Story #4890).
-    const notYetStarted = Boolean(
-      result.requiredChecksEmpty && result.prResolvable,
-    );
-    print(
-      JSON.stringify({
-        ...envelope,
-        requiredChecksEmpty: Boolean(result.requiredChecksEmpty),
-        notYetStarted,
-      }),
-    );
-    if (notYetStarted) {
-      logger.warn?.(
-        `[pr-watch] no required check has attached to PR #${prNumber} within the ` +
-          `${Math.round(knobs.attachWindowMs / 1000)}s attach window (${result.attachRetries} re-resolutions), ` +
-          'and the pull request still reads back fine — this is CI that has not started, NOT a red check. ' +
-          'Keep polling natively:',
-      );
-      logger.warn?.('[pr-watch]   gh pr checks <pr> --watch');
-      return STILL_RUNNING_EXIT_CODE;
-    }
-    logger.error?.(
-      `[pr-watch] could not resolve required checks: ${result.error} — the pull request itself could ` +
-        'not be read, so this is a `gh` / access fault rather than CI that has not started.',
-    );
-    return 1;
+    return reportUnattachedOrError({
+      result,
+      envelope,
+      prNumber,
+      knobs,
+      logger,
+      print,
+    });
   }
 
   if (result.green) {
-    // Never green on an undercount (Story #4873). The observed required set is
-    // whatever `gh pr checks --required` returned on the FIRST probe; when a
-    // ruleset attached a context after that, every check we knew about can be
-    // green while GitHub still refuses the merge. Reconcile against the
-    // repository's own verdict before any green is issued — an unreconcilable
-    // set reports unresolved (exit 2, keep watching) rather than a false green
-    // or a false red.
-    const reconciliation = reconcileGreenVerdict({
-      observedRequired: result.requiredChecks,
-      mergeStateStatus: await readMergeState(),
-    });
-    if (!reconciliation.reconciled) {
-      print(JSON.stringify({ ...envelope, reconciliation }));
-      logger.warn?.(
-        `[pr-watch] withholding the green verdict: ${reconciliation.reason}. ` +
-          'Re-run the watch once the repository settles, or inspect branch protection for a context this watch never saw.',
-      );
-      return STILL_RUNNING_EXIT_CODE;
-    }
-    const guard = await evaluateGreenWatch({
+    return await settleGreenWatch({
+      result,
+      envelope,
+      readMergeState,
       storyId,
       prNumber,
-      prRef: guardPrRef,
-      tempRoot: effectiveTempRoot,
+      guardPrRef,
+      effectiveTempRoot,
       cwd,
       readDigestFn,
       retireDigestFn,
       headShaFn,
-      reArmFn: reArmAutoMergeFn,
-      blockFn: blockDeliveryFn,
+      reArmAutoMergeFn,
+      blockDeliveryFn,
       logger,
+      print,
     });
-    print(JSON.stringify({ ...envelope, reconciliation, rerunGuard: guard }));
-    if (guard.exitCode === 0) {
-      logger.info?.('[pr-watch] all required checks green.');
-    }
-    return guard.exitCode;
   }
 
-  // Slow-but-not-red: the cap AND resume budget are exhausted with checks
-  // still pending and none failed. Never exit 1, never `timed_out` — hand
-  // off to the host's interval loop and exit 2.
   if (result.stillRunning) {
-    print(JSON.stringify(envelope));
-    const stillPending = Object.entries(result.outcomes)
-      .filter(([, v]) => v === 'still-running')
-      .map(([k]) => k)
-      .join(', ');
-    logger.warn?.(
-      `[pr-watch] required check(s) still running after ${result.polls} polls + ${result.resumesApplied} resumes: ${stillPending}. Keep polling natively:`,
-    );
-    logger.warn?.('[pr-watch]   gh pr checks <pr> --watch');
-    return STILL_RUNNING_EXIT_CODE;
+    return reportStillRunning({ result, envelope, logger, print });
   }
 
-  // Genuine red check — exit 1 immediately, disarm auto-merge, write the
-  // digest, and surface the fix-loop handoff.
-  // Exclude 'still-running' as well as the non-failing states: when the cap
-  // fires with a mixed failed+pending map, promotePendingToStillRunning has
-  // rewritten the pending entries, and a still-running check is slow, not
-  // red — including it here would let it become the digest's "primary"
-  // failing check and mispoint the diagnosis at a slow check.
-  const failures = Object.entries(result.outcomes)
-    .filter(
-      ([, v]) =>
-        v !== 'success' &&
-        v !== 'neutral' &&
-        v !== 'skipped' &&
-        v !== 'still-running',
-    )
-    .map(([name, outcome]) => ({ name, outcome }));
-  const red = failures.map((f) => `${f.name}=${f.outcome}`).join(', ');
-  logger.error?.(`[pr-watch] required check(s) not green: ${red}`);
-  const redOutcome = await handleRedWatch({
+  return await settleRedWatch({
+    result,
+    envelope,
     storyId,
     prNumber,
-    prRef: guardPrRef,
-    failures,
-    tempRoot: effectiveTempRoot,
+    guardPrRef,
+    effectiveTempRoot,
     cwd,
     writeDigestFn,
     headShaFn,
-    disarmFn: disarmAutoMergeFn,
-    blockFn: blockDeliveryFn,
+    disarmAutoMergeFn,
+    blockDeliveryFn,
     logger,
+    print,
   });
-  print(
-    JSON.stringify({
-      ...envelope,
-      classification: classifyFailure(failures[0]?.name),
-      rerunGuard: {
-        verdict: 'red',
-        headSha: redOutcome.headSha,
-        autoMergeDisarmed: redOutcome.disarm.disarmed,
-        disarmDetail: redOutcome.disarm.detail,
-        digestPath: redOutcome.digestPaths?.jsonPath ?? null,
-        blocked: redOutcome.blocked,
-      },
-    }),
-  );
-  logger.error?.(
-    '[pr-watch] a required check failed. Read the digest, reproduce the failure, and apply the smallest fix at source, ' +
-      'then push a new commit — re-running the failed job is forbidden (`.agents/rules/ci-remediation.md` § Verifier).',
-  );
-  return 1;
 }
 
 /** Resolve config without letting a config error abort the watch. */
