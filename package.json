@@ -21,6 +21,7 @@
     "test:integration": "node .agents/scripts/run-tests.js --tier integration",
     "test:e2e": "node .agents/scripts/run-tests.js --tier e2e",
     "test:profile": "node .agents/scripts/run-test-profile.js",
+    "test:census": "SPAWN_CENSUS_OUT=\"${SPAWN_CENSUS_OUT:-temp/census.json}\" NODE_OPTIONS=\"--require $PWD/tests/fixtures/spawn-census.cjs\" node .agents/scripts/run-tests.js",
     "test:isolate": "node .agents/scripts/test-isolate.js",
     "verify": "node .agents/scripts/run-verify.js",
     "typecheck": "node -e \"process.exit(0)\"",
