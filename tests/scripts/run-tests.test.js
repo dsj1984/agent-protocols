@@ -62,7 +62,7 @@ test('TEST_RUNNER_FLAGS contains --test-concurrency in the [1,16] range', () => 
 // buildNodeTestArgs — flag presence
 // ---------------------------------------------------------------------------
 
-test('buildNodeTestArgs preserves the default test glob and appends extra args', () => {
+test('buildNodeTestArgs carries the runner flags, the tier targets and extra args', () => {
   const args = buildNodeTestArgs({
     extraArgs: ['tests/foo.test.js'],
     tier: 'full',
@@ -70,7 +70,15 @@ test('buildNodeTestArgs preserves the default test glob and appends extra args',
   assert.ok(args.includes('--experimental-test-module-mocks'));
   assert.ok(args.includes('--test'));
   assert.ok(args.some((f) => f.startsWith('--test-concurrency=')));
-  assert.ok(args.includes('tests/**/*.test.js'));
+  // Story #5111: the full tier enumerates files rather than returning the
+  // `tests/**/*.test.js` glob — `node --test` has no negative pattern, so
+  // excluding tests/e2e/** is only sayable as a file set.
+  assert.ok(args.some((a) => a.startsWith('tests/') && a.endsWith('.test.js')));
+  assert.equal(
+    args.some((a) => a.startsWith('tests/e2e/')),
+    false,
+    'the full tier must not target the e2e suites',
+  );
   assert.ok(args.includes('tests/foo.test.js'));
 });
 
@@ -107,8 +115,12 @@ test('buildNodeTestArgs keeps extraArgs in flag position, before the targets', (
     tier: 'full',
     extraArgs: ['--test-name-pattern', 'foo'],
   });
+  const firstTargetIdx = args.findIndex(
+    (a, i) => !a.startsWith('-') && args[i - 1] !== '--test-name-pattern',
+  );
+  assert.ok(firstTargetIdx >= 0, 'a file target must be present');
   assert.ok(
-    args.indexOf('--test-name-pattern') < args.indexOf('tests/**/*.test.js'),
+    args.indexOf('--test-name-pattern') < firstTargetIdx,
     'pass-through flags must precede the file targets',
   );
 });
