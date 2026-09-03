@@ -191,6 +191,36 @@ describe('pending-cleanup — the manifest is written via rename', () => {
     assert.deepEqual(leftovers, []);
   });
 
+  it('reaps the temp file and propagates when the rename fails', () => {
+    const realRename = fs.renameSync;
+    mock.method(fs, 'renameSync', () => {
+      const err = new Error('EXDEV: cross-device link not permitted');
+      err.code = 'EXDEV';
+      throw err;
+    });
+
+    assert.throws(
+      () =>
+        recordPendingCleanup(worktreeRoot, {
+          storyId: 808,
+          branch: 'story-808',
+          path: path.join(worktreeRoot, 'story-808'),
+          push: false,
+        }),
+      /EXDEV/,
+    );
+
+    // No half-written artifact is left where a reader could pick it up:
+    // neither the manifest nor the abandoned temp file survives.
+    assert.equal(fs.existsSync(manifestPath(worktreeRoot)), false);
+    assert.deepEqual(
+      fs.readdirSync(worktreeRoot).filter((n) => n.endsWith('.tmp')),
+      [],
+    );
+    mock.restoreAll();
+    assert.equal(fs.renameSync, realRename);
+  });
+
   it('reads a torn manifest as empty rather than throwing', () => {
     fs.writeFileSync(manifestPath(worktreeRoot), '[{"storyId":1,', 'utf8');
     assert.deepEqual(readManifest(worktreeRoot), []);

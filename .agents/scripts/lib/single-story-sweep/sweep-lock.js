@@ -376,6 +376,25 @@ function startHeartbeat(holder) {
   return stop;
 }
 
+/**
+ * Drop a lockfile, but only when it is still stamped with `ownerId`. A
+ * lockfile another holder created after ours was stolen (or stale-broken) is
+ * theirs — dropping it would hand a third caller a lock the current holder
+ * still believes it owns.
+ *
+ * @param {string} lockPath
+ * @param {string} ownerId
+ * @param {object} fsImpl
+ */
+function unlinkIfOwned(lockPath, ownerId, fsImpl) {
+  if (readLockOwner(lockPath, fsImpl) !== ownerId) return;
+  try {
+    fsImpl.unlinkSync(lockPath);
+  } catch {
+    // Already gone — nothing to do.
+  }
+}
+
 function buildAcquired(holder) {
   const { lockPath, ownerId, fsImpl } = holder;
   const stopHeartbeat = startHeartbeat(holder);
@@ -384,16 +403,7 @@ function buildAcquired(holder) {
     if (released) return;
     released = true;
     stopHeartbeat();
-    // Owner-checked: only unlink a lockfile still stamped with our id. A
-    // lockfile another holder created after our lock was stolen (or after a
-    // stale break) is theirs — dropping it would hand a third caller a lock
-    // the current holder still believes it owns.
-    if (readLockOwner(lockPath, fsImpl) !== ownerId) return;
-    try {
-      fsImpl.unlinkSync(lockPath);
-    } catch {
-      // Already gone — nothing to do.
-    }
+    unlinkIfOwned(lockPath, ownerId, fsImpl);
   };
   // Belt-and-braces: process exit also clears the lockfile so a
   // crashed run doesn't leave a stale-but-not-yet-old artifact behind.

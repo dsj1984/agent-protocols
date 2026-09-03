@@ -131,17 +131,36 @@ function writeManifest(worktreeRoot, entries) {
     return;
   }
   fs.mkdirSync(worktreeRoot, { recursive: true });
-  const tmp = `${p}.${process.pid}.tmp`;
+  writeFileAtomic(p, `${JSON.stringify(entries, null, 2)}\n`);
+}
+
+/**
+ * Write `contents` to `targetPath` atomically: serialize into a pid-scoped
+ * temp file beside it (same directory, so the rename stays within one
+ * filesystem and is therefore atomic), then rename it into place. On failure
+ * the temp file is reaped and the error propagates — a half-written file is
+ * never left where a reader could pick it up.
+ *
+ * @param {string} targetPath
+ * @param {string} contents
+ */
+function writeFileAtomic(targetPath, contents) {
+  const tmp = `${targetPath}.${process.pid}.tmp`;
   try {
-    fs.writeFileSync(tmp, `${JSON.stringify(entries, null, 2)}\n`, 'utf8');
-    fs.renameSync(tmp, p);
+    fs.writeFileSync(tmp, contents, 'utf8');
+    fs.renameSync(tmp, targetPath);
   } catch (err) {
-    try {
-      fs.unlinkSync(tmp);
-    } catch {
-      // Temp file already gone (or never created) — nothing to reap.
-    }
+    reapTempFile(tmp);
     throw err;
+  }
+}
+
+/** Best-effort removal of an abandoned atomic-write temp file. */
+function reapTempFile(tmp) {
+  try {
+    fs.unlinkSync(tmp);
+  } catch {
+    // Temp file already gone (or never created) — nothing to reap.
   }
 }
 

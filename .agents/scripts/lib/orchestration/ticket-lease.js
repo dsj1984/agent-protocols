@@ -230,6 +230,21 @@ export async function acquireLease(opts) {
  * @param {string} args.reason                Success reason when the claim holds.
  * @returns {Promise<{ acquired: boolean, owner: string, previousOwner: string|null, reason: string }>}
  */
+/**
+ * The assignee mutation a claim writes. Additive when the ticket has no
+ * previous owner — that is what makes a simultaneous claim show up as a
+ * co-assignment {@link claimAndVerify} can detect. Replacing only for a
+ * steal, where evicting the previous owner *is* the intent.
+ *
+ * @param {string} operator
+ * @param {string|null} previousOwner
+ * @returns {{ addAssignees: string[] }|{ assignees: string[] }}
+ */
+function claimMutation(operator, previousOwner) {
+  if (previousOwner === null) return { addAssignees: [operator] };
+  return { assignees: [operator] };
+}
+
 async function claimAndVerify({
   provider,
   ticketId,
@@ -237,13 +252,7 @@ async function claimAndVerify({
   previousOwner,
   reason,
 }) {
-  // Additive when there is no previous owner; replacing only for a steal.
-  await provider.updateTicket(
-    ticketId,
-    previousOwner === null
-      ? { addAssignees: [operator] }
-      : { assignees: [operator] },
-  );
+  await provider.updateTicket(ticketId, claimMutation(operator, previousOwner));
 
   const after = await provider.getTicket(ticketId, { fresh: true });
   const assignees = Array.isArray(after?.assignees) ? after.assignees : [];
