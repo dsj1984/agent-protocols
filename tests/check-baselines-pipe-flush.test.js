@@ -38,6 +38,7 @@ import { fileURLToPath } from 'node:url';
 
 import { currentKernelVersion } from '../.agents/scripts/lib/baselines/kernel.js';
 import { makeTempDir } from '../.agents/scripts/lib/test-temp.js';
+import { seedGitIdentity } from './fixtures/git-fixture.js';
 
 const CLI = fileURLToPath(
   new URL('../.agents/scripts/check-baselines.js', import.meta.url),
@@ -144,23 +145,9 @@ function setupBulkRepo() {
   );
 
   git('init', '-q', '-b', 'main');
+  seedGitIdentity(dir);
   git('add', BASELINE_REL, '.agentrc.json');
-  execFileSync(
-    'git',
-    [
-      '-c',
-      'user.email=test@example.com',
-      '-c',
-      'user.name=Test',
-      '-c',
-      'commit.gpgsign=false',
-      'commit',
-      '-q',
-      '-m',
-      'seed baseline',
-    ],
-    { cwd: dir, stdio: ['pipe', 'pipe', 'pipe'], env: CLEAN_ENV },
-  );
+  git('commit', '-q', '-m', 'seed baseline');
   // The compare arm reads `origin/<baseBranch>`; point the remote-tracking
   // ref at the local commit so `git show` resolves it without a remote.
   git('update-ref', 'refs/remotes/origin/main', 'main');

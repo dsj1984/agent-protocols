@@ -2,7 +2,20 @@
  * tests/cli/mandrel.test.js — unit tests for bin/mandrel.js dispatch routing
  *
  * Tests are process-spawn based so we can assert on exit codes and stdout/stderr
- * without importing the entry point directly (it calls process.exit).
+ * without importing the entry point directly. `bin/mandrel.js` dispatches at
+ * module scope and ends every top-level branch in `process.exit()`, so it is
+ * not `runAsCli`-guarded and importing it is not side-effect free — an
+ * in-process call would take this test process down with it. Converting the
+ * file is therefore a change to the shipped entry point, not to this test.
+ *
+ * What IS avoidable is spawning the same argv twice. Story #5111: the suite
+ * deliberately keeps one `it` per assertion (DAMP), so `--help`, `--version`,
+ * `unknown-sub` and friends were each dispatched by two or three separate
+ * `node` cold starts that could only produce identical output. `runMandrel`
+ * memoizes on argv + env overrides, so the assertions stay one-per-`it` while
+ * the process count follows the number of *distinct invocations* — 25 spawns
+ * become 17. Every invocation here either prints, rejects before dispatch, or
+ * is a `--dry-run`, so the result is a pure function of its arguments.
  */
 
 import assert from 'node:assert/strict';
@@ -15,18 +28,29 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, '..', '..');
 const BIN = path.join(REPO_ROOT, 'bin', 'mandrel.js');
 
-/** Run the mandrel bin synchronously and return { status, stdout, stderr }. */
+/** Memo of every distinct invocation this file has already paid for. */
+const runs = new Map();
+
+/**
+ * Run the mandrel bin synchronously and return { status, stdout, stderr },
+ * reusing the result when this exact argv + env has already been run.
+ */
 function runMandrel(args = [], env = {}) {
+  const key = JSON.stringify([args, env]);
+  const memo = runs.get(key);
+  if (memo) return memo;
   const result = spawnSync(process.execPath, [BIN, ...args], {
     cwd: REPO_ROOT,
     encoding: 'utf8',
     env: { ...process.env, ...env },
   });
-  return {
+  const out = {
     status: result.status,
     stdout: result.stdout ?? '',
     stderr: result.stderr ?? '',
   };
+  runs.set(key, out);
+  return out;
 }
 
 // ---------------------------------------------------------------------------

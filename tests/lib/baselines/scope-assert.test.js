@@ -35,7 +35,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import test, { after, describe } from 'node:test';
 import { fileURLToPath } from 'node:url';
-
+import {
+  formatReport,
+  runScopeCheck,
+} from '../../../.agents/scripts/check-baseline-scope.js';
 import { currentKernelVersion } from '../../../.agents/scripts/lib/baselines/kernel.js';
 import {
   assertScope,
@@ -49,6 +52,7 @@ import {
   KIND_SCOPE_POLICY,
 } from '../../../.agents/scripts/lib/baselines/scope-inventory.js';
 import { makeTempDir } from '../../../.agents/scripts/lib/test-temp.js';
+import { seedGitIdentity } from '../../fixtures/git-fixture.js';
 
 /**
  * Build an inventory record of the shape `buildScopeInventory` returns,
@@ -430,29 +434,69 @@ function cliFixture(rows) {
 }
 
 /**
+ * Spawn the real CLI. Story #5111 keeps exactly two of these — the `--help`
+ * contract (which must prove `runAsCli` fires the usage block *before* `main`,
+ * a thing no in-process call can observe) and one smoke case that proves the
+ * argv → `runScopeCheck` → stdout → exit-code wiring is connected at all.
+ * Every other case drives the exported functions in-process: a `node`
+ * cold start per assertion bought nothing the two spawns below do not already
+ * prove, at ~274 ms each.
+ *
  * @param {string[]} argv
  * @returns {{ status: number, stdout: string, stderr: string }}
  */
-function runCli(argv) {
+function runCliSpawn(argv) {
   const run = spawnSync(process.execPath, [CLI, ...argv], {
     encoding: 'utf8',
   });
   return { status: run.status, stdout: run.stdout, stderr: run.stderr };
 }
 
+/**
+ * The CLI's observable contract, in-process: the exit code a required CI check
+ * consumes, and the stdout a human reads. Mirrors `main` in
+ * `check-baseline-scope.js` — `--json` selects the report verbatim, anything
+ * else the rendered text, and an argv or config error is EXIT_CANNOT_RUN with
+ * a JSON `error` on stdout.
+ *
+ * @param {string[]} argv
+ * @returns {{ status: number, stdout: string, stderr: string }}
+ */
+function runCli(argv) {
+  try {
+    const { report, exitCode } = runScopeCheck({ argv });
+    return {
+      status: exitCode,
+      stdout: argv.includes('--json')
+        ? `${JSON.stringify(report, null, 2)}\n`
+        : `${formatReport(report)}\n`,
+      stderr: '',
+    };
+  } catch (err) {
+    return {
+      status: 2,
+      stdout: `${JSON.stringify({ schemaVersion: '1', error: err?.message ?? String(err) }, null, 2)}\n`,
+      stderr: '',
+    };
+  }
+}
+
 describe('check-baseline-scope CLI — exit codes are the contract', () => {
   test('--help exits 0 and runs no check at all', () => {
     // The gate must be describable on a checkout with no baselines and no
     // config; `runAsCli` fires the usage block before `main` for that reason.
-    const run = runCli(['--help']);
+    const run = runCliSpawn(['--help']);
 
     assert.equal(run.status, 0, run.stderr);
     assert.match(run.stdout, /check-baseline-scope/);
     assert.match(run.stdout, /prune-baseline-orphans/);
   });
 
-  test('a baseline that matches the tree exits 0', () => {
-    const run = runCli([
+  // The one real-spawn smoke case: proves argv reaches `runScopeCheck`, its
+  // report reaches stdout, and its exit code reaches the shell — the wiring
+  // the in-process cases below deliberately step over.
+  test('a baseline that matches the tree exits 0 (real spawn)', () => {
+    const run = runCliSpawn([
       '--cwd',
       cliFixture([{ path: 'src/kept.js', mi: 90 }]),
     ]);
@@ -570,21 +614,14 @@ function gitFixture({ rows, mutate }) {
   );
 
   const git = (...args) =>
-    execFileSync(
-      'git',
-      [
-        '-c',
-        'user.email=test@example.com',
-        '-c',
-        'user.name=Test',
-        '-c',
-        'commit.gpgsign=false',
-        ...args,
-      ],
-      { cwd: root, stdio: ['pipe', 'pipe', 'pipe'], env: CLEAN_ENV },
-    );
+    execFileSync('git', args, {
+      cwd: root,
+      stdio: ['pipe', 'pipe', 'pipe'],
+      env: CLEAN_ENV,
+    });
 
   git('init', '-q', '-b', 'main');
+  seedGitIdentity(root);
   git('add', '-A');
   git('commit', '-q', '-m', 'seed');
   git('update-ref', 'refs/remotes/origin/main', 'main');
