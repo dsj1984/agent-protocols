@@ -45,6 +45,7 @@ import { PROJECT_ROOT, resolveConfig } from './lib/config-resolver.js';
 import { Logger } from './lib/Logger.js';
 import { createProvider } from './lib/provider-factory.js';
 import { buildProtectionCtx } from './lib/single-story-sweep/protection-ctx.js';
+import { resolveSweepLockPath } from './lib/single-story-sweep/sweep-lock.js';
 import { sweepMergedBranches } from './lib/single-story-sweep.js';
 import { sweepTempRetention } from './lib/temp-retention.js';
 
@@ -141,8 +142,13 @@ export async function runBootSweep({
       excludeGlobs.push(current);
     }
 
+    // Story #5112 — one critical section, one lock. `single-story-init.js`
+    // reaps the same merged `story-*` branches through the same engine; when
+    // the two surfaces held differently named lockfiles they could run
+    // concurrently, each deleting branches the other had already planned.
+    // Both now resolve the path through `resolveSweepLockPath`.
     const tempRoot = config?.project?.paths?.tempRoot ?? 'temp';
-    const lockPath = path.resolve(root, tempRoot, 'boot-sweep.lock');
+    const lockPath = resolveSweepLockPath({ cwd: root, tempRoot });
     const lockTimeoutMs =
       config.delivery?.worktreeIsolation?.sweepLockMs ?? 60_000;
 

@@ -27,6 +27,12 @@ function makeProvider(initialAssignees = []) {
     },
     async updateTicket(id, mutations) {
       updateCalls.push({ id, mutations });
+      if (Array.isArray(mutations?.addAssignees)) {
+        // Additive: append logins not already present (Story #5112).
+        for (const login of mutations.addAssignees) {
+          if (!state.assignees.includes(login)) state.assignees.push(login);
+        }
+      }
       if (Array.isArray(mutations?.assignees)) {
         state.assignees = [...mutations.assignees];
       }
@@ -80,10 +86,11 @@ describe('ticket-lease — acquireLease', () => {
     assert.equal(result.owner, 'alice');
     assert.equal(result.previousOwner, null);
     assert.equal(result.reason, 'unclaimed');
-    // assert the assignees write happened
+    // assert the assignees write happened — additively, so a simultaneous
+    // claimer is joined rather than evicted (Story #5112).
     assert.equal(provider.updateCalls.length, 1);
     assert.deepEqual(provider.updateCalls[0].mutations, {
-      assignees: ['alice'],
+      addAssignees: ['alice'],
     });
     assert.deepEqual(provider.state.assignees, ['alice']);
   });
@@ -157,6 +164,10 @@ describe('ticket-lease — acquireLease', () => {
     assert.equal(result.owner, 'alice');
     assert.equal(result.previousOwner, 'bob');
     assert.equal(result.reason, 'stolen');
+    // A steal is the one claim that legitimately REPLACES the assignee list.
+    assert.deepEqual(provider.updateCalls[0].mutations, {
+      assignees: ['alice'],
+    });
     assert.deepEqual(provider.state.assignees, ['alice']);
   });
 
@@ -246,6 +257,11 @@ describe('ticket-lease — acquireLease verify-after-write (lost-race, Story #46
       },
       async updateTicket(id, mutations) {
         updateCalls.push({ id, mutations });
+        if (Array.isArray(mutations?.addAssignees)) {
+          for (const login of mutations.addAssignees) {
+            if (!state.assignees.includes(login)) state.assignees.push(login);
+          }
+        }
         if (Array.isArray(mutations?.assignees)) {
           state.assignees = [...mutations.assignees];
         }
@@ -287,9 +303,12 @@ describe('ticket-lease — acquireLease verify-after-write (lost-race, Story #46
     assert.equal(result.acquired, false);
     assert.equal(result.reason, 'lost-race');
     assert.equal(result.owner, 'bob');
-    // Two writes: the claiming PATCH, then the back-off that removes us so the
-    // winner is the sole assignee.
+    // Two writes: the additive claim, then the back-off that removes us so the
+    // winner is the sole assignee (that one is a replace, by design).
     assert.equal(provider.updateCalls.length, 2);
+    assert.deepEqual(provider.updateCalls[0].mutations, {
+      addAssignees: ['alice'],
+    });
     assert.deepEqual(provider.updateCalls[1].mutations, { assignees: ['bob'] });
   });
 
@@ -359,5 +378,96 @@ describe('ticket-lease — releaseLease', () => {
     assert.equal(result.released, false);
     assert.equal(result.reason, 'not-held');
     assert.equal(provider.updateCalls.length, 0);
+  });
+});
+
+describe('ticket-lease — concurrent claims resolve to one owner (Story #5112)', () => {
+  /**
+   * A shared fake tracker two operators claim against. Every write is
+   * additive-aware, so the fake reproduces GitHub's real semantics for both
+   * endpoints rather than only the one the code used to call.
+   *
+   * `gate` parks the second claimer's write until the test releases it, which
+   * is what makes the interleaving deterministic: claimer A writes and
+   * verifies clean, then B writes into a set that already holds A.
+   */
+  function sharedTracker() {
+    const state = { assignees: [] };
+    const writes = [];
+    return {
+      state,
+      writes,
+      provider(gate) {
+        return {
+          async getTicket() {
+            return { assignees: [...state.assignees] };
+          },
+          async updateTicket(_id, mutations) {
+            if (gate) await gate;
+            writes.push(mutations);
+            if (Array.isArray(mutations.addAssignees)) {
+              for (const login of mutations.addAssignees) {
+                if (!state.assignees.includes(login)) {
+                  state.assignees.push(login);
+                }
+              }
+            }
+            if (Array.isArray(mutations.assignees)) {
+              state.assignees = [...mutations.assignees];
+            }
+          },
+        };
+      },
+    };
+  }
+
+  it('exactly one of two simultaneous claimers acquires; the other reports lost-race', async () => {
+    const tracker = sharedTracker();
+    let openGate;
+    const gate = new Promise((resolve) => {
+      openGate = resolve;
+    });
+
+    // Both operators read the ticket unassigned — the losing interleaving.
+    const first = acquireLease({
+      provider: tracker.provider(null),
+      ticketId: 42,
+      operator: 'alice',
+    });
+    const second = acquireLease({
+      provider: tracker.provider(gate),
+      ticketId: 42,
+      operator: 'bob',
+    });
+
+    const alice = await first;
+    openGate();
+    const bob = await second;
+
+    const acquired = [alice, bob].filter((r) => r.acquired);
+    assert.equal(acquired.length, 1, 'exactly one claimer acquired');
+    assert.equal(alice.acquired, true);
+    assert.equal(alice.reason, 'unclaimed');
+    assert.equal(bob.acquired, false);
+    assert.equal(bob.reason, 'lost-race');
+    assert.equal(bob.owner, 'alice');
+    // The winner is the sole assignee: the loser backed itself out.
+    assert.deepEqual(tracker.state.assignees, ['alice']);
+  });
+
+  it('the additive claim is what makes the collision visible', async () => {
+    const tracker = sharedTracker();
+    await acquireLease({
+      provider: tracker.provider(null),
+      ticketId: 42,
+      operator: 'alice',
+    });
+    // A second claimer's write JOINS the set rather than replacing it — with
+    // the pre-#5112 replacing PATCH the co-assignment `lost-race` keys on was
+    // a state the write could never produce, and both runs read a clean
+    // `[self]` on verify.
+    await tracker.provider(null).updateTicket(42, { addAssignees: ['bob'] });
+    assert.deepEqual(tracker.state.assignees, ['alice', 'bob']);
+    assert.deepEqual(tracker.writes[0], { addAssignees: ['alice'] });
   });
 });

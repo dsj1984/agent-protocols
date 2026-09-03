@@ -197,6 +197,26 @@ function planFingerprintMarker(fingerprint) {
   return `<!-- ${PLAN_FINGERPRINT_MARKER_PREFIX} ${fingerprint} -->`;
 }
 
+/** The one parser for the marker {@link planFingerprintMarker} renders. */
+const PLAN_FINGERPRINT_MARKER_RE = new RegExp(
+  `<!--\\s*${PLAN_FINGERPRINT_MARKER_PREFIX}\\s*([0-9a-f]+)\\s*-->`,
+);
+
+/**
+ * Recover the plan fingerprint an issue body was stamped with, or `null` when
+ * the body carries no marker. Module-private: both readers of the marker (the
+ * resume index and the create-retry adoption probe) go through it so they can
+ * never drift into recognising different Stories as "already created".
+ *
+ * @param {unknown} body
+ * @returns {string|null}
+ */
+function extractPlanFingerprint(body) {
+  if (typeof body !== 'string') return null;
+  const match = body.match(PLAN_FINGERPRINT_MARKER_RE);
+  return match ? match[1] : null;
+}
+
 /**
  * Labels the authoring pass is never allowed to set. The `agent::*` axis is
  * the runtime's lifecycle state (persist owns the terminal `agent::ready`
@@ -617,20 +637,51 @@ async function indexExistingStories(provider) {
     if (title !== '') {
       idsByTitle.set(title, [...(idsByTitle.get(title) ?? []), id]);
     }
-    const body = typeof issue?.body === 'string' ? issue.body : '';
-    const match = body.match(
-      new RegExp(
-        `<!--\\s*${PLAN_FINGERPRINT_MARKER_PREFIX}\\s*([0-9a-f]+)\\s*-->`,
-      ),
-    );
-    if (!match) continue;
-    byFingerprint.set(match[1], {
+    const fingerprint = extractPlanFingerprint(issue?.body);
+    if (!fingerprint) continue;
+    byFingerprint.set(fingerprint, {
       id,
       title,
       url: issue.html_url ?? issue.url ?? undefined,
     });
   }
   return { byFingerprint, idsByTitle };
+}
+
+/**
+ * Re-run the resume lookup for a single fingerprint and return the **raw**
+ * issue, or `null`.
+ *
+ * This is the probe `createIssue` calls before any retry POST (Story #5112).
+ * A create whose response was lost has already filed the issue; retrying
+ * blind duplicates it. Because the body posted carries the fingerprint
+ * marker, the same content-keyed lookup the resume path uses answers "did
+ * attempt 1 land?" authoritatively — from the server's state, not from a
+ * client-side guess about where the connection broke.
+ *
+ * Best-effort like {@link indexExistingStories}: a provider without the
+ * listing surface, or a listing that throws, yields `null` and the retry
+ * proceeds exactly as it did before.
+ *
+ * @param {{ provider: object, fingerprint: string }} args
+ * @returns {Promise<object|null>}
+ */
+async function findOpenStoryByPlanFingerprint({ provider, fingerprint }) {
+  if (typeof provider?.listIssuesByLabel !== 'function') return null;
+  if (typeof fingerprint !== 'string' || fingerprint.length === 0) return null;
+  let issues;
+  try {
+    issues = await provider.listIssuesByLabel({
+      state: 'open',
+      labels: TYPE_LABELS.STORY,
+    });
+  } catch {
+    return null;
+  }
+  for (const issue of Array.isArray(issues) ? issues : []) {
+    if (extractPlanFingerprint(issue?.body) === fingerprint) return issue;
+  }
+  return null;
 }
 
 /**
@@ -1000,6 +1051,14 @@ export async function createStoryIssues({ provider, stories, opts = {} }) {
         ...(applyCohortLabel ? [cohortLabel] : []),
         ...(applyRouteLabel ? [routeLabel] : []),
       ],
+      // Story #5112 — hand the provider the same content-keyed lookup this
+      // loop's resume path uses, so a retry after a lost response adopts the
+      // issue attempt 1 already filed instead of creating a twin.
+      findExisting: () =>
+        findOpenStoryByPlanFingerprint({
+          provider,
+          fingerprint: story.fingerprint,
+        }),
     });
     const id = result?.id ?? result?.number;
     if (!Number.isInteger(id)) {
@@ -1012,7 +1071,9 @@ export async function createStoryIssues({ provider, stories, opts = {} }) {
       id,
       title: story.title,
       url: result.url,
-      adopted: false,
+      // True when the provider's retry probe adopted an issue a lost-response
+      // first attempt had already filed — pre-existing either way.
+      adopted: result.adopted === true,
     });
     idBySlug.set(story.slug, id);
   }
