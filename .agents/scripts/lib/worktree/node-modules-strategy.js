@@ -401,10 +401,7 @@ export function describeAttemptFailure(result, timeoutMs) {
 }
 
 /** Relative path of the per-machine pnpm-store prime sentinel (under tempRoot). */
-export const PNPM_STORE_PRIME_SENTINEL = path.join(
-  'temp',
-  '.pnpm-store-primed',
-);
+const PNPM_STORE_PRIME_SENTINEL = path.join('temp', '.pnpm-store-primed');
 
 /**
  * Pure: one-time per-machine pnpm content-addressable-store prime.
@@ -424,7 +421,7 @@ export const PNPM_STORE_PRIME_SENTINEL = path.join(
  *
  * @returns {{ primed: 'primed' | 'cached' | 'failed' | 'skipped', reason?: string }}
  */
-export function primePnpmStore({
+function primePnpmStore({
   strategy,
   repoRoot,
   logger,

@@ -29,7 +29,7 @@ import path from 'node:path';
 import { stripJsComments } from '../source-text/strip-js-comments.js';
 
 /** Node builtins, with and without the `node:` prefix. */
-export const BUILTIN_MODULES = new Set([
+const BUILTIN_MODULES = new Set([
   ...builtinModules,
   ...builtinModules.map((m) => `node:${m}`),
 ]);

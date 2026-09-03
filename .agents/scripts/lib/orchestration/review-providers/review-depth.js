@@ -28,7 +28,7 @@
  *
  * @type {Readonly<Record<ReviewDepth, string>>}
  */
-export const DEPTH_DIRECTIVES = Object.freeze({
+const DEPTH_DIRECTIVES = Object.freeze({
   light:
     'Review depth: LIGHT. Run a single pass focused on spec adherence over the ' +
     'changed surface — confirm the change matches its stated intent. Reduce the ' +
@@ -54,7 +54,7 @@ export const DEPTH_DIRECTIVES = Object.freeze({
  * @param {unknown} depth
  * @returns {ReviewDepth}
  */
-export function normalizeDepth(depth) {
+function normalizeDepth(depth) {
   return depth === 'light' || depth === 'deep' ? depth : 'standard';
 }
 

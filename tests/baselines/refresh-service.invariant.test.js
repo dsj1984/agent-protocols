@@ -77,11 +77,10 @@ const MIGRATION_ALLOWLIST = Object.freeze(
     '.agents/scripts/lib/coverage-baseline.js',
     // `lib/mutation/baseline-snapshot.js` was deleted in Story #5008 with the
     // rest of the never-wired Stryker machinery; the entry goes with it.
-    // Story #3995 relocated `saveBaseline` from `maintainability-utils.js`
-    // into the `lib/baselines/` package to break the baselines import
-    // cycle; the pre-migration allowlist entry is re-attributed to the new
-    // home rather than left as a phantom on the old path.
-    '.agents/scripts/lib/baselines/maintainability-baseline-save.js',
+    // `lib/baselines/maintainability-baseline-save.js` was deleted in Story
+    // #5114: nothing in production had called `saveBaseline` since the
+    // refresh-service migration, so the allowlist entry went with the module
+    // rather than staying as a permission nothing exercises.
     '.agents/scripts/lib/baseline-snapshot.js',
     '.agents/scripts/lib/gates/baseline-store.js',
 

@@ -78,7 +78,7 @@ export function mergeFastForward(cwd, ref) {
  *   merge: (cwd: string, ref: string) => { ok: boolean, stderr?: string },
  * }}
  */
-export function makeFfProbes(spawn = gitSpawn) {
+function makeFfProbes(spawn = gitSpawn) {
   return {
     isClean: (cwd) => {
       const res = spawn(cwd, 'status', '--porcelain');

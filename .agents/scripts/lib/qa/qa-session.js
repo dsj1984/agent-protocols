@@ -36,7 +36,7 @@ import path from 'node:path';
 import { tempRootFrom } from '../config/temp-paths.js';
 
 /** Directory segment (under `tempRoot`) that holds every QA session ledger. */
-export const QA_LEDGER_DIRNAME = 'qa';
+const QA_LEDGER_DIRNAME = 'qa';
 
 /**
  * Triaged dispositions, mirrored from the `disposition` enum in

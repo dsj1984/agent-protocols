@@ -52,7 +52,7 @@ const FRICTION_LABEL_PREFIX = 'friction::';
  * @param {Array<{ number: number, labels?: string[] }>} issues
  * @returns {Array<{ class: string, count: number, issues: number[] }>}
  */
-export function extractRecurringDefectClasses(issues) {
+function extractRecurringDefectClasses(issues) {
   if (!Array.isArray(issues)) return [];
   /** @type {Map<string, Set<number>>} */
   const byClass = new Map();

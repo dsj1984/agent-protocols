@@ -41,7 +41,7 @@ import { deepEqual } from '../json-utils.js';
  * the hook-installer can detect a verbatim framework hook (overwrite-safe)
  * vs a custom hook (preserve and warn).
  */
-export const FRAMEWORK_PRE_COMMIT = `node scripts/check-version-sync.js
+const FRAMEWORK_PRE_COMMIT = `node scripts/check-version-sync.js
 npx lint-staged
 # Story #1395 / Epic #1386: catch MI/CRAP drift at git-commit time so the
 # agent refactors before the diff is closed. quality:preview wraps both gates
@@ -78,7 +78,7 @@ export const PRE_COMMIT_MARKER =
  * when the keys are absent. Mirrors `.agents/docs/agentrc-reference.json` — keep in
  * sync when those numbers move.
  */
-export const QUALITY_CONFIG_DEFAULTS = Object.freeze({
+const QUALITY_CONFIG_DEFAULTS = Object.freeze({
   codingGuardrails: Object.freeze({
     cyclomaticFlag: 8,
     cyclomaticMustFix: 12,

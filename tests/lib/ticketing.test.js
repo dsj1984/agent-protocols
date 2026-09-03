@@ -404,7 +404,8 @@ test('ticketing.js', async (t) => {
         'epic-run-state',
         'epic-run-progress',
         'epic-plan-state',
-        'parked-follow-ons',
+        // `parked-follow-ons` retired in Story #5114 with the module that
+        // was its only writer; it is deliberately absent from this guard.
         // Story #566 — phase-timings summary posted by story-close.
         'phase-timings',
       ]) {

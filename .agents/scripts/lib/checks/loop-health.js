@@ -42,7 +42,7 @@ import { validateSignal } from '../observability/signal-validator.js';
  * a health probe, not an exhaustive audit — the most recent window is a
  * representative sample that keeps the read bounded on long streams.
  */
-export const MAX_SAMPLE_LINES = 200;
+const MAX_SAMPLE_LINES = 200;
 
 /**
  * Locate the most-recently-touched `run-<id>` temp tree under

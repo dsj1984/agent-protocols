@@ -102,7 +102,7 @@ export function renderFinding(finding) {
  * @param {ReadonlyArray<string>} messages
  * @returns {string[]}  lines to append (empty when no messages)
  */
-export function renderManualPromptsSection(messages) {
+function renderManualPromptsSection(messages) {
   const filtered = Array.isArray(messages)
     ? messages.filter((m) => typeof m === 'string' && m.trim().length > 0)
     : [];

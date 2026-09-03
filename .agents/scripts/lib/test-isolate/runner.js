@@ -58,7 +58,7 @@ const NODE_TEST_BASE = [
  * @param {typeof spawn} [opts.spawnFn]
  * @returns {Promise<IsolatedResult>}
  */
-export function runFileIsolated({
+function runFileIsolated({
   repoRoot,
   file,
   envOutDir,
@@ -195,7 +195,7 @@ function sanitizeEnv(source) {
  * @param {typeof spawn} [opts.spawnFn]
  * @returns {Promise<{ results: SuiteResult[], exitCode: number, stdout: string, stderr: string }>}
  */
-export function runSuite({
+function runSuite({
   repoRoot,
   files,
   concurrency = 8,
@@ -266,7 +266,7 @@ export function runSuite({
  * @param {(r: IsolatedResult) => void} [opts.onResult]
  * @returns {Promise<IsolatedResult[]>}
  */
-export async function runIsolatedPool({
+async function runIsolatedPool({
   repoRoot,
   files,
   envOutDir,

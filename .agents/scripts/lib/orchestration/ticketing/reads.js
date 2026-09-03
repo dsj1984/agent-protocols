@@ -81,7 +81,9 @@ export const STRUCTURED_COMMENT_TYPES = Object.freeze([
   'epic-run-state',
   'epic-run-progress',
   'epic-plan-state',
-  'parked-follow-ons',
+  // `parked-follow-ons` retired in Story #5114 with the module that was its
+  // only writer. A kind the reader still recognises but nothing emits is the
+  // same dead wiring in a new place.
   // Story #566 — per-phase wall-clock summary posted by single-story-close.js.
   'phase-timings',
   // Story #831 — story-init upserts a `story-init` comment that

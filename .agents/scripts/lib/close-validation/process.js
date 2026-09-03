@@ -113,7 +113,7 @@ const MARKER_PROBE_TAIL_LINES = 32;
  * @param {string} output - Combined stdout/stderr captured from the gate child.
  * @returns {boolean}
  */
-export function isBiomeNoFilesProcessed(output) {
+function isBiomeNoFilesProcessed(output) {
   return (
     typeof output === 'string' && output.includes(BIOME_NO_FILES_PROCESSED)
   );

@@ -57,7 +57,7 @@ export const CODEX_REMEDIATIONS = Object.freeze({
  *
  * Exported so tests can extend the list without monkey-patching `os`.
  */
-export const DEFAULT_PLUGIN_MARKERS = Object.freeze([
+const DEFAULT_PLUGIN_MARKERS = Object.freeze([
   path.join(os.homedir(), '.claude', 'plugins', 'codex-plugin-cc'),
   path.join(os.homedir(), '.claude', 'plugins', 'openai', 'codex-plugin-cc'),
 ]);
@@ -194,7 +194,7 @@ export function parseCodexFindings(rawStdout) {
  * @param {{ baseRef: string, headRef: string, depth?: import('./types.js').ReviewDepth }} args
  * @returns {string}
  */
-export function buildCodexReviewPrompt({ baseRef, headRef, depth }) {
+function buildCodexReviewPrompt({ baseRef, headRef, depth }) {
   return (
     `/codex:review --base ${baseRef} --head ${headRef} --wait ` +
     `${renderDepthDirective(depth)}`
@@ -214,7 +214,7 @@ export function buildCodexReviewPrompt({ baseRef, headRef, depth }) {
  * @param {{ baseRef: string, headRef: string, depth?: import('./types.js').ReviewDepth }} args
  * @returns {{ status: number, stdout: string, stderr: string }}
  */
-export function defaultInvokeCodexReview({ baseRef, headRef, depth }) {
+function defaultInvokeCodexReview({ baseRef, headRef, depth }) {
   const cliArgs = [
     '--print',
     buildCodexReviewPrompt({ baseRef, headRef, depth }),

@@ -38,10 +38,8 @@ import path from 'node:path';
 import { describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import {
-  findMergeLockoutViolations,
-  stripComments,
-} from '../../../../.agents/scripts/check-lifecycle-lint.js';
+import { findMergeLockoutViolations } from '../../../../.agents/scripts/check-lifecycle-lint.js';
+import { stripJsComments } from '../../../../.agents/scripts/lib/source-text/strip-js-comments.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, '..', '..', '..', '..');
@@ -195,7 +193,7 @@ describe('merge-gate-ordering: gh pr merge appears only in auto-merge.js', () =>
       'auto-merge.js',
     );
     const text = readFileSync(armerPath, 'utf8');
-    const stripped = stripComments(text);
+    const stripped = stripJsComments(text);
     assert.match(
       stripped,
       /gh.*pr.*merge/,
