@@ -101,20 +101,51 @@ function ignoreMatcherEntry(ignoreGlobs) {
  * @param {string} [cwd] root for repo-relative resolution; defaults to cwd
  * @returns {boolean} true when the file matches at least one ignore glob
  */
-export function isIgnoredByGlobs(filePath, ignoreGlobs = [], cwd) {
-  if (!Array.isArray(ignoreGlobs) || ignoreGlobs.length === 0) return false;
-  const matchCwd = cwd ?? process.cwd();
+/**
+ * Reduce an absolute-or-relative path to the canonicalised, POSIX,
+ * repo-relative form the ignore patterns are written against.
+ *
+ * @param {string} filePath
+ * @param {string} matchCwd
+ * @returns {string}
+ */
+function canonicalRelPath(filePath, matchCwd) {
   const absFilePath = path.isAbsolute(filePath)
     ? filePath
     : path.resolve(matchCwd, filePath);
   const rawRel = path.relative(matchCwd, absFilePath).replace(/\\/g, '/');
-  const relPath = canonicalisePath(rawRel);
-  const { matchers, verdicts } = ignoreMatcherEntry(ignoreGlobs);
-  const memoised = verdicts.get(relPath);
+  return canonicalisePath(rawRel);
+}
+
+/**
+ * Answer "does this path match any of the entry's patterns", consulting and
+ * populating the entry's verdict memo.
+ *
+ * Split out of `isIgnoredByGlobs` rather than inlined: the memo's
+ * hit/miss test is a branch, and folding it into the caller pushed that
+ * function from cyclomatic 4 to 5 — over the per-method CRAP contract the
+ * pre-push preview enforces. The lookup belongs beside the cache it reads
+ * anyway, and the hot function keeps a flat shape.
+ *
+ * @param {{matchers: import('minimatch').Minimatch[], verdicts: Map<string, boolean>}} entry
+ * @param {string} relPath Canonicalised, POSIX, repo-relative path.
+ * @returns {boolean}
+ */
+function memoisedIgnoreVerdict(entry, relPath) {
+  const memoised = entry.verdicts.get(relPath);
   if (memoised !== undefined) return memoised;
-  const verdict = matchers.some((m) => m.match(relPath));
-  verdicts.set(relPath, verdict);
+  const verdict = entry.matchers.some((m) => m.match(relPath));
+  entry.verdicts.set(relPath, verdict);
   return verdict;
+}
+
+export function isIgnoredByGlobs(filePath, ignoreGlobs = [], cwd) {
+  if (!Array.isArray(ignoreGlobs) || ignoreGlobs.length === 0) return false;
+  const matchCwd = cwd ?? process.cwd();
+  return memoisedIgnoreVerdict(
+    ignoreMatcherEntry(ignoreGlobs),
+    canonicalRelPath(filePath, matchCwd),
+  );
 }
 
 /**
