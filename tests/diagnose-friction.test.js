@@ -15,6 +15,21 @@
  *   - The script never creates a local friction log file (v5 SSOT).
  *   - When story/epic context is unresolved, the script logs and skips the
  *     write (best-effort observability — never halt the runner).
+ *
+ * ## Why these spawns stay (Story #5111)
+ *
+ * Story #5111 converted the CLI suites that were paying a `node` cold start
+ * to observe something their exported entry point already returns. This one is
+ * not that. `diagnose-friction.js` is an *interceptor*: its subject is a child
+ * process, and what these cases assert is what only a real process can produce
+ * — an exit code passed through unchanged, the SIGTERM a `spawnSync` timeout
+ * sends, an ENOENT from a binary that is not there, and an 11 MB stdout that
+ * overruns the interceptor's buffer bound. Its `main` also ends in
+ * `process.exit`, so an in-process call would take the test process with it.
+ *
+ * Converting these would mean deleting the assertions the file exists for,
+ * which is exactly what the Story's non-goals forbid. They are the sanctioned
+ * exception, not an oversight.
  */
 
 import assert from 'node:assert/strict';
