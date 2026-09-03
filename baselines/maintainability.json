@@ -1,11 +1,11 @@
 {
   "$schema": ".agents/schemas/baselines/maintainability.schema.json",
   "kernelVersion": "0.1.0",
-  "generatedAt": "2026-09-03T01:29:24.894Z",
+  "generatedAt": "2026-09-03T01:33:56.656Z",
   "rollup": {
     "*": {
       "min": 76.381,
-      "p50": 98.772,
+      "p50": 98.797,
       "p95": 125.857
     }
   },
@@ -68,7 +68,7 @@
     },
     {
       "path": ".agents/scripts/check-cyclomatic.js",
-      "mi": 89.413
+      "mi": 85.308
     },
     {
       "path": ".agents/scripts/check-dead-exports.js",
@@ -77,10 +77,6 @@
     {
       "path": ".agents/scripts/check-doc-links.js",
       "mi": 89.966
-    },
-    {
-      "path": ".agents/scripts/check-generated-validator.js",
-      "mi": 97.187
     },
     {
       "path": ".agents/scripts/check-gherkin-corpus.js",
@@ -324,7 +320,7 @@
     },
     {
       "path": ".agents/scripts/lib/baselines/components.js",
-      "mi": 94.127
+      "mi": 92.597
     },
     {
       "path": ".agents/scripts/lib/baselines/crap-preview-incremental.js",
@@ -760,7 +756,7 @@
     },
     {
       "path": ".agents/scripts/lib/cpu-pool.js",
-      "mi": 103.964
+      "mi": 102.695
     },
     {
       "path": ".agents/scripts/lib/crap-baseline-join.js",
@@ -787,10 +783,6 @@
       "mi": 93.888
     },
     {
-      "path": ".agents/scripts/lib/cyclomatic-scope.js",
-      "mi": 100.114
-    },
-    {
       "path": ".agents/scripts/lib/dead-exports-knip.js",
       "mi": 94.159
     },
@@ -805,10 +797,6 @@
     {
       "path": ".agents/scripts/lib/dependency-parser.js",
       "mi": 112.265
-    },
-    {
-      "path": ".agents/scripts/lib/dependency-version.js",
-      "mi": 97.788
     },
     {
       "path": ".agents/scripts/lib/detect-package-manager.js",
@@ -2180,7 +2168,7 @@
     },
     {
       "path": "lib/cli/migrate.js",
-      "mi": 93.571
+      "mi": 94.74
     },
     {
       "path": "lib/cli/registry.js",
@@ -2215,20 +2203,24 @@
       "mi": 102.29
     },
     {
+      "path": "lib/migrations/helpers/retire-agentrc-key.js",
+      "mi": 102.395
+    },
+    {
       "path": "lib/migrations/index.js",
-      "mi": 108.159
+      "mi": 112.751
     },
     {
       "path": "lib/migrations/steps/2.1.0-retire-mi-drop-knobs.js",
-      "mi": 96.24
+      "mi": 109.447
     },
     {
       "path": "lib/migrations/steps/2.1.0-retire-verify-concurrency-cap.js",
-      "mi": 104.821
+      "mi": 118.106
     },
     {
       "path": "lib/migrations/steps/2.11.0-retire-max-seed-words.js",
-      "mi": 100.321
+      "mi": 115.406
     },
     {
       "path": "lib/migrations/steps/2.2.0-retire-epic-ac-tags.js",
@@ -2236,11 +2228,11 @@
     },
     {
       "path": "lib/migrations/steps/2.20.0-retire-codebase-snapshot.js",
-      "mi": 107.31
+      "mi": 118.106
     },
     {
       "path": "lib/migrations/steps/2.32.0-retire-lint-baseline-command.js",
-      "mi": 105.909
+      "mi": 118.106
     }
   ]
 }
