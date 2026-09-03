@@ -155,11 +155,20 @@ describe('parseCloseOptions rejects retired flags on its argv door', () => {
   });
 
   it('does not trip on a positional that merely contains the text', () => {
-    const options = withArgv(
-      ['--story', '5100', '--cwd', '/tmp/repo--dry-run/checkout'],
-      () => parseCloseOptions({}),
+    // Built from `path.sep`, and compared against `path.resolve` of the same
+    // input, because `parseCloseOptions` normalises `cwd` through
+    // `path.resolve`. A POSIX literal is a no-op there on POSIX but becomes
+    // `C:\tmp\...` on Windows, which reds the advisory Windows Smoke job for a
+    // platform artefact rather than a regression.
+    const cwdArg = `${path.sep}tmp${path.sep}repo--dry-run${path.sep}checkout`;
+    assert.ok(
+      cwdArg.includes('--dry-run'),
+      'the positional must still embed the retired flag, or this proves nothing.',
     );
-    assert.equal(options.cwd, '/tmp/repo--dry-run/checkout');
+    const options = withArgv(['--story', '5100', '--cwd', cwdArg], () =>
+      parseCloseOptions({}),
+    );
+    assert.equal(options.cwd, path.resolve(cwdArg));
   });
 
   it('does not consult argv when the caller injects a storyId', () => {
