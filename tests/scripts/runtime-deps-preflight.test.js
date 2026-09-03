@@ -28,9 +28,9 @@ import {
 import {
   extractThirdPartyImports,
   isValidPackageName,
-  stripComments,
   toTopLevelPackage,
 } from '../../.agents/scripts/lib/runtime-deps/scan-imports.js';
+import { stripJsComments } from '../../.agents/scripts/lib/source-text/strip-js-comments.js';
 import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
 
 function tmpFile(name, body) {
@@ -217,8 +217,8 @@ describe('scan-imports extraction', () => {
 
   it('preserves string literals (URLs with //) while stripping comments', () => {
     const src = "const url = 'https://example.com'; // trailing comment";
-    assert.match(stripComments(src), /https:\/\/example\.com/);
-    assert.doesNotMatch(stripComments(src), /trailing comment/);
+    assert.match(stripJsComments(src), /https:\/\/example\.com/);
+    assert.doesNotMatch(stripJsComments(src), /trailing comment/);
   });
 
   it('rejects invalid package names and collapses scopes', () => {

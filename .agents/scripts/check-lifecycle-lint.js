@@ -78,6 +78,7 @@ import { fileURLToPath } from 'node:url';
 
 import { runAsCli } from './lib/cli-utils.js';
 import { walkFilesByExtension } from './lib/fs-walk.js';
+import { stripJsComments } from './lib/source-text/strip-js-comments.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, '..', '..');
@@ -163,73 +164,6 @@ export function findPromiseAllViolations(
 }
 
 /**
- * Strip block (`/* … *​/`) and line (`// …`) comments from a source
- * string. Pure — exported for tests so the comment-stripping contract
- * is explicit. Defends against the corner case where the literal
- * `'gh pr merge'` appears INSIDE a justification comment at the
- * deletion site (Story #2253 deliberately leaves a prose explanation
- * referencing the removed CLI call).
- *
- * The implementation is a tiny state machine rather than a regex so it
- * correctly handles the (legal) case of a string literal containing
- * `//` or `/​*` characters.
- *
- * @param {string} src
- * @returns {string} source with comments replaced by spaces (line
- *   numbers preserved so violations report the original line).
- */
-export function stripComments(src) {
-  let out = '';
-  let i = 0;
-  const n = src.length;
-  while (i < n) {
-    const ch = src[i];
-    const nx = src[i + 1];
-    // line comment
-    if (ch === '/' && nx === '/') {
-      while (i < n && src[i] !== '\n') {
-        i += 1;
-      }
-      continue;
-    }
-    // block comment
-    if (ch === '/' && nx === '*') {
-      i += 2;
-      while (i < n && !(src[i] === '*' && src[i + 1] === '/')) {
-        // preserve newlines so line numbers in violation reports stay
-        // aligned with the original file.
-        if (src[i] === '\n') out += '\n';
-        i += 1;
-      }
-      i += 2; // skip closing */
-      continue;
-    }
-    // string literal — copy through unchanged (we WANT to keep these
-    // so Rule 3 can flag them).
-    if (ch === '"' || ch === "'" || ch === '`') {
-      const quote = ch;
-      out += ch;
-      i += 1;
-      while (i < n) {
-        const c = src[i];
-        out += c;
-        if (c === '\\' && i + 1 < n) {
-          out += src[i + 1];
-          i += 2;
-          continue;
-        }
-        i += 1;
-        if (c === quote) break;
-      }
-      continue;
-    }
-    out += ch;
-    i += 1;
-  }
-  return out;
-}
-
-/**
  * Rule 3 enforcement (Story #2253 / Task #2255, Epic #2172 review
  * High-1). Returns an array of `{ file, line, hint }` violations for
  * any file under `rootDir` (recursively) whose source — with comments
@@ -263,7 +197,7 @@ export function findMergeLockoutViolations(
 
     const raw = read(file, 'utf8');
     const rawLines = raw.split('\n');
-    const stripped = stripComments(raw);
+    const stripped = stripJsComments(raw);
     const lines = stripped.split('\n');
     for (let i = 0; i < lines.length; i += 1) {
       const line = lines[i];
