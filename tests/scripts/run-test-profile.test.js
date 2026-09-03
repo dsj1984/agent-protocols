@@ -14,6 +14,36 @@ test('parseProfileArgv defaults outDir and top', () => {
   assert.deepEqual(parsed.testArgv, ['--grep', 'foo']);
 });
 
+test('runTestProfile asks for the tap reporter in flag position', () => {
+  // The defect this pins: the profiler used to append `--test-reporter tap`
+  // after `buildNodeTestArgs`' file targets. Node stops parsing options at
+  // the first positional, so the two tokens became file patterns, the
+  // default reporter ran, and every profile reported
+  // `Timed entries parsed: 0` for a full suite run.
+  const outDir = makeTempDir('profile-argv-');
+  let nodeArgs = null;
+
+  runTestProfile({
+    argv: ['--out-dir', outDir],
+    cwd: process.cwd(),
+    spawn: (_cmd, args) => {
+      nodeArgs = args;
+      return { status: 0, stdout: '', stderr: '' };
+    },
+  });
+
+  const reporterIdx = nodeArgs.indexOf('--test-reporter');
+  const firstTargetIdx = nodeArgs.findIndex((a) => !a.startsWith('-'));
+  assert.ok(reporterIdx >= 0, 'the profiler must request a reporter');
+  assert.equal(nodeArgs[reporterIdx + 1], 'tap');
+  assert.ok(
+    reporterIdx < firstTargetIdx,
+    'the reporter flag must precede the first test-file target',
+  );
+
+  fs.rmSync(outDir, { recursive: true, force: true });
+});
+
 test('runTestProfile writes utf8 tap and summary under outDir', () => {
   const outDir = makeTempDir('profile-');
   const fixtureTap = fs.readFileSync(

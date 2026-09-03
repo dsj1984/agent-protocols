@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
+import { respondToHelp } from '../../.agents/scripts/lib/cli-usage.js';
 import { listTestFilesForTier } from '../../.agents/scripts/lib/test-tiers.js';
 import {
   buildNodeTestArgs,
@@ -13,6 +14,7 @@ import {
   TEST_CONCURRENCY_MAX,
   TEST_CONCURRENCY_MIN,
   TEST_RUNNER_FLAGS,
+  USAGE,
 } from '../../.agents/scripts/run-tests.js';
 
 // ---------------------------------------------------------------------------
@@ -70,6 +72,45 @@ test('buildNodeTestArgs preserves the default test glob and appends extra args',
   assert.ok(args.some((f) => f.startsWith('--test-concurrency=')));
   assert.ok(args.includes('tests/**/*.test.js'));
   assert.ok(args.includes('tests/foo.test.js'));
+});
+
+// ---------------------------------------------------------------------------
+// buildNodeTestArgs — flag POSITION. Node stops parsing options at the first
+// positional, so a runner flag appended after the file targets is read as
+// another file pattern. That is exactly how `run-test-profile.js` lost its
+// `--test-reporter tap`: the default reporter ran and the profiler parsed
+// zero timed entries out of a full suite run.
+// ---------------------------------------------------------------------------
+
+test('buildNodeTestArgs places --test-reporter ahead of the first file target', () => {
+  const args = buildNodeTestArgs({ tier: 'full', reporter: 'tap' });
+  const reporterIdx = args.indexOf('--test-reporter');
+  const firstTargetIdx = args.findIndex((a) => !a.startsWith('-'));
+
+  assert.ok(reporterIdx >= 0, '--test-reporter must be present');
+  assert.equal(args[reporterIdx + 1], 'tap');
+  assert.ok(firstTargetIdx >= 0, 'a file target must be present');
+  assert.ok(
+    reporterIdx < firstTargetIdx,
+    `--test-reporter (index ${reporterIdx}) must precede the first target ` +
+      `(index ${firstTargetIdx}); after it, Node reads the flag as a pattern`,
+  );
+});
+
+test('buildNodeTestArgs omits --test-reporter when no reporter is requested', () => {
+  const args = buildNodeTestArgs({ tier: 'full' });
+  assert.equal(args.includes('--test-reporter'), false);
+});
+
+test('buildNodeTestArgs keeps extraArgs in flag position, before the targets', () => {
+  const args = buildNodeTestArgs({
+    tier: 'full',
+    extraArgs: ['--test-name-pattern', 'foo'],
+  });
+  assert.ok(
+    args.indexOf('--test-name-pattern') < args.indexOf('tests/**/*.test.js'),
+    'pass-through flags must precede the file targets',
+  );
 });
 
 test('buildNodeTestArgs quick tier resolves explicit file targets', () => {
@@ -227,6 +268,27 @@ test('runTestSuite issues one spawn per chunk and never builds an unbounded argv
   assert.deepEqual(spawnedTargets, targets);
 });
 
+test('runTestSuite spawns pass-through flags ahead of the chunk targets', () => {
+  let spawnedArgs = null;
+  runTestSuite({
+    argv: ['--test-name-pattern', 'foo'],
+    cwd: '/repo',
+    listTargets: () => ['tests/a.test.js'],
+    spawn: (_cmd, args) => {
+      spawnedArgs = args;
+      return { status: 0 };
+    },
+    cleanup: () => {},
+    preflight: () => 0,
+  });
+
+  assert.ok(
+    spawnedArgs.indexOf('--test-name-pattern') <
+      spawnedArgs.indexOf('tests/a.test.js'),
+    'a flag after a target is silently read as another file pattern',
+  );
+});
+
 test('runTestSuite returns the first non-zero chunk exit code', () => {
   const targets = Array.from(
     { length: 600 },
@@ -331,6 +393,59 @@ test('a refused preflight aborts before the test runner is ever spawned', () => 
 
   assert.equal(status, 2, 'the preflight exit code must propagate');
   assert.equal(spawned, false, 'no suite may run behind a refused preflight');
+});
+
+// ---------------------------------------------------------------------------
+// `--help` is a query, never a suite run. Without a `usage` spec the flag
+// fell through to `runTestSuite`: preflight, ~10 000 tests, and a `temp/`
+// sweep in answer to a question about flags. `runAsCli` fires the same
+// `respondToHelp` gate asserted here **before** main, so the "no side
+// effects" half holds structurally.
+// ---------------------------------------------------------------------------
+
+test('--help short-circuits: usage on stdout, and zero runner spawns', () => {
+  for (const flag of ['--help', '-h']) {
+    let printed = '';
+    let spawns = 0;
+    const out = {
+      write: (s) => {
+        printed += s;
+      },
+    };
+
+    // The exact composition `runAsCli` performs: the help gate runs first,
+    // and main is never invoked when it answers.
+    if (!respondToHelp([flag], USAGE, out)) {
+      runTestSuite({
+        argv: [flag],
+        cwd: '/repo',
+        listTargets: () => ['tests/a.test.js'],
+        spawn: () => {
+          spawns += 1;
+          return { status: 0 };
+        },
+        cleanup: () => {},
+        preflight: () => 0,
+      });
+    }
+
+    assert.equal(spawns, 0, `${flag} must spawn no test runner`);
+    assert.match(printed, /^Usage: node \.agents\/scripts\/run-tests\.js/);
+    assert.match(printed, /--tier <full\|quick\|integration>/);
+    assert.match(printed, /--test-name-pattern/);
+  }
+});
+
+test('run-tests.js hands its usage spec to runAsCli, so main never runs for --help', () => {
+  // The short-circuit lives in `runAsCli`; a script only gets it by passing
+  // `usage`. Losing that line silently restores the full-suite `--help`.
+  const src = readFileSync(
+    new URL('../../.agents/scripts/run-tests.js', import.meta.url),
+    'utf8',
+  );
+  assert.match(src, /usage: USAGE/);
+  assert.match(USAGE, /^Usage: node \.agents\/scripts\/run-tests\.js/);
+  assert.match(USAGE, /--tier <full\|quick\|integration>/);
 });
 
 test('the runner defaults to the shared preflight rather than a no-op', () => {
