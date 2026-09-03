@@ -23,6 +23,7 @@ import { fileURLToPath } from 'node:url';
 
 import { currentKernelVersion } from '../../.agents/scripts/lib/baselines/kernel.js';
 import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
+import { seedGitIdentity } from '../fixtures/git-fixture.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const repoRoot = path.resolve(path.dirname(__filename), '..', '..');
@@ -121,9 +122,7 @@ function setupRepo({ floorPercentage, measuredPercentage }) {
     JSON.stringify(duplicationEnvelope(measuredPercentage), null, 2),
   );
   runGit(['init', '--initial-branch=main'], root);
-  runGit(['config', 'user.email', 'contract@example.com'], root);
-  runGit(['config', 'user.name', 'contract'], root);
-  runGit(['config', 'commit.gpgsign', 'false'], root);
+  seedGitIdentity(root, { email: 'contract@example.com', name: 'contract' });
   runGit(['add', '.'], root);
   runGit(['commit', '-m', 'baseline: initial'], root);
   return root;

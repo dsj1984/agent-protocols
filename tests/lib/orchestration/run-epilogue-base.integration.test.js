@@ -20,6 +20,7 @@ import {
   runPlanRunEpilogue,
 } from '../../../.agents/scripts/lib/orchestration/run-epilogue.js';
 import { makeTempDir } from '../../../.agents/scripts/lib/test-temp.js';
+import { seedGitIdentity } from '../../fixtures/git-fixture.js';
 
 // Strip every GIT_* env var so the tmpdir cwd wins even when this suite runs
 // inside a git hook (husky exports GIT_DIR / GIT_WORK_TREE, which would
@@ -72,8 +73,7 @@ describe('run-epilogue combined landed diff (real git, Story #4550)', () => {
   beforeEach(() => {
     repo = fs.realpathSync.native(makeTempDir('run-epilogue-base-'));
     run(repo, 'init', '-b', 'main');
-    run(repo, 'config', 'user.email', 'test@example.com');
-    run(repo, 'config', 'user.name', 'Test');
+    seedGitIdentity(repo);
 
     commitFile(repo, 'README.md', 'root\n', 'chore: init');
     commitFile(

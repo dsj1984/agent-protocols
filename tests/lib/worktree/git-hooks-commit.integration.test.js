@@ -23,6 +23,7 @@ import path from 'node:path';
 import test from 'node:test';
 import { makeTempDir } from '../../../.agents/scripts/lib/test-temp.js';
 import { materializeGitHooks } from '../../../.agents/scripts/lib/worktree/git-hooks.js';
+import { seedGitIdentity } from '../../fixtures/git-fixture.js';
 
 /** This checkout — the source of the husky shims and the commitlint binary. */
 const REPO_ROOT = path.resolve(import.meta.dirname, '..', '..', '..');
@@ -88,9 +89,7 @@ function seedFixture() {
   );
 
   git(main, 'init', '-b', 'main');
-  git(main, 'config', 'user.email', 'test@example.com');
-  git(main, 'config', 'user.name', 'Test');
-  git(main, 'config', 'commit.gpgsign', 'false');
+  seedGitIdentity(main);
 
   // Only `commit-msg` is seeded. `pre-commit` and `pre-push` invoke this
   // repository's own gate chain, which has nothing to say about a fixture.

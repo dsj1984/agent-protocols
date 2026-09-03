@@ -15,6 +15,7 @@ import {
 } from '../../.agents/scripts/lib/git-branch-lifecycle.js';
 import { __setGitRunners } from '../../.agents/scripts/lib/git-utils.js';
 import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
+import { seedGitIdentity } from '../fixtures/git-fixture.js';
 
 const OK = (stdout = '') => ({ status: 0, stdout, stderr: '' });
 const FAIL = (stderr = 'fail') => ({ status: 1, stdout: '', stderr });
@@ -345,8 +346,7 @@ describe('seedStoryBranchRef', () => {
       const git = (...args) =>
         execFileSync('git', args, { cwd: repo, env, encoding: 'utf8' });
       git('init', '--initial-branch=main');
-      git('config', 'user.email', 'test@example.com');
-      git('config', 'user.name', 'Test');
+      seedGitIdentity(repo);
       git('commit', '--allow-empty', '-m', 'root');
 
       // No spawn / existsLocally / existsRemotely passed: the defaults must

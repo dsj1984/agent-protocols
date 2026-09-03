@@ -8,6 +8,7 @@ import {
   resolvePreviewScope,
 } from '../.agents/scripts/lib/changed-files.js';
 import { makeTempDir } from '../.agents/scripts/lib/test-temp.js';
+import { seedGitIdentity } from './fixtures/git-fixture.js';
 
 // Env with every `GIT_*` variable dropped. Under a husky pre-push from a
 // linked worktree, git exports GIT_DIR pointing at the shared main gitdir —
@@ -24,8 +25,7 @@ function git(cwd, ...args) {
 function initRepo() {
   const repo = makeTempDir('qp-staged-');
   git(repo, 'init');
-  git(repo, 'config', 'user.email', 'test@example.com');
-  git(repo, 'config', 'user.name', 'Test');
+  seedGitIdentity(repo);
   fs.writeFileSync(path.join(repo, 'base.txt'), 'base\n');
   git(repo, 'add', 'base.txt');
   git(repo, 'commit', '-m', 'init');

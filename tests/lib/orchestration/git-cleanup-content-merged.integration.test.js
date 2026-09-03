@@ -15,6 +15,7 @@ import { afterEach, beforeEach, describe, it } from 'node:test';
 import { planCleanup } from '../../../.agents/scripts/lib/orchestration/git-cleanup/phases/branches.js';
 import { probeContentEquivalent } from '../../../.agents/scripts/lib/orchestration/git-cleanup/phases/git-probes.js';
 import { makeTempDir } from '../../../.agents/scripts/lib/test-temp.js';
+import { seedGitIdentity } from '../../fixtures/git-fixture.js';
 
 // Strip every GIT_* env var so the tmpdir cwd wins even when this suite
 // runs inside a git hook (husky pre-push exports GIT_DIR / GIT_WORK_TREE /
@@ -42,8 +43,7 @@ describe('probeContentEquivalent + planCleanup content-merged (real git, Story #
   beforeEach(() => {
     repo = fs.realpathSync.native(makeTempDir('git-cleanup-cm-'));
     run(repo, 'init', '-b', 'main');
-    run(repo, 'config', 'user.email', 'test@example.com');
-    run(repo, 'config', 'user.name', 'Test');
+    seedGitIdentity(repo);
     writeFile(repo, 'README.md', 'root\n');
     run(repo, 'add', '.');
     run(repo, 'commit', '-m', 'init');

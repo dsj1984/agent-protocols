@@ -14,7 +14,13 @@
 //   rmSync(dir, { recursive: true, force: true });
 
 import { execFileSync } from 'node:child_process';
-import { writeFileSync } from 'node:fs';
+import {
+  appendFileSync,
+  existsSync,
+  readFileSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
 import path from 'node:path';
 import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
 
@@ -96,4 +102,57 @@ export function makeGitRepo({
   );
 
   return dir;
+}
+
+/**
+ * Resolve a repository's config file, following the `gitdir:` pointer a linked
+ * worktree leaves in place of a `.git` directory and the `commondir` pointer
+ * that worktree's gitdir leaves in place of a config file.
+ *
+ * @param {string} repoDir
+ * @returns {string} absolute path to the repo's `config`
+ */
+function gitConfigPath(repoDir) {
+  const dotGit = path.join(repoDir, '.git');
+  let gitDir = dotGit;
+  if (statSync(dotGit).isFile()) {
+    const pointer = readFileSync(dotGit, 'utf-8').match(/^gitdir:\s*(.+)$/m);
+    gitDir = path.resolve(repoDir, pointer[1].trim());
+  }
+  const commonDir = path.join(gitDir, 'commondir');
+  if (existsSync(commonDir)) {
+    gitDir = path.resolve(gitDir, readFileSync(commonDir, 'utf-8').trim());
+  }
+  return path.join(gitDir, 'config');
+}
+
+/**
+ * Give a fixture repository a committer identity **without a subprocess**.
+ *
+ * Every fixture that commits needs `user.email`, `user.name` and
+ * `commit.gpgsign=false`, and the obvious way to set them is three
+ * `git config` calls. Across the suite that was 108 `git config user.*`
+ * spawns per `npm test` (Story #5111) — process creations whose entire
+ * product is four lines of INI in a file this process can already write.
+ * `git config` is not doing anything here that `appendFileSync` cannot:
+ * these are fresh repos, the keys are new, and no merge or normalization is
+ * involved.
+ *
+ * Signing is disabled explicitly because an operator with `commit.gpgsign`
+ * true in their global config would otherwise have every fixture commit
+ * block on a passphrase prompt.
+ *
+ * @param {string} repoDir - a repository created by `git init` or `git clone`.
+ * @param {object} [opts]
+ * @param {string} [opts.email]
+ * @param {string} [opts.name]
+ */
+export function seedGitIdentity(
+  repoDir,
+  { email = 'test@example.com', name = 'Test' } = {},
+) {
+  appendFileSync(
+    gitConfigPath(repoDir),
+    `[user]\n\temail = ${email}\n\tname = ${name}\n[commit]\n\tgpgsign = false\n`,
+  );
 }
