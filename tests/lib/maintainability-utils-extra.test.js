@@ -173,6 +173,24 @@ describe('calculateAll — small-batch serial path', () => {
     }
   });
 
+  it('the serialThreshold seam routes the same batch to the pool, identically', async () => {
+    // Story #5109 raised POOL_SERIAL_THRESHOLD to 256, so no realistic fixture
+    // set reaches the pool by size alone. The seam is what keeps both paths
+    // comparable — and "both paths agree" is the whole licence for having a
+    // cutover at all.
+    const a = path.join(tmp, 'pool-a.js');
+    const b = path.join(tmp, 'pool-b.js');
+    fs.writeFileSync(
+      a,
+      'export function branchy(x) { if (x>0) return 1; if (x<0) return -1; return 0; }\n',
+    );
+    fs.writeFileSync(b, 'export const z = 7;\n');
+    const serial = await calculateAll([a, b]);
+    const pooled = await calculateAll([a, b], { serialThreshold: 1 });
+    assert.deepEqual(pooled, serial);
+    assert.equal(Object.keys(pooled).length, 2);
+  });
+
   it('drops entries whose serial scoring throws', async () => {
     const good = path.join(tmp, 'good.js');
     const bad = path.join(tmp, 'BAD.js');

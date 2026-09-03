@@ -683,6 +683,31 @@ Claude Code web environment-variables UI for web sessions.
 | `NOTIFICATION_WEBHOOK_URL` | No        | POST target for in-band Notifier events (Make.com / Slack / Discord). Unset disables the webhook channel; `log` and `epic-comment` channels still fire. |
 | `WEBHOOK_SECRET`           | No        | Shared secret used to sign outbound webhook payloads as `X-Signature-256: sha256=<hmac>`. Unset ships unsigned payloads.                                 |
 | `MANDREL_ALLOW_TEST_WEBHOOKS` | No     | Set to `1` to keep `NOTIFICATION_WEBHOOK_URL` live inside `npm test` / `npm run test:profile`. Default behaviour scrubs the env var from the test child so no URL resolves and the webhook never fires (see below). |
+| `MANDREL_POOL_CONCURRENCY` | No | Upper bound on the width of every `runOnPool` worker pool in the process (the MI and CRAP scan pools). Precedence is: a caller's explicit `concurrency` → this variable → a clamp of 4 under `node:test` → `os.availableParallelism()`. Set it on a constrained or shared runner where one pool per core oversubscribes the host; a non-numeric value is ignored rather than collapsing the pool. |
+| `MANDREL_AGENTRC_VALIDATOR` | No | Set to `dynamic` to compile the `.agentrc.json` AJV validator at runtime instead of loading the committed precompiled one (see below). Costs ~35 ms per process; the escape hatch exists for a hand-edited schema or a host where the generated module will not load. |
+
+### The `.agentrc` validator is precompiled
+
+`getAgentrcValidator()` returns AJV's **standalone emit** for
+`AGENTRC_SCHEMA`, committed at
+[`.agents/scripts/lib/generated/agentrc-validator.js`](../scripts/lib/generated/agentrc-validator.js).
+Compiling that schema costs ~35 ms, and 36 of the framework's entry scripts
+resolve configuration, so the compile was being paid over and over to
+re-derive a function from a literal that is already in the repository.
+
+The artifact is generated — never hand-edited — by
+[`check-generated-validator.js`](../scripts/check-generated-validator.js):
+
+```bash
+npm run validator:gen     # rewrite it after a deliberate schema change
+npm run validator:check   # fail when it is stale (also run by `npm run lint`)
+```
+
+`npm run lint` runs the `--check` mode, so a schema edit that skips
+regeneration is refused rather than shipping a validator that accepts the
+wrong config. Validation behaviour is unchanged in either mode: the generated
+code is AJV's own, emitted with the same `allErrors: true` option the dynamic
+path uses, and returns the same verdict and the same `errors` array.
 
 ### Test-mode webhook isolation
 

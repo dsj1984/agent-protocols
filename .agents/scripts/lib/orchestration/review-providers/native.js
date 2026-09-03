@@ -267,8 +267,14 @@ function isJsMaintainabilityFile(relPath) {
  * `reportFn` forces the serial path (the injected scorer cannot cross the
  * worker boundary).
  *
+ * `serialThreshold` overrides the pool-vs-serial cutover for one call. It is
+ * the seam the parity test uses to drive the pooled branch: Story #5109
+ * retuned `POOL_SERIAL_THRESHOLD` from 8 to 256 against measured data, and a
+ * fixture sized to clear the old number would otherwise have gone quietly
+ * serial while still claiming to cover the pool.
+ *
  * @param {string[]} changedFiles
- * @param {{ reportFn?: Function, classifier?: Function, runOnPoolFn?: typeof runOnPool, headRef?: string|null, gitSpawnFn?: typeof gitSpawn, readHeadSourceFn?: typeof readHeadSource }} [deps]
+ * @param {{ reportFn?: Function, classifier?: Function, runOnPoolFn?: typeof runOnPool, headRef?: string|null, gitSpawnFn?: typeof gitSpawn, readHeadSourceFn?: typeof readHeadSource, serialThreshold?: number }} [deps]
  * @returns {Promise<{ totalFiles: number, jsFiles: number, maintainability: object[], criticalFindings: Finding[], mediumFindings: Finding[] }>}
  */
 export async function analyzeChangedFiles(
@@ -280,6 +286,7 @@ export async function analyzeChangedFiles(
     headRef = null,
     gitSpawnFn = gitSpawn,
     readHeadSourceFn = readHeadSource,
+    serialThreshold = SERIAL_THRESHOLD,
   } = {},
 ) {
   const results = {
@@ -308,7 +315,7 @@ export async function analyzeChangedFiles(
   const customReportFn = reportFn != null;
 
   // Serial path: small batches, or whenever a caller injects its own scorer.
-  if (jsFiles.length < SERIAL_THRESHOLD || customReportFn) {
+  if (jsFiles.length < serialThreshold || customReportFn) {
     for (let i = 0; i < jsFiles.length; i += 1) {
       const relPath = jsFiles[i];
       const source = sources[i];

@@ -30,8 +30,9 @@
  */
 
 import path from 'node:path';
+import { selectFilesToScore } from './cyclomatic-scope.js';
 import { calculateReportForFile } from './maintainability-engine.js';
-import { isIgnoredByGlobs, scanDirectory } from './maintainability-utils.js';
+import { scanDirectory } from './maintainability-utils.js';
 
 /** Default location of the committed breach baseline. */
 export const DEFAULT_CYCLOMATIC_BASELINE = 'baselines/cyclomatic.json';
@@ -96,20 +97,37 @@ function breachRowFor(file, methods, ceiling) {
  * `scoreFile` is a seam so tests can drive the reduction without the kernel;
  * production callers omit it.
  *
+ * **Scoped scoring (Story #5109).** The directory walk is cheap — a few
+ * `readdir` calls — but scoring is an escomplex parse per file, and re-parsing
+ * the whole tree on every CI run cost 0.94 s to re-derive rows that could not
+ * have moved. `scopeFiles`, when supplied, is the set of repo-relative POSIX
+ * paths that are still *scored*; everything else is walked, counted, and
+ * skipped. That is sound precisely because this gate is a ratchet: a verdict
+ * exists only for a file that either changed (so it must be re-scored) or is
+ * already recorded in the baseline (so its recorded count must be re-derived
+ * to detect an improvement or a removal). A file that is neither cannot
+ * produce `added` or `worsened`, and `removed` is computed from baseline files
+ * — all of which are in scope by construction. `scannedFiles` therefore keeps
+ * reporting the **whole walk**, so the reported scan surface does not shrink
+ * just because the scoring did. Callers pass `null` (the default) for the
+ * whole-tree scan, which `--update` and `BASELINE_SCOPE=full` always do.
+ *
  * @param {{
  *   targetDirs: string[],
  *   ignoreGlobs?: string[],
  *   ceiling: number,
  *   cwd?: string,
+ *   scopeFiles?: Set<string> | null,
  *   scoreFile?: (absPath: string) => { methods?: Array<{ cyclomatic?: number }>, parseError?: boolean },
  * }} args
- * @returns {{ rows: Array<object>, scannedFiles: number, parseErrors: number }}
+ * @returns {{ rows: Array<object>, scannedFiles: number, scoredFiles: number, parseErrors: number }}
  */
 export function scanCyclomatic({
   targetDirs,
   ignoreGlobs = [],
   ceiling,
   cwd = process.cwd(),
+  scopeFiles = null,
   scoreFile = calculateReportForFile,
 }) {
   const files = [];
@@ -118,21 +136,25 @@ export function scanCyclomatic({
     scanDirectory(abs, files, { cwd, ignoreGlobs });
   }
   files.sort();
+  const selected = selectFilesToScore(files, { cwd, ignoreGlobs, scopeFiles });
   const rows = [];
   let parseErrors = 0;
-  for (const abs of files) {
-    if (isIgnoredByGlobs(abs, ignoreGlobs, cwd)) continue;
+  for (const { abs, rel } of selected) {
     const report = scoreFile(abs);
     if (!report || report.parseError) {
       parseErrors += 1;
       continue;
     }
-    const rel = path.relative(cwd, abs).split(path.sep).join('/');
     const row = breachRowFor(rel, report.methods, ceiling);
     if (row) rows.push(row);
   }
   rows.sort((a, b) => a.file.localeCompare(b.file));
-  return { rows, scannedFiles: files.length, parseErrors };
+  return {
+    rows,
+    scannedFiles: files.length,
+    scoredFiles: selected.length,
+    parseErrors,
+  };
 }
 
 /**

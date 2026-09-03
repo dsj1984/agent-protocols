@@ -1,7 +1,7 @@
 {
   "$schema": "https://mandrel.dev/baselines/dead-exports.schema.json",
   "kernelVersion": "6.17.1",
-  "generatedAt": "2026-08-07T14:16:18.165Z",
+  "generatedAt": "2026-09-03T02:03:51.520Z",
   "rows": [
     {
       "file": ".agents/scripts/lib/baseline-schema-registry.js",
@@ -422,10 +422,6 @@
     {
       "file": ".agents/scripts/providers/github/auth.js",
       "symbol": "readGhCliToken"
-    },
-    {
-      "file": ".agents/scripts/providers/github/errors.js",
-      "symbol": "TRANSIENT_RETRY_DEFAULTS"
     },
     {
       "file": ".agents/scripts/providers/github/issues.js",
