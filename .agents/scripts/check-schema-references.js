@@ -88,6 +88,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 import { runAsCli } from './lib/cli-utils.js';
+import { stripJsComments } from './lib/source-text/strip-js-comments.js';
 
 /** Schema root, relative to the repository root. */
 const SCHEMA_ROOT = path.join('.agents', 'schemas');
@@ -113,33 +114,6 @@ const EXEMPTION_KEY = 'x-mandrel-uncompiled';
  * than by literal name.
  */
 const COMPUTED_PATH_RE = /\$\{[^}]*\}\.schema\.json/;
-
-/** Block comments, including the JSDoc prose every module here opens with. */
-const BLOCK_COMMENT_RE = /\/\*[\s\S]*?\*\//g;
-
-/**
- * Line comments. Anchored to start-of-line or whitespace so a `//` inside a
- * URL (`http://…`) is left alone — truncating that line could delete a real
- * reference sitting after it.
- */
-const LINE_COMMENT_RE = /(^|\s)\/\/[^\n]*/g;
-
-/**
- * Strip comments from a source before matching.
- *
- * Prose is not a compile. This module's own header names
- * `friction-event.schema.json` a dozen times while compiling nothing, and
- * every schema-loading module documents the path it loads directly above the
- * line that loads it — matching raw text would let a gate certify itself and
- * would count a docblock as enforcement, which is precisely the confusion
- * Story #4938 exists to end.
- *
- * @param {string} text raw source
- * @returns {string} source with comment bodies removed
- */
-function stripComments(text) {
-  return text.replace(BLOCK_COMMENT_RE, ' ').replace(LINE_COMMENT_RE, '$1');
-}
 
 /**
  * Parse argv. Exported so a unit test can pin the parser without spawning.
@@ -194,7 +168,7 @@ function walk(dir, extensions, acc = []) {
 function readSources(root) {
   return walk(root, JS_EXTENSIONS).map((file) => ({
     rel: path.relative(root, file),
-    text: stripComments(fs.readFileSync(file, 'utf8')),
+    text: stripJsComments(fs.readFileSync(file, 'utf8')),
   }));
 }
 

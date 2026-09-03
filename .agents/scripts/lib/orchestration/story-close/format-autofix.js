@@ -63,7 +63,7 @@ export const FORMAT_AUTOFIX_TIMEOUT_EXIT_CODE = 124;
  * @param {(args: string[], opts: object) => string} git
  * @returns {string[]}
  */
-export function listDirtyPaths(cwd, git) {
+function listDirtyPaths(cwd, git) {
   const out = git(['status', '--porcelain'], {
     cwd,
     encoding: 'utf8',
@@ -91,10 +91,7 @@ export function listDirtyPaths(cwd, git) {
  * }} [opts]
  * @returns {{ writeCmdString: string, writeCmd: string, writeArgs: string[] }}
  */
-export function resolveFormatterCmd({
-  commands,
-  dropTrailingDot = false,
-} = {}) {
+function resolveFormatterCmd({ commands, dropTrailingDot = false } = {}) {
   // `resolveFormatWriteCommand` reads `config.project.commands`; wrap the
   // caller-supplied `commands` map into that canonical shape.
   const writeCmdString = resolveFormatWriteCommand({ project: { commands } });

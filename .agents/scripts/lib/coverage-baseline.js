@@ -22,7 +22,7 @@ import path from 'node:path';
 import picomatch from 'picomatch';
 import { write, writeFile } from './baselines/writer.js';
 
-export const COVERAGE_FINAL_PATH = 'coverage/coverage-final.json';
+const COVERAGE_FINAL_PATH = 'coverage/coverage-final.json';
 export const COVERAGE_BASELINE_PATH = 'baselines/coverage.json';
 // Absolute floating-point tolerance (percentage points). Values in the
 // baseline are stored to two decimals, so anything below 0.01 is noise.
@@ -32,7 +32,7 @@ export const COVERAGE_TOLERANCE = 0.01;
 // branch flipping covered↔uncovered between runs is the natural noise floor
 // under non-deterministic Windows/Node 22 V8 instrumentation. We absorb up
 // to one event of slack per axis. Anything beyond one event is real signal.
-export const NOISE_EVENT_HEADROOM = 1.0;
+const NOISE_EVENT_HEADROOM = 1.0;
 
 function toForwardSlash(p) {
   return p.replace(/\\/g, '/');

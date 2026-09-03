@@ -28,7 +28,7 @@ import readline from 'node:readline/promises';
  * Flags the bootstrap CLI accepts. Keep this list in sync with the
  * `--help` text in bootstrap.js.
  */
-export const KNOWN_FLAGS = Object.freeze({
+const KNOWN_FLAGS = Object.freeze({
   string: [
     'owner',
     'repo',

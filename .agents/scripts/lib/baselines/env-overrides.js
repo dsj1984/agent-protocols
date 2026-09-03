@@ -16,7 +16,7 @@ import { Logger } from '../Logger.js';
 // rounding) routinely drifts +/- 0.05 to 0.3 on otherwise-unchanged files —
 // well below the threshold of "actually less maintainable." A 0.5 floor
 // stops the pre-push hook from auto-ratcheting the baseline on noise.
-export const MI_DEFAULT_TOLERANCE = 0.5;
+const MI_DEFAULT_TOLERANCE = 0.5;
 
 /**
  * Pure helper: resolve the effective CRAP config by layering env-var

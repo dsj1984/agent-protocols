@@ -17,7 +17,7 @@ import { spawnSync as defaultSpawnSync } from 'node:child_process';
  * @param {string} installCmd
  * @returns {{ bin: string, args: string[], shell: boolean }}
  */
-export function parseInstallCmd(installCmd) {
+function parseInstallCmd(installCmd) {
   const tokens = String(installCmd ?? '')
     .trim()
     .split(/\s+/)

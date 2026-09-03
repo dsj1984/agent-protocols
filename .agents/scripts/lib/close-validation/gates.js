@@ -392,7 +392,7 @@ export const DEFAULT_GATES = buildDefaultGates();
  * state, no overlapping ports/sockets). Safe to run concurrently — see
  * `runCloseValidation` for the Promise.all + AbortController plumbing.
  */
-export const INDEPENDENT_GATE_NAMES = new Set(['lint', 'format', 'typecheck']);
+const INDEPENDENT_GATE_NAMES = new Set(['lint', 'format', 'typecheck']);
 
 /**
  * Partition a gate list into the parallel-safe set and the order-sensitive

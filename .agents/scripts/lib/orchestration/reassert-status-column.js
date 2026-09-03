@@ -38,14 +38,14 @@ import { ColumnSync, columnForLabels } from './column-sync.js';
  * long enough to outlast the typical GitHub built-in workflow fire
  * timing without ballooning the close-path wall clock.
  */
-export const DEFAULT_POLL_ATTEMPTS = 4;
+const DEFAULT_POLL_ATTEMPTS = 4;
 
 /**
  * Default delay between drift checks (ms). Five seconds is a sweet
  * spot: short enough that the operator doesn't perceive the close
  * path as hung, long enough that one re-fire usually wins the race.
  */
-export const DEFAULT_POLL_DELAY_MS = 5000;
+const DEFAULT_POLL_DELAY_MS = 5000;
 
 /**
  * Production sleep function. Tests inject `sleepFn: () => Promise.resolve()`

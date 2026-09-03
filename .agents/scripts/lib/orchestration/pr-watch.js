@@ -50,35 +50,6 @@ import { applyBehindUpdate } from './behind-recovery.js';
  * values collapse to `'skipped'` so any future GitHub state we haven't
  * enumerated still maps into the vocabulary.
  */
-/**
- * The raw check-state tokens `normalizeCheckState` recognizes (lowercased).
- * A token absent from this set is one we have NOT enumerated — the watch
- * path collapses it to `'skipped'` (validate-anything), but a fail-closed
- * consumer (the auto-merge arming probe) must treat it as unknown-therefore-
- * blocking rather than trust the `'skipped'` collapse. Exported so that
- * stricter consumer lives here as the single vocabulary owner.
- */
-export const RECOGNIZED_CHECK_STATES = Object.freeze(
-  new Set([
-    '',
-    'pending',
-    'queued',
-    'in_progress',
-    'requested',
-    'waiting',
-    'success',
-    'completed',
-    'failure',
-    'startup_failure',
-    'neutral',
-    'cancelled',
-    'timed_out',
-    'action_required',
-    'stale',
-    'skipped',
-  ]),
-);
-
 export function normalizeCheckState(raw) {
   const v = String(raw ?? '')
     .trim()
@@ -325,7 +296,7 @@ export function allTerminal(outcomes) {
  * red check): a `'still-running'` map means "re-arm the watch / hand off
  * to `/loop`," never "the change is broken."
  */
-export const STILL_RUNNING = 'still-running';
+const STILL_RUNNING = 'still-running';
 
 /**
  * Promote any leftover `'pending'` outcomes to the schema-valid

@@ -24,7 +24,7 @@ import {
 } from './retro-proposals.js';
 import { upsertStructuredComment } from './ticketing.js';
 
-export const FOLLOW_UPS_COMMENT_TYPE = 'follow-ups';
+const FOLLOW_UPS_COMMENT_TYPE = 'follow-ups';
 
 /** Milliseconds in one day — the unit `frictionWindowDays` is expressed in. */
 const MS_PER_DAY = 24 * 60 * 60 * 1000;

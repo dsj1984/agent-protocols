@@ -173,7 +173,7 @@ export function collectRedundantAdvisories(
  * @param {string} dottedPath
  * @returns {boolean}
  */
-export function isLeafSchemaRemovable(rootSchema, dottedPath) {
+function isLeafSchemaRemovable(rootSchema, dottedPath) {
   if (!rootSchema || typeof rootSchema !== 'object') return true;
   const parts = dottedPath.split('.');
   let cursor = rootSchema;

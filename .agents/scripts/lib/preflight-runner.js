@@ -124,7 +124,7 @@ function pick(logger, level) {
  * @param {Array<object>} fixed
  * @param {object} [logger]
  */
-export function logFixes(fixed, logger = DEFAULT_LOGGER) {
+function logFixes(fixed, logger = DEFAULT_LOGGER) {
   const info = pick(logger, 'info');
   info(`[preflight] auto-fixed ${fixed.length} finding(s):`);
   for (const f of fixed) {
@@ -141,7 +141,7 @@ export function logFixes(fixed, logger = DEFAULT_LOGGER) {
  * @param {Array<object>} blockers
  * @param {object} [logger]
  */
-export function logBlockers(scope, blockers, logger = DEFAULT_LOGGER) {
+function logBlockers(scope, blockers, logger = DEFAULT_LOGGER) {
   const error = pick(logger, 'error');
   error(
     `[preflight] ${scope}: ${blockers.length} blocker finding(s) — refusing to proceed.`,
@@ -180,7 +180,7 @@ export function logBlockers(scope, blockers, logger = DEFAULT_LOGGER) {
  * @param {Array<object>} findings
  * @param {object} [logger]
  */
-export function logNonBlockers(findings, logger = DEFAULT_LOGGER) {
+function logNonBlockers(findings, logger = DEFAULT_LOGGER) {
   const warn = pick(logger, 'warn');
   for (const f of findings) {
     warn(`[preflight] ${f.severity}: ${f.id} — ${f.summary ?? ''}`);

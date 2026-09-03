@@ -13,7 +13,7 @@ import path from 'node:path';
  * @param {string} rootDir
  * @returns {string[]} absolute paths
  */
-export function walkSkillFiles(rootDir) {
+function walkSkillFiles(rootDir) {
   const out = [];
   if (!fs.existsSync(rootDir)) return out;
   const stack = [rootDir];

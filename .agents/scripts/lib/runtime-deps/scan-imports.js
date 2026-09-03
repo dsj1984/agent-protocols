@@ -26,9 +26,10 @@
 import fs from 'node:fs';
 import { builtinModules } from 'node:module';
 import path from 'node:path';
+import { stripJsComments } from '../source-text/strip-js-comments.js';
 
 /** Node builtins, with and without the `node:` prefix. */
-export const BUILTIN_MODULES = new Set([
+const BUILTIN_MODULES = new Set([
   ...builtinModules,
   ...builtinModules.map((m) => `node:${m}`),
 ]);
@@ -72,62 +73,6 @@ const SIDE_EFFECT = /^\s*import\s*['"]([^'"]+)['"]/gm;
 const CALL_FORM = /\b(?:require|import)\s*\(\s*['"]([^'"]+)['"]/g;
 
 /**
- * Remove `//` line comments and block comments while preserving string and
- * template literals (which carry the import specifiers we extract). A
- * char-by-char state machine is used rather than a regex so that comment
- * markers inside string literals (e.g. a `https://` URL) are not mistaken
- * for comments, and example import syntax inside *comments* (e.g. a
- * `// require('x')` doc line) does not register as a phantom dependency.
- *
- * @param {string} source
- * @returns {string}
- */
-export function stripComments(source) {
-  let out = '';
-  let i = 0;
-  const n = source.length;
-  while (i < n) {
-    const ch = source[i];
-    const next = source[i + 1];
-    // Enter a string / template literal — copy verbatim until it closes.
-    if (ch === '"' || ch === "'" || ch === '`') {
-      const quote = ch;
-      out += ch;
-      i += 1;
-      while (i < n) {
-        const c = source[i];
-        out += c;
-        if (c === '\\') {
-          // Copy the escaped char too, then continue.
-          if (i + 1 < n) out += source[i + 1];
-          i += 2;
-          continue;
-        }
-        i += 1;
-        if (c === quote) break;
-      }
-      continue;
-    }
-    // Line comment — drop to end of line (keep the newline).
-    if (ch === '/' && next === '/') {
-      i += 2;
-      while (i < n && source[i] !== '\n') i += 1;
-      continue;
-    }
-    // Block comment — drop until the closing `*/`.
-    if (ch === '/' && next === '*') {
-      i += 2;
-      while (i < n && !(source[i] === '*' && source[i + 1] === '/')) i += 1;
-      i += 2;
-      continue;
-    }
-    out += ch;
-    i += 1;
-  }
-  return out;
-}
-
-/**
  * Extract the set of third-party top-level package names imported by a
  * single source string.
  *
@@ -136,7 +81,7 @@ export function stripComments(source) {
  */
 export function extractThirdPartyImports(source) {
   const found = new Set();
-  const cleaned = stripComments(source);
+  const cleaned = stripJsComments(source);
   for (const re of [STATIC_FROM, SIDE_EFFECT, CALL_FORM]) {
     re.lastIndex = 0;
     let match = re.exec(cleaned);

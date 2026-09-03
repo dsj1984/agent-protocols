@@ -207,7 +207,7 @@ function normalizeIssue(issue) {
  * }} args
  * @returns {Array<{ id: number, title: string, score: number, url: string }>}
  */
-export function rankOpenStoryDuplicates({
+function rankOpenStoryDuplicates({
   seed,
   openStories,
   minScore = DEFAULT_MIN_SCORE,

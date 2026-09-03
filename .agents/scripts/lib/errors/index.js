@@ -6,7 +6,7 @@
  * message substrings.
  */
 
-export class ConflictingTypeLabelsError extends Error {
+class ConflictingTypeLabelsError extends Error {
   constructor(message) {
     super(message);
     this.name = 'ConflictingTypeLabelsError';

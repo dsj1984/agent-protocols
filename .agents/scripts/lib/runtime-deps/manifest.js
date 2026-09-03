@@ -26,13 +26,7 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
  * `.agents/scripts/lib/runtime-deps/`; the manifest sits at the `.agents/`
  * root, three directories up.
  */
-export const MANIFEST_PATH = path.resolve(
-  HERE,
-  '..',
-  '..',
-  '..',
-  'runtime-deps.json',
-);
+const MANIFEST_PATH = path.resolve(HERE, '..', '..', '..', 'runtime-deps.json');
 
 /**
  * @typedef {object} RuntimeDepsManifest
