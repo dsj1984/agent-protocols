@@ -152,15 +152,12 @@ at the release tag named in the entry.
 
 ### Context
 
-Story #5111 set out to cut the suite's child-process budget, and one of the
-levers on the table was Node's `--test-isolation=none`: run every test file in
-a single process instead of forking one per file. The Story's own evidence for
-it was a 60-file subset measured at **7.26 s user** under process isolation
-versus **3.92 s** without — a 46% saving that, extrapolated, would have been
-the single largest win available. The Story's contract made the flip
-conditional on a real measurement rather than that extrapolation: land the
-split only if user+sys drops at least 30% with identical pass counts, and
-otherwise record the trade-off here and leave `TEST_RUNNER_FLAGS` alone.
+Story #5111 weighed `--test-isolation=none` — one process for every test file
+instead of a fork per file — as the largest available cut to the suite's
+process budget. The evidence for it was a 60-file subset: **7.26 s user**
+isolated versus **3.92 s** without. The Story made the flip conditional on
+measuring the real thing: land it only if user+sys drops at least 30% with
+identical pass counts, else record the trade-off here.
 
 ### Decision
 
@@ -170,40 +167,35 @@ otherwise record the trade-off here and leave `TEST_RUNNER_FLAGS` alone.
 The measurement inverts the subset result. The full tier was partitioned into
 674 isolation-**safe** files (no `mock.module`, no `process.chdir`, no
 `process.env` mutation) and 31 unsafe ones, and the safe partition was run both
-ways on the same machine, same commit, same `--experimental-test-module-mocks`:
+ways on one machine at one commit:
 
-| Run | Wall | User | Sys | **User+sys** | Result |
+| Run | Wall | User | Sys | User+sys | Result |
 | --- | --- | --- | --- | --- | --- |
-| Process isolation, `--test-concurrency=10` | 43.8 s | 126.8 s | 70.4 s | **197.2 s** | 9 597 pass / 0 fail |
-| `--test-isolation=none` | 532.0 s | 96.9 s | 164.2 s | **261.1 s** | 9 582 pass / 15 fail |
+| Isolated, `--test-concurrency=10` | 43.8 s | 126.8 s | 70.4 s | **197.2 s** | 9597 pass / 0 fail |
+| `--test-isolation=none` | 532.0 s | 96.9 s | 164.2 s | **261.1 s** | 9582 pass / 15 fail |
 
-Not a 30% saving: a **32% increase** in user+sys, a **12x** increase in wall
-clock, and 15 failures.
+Not a 30% saving: a 32% **increase** in user+sys, 12x the wall clock, and 15
+failures.
 
-Both reversals have the same cause, and it is the reason a 60-file subset
-cannot be extrapolated. `--test-isolation=none` collapses the run to one
-process, so the concurrency that makes the isolated run fast (ten forks across
-ten cores, 43.8 s wall against 197.2 s of CPU) is gone — the work serializes
-onto one core. What the subset measured was fork overhead amortized over few
-files; what the full tier measures is one heap holding 674 files' worth of
-modules, where GC and allocation cost more system time than the forks ever did.
-The 15 failures are the same collapse seen from the state side: the surviving
-files share one module registry and one `process.env`, so the temp-root
-singleton, the env-override resolvers and the gate-output suites trip over each
-other. The partition's safety predicate is a grep, and a grep cannot see state
-shared through a helper.
+One cause explains both reversals, and it is why a subset cannot be
+extrapolated. Collapsing to one process removes the concurrency that makes the
+isolated run fast — 43.8 s of wall clock against 197.2 s of CPU — so the work
+serializes onto one core, and one heap holding 674 files of modules spends more
+system time in GC than the forks ever cost. The 15 failures are the same
+collapse seen from the state side: the survivors share one module registry and
+one `process.env`, so the temp-root singleton, the env-override resolvers and
+the gate-output suites trip over each other. The partition predicate is a grep,
+and a grep cannot see state shared through a helper.
 
 ### Consequences
 
-- The suite's process budget is cut by spawning fewer children **per test**
-  (in-process CLI calls, one shared git fixture identity, one e2e install)
-  rather than by removing the fork boundary between files. That is the lever
-  Story #5111 landed.
-- Test files may keep relying on process isolation for state hygiene:
-  per-file `process.env` mutation and module mocking stay legitimate, and
-  `rules/test-seams.md` does not need an isolation caveat.
-- Re-open this only with a measurement on the **whole** tier. A subset that
-  looks favourable is the artefact this entry exists to warn about.
+- The process budget is cut by spawning fewer children **per test** — in-process
+  CLI calls, one shared git-fixture identity, one e2e install — not by removing
+  the fork boundary between files.
+- Per-file `process.env` mutation and module mocking stay legitimate;
+  `rules/test-seams.md` needs no isolation caveat.
+- Re-open only with a whole-tier measurement. A favourable subset is the
+  artefact this entry exists to warn about.
 
 ## ADR 20260802-4938-schema-compilers: A schema is compiled by code, or declares in-file why not
 
