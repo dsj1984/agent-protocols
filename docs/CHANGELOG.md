@@ -15,6 +15,38 @@ All notable changes to this project will be documented in this file.
 -->
 <!-- markdownlint-disable-file MD004 MD012 MD037 -->
 
+## [2.37.0](https://github.com/dsj1984/mandrel/compare/mandrel-v2.36.0...mandrel-v2.37.0) (2026-09-03)
+
+
+### ⚠ BREAKING CHANGES
+
+* `single-story-close.js` now exits non-zero on `--dry-run` or `--no-evidence` instead of silently ignoring them. Neither flag ever had an effect; a caller passing one was getting a full real close.
+
+### Added
+
+* cut the test suite's child-process budget: seed the e2e consumer once and move tests/e2e to its own tier, replace CLI cold-start spawns with in-process calls, and settle the isolation trade-off ([#5111](https://github.com/dsj1984/mandrel/issues/5111)) ([#5122](https://github.com/dsj1984/mandrel/issues/5122)) ([a4fbd56](https://github.com/dsj1984/mandrel/commit/a4fbd5628b8bc11c918e0ff658fe62baf078a17f))
+* detect high-severity advisories on main between PRs, and bound the TypeScript devDependency range ([#5104](https://github.com/dsj1984/mandrel/issues/5104)) ([#5107](https://github.com/dsj1984/mandrel/issues/5107)) ([af8f1b8](https://github.com/dsj1984/mandrel/commit/af8f1b8ee28300391a3a43cca1d43ece5851ce83))
+
+
+### Fixed
+
+* close five concurrency holes: sweep-lock steal and heartbeat, one lock for the merged-branch reap, atomic pending-cleanup manifest, idempotent createIssue retry, additive lease claim ([#5112](https://github.com/dsj1984/mandrel/issues/5112)) ([#5119](https://github.com/dsj1984/mandrel/issues/5119)) ([8651514](https://github.com/dsj1984/mandrel/commit/86515147381cf653c1e41c01f6405f5333826253))
+* **deps:** bump fast-uri to 3.1.7 for four high-severity advisories ([#5103](https://github.com/dsj1984/mandrel/issues/5103)) ([06c37b1](https://github.com/dsj1984/mandrel/commit/06c37b11952fb8079027c0beceef831bed677485))
+* **drain-pending-cleanup:** honour --no-escalate and guard advertised --no-* flags (refs [#5101](https://github.com/dsj1984/mandrel/issues/5101)) ([#5106](https://github.com/dsj1984/mandrel/issues/5106)) ([52ef3cb](https://github.com/dsj1984/mandrel/commit/52ef3cb0c546714900474c0613d78b23bc40a068))
+* restore the suite profiler, make run-tests --help print usage, and stop three tests burning worker slots on real backoff and a live-repo scan ([#5110](https://github.com/dsj1984/mandrel/issues/5110)) ([#5115](https://github.com/dsj1984/mandrel/issues/5115)) ([dbe0742](https://github.com/dsj1984/mandrel/commit/dbe07420a7d8d3c99016968d9c15e45da64d0de2))
+* single-story-close advertises --dry-run and --no-evidence but never wired either: retire both and reject them loudly ([#5100](https://github.com/dsj1984/mandrel/issues/5100)) ([#5102](https://github.com/dsj1984/mandrel/issues/5102)) ([2f4dd52](https://github.com/dsj1984/mandrel/commit/2f4dd52c682bcc3697f67124d6dc574e209ab204))
+
+
+### Performance
+
+* stop the baseline gates doing pointless heavy work: lazy TypeScript, small-batch in-process scoring, precompiled globs, diff-scoped cyclomatic, precompiled .agentrc validator ([#5109](https://github.com/dsj1984/mandrel/issues/5109)) ([#5117](https://github.com/dsj1984/mandrel/issues/5117)) ([6b04d5e](https://github.com/dsj1984/mandrel/commit/6b04d5e7c014b4bc052afbef8fd88d85c7a6b00f))
+
+
+### Changed
+
+* collapse the tripled semver comparator and the copy-pasted migration-step scaffold in the published lib/ payload ([#5113](https://github.com/dsj1984/mandrel/issues/5113)) ([#5116](https://github.com/dsj1984/mandrel/issues/5116)) ([ae2b6d6](https://github.com/dsj1984/mandrel/commit/ae2b6d6c40b26ea6d2f94b07698867863011a659))
+* extract one JavaScript comment stripper, bring two cyclomatic-20 CLI mains under the ceiling, and delete the orchestration payload’s dead code ([#5114](https://github.com/dsj1984/mandrel/issues/5114)) ([#5118](https://github.com/dsj1984/mandrel/issues/5118)) ([747d9a5](https://github.com/dsj1984/mandrel/commit/747d9a5bce66a6230fe6f46d132b3e8aacbc5a09))
+
 ## [2.36.0](https://github.com/dsj1984/mandrel/compare/mandrel-v2.35.0...mandrel-v2.36.0) (2026-08-29)
 
 
