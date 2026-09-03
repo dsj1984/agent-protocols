@@ -2,14 +2,23 @@
 /**
  * Verifies graceful degradation when TypeScript is absent (B4).
  *
- * The `transpile.js` module performs a lazy, guarded `require('typescript')`.
- * When the package is absent it returns null and logs a warn — it must not
- * throw. This test exercises that path by faking the require to throw
+ * `transpileIfNeeded` performs a lazy, guarded `require('typescript')`. When
+ * the package is absent it returns null and logs a warn — it must not throw.
+ * This test exercises that path by faking the require to throw
  * ERR_MODULE_NOT_FOUND, without actually uninstalling the real typescript
  * peer dep.
+ *
+ * `resolveTsTranspilerVersion` degrades on a **different** input (Story
+ * #5109): it never evaluates the compiler at all, it resolves and reads the
+ * package manifest, so its `'0.0.0'` sentinel is reached when the *manifest*
+ * cannot be resolved or parsed. The doubles below model that resolution, not
+ * the old `loadTypeScript()` call — a double that mirrors an implementation
+ * the module no longer has passes forever while proving nothing.
  */
 
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import path from 'node:path';
 import { describe, it } from 'node:test';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -62,6 +71,21 @@ describe('transpile.js — real TS present', () => {
       'sentinel should not appear when TS is present',
     );
   });
+
+  it('resolveTsTranspilerVersion reports exactly what the manifest declares', async () => {
+    const { resolveTsTranspilerVersion } = await import(
+      pathToFileURL(TRANSPILE_PATH).href
+    );
+    const require = createRequire(pathToFileURL(TRANSPILE_PATH).href);
+    const manifest = JSON.parse(
+      readFileSync(require.resolve('typescript/package.json'), 'utf-8'),
+    );
+    // The stamp is what every committed baseline envelope carries, so the
+    // manifest read has to produce the identical string the old
+    // `require('typescript').version` produced — otherwise the change would
+    // rewrite `tsTranspilerVersion` in baselines/crap.json.
+    assert.equal(resolveTsTranspilerVersion(), manifest.version);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -77,30 +101,45 @@ describe('transpile.js — real TS present', () => {
 // ---------------------------------------------------------------------------
 
 describe('transpile.js — TS-absent degradation (simulated)', () => {
-  it('resolveTsTranspilerVersion returns "0.0.0" when typescript cannot be loaded', () => {
-    // We create a mini test double that mimics the module internals with
-    // _tsLoadFailed = true (the state reached after a failed require).
-    // This verifies the contract without needing to actually uninstall TS.
-    const tsLoadFailed = true;
-    const tsModule = null;
-
-    function loadTypeScriptFake() {
-      if (tsModule) return tsModule;
-      if (tsLoadFailed) return null;
-      return null;
-    }
-
-    function resolveTsTranspilerVersionFake() {
-      const ts = loadTypeScriptFake();
-      if (ts && typeof ts.version === 'string') return ts.version;
+  it('resolveTsTranspilerVersion returns "0.0.0" when the manifest is unresolvable', () => {
+    // Double of the *current* internals: the resolver walks to
+    // `typescript/package.json` and reads a version off it. Both failure modes
+    // — the resolve throwing, and a manifest with no usable `version` — land
+    // on the sentinel, and neither ever touches the compiler.
+    function resolveTsTranspilerVersionFake(manifestPath, readManifest) {
+      if (manifestPath === null) return '0.0.0';
+      try {
+        const parsed = readManifest(manifestPath);
+        if (parsed && typeof parsed.version === 'string' && parsed.version) {
+          return parsed.version;
+        }
+      } catch {
+        // unreadable / unparseable manifest → sentinel
+      }
       return '0.0.0';
     }
 
-    const v = resolveTsTranspilerVersionFake();
     assert.equal(
-      v,
+      resolveTsTranspilerVersionFake(null, () => ({ version: '9.9.9' })),
       '0.0.0',
-      'sentinel "0.0.0" must be returned when TS is absent',
+      'sentinel "0.0.0" must be returned when typescript cannot be resolved',
+    );
+    assert.equal(
+      resolveTsTranspilerVersionFake('/pkg.json', () => {
+        throw new Error('ENOENT');
+      }),
+      '0.0.0',
+      'sentinel "0.0.0" must be returned when the manifest cannot be read',
+    );
+    assert.equal(
+      resolveTsTranspilerVersionFake('/pkg.json', () => ({})),
+      '0.0.0',
+      'sentinel "0.0.0" must be returned when the manifest declares no version',
+    );
+    assert.equal(
+      resolveTsTranspilerVersionFake('/pkg.json', () => ({ version: '5.9.3' })),
+      '5.9.3',
+      'a readable manifest yields its declared version',
     );
   });
 

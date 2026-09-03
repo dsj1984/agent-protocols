@@ -19,10 +19,40 @@
 // the literal `*` are treated as the whole-repo rollup and always match
 // every row regardless of declared globs.
 
-import { minimatch } from 'minimatch';
+import { Minimatch } from 'minimatch';
 
 /** The default components map, used when a gate omits `components`. */
 const DEFAULT_COMPONENTS = Object.freeze({ '*': Object.freeze(['**']) });
+
+/**
+ * Compiled-matcher cache for `groupRows`, keyed on the glob string.
+ *
+ * `groupRows` is called once per gate over the whole baseline row set — tens
+ * of thousands of rows for `crap.json` — and the functional `minimatch()` it
+ * used re-parsed each component glob for every single row. The component
+ * globs come from config, so the distinct set is small and immutable; caching
+ * the compiled matcher turns an O(rows × globs) parse into an O(globs) one
+ * (Story #5109). Matching semantics are unchanged: same patterns, same
+ * `{ dot: true }`.
+ *
+ * @type {Map<string, import('minimatch').Minimatch>}
+ */
+const GLOB_MATCHER_CACHE = new Map();
+
+/**
+ * Compile (once) the `Minimatch` for one glob.
+ *
+ * @param {string} glob
+ * @returns {import('minimatch').Minimatch}
+ */
+function matcherFor(glob) {
+  let matcher = GLOB_MATCHER_CACHE.get(glob);
+  if (!matcher) {
+    matcher = new Minimatch(glob, { dot: true });
+    GLOB_MATCHER_CACHE.set(glob, matcher);
+  }
+  return matcher;
+}
 
 /**
  * Resolve the components map for a single gate config.
@@ -112,7 +142,7 @@ export function groupRows(rows, components, keyField = 'path') {
       const list = Array.isArray(globs) ? globs : [];
       for (const glob of list) {
         if (typeof glob !== 'string' || glob.length === 0) continue;
-        if (minimatch(normalized, glob, { dot: true })) {
+        if (matcherFor(glob).match(normalized)) {
           buckets[name].push(row);
           break;
         }

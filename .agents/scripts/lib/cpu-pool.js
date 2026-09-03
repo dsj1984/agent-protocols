@@ -2,7 +2,9 @@
  * lib/cpu-pool.js — Generic worker_threads pool for CPU-bound work.
  *
  * `runOnPool(workerScript, items, opts)` spawns up to
- * `opts.concurrency ?? os.availableParallelism()` persistent workers,
+ * `resolvePoolConcurrency(opts.concurrency)` persistent workers — an
+ * explicit option, else `MANDREL_POOL_CONCURRENCY`, else a clamp of 4 under
+ * `node:test`, else `os.availableParallelism()` —
  * dispatches `items` to whichever worker is idle, and resolves with an
  * array of per-item results in input order. The queue is bounded by
  * worker count — we only have N items in flight at once, where N =
@@ -58,15 +60,93 @@ const defaultWorkerFactory = (script, options) => new Worker(script, options);
  * Pool-vs-serial cutover for `runOnPool` callers.
  *
  * Below this batch size the pool's worker spawn overhead dominates, so
- * callers fall back to in-process serial scoring. Tuned against the test
- * suite's tmpdir fixtures (n=2 stays serial; the full repo n≈200–470
- * takes the pool path). Single-sourced here so the maintainability
- * baseline scan (`maintainability-utils.js`), the CRAP scanner
- * (`crap-utils.js`), and the native review provider
- * (`review-providers/native.js`) cannot silently desynchronize on a
- * retune.
+ * callers fall back to in-process serial scoring. Single-sourced here so the
+ * maintainability baseline scan (`maintainability-utils.js`), the CRAP
+ * scanner (`crap-utils.js`), and the native review provider
+ * (`review-providers/native.js`) cannot silently desynchronize on a retune.
+ *
+ * **Retuned from 8 to 256 in Story #5109.** The original 8 was set against
+ * tmpdir fixtures and never measured against a real batch, so every
+ * pre-commit preview — the most frequent path in the framework — paid for a
+ * pool it could not amortise. Measured on this repository (18 logical cores,
+ * `.agents/scripts` + `bin` + `lib`, MI scoring):
+ *
+ * ```text
+ *   n=16   serial  125 ms   pooled  444 ms
+ *   n=64   serial  175 ms   pooled  535 ms
+ *   n=128  serial  241 ms   pooled  422 ms
+ *   n=256  serial  440 ms   pooled  707 ms   <- still serial-favourable
+ *   n=384  serial  943 ms   pooled  782 ms   <- crossover
+ *   n=619  serial 1054 ms   pooled  710 ms
+ * ```
+ *
+ * The crossover sits between 256 and 384, so 256 is the last power-of-two
+ * step the serial path provably wins. A whole-tree baseline refresh
+ * (n≈619) still takes the pool; a diff-scoped preview (n≈50) no longer
+ * spawns a worker at all. Scoring output is identical on either path — the
+ * worker runs the same scorer — so this is a cost retune, never a verdict
+ * change.
  */
-export const POOL_SERIAL_THRESHOLD = 8;
+export const POOL_SERIAL_THRESHOLD = 256;
+
+/**
+ * Hard ceiling on pool width when the process is a `node:test` child.
+ *
+ * Node's test runner already fans test *files* out across processes, so a
+ * pool inside one of them multiplies against that fan-out and can oversubscribe
+ * the host by an order of magnitude. Four is wide enough to keep the pooled
+ * code path genuinely concurrent (so the scheduling branches under test stay
+ * exercised) without letting a suite of parallel test processes each claim
+ * every core.
+ */
+const NODE_TEST_CONCURRENCY_CLAMP = 4;
+
+/**
+ * True when this process was spawned by Node's own test runner, which sets
+ * `NODE_TEST_CONTEXT` in every test child.
+ *
+ * @param {NodeJS.ProcessEnv} env
+ * @returns {boolean}
+ */
+function inNodeTestContext(env) {
+  return (
+    typeof env.NODE_TEST_CONTEXT === 'string' && env.NODE_TEST_CONTEXT !== ''
+  );
+}
+
+/**
+ * Resolve the requested pool width, in strict precedence order:
+ *
+ *   1. an explicit `opts.concurrency` — the caller knows its own budget;
+ *   2. `MANDREL_POOL_CONCURRENCY` — the operator/CI override, so a
+ *      constrained runner can bound every pool in the process tree at once;
+ *   3. `NODE_TEST_CONCURRENCY_CLAMP` when running under `node:test`;
+ *   4. `os.availableParallelism()`.
+ *
+ * Only *finite, positive* values are honoured at each step; anything else
+ * falls through to the next, so a typo in the env var degrades to the
+ * default rather than collapsing the pool to a single worker.
+ *
+ * Module-private on purpose: `runOnPool` is the only caller, and the
+ * precedence is pinned through its observable worker count rather than by
+ * an export whose sole importer would be a test.
+ *
+ * @param {number|undefined} explicit
+ * @param {NodeJS.ProcessEnv} [env]
+ * @returns {number}
+ */
+function resolvePoolConcurrency(explicit, env = process.env) {
+  const positive = (value) => {
+    const n = Number(value);
+    return Number.isFinite(n) && n >= 1 ? Math.floor(n) : null;
+  };
+  return (
+    positive(explicit) ??
+    positive(env.MANDREL_POOL_CONCURRENCY) ??
+    (inNodeTestContext(env) ? NODE_TEST_CONCURRENCY_CLAMP : null) ??
+    os.availableParallelism()
+  );
+}
 
 /**
  * @template TItem, TResult
@@ -90,7 +170,7 @@ export async function runOnPool(workerScript, items, opts = {}) {
   const itemsArr = [...items];
   if (itemsArr.length === 0) return [];
 
-  const requested = opts.concurrency ?? os.availableParallelism();
+  const requested = resolvePoolConcurrency(opts.concurrency);
   const concurrency = Math.max(1, Math.min(requested, itemsArr.length));
   const workerData = opts.workerData;
   const throwOnItemError = opts.throwOnItemError === true;

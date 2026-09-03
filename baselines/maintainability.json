@@ -1,11 +1,11 @@
 {
   "$schema": ".agents/schemas/baselines/maintainability.schema.json",
   "kernelVersion": "0.1.0",
-  "generatedAt": "2026-09-03T02:24:43.981Z",
+  "generatedAt": "2026-09-03T02:33:04.228Z",
   "rollup": {
     "*": {
       "min": 76.381,
-      "p50": 98.792,
+      "p50": 98.772,
       "p95": 122.913
     }
   },
@@ -68,7 +68,7 @@
     },
     {
       "path": ".agents/scripts/check-cyclomatic.js",
-      "mi": 85.308
+      "mi": 89.413
     },
     {
       "path": ".agents/scripts/check-dead-exports.js",
@@ -77,6 +77,10 @@
     {
       "path": ".agents/scripts/check-doc-links.js",
       "mi": 89.966
+    },
+    {
+      "path": ".agents/scripts/check-generated-validator.js",
+      "mi": 97.187
     },
     {
       "path": ".agents/scripts/check-gherkin-corpus.js",
@@ -316,7 +320,7 @@
     },
     {
       "path": ".agents/scripts/lib/baselines/components.js",
-      "mi": 92.597
+      "mi": 94.127
     },
     {
       "path": ".agents/scripts/lib/baselines/crap-preview-incremental.js",
@@ -740,7 +744,7 @@
     },
     {
       "path": ".agents/scripts/lib/cpu-pool.js",
-      "mi": 102.583
+      "mi": 103.964
     },
     {
       "path": ".agents/scripts/lib/crap-baseline-join.js",
@@ -767,6 +771,10 @@
       "mi": 93.888
     },
     {
+      "path": ".agents/scripts/lib/cyclomatic-scope.js",
+      "mi": 100.114
+    },
+    {
       "path": ".agents/scripts/lib/dead-exports-knip.js",
       "mi": 94.159
     },
@@ -781,6 +789,10 @@
     {
       "path": ".agents/scripts/lib/dependency-parser.js",
       "mi": 112.265
+    },
+    {
+      "path": ".agents/scripts/lib/dependency-version.js",
+      "mi": 97.788
     },
     {
       "path": ".agents/scripts/lib/detect-package-manager.js",
@@ -984,7 +996,7 @@
     },
     {
       "path": ".agents/scripts/lib/maintainability-utils.js",
-      "mi": 98.869
+      "mi": 101.345
     },
     {
       "path": ".agents/scripts/lib/mandrel-catalog.js",
@@ -2016,7 +2028,7 @@
     },
     {
       "path": ".agents/scripts/quality-preview.js",
-      "mi": 95.699
+      "mi": 98.639
     },
     {
       "path": ".agents/scripts/quality-watch.js",

@@ -89,6 +89,15 @@ module.exports = {
     // Data-as-code JSON Schema literals — no branches to cover.
     '.agents/scripts/lib/config-schema.js',
     '.agents/scripts/lib/config-settings-schema.js',
+    // Story #5109 — AJV's standalone emit for AGENTRC_SCHEMA. Every branch in
+    // it was written by AJV's code generator from the schema literal above,
+    // so a coverage figure over it measures the generator, not this
+    // repository. `check-generated-validator.js --check` is what actually
+    // guards the artifact, and the parity test in
+    // tests/lib/gate-scan-fast-path.test.js pins its verdicts against a live
+    // compile. The file carries the matching `node:coverage ignore file`
+    // pragma at its top, emitted as part of the artifact.
+    '.agents/scripts/lib/generated/**',
     // Orchestration glue over live filesystem/npm state; unit-mocking it
     // asserts only the mock's structure.
     '.agents/scripts/lib/worktree/node-modules-strategy.js',

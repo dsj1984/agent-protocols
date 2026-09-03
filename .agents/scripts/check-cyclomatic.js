@@ -35,6 +35,7 @@ import {
   resolveCyclomaticPolicy,
   scanCyclomatic,
 } from './lib/cyclomatic-ceiling.js';
+import { resolveScanScope } from './lib/cyclomatic-scope.js';
 
 /**
  * Parse `--baseline <path>`, `--json`, and `--update`.
@@ -83,6 +84,86 @@ function loadCyclomaticBaseline(baselinePath) {
 }
 
 /**
+ * `--update`: rewrite the baseline from the current (whole-tree) scan. The
+ * sanctioned motion after a deliberate refactor lands, and the only way the
+ * recorded breach count is allowed to rise.
+ *
+ * @param {{ scan: object, ceiling: number, baselinePath: string, writeFileImpl: Function, stdout: { write: (s: string) => void } }} args
+ * @returns {number} Always 0 — writing a baseline cannot fail the ratchet.
+ */
+function writeUpdatedBaseline({
+  scan,
+  ceiling,
+  baselinePath,
+  writeFileImpl,
+  stdout,
+}) {
+  const envelope = buildCyclomaticEnvelope({ rows: scan.rows, ceiling });
+  writeFileImpl(baselinePath, `${JSON.stringify(envelope, null, 2)}\n`);
+  stdout.write(
+    `[cyclomatic] wrote ${scan.rows.length} breach row(s) at ceiling c=${ceiling} to ${baselinePath}\n`,
+  );
+  return 0;
+}
+
+/**
+ * `--json`: the machine-readable comparison envelope.
+ *
+ * @param {{ policy: object, baseline: object|null, baselineRows: Array<object>, baselinePath: string, scan: object, diff: object, exitCode: number }} args
+ * @returns {string}
+ */
+function renderJsonReport({
+  policy,
+  baseline,
+  baselineRows,
+  baselinePath,
+  scan,
+  diff,
+  exitCode,
+}) {
+  return `${JSON.stringify(
+    {
+      kind: 'cyclomatic-report',
+      ceiling: policy.mustFix,
+      flag: policy.flag,
+      baselinePath,
+      baselineCeiling: baseline?.ceiling ?? null,
+      scannedFiles: scan.scannedFiles,
+      parseErrors: scan.parseErrors,
+      baselineRows,
+      currentRows: scan.rows,
+      ...diff,
+      exitCode,
+    },
+    null,
+    2,
+  )}\n`;
+}
+
+/**
+ * Announce a baseline the comparison cannot fully trust: absent, or recorded
+ * at a ceiling the config no longer uses. Both are warnings rather than
+ * failures — the diff still runs, and staying silent is what would let an
+ * operator read a meaningless verdict as a clean one.
+ *
+ * @param {{ baseline: object|null, mustFix: number, baselinePath: string, stderr: { write: (s: string) => void } }} args
+ * @returns {void}
+ */
+function warnAboutBaseline({ baseline, mustFix, baselinePath, stderr }) {
+  if (!baseline) {
+    stderr.write(
+      `[cyclomatic] ⚠ baseline not found at ${baselinePath} — treating as empty\n`,
+    );
+    return;
+  }
+  if (typeof baseline.ceiling === 'number' && baseline.ceiling !== mustFix) {
+    stderr.write(
+      `[cyclomatic] ⚠ baseline was recorded at ceiling c=${baseline.ceiling} but the configured cyclomaticMustFix is c=${mustFix} — re-run with --update\n`,
+    );
+  }
+}
+
+/**
  * Top-level CLI entry. Exported so tests can drive the whole pipeline through
  * the injected seams below without spawning a process.
  *
@@ -109,75 +190,64 @@ export async function runCli({
   writeFileImpl = (p, data) => fs.writeFileSync(p, data),
 } = {}) {
   const { baselinePath, json, update } = parseArgv(argv);
-  const quality = getQuality(resolveConfigImpl({ cwd }));
+  const config = resolveConfigImpl({ cwd });
+  const quality = getQuality(config);
   const policy = resolveCyclomaticPolicy(quality);
   const resolvedBaselinePath = path.resolve(
     cwd,
     baselinePath ?? DEFAULT_CYCLOMATIC_BASELINE,
   );
 
+  // Read the baseline before scanning: its rows are half the diff scope
+  // (Story #5109). `--update` rewrites the baseline from the whole tree, and
+  // `BASELINE_SCOPE=full` is the operator's explicit "re-derive everything",
+  // so both opt out of scoping entirely.
+  const baseline = loadBaselineImpl(resolvedBaselinePath);
+  const baselineRows = Array.isArray(baseline?.rows) ? baseline.rows : [];
+  const scopeFiles = resolveScanScope({ cwd, config, update, baselineRows });
+
   const scan = scanImpl({
     targetDirs: policy.targetDirs,
     ignoreGlobs: policy.ignoreGlobs,
     ceiling: policy.mustFix,
     cwd,
+    scopeFiles,
   });
 
   if (update) {
-    const envelope = buildCyclomaticEnvelope({
-      rows: scan.rows,
+    return writeUpdatedBaseline({
+      scan,
       ceiling: policy.mustFix,
+      baselinePath: resolvedBaselinePath,
+      writeFileImpl,
+      stdout,
     });
-    writeFileImpl(
-      resolvedBaselinePath,
-      `${JSON.stringify(envelope, null, 2)}\n`,
-    );
-    stdout.write(
-      `[cyclomatic] wrote ${scan.rows.length} breach row(s) at ceiling c=${policy.mustFix} to ${resolvedBaselinePath}\n`,
-    );
-    return 0;
   }
 
-  const baseline = loadBaselineImpl(resolvedBaselinePath);
-  const baselineRows = Array.isArray(baseline?.rows) ? baseline.rows : [];
   const diff = diffCyclomaticRows(baselineRows, scan.rows);
   const exitCode = diff.added.length + diff.worsened.length > 0 ? 1 : 0;
 
   if (json) {
     stdout.write(
-      `${JSON.stringify(
-        {
-          kind: 'cyclomatic-report',
-          ceiling: policy.mustFix,
-          flag: policy.flag,
-          baselinePath: resolvedBaselinePath,
-          baselineCeiling: baseline?.ceiling ?? null,
-          scannedFiles: scan.scannedFiles,
-          parseErrors: scan.parseErrors,
-          baselineRows,
-          currentRows: scan.rows,
-          ...diff,
-          exitCode,
-        },
-        null,
-        2,
-      )}\n`,
+      renderJsonReport({
+        policy,
+        baseline,
+        baselineRows,
+        baselinePath: resolvedBaselinePath,
+        scan,
+        diff,
+        exitCode,
+      }),
     );
     return exitCode;
   }
 
-  if (!baseline) {
-    stderr.write(
-      `[cyclomatic] ⚠ baseline not found at ${resolvedBaselinePath} — treating as empty\n`,
-    );
-  } else if (
-    typeof baseline.ceiling === 'number' &&
-    baseline.ceiling !== policy.mustFix
-  ) {
-    stderr.write(
-      `[cyclomatic] ⚠ baseline was recorded at ceiling c=${baseline.ceiling} but the configured cyclomaticMustFix is c=${policy.mustFix} — re-run with --update\n`,
-    );
-  }
+  warnAboutBaseline({
+    baseline,
+    mustFix: policy.mustFix,
+    baselinePath: resolvedBaselinePath,
+    stderr,
+  });
   stdout.write('\n--- cyclomatic preview ---\n');
   stdout.write(`${renderCyclomaticDiff(diff, policy.mustFix)}\n`);
   return exitCode;

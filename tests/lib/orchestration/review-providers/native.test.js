@@ -176,8 +176,11 @@ test('analyzeChangedFiles: only JS files contribute to maintainability counts', 
 test('analyzeChangedFiles: serial and pooled paths produce identical rows and findings', async () => {
   // Acceptance: row / criticalFinding / mediumFinding parity between the
   // serial (in-process) and pooled (worker-pool) scoring paths on a fixed
-  // fixture set. The fixture exceeds SERIAL_THRESHOLD so the pooled branch
-  // is exercised, and mixes every tier so all finding buckets are populated.
+  // fixture set. The pooled branch is selected by the `serialThreshold` seam
+  // rather than by out-sizing the cutover — Story #5109 raised
+  // SERIAL_THRESHOLD to 256 and a size-based fixture would have silently
+  // stopped exercising the pool. The fixture mixes every tier so all finding
+  // buckets are populated.
   const reportByName = new Map([
     [
       'critical.js',
@@ -229,9 +232,11 @@ test('analyzeChangedFiles: serial and pooled paths produce identical rows and fi
     return reportByName.get(key);
   };
   const changed = [...reportByName.keys(), 'README.md'];
+  // `1` means "never take the serial path", whatever SERIAL_THRESHOLD is.
+  const FORCE_POOL = 1;
   assert.ok(
-    reportByName.size >= SERIAL_THRESHOLD,
-    'fixture must reach SERIAL_THRESHOLD to force the pooled path',
+    SERIAL_THRESHOLD > FORCE_POOL,
+    'the seam must actually lower the cutover for this call',
   );
 
   // Serial path: caller injects its own reportFn (forces in-process scoring).
@@ -251,6 +256,7 @@ test('analyzeChangedFiles: serial and pooled paths produce identical rows and fi
     headRef: 'story-1',
     readHeadSourceFn,
     classifier: tierFor,
+    serialThreshold: FORCE_POOL,
     runOnPoolFn: async (_worker, poolItems) => {
       assert.equal(poolItems.length, jsFiles.length);
       return poolItems.map((item) => ({
@@ -273,6 +279,7 @@ test('analyzeChangedFiles: pooled path drops files with null report or pool erro
     headRef: 'story-1',
     readHeadSourceFn: (relPath) => `src:${relPath}`,
     classifier: () => 'critical',
+    serialThreshold: 1,
     runOnPoolFn: async (_worker, poolItems) =>
       poolItems.map((item, i) => {
         if (i === 0) return { __cpuPoolError: true, message: 'crash' };

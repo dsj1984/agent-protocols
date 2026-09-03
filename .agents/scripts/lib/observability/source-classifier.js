@@ -94,6 +94,7 @@ const FRAMEWORK_SCRIPT_BASENAMES = Object.freeze([
   'check-cyclomatic.js',
   'check-dead-exports.js',
   'check-doc-links.js',
+  'check-generated-validator.js',
   'check-gherkin-corpus.js',
   'check-knip-entries.js',
   'check-lifecycle-lint.js',

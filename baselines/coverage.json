@@ -1,12 +1,12 @@
 {
   "$schema": ".agents/schemas/baselines/coverage.schema.json",
   "kernelVersion": "1.0.0",
-  "generatedAt": "2026-09-03T02:24:43.248Z",
+  "generatedAt": "2026-09-03T02:33:03.108Z",
   "rollup": {
     "*": {
-      "lines": 95.96,
-      "branches": 86.91,
-      "functions": 88.02
+      "lines": 95.97,
+      "branches": 86.88,
+      "functions": 87.99
     }
   },
   "rows": [
@@ -90,9 +90,9 @@
     },
     {
       "path": ".agents/scripts/check-cyclomatic.js",
-      "lines": 95.33,
-      "branches": 85.19,
-      "functions": 80
+      "lines": 96.48,
+      "branches": 86.21,
+      "functions": 87.5
     },
     {
       "path": ".agents/scripts/check-dead-exports.js",
@@ -105,6 +105,12 @@
       "lines": 95.61,
       "branches": 89.77,
       "functions": 86.67
+    },
+    {
+      "path": ".agents/scripts/check-generated-validator.js",
+      "lines": 98.51,
+      "branches": 83.33,
+      "functions": 60
     },
     {
       "path": ".agents/scripts/check-gherkin-corpus.js",
@@ -451,7 +457,7 @@
     {
       "path": ".agents/scripts/lib/baselines/components.js",
       "lines": 100,
-      "branches": 81.08,
+      "branches": 82.05,
       "functions": 100
     },
     {
@@ -732,9 +738,9 @@
     },
     {
       "path": ".agents/scripts/lib/bootstrap/project-bootstrap.js",
-      "lines": 88.42,
-      "branches": 86,
-      "functions": 51.43
+      "lines": 85.5,
+      "branches": 86.87,
+      "functions": 50
     },
     {
       "path": ".agents/scripts/lib/bootstrap/prompt.js",
@@ -1146,8 +1152,8 @@
     },
     {
       "path": ".agents/scripts/lib/cpu-pool.js",
-      "lines": 98.31,
-      "branches": 90,
+      "lines": 98.74,
+      "branches": 92.59,
       "functions": 100
     },
     {
@@ -1183,8 +1189,14 @@
     {
       "path": ".agents/scripts/lib/cyclomatic-ceiling.js",
       "lines": 100,
-      "branches": 76.79,
+      "branches": 78.95,
       "functions": 85.71
+    },
+    {
+      "path": ".agents/scripts/lib/cyclomatic-scope.js",
+      "lines": 96.53,
+      "branches": 78.95,
+      "functions": 100
     },
     {
       "path": ".agents/scripts/lib/dead-exports-knip.js",
@@ -1208,6 +1220,12 @@
       "path": ".agents/scripts/lib/dependency-parser.js",
       "lines": 100,
       "branches": 96.67,
+      "functions": 100
+    },
+    {
+      "path": ".agents/scripts/lib/dependency-version.js",
+      "lines": 97.67,
+      "branches": 85,
       "functions": 100
     },
     {
@@ -1309,7 +1327,7 @@
     {
       "path": ".agents/scripts/lib/feedback-loop/graduator-core.js",
       "lines": 97.98,
-      "branches": 82.67,
+      "branches": 82.82,
       "functions": 100
     },
     {
@@ -1321,7 +1339,7 @@
     {
       "path": ".agents/scripts/lib/feedback-loop/retro-proposals-graduator.js",
       "lines": 95.59,
-      "branches": 69.12,
+      "branches": 69.57,
       "functions": 100
     },
     {
@@ -1512,8 +1530,8 @@
     },
     {
       "path": ".agents/scripts/lib/maintainability-utils.js",
-      "lines": 93.48,
-      "branches": 85.37,
+      "lines": 95.74,
+      "branches": 88.89,
       "functions": 100
     },
     {
@@ -1758,9 +1776,9 @@
     },
     {
       "path": ".agents/scripts/lib/orchestration/git-cleanup/phases/git-probes-ff.js",
-      "lines": 87.36,
-      "branches": 78.13,
-      "functions": 100
+      "lines": 81.87,
+      "branches": 65,
+      "functions": 81.25
     },
     {
       "path": ".agents/scripts/lib/orchestration/git-cleanup/phases/git-probes.js",
@@ -2676,8 +2694,8 @@
     },
     {
       "path": ".agents/scripts/lib/transpile.js",
-      "lines": 90.91,
-      "branches": 80,
+      "lines": 92.7,
+      "branches": 80.36,
       "functions": 100
     },
     {
@@ -3042,8 +3060,8 @@
     },
     {
       "path": ".agents/scripts/quality-preview.js",
-      "lines": 97.82,
-      "branches": 84.95,
+      "lines": 98.91,
+      "branches": 85.26,
       "functions": 100
     },
     {

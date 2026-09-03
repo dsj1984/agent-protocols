@@ -7,7 +7,14 @@
   },
   "files": {
     "ignoreUnknown": false,
-    "includes": ["**", "!.worktrees", "!temp", "!dist", "!node_modules"]
+    "includes": [
+      "**",
+      "!.worktrees",
+      "!temp",
+      "!dist",
+      "!node_modules",
+      "!.agents/scripts/lib/generated"
+    ]
   },
   "formatter": {
     "enabled": true,

@@ -1,12 +1,12 @@
 {
   "$schema": ".agents/schemas/baselines/duplication.schema.json",
   "kernelVersion": "1.0.0",
-  "generatedAt": "2026-09-03T02:24:49.787Z",
+  "generatedAt": "2026-09-03T02:33:09.719Z",
   "rollup": {
     "*": {
-      "percentage": 5.97,
+      "percentage": 5.95,
       "duplicatedLines": 1329,
-      "totalLines": 22264,
+      "totalLines": 22334,
       "filesWithDuplication": 73
     }
   },
@@ -26,8 +26,8 @@
     {
       "path": ".agents/scripts/check-cyclomatic.js",
       "duplicatedLines": 12,
-      "totalLines": 214,
-      "percentage": 5.61
+      "totalLines": 284,
+      "percentage": 4.23
     },
     {
       "path": ".agents/scripts/check-dead-exports.js",

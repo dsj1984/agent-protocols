@@ -292,7 +292,9 @@ export function computeExitCode(merged, miExit, crapExit) {
  *
  * The last header used to hardcode `c=8`, which quietly lied to any consumer
  * that had tuned `codingGuardrails.cyclomaticFlag`. It now names the value the
- * count was actually taken against, read off the merge result.
+ * count was actually taken against, read off the merge result — through the
+ * same `normalizeFlag` the merge itself uses, rather than the second, hand-
+ * inlined copy of that coercion this function used to carry.
  *
  * Pure — accepts pre-computed merge rows and returns a multi-line string. The
  * table renders even on a clean diff so operators see the "no drift" signal.
@@ -300,33 +302,40 @@ export function computeExitCode(merged, miExit, crapExit) {
  * @param {{ rows: Array<{ file: string, miDrop: number, worstCrapDelta: number, newOverCeilingMethods: number }>, totals: { miRegressions: number, crapViolations: number }, cyclomaticFlag?: number }} merged
  * @returns {string}
  */
+/**
+ * The table's body: one row per regressed file, or the single placeholder
+ * line that keeps the "no drift" signal visible on a clean diff.
+ *
+ * Split out of `renderTable` so that function keeps a flat shape — the
+ * empty-vs-populated branch and the row loop together carried it above the
+ * per-method CRAP contract the pre-push preview enforces.
+ *
+ * @param {Array<{ file: string, miDrop: number, worstCrapDelta: number, newOverCeilingMethods: number }>} rows
+ * @returns {string[]}
+ */
+function tableBodyLines(rows) {
+  if (rows.length === 0) return ['| _(no per-file regressions)_ | — | — | — |'];
+  return rows.map(
+    (row) =>
+      `| ${row.file} | -${row.miDrop.toFixed(2)} | +${row.worstCrapDelta.toFixed(2)} | ${row.newOverCeilingMethods} |`,
+  );
+}
+
 export function renderTable(merged) {
-  const flag = Number.isFinite(Number(merged?.cyclomaticFlag))
-    ? Number(merged.cyclomaticFlag)
-    : DEFAULT_CYCLOMATIC_FLAG;
+  const flag = normalizeFlag(merged?.cyclomaticFlag);
   const header = [
     'file',
     'MI delta',
     'worst CRAP delta',
     `new-method count over c=${flag}`,
   ];
-  const lines = [];
-  lines.push(`| ${header.join(' | ')} |`);
-  lines.push(`| ${header.map(() => '---').join(' | ')} |`);
-  if (merged.rows.length === 0) {
-    lines.push('| _(no per-file regressions)_ | — | — | — |');
-  } else {
-    for (const row of merged.rows) {
-      lines.push(
-        `| ${row.file} | -${row.miDrop.toFixed(2)} | +${row.worstCrapDelta.toFixed(2)} | ${row.newOverCeilingMethods} |`,
-      );
-    }
-  }
-  lines.push('');
-  lines.push(
+  return [
+    `| ${header.join(' | ')} |`,
+    `| ${header.map(() => '---').join(' | ')} |`,
+    ...tableBodyLines(merged.rows),
+    '',
     `Totals: MI regressions=${merged.totals.miRegressions} · CRAP violations=${merged.totals.crapViolations}`,
-  );
-  return lines.join('\n');
+  ].join('\n');
 }
 
 /**
@@ -351,6 +360,96 @@ function resolveCyclomaticFlag({ cwd, stderr }) {
       `[quality:preview] config resolution failed, using cyclomaticFlag=${DEFAULT_CYCLOMATIC_FLAG}: ${err?.message ?? err}\n`,
     );
     return DEFAULT_CYCLOMATIC_FLAG;
+  }
+}
+
+/**
+ * Invoke one preview runner, degrading a thrown failure into the same
+ * `{ exitCode: 1, envelope: null }` shape a real gate failure produces.
+ *
+ * Both runners degraded identically before, in two hand-copied `catch`
+ * arms; folding them into one helper removes the copy and keeps `runCli` a
+ * pipeline rather than a pair of inlined error handlers. The emitted message
+ * is byte-identical to the arm it replaces — `label` supplies the `MI` /
+ * `CRAP` prefix.
+ *
+ * @param {(args: object) => Promise<{exitCode: number, envelope: object|null}>} runner
+ * @param {{cwd: string, staged: boolean, changedSinceRef: string|null}} args
+ * @param {'MI'|'CRAP'} label
+ * @param {{ write: (s: string) => void }} stderr
+ * @returns {Promise<{exitCode: number, envelope: object|null}>}
+ */
+function runGateSafely(runner, args, label, stderr) {
+  return runner(args).catch((err) => {
+    stderr.write(
+      `[quality:preview] ${label} runner failed: ${err?.message ?? err}\n`,
+    );
+    return { exitCode: 1, envelope: null };
+  });
+}
+
+/**
+ * Write the run's report — the `--json` envelope, or the human-readable
+ * table plus any gate diagnostics and the non-zero-exit summary.
+ *
+ * Split out of `runCli` (Story #5109): the rendering half carried five of
+ * that function's decision points, which put it over the per-method CRAP
+ * contract the pre-push preview enforces. Output bytes are unchanged in both
+ * modes. The exit code stays with the caller — this function only reports.
+ *
+ * @param {{
+ *   json: boolean,
+ *   staged: boolean,
+ *   ref: string|null,
+ *   miResult: {exitCode: number, envelope: object|null},
+ *   crapResult: {exitCode: number, envelope: object|null},
+ *   merged: ReturnType<typeof mergeEnvelopes>,
+ *   stdout: { write: (s: string) => void },
+ *   stderr: { write: (s: string) => void },
+ * }} args
+ * @returns {void}
+ */
+function emitReport({
+  json,
+  staged,
+  ref,
+  miResult,
+  crapResult,
+  merged,
+  stdout,
+  stderr,
+}) {
+  const miExit = miResult.exitCode;
+  const crapExit = crapResult.exitCode;
+  if (json) {
+    stdout.write(
+      `${JSON.stringify(
+        {
+          ref: staged ? null : ref,
+          staged,
+          mi: { exit: miExit, envelope: miResult.envelope },
+          crap: { exit: crapExit, envelope: crapResult.envelope },
+          merged,
+        },
+        null,
+        2,
+      )}\n`,
+    );
+    return;
+  }
+  stdout.write('\n--- quality:preview ---\n');
+  stdout.write(
+    staged
+      ? 'scope=staged (git diff --cached)\n\n'
+      : `scope=diff ref=${ref}\n\n`,
+  );
+  stdout.write(`${renderTable(merged)}\n`);
+  const diagnostics = renderDiagnostics([miResult, crapResult]);
+  if (diagnostics) stdout.write(`\n${diagnostics}\n`);
+  if (miExit !== 0 || crapExit !== 0) {
+    stderr.write(
+      `\n[quality:preview] gate exits: mi=${miExit} crap=${crapExit}\n`,
+    );
   }
 }
 
@@ -381,62 +480,55 @@ export async function runCli({
   const staged = parseStagedFlag(argv);
   const ref = staged ? null : (parseChangedSinceArg(argv) ?? 'HEAD');
 
-  const [miResult, crapResult] = await Promise.all([
-    runMi({ cwd, staged, changedSinceRef: ref }).catch((err) => {
-      stderr.write(
-        `[quality:preview] MI runner failed: ${err?.message ?? err}\n`,
-      );
-      return { exitCode: 1, envelope: null };
-    }),
-    runCrap({ cwd, staged, changedSinceRef: ref }).catch((err) => {
-      stderr.write(
-        `[quality:preview] CRAP runner failed: ${err?.message ?? err}\n`,
-      );
-      return { exitCode: 1, envelope: null };
-    }),
-  ]);
-  const miExit = miResult.exitCode;
-  const crapExit = crapResult.exitCode;
-  const miEnvelope = miResult.envelope;
-  const crapEnvelope = crapResult.envelope;
+  // Story #5109 — the two gates run **one after the other**, not under a
+  // `Promise.all`. Each scores its batch with its own `runOnPool` budget
+  // sized to `os.availableParallelism()`, so overlapping them oversubscribed
+  // the host by 2x and stacked two escomplex heaps: a 58-file preview peaked
+  // at 1.0-1.2 GB RSS for 3.9 s of CPU. Serialising them bounds the preview
+  // to one `availableParallelism` of workers and one heap at a time. The two
+  // runners share no state and neither reads the other's envelope, so the
+  // emitted envelopes — and therefore the merged table and the exit code —
+  // are identical either way; only the peak cost differs.
+  //
+  // Each runner gets its own options literal rather than one shared object,
+  // so serialising them cannot introduce a coupling the concurrent form
+  // did not have.
+  const miResult = await runGateSafely(
+    runMi,
+    { cwd, staged, changedSinceRef: ref },
+    'MI',
+    stderr,
+  );
+  const crapResult = await runGateSafely(
+    runCrap,
+    { cwd, staged, changedSinceRef: ref },
+    'CRAP',
+    stderr,
+  );
+
   // Story #4923 — the over-ceiling column counts against the *resolved*
   // `codingGuardrails.cyclomaticFlag`, not the literal that used to be written
   // into `mergeEnvelopes` and the column header.
   const cyclomaticFlag = resolveCyclomaticFlag({ cwd, stderr });
-  const merged = mergeEnvelopes(miEnvelope, crapEnvelope, { cyclomaticFlag });
+  const merged = mergeEnvelopes(miResult.envelope, crapResult.envelope, {
+    cyclomaticFlag,
+  });
 
-  if (json) {
-    stdout.write(
-      `${JSON.stringify(
-        {
-          ref: staged ? null : ref,
-          staged,
-          mi: { exit: miExit, envelope: miEnvelope },
-          crap: { exit: crapExit, envelope: crapEnvelope },
-          merged,
-        },
-        null,
-        2,
-      )}\n`,
-    );
-  } else {
-    stdout.write('\n--- quality:preview ---\n');
-    stdout.write(
-      staged
-        ? 'scope=staged (git diff --cached)\n\n'
-        : `scope=diff ref=${ref}\n\n`,
-    );
-    stdout.write(`${renderTable(merged)}\n`);
-    const diagnostics = renderDiagnostics([miResult, crapResult]);
-    if (diagnostics) stdout.write(`\n${diagnostics}\n`);
-    if (miExit !== 0 || crapExit !== 0) {
-      stderr.write(
-        `\n[quality:preview] gate exits: mi=${miExit} crap=${crapExit}\n`,
-      );
-    }
-  }
+  emitReport({
+    json,
+    staged,
+    ref,
+    miResult,
+    crapResult,
+    merged,
+    stdout,
+    stderr,
+  });
 
-  return { exitCode: computeExitCode(merged, miExit, crapExit), merged };
+  return {
+    exitCode: computeExitCode(merged, miResult.exitCode, crapResult.exitCode),
+    merged,
+  };
 }
 
 // cli-opt-out: Windows-aware main-guard with leading-slash drive-letter normalisation; mirrors quality-watch.js so the diagnostic surface stays consistent across the gate suite.
