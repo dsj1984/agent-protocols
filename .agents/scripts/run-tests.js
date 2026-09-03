@@ -126,18 +126,38 @@ export function chunkTestTargets(targets, maxChars = MAX_TARGET_CHARS) {
 }
 
 /**
+ * Build the argv for one `node --test` invocation.
+ *
+ * **Flag position is load-bearing.** Node stops treating tokens as options
+ * at the first positional, so every runner flag — the fixed
+ * `TEST_RUNNER_FLAGS`, the optional `--test-reporter`, and any caller
+ * `extraArgs` — has to sit *before* the test-file targets. Appending
+ * `--test-reporter tap` after the targets (what `run-test-profile.js` used
+ * to do) made Node read the two tokens as two more file patterns: the
+ * default reporter ran, no TAP was emitted, and the profiler parsed zero
+ * timed entries out of a full suite run. `reporter` is therefore an option
+ * of this builder rather than something a caller concatenates on the end.
+ *
  * @param {object} [opts]
- * @param {string[]} [opts.extraArgs]
+ * @param {string[]} [opts.extraArgs] Extra runner arguments (flag position).
  * @param {'full' | 'quick' | 'integration'} [opts.tier]
  * @param {string} [opts.repoRoot]
+ * @param {string} [opts.reporter] `--test-reporter` value, e.g. `'tap'`.
+ * @returns {string[]}
  */
 export function buildNodeTestArgs({
   extraArgs = [],
   tier = 'full',
   repoRoot = ROOT,
+  reporter,
 } = {}) {
-  const targets = listTestFilesForTier(tier, repoRoot);
-  return [...TEST_RUNNER_FLAGS, ...targets, ...extraArgs];
+  return [
+    ...(reporter
+      ? [...TEST_RUNNER_FLAGS, '--test-reporter', reporter]
+      : TEST_RUNNER_FLAGS),
+    ...extraArgs,
+    ...listTestFilesForTier(tier, repoRoot),
+  ];
 }
 
 export function runTestSuite({
@@ -169,7 +189,12 @@ export function runTestSuite({
   for (const chunk of chunks) {
     const testRun = spawn(
       process.execPath,
-      [...TEST_RUNNER_FLAGS, ...chunk, ...rest],
+      // `rest` carries pass-through runner flags (`--test-name-pattern`,
+      // `--test-reporter`, …). They precede the targets for the same reason
+      // `buildNodeTestArgs` orders them that way: Node stops parsing options
+      // at the first positional, so a flag after a target is silently read as
+      // another file pattern.
+      [...TEST_RUNNER_FLAGS, ...rest, ...chunk],
       { cwd, stdio: 'inherit', env },
     );
     if (testRun.error) {
@@ -199,7 +224,40 @@ export function runTestSuite({
   return status;
 }
 
+/**
+ * `--help` contract for the runner — the pre-rendered shape
+ * `lib/cli-usage.js` accepts alongside a spec object, matching how
+ * `check-baselines.js` declares its own.
+ *
+ * Handed to `runAsCli`, which prints it and returns **before** `main` runs.
+ * That ordering is the whole point: with no `usage` the flag fell through to
+ * `runTestSuite`, which ran the tier preflight, spawned the full ~10 000-test
+ * suite, and swept `temp/` — 25+ seconds and a mutated working tree in
+ * answer to a question about flags.
+ *
+ * Exported so the unit test can assert the documented surface without
+ * spawning the CLI.
+ */
+export const USAGE = `Usage: node .agents/scripts/run-tests.js [--tier <full|quick|integration>] [runner args...]
+
+Run the test suite: tier preflight, \`node --test\` over the tier's targets,
+then reserved-temp cleanup — which runs even when the suite fails.
+
+Flags:
+  --tier <full|quick|integration>
+                        Tier to run. Default: full (every \`tests/**/*.test.js\`).
+  --test-name-pattern <re>
+                        Pass-through to \`node --test\`. Every unrecognized
+                        argument is forwarded verbatim, in flag position,
+                        ahead of the file targets.
+  --help                Show this message.
+
+Exits with the first non-zero \`node --test\` chunk status, or 2 when the tier
+preflight refuses to start the suite.
+`;
+
 runAsCli(import.meta.url, async () => runTestSuite(), {
   source: 'run-tests',
   propagateExitCode: true,
+  usage: USAGE,
 });

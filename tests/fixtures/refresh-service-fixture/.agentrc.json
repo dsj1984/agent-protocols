@@ -1,0 +1,19 @@
+{
+  "project": {
+    "paths": {
+      "agentRoot": ".agents",
+      "docsRoot": "docs",
+      "tempRoot": "temp"
+    }
+  },
+  "delivery": {
+    "quality": {
+      "gates": {
+        "maintainability": {
+          "floors": { "*": { "min": 0 } },
+          "targetDirs": ["src"]
+        }
+      }
+    }
+  }
+}
