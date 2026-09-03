@@ -27,6 +27,13 @@ function makeProvider(initialAssignees = []) {
     },
     async updateTicket(id, mutations) {
       updateCalls.push({ id, mutations });
+      // Story #5112 — the lease's first claim is additive, so the fake must
+      // model both assignee endpoints or it silently drops the write.
+      if (Array.isArray(mutations?.addAssignees)) {
+        for (const login of mutations.addAssignees) {
+          if (!state.assignees.includes(login)) state.assignees.push(login);
+        }
+      }
       if (Array.isArray(mutations?.assignees)) {
         state.assignees = [...mutations.assignees];
       }

@@ -1,11 +1,17 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import path from 'node:path';
-import { describe, it } from 'node:test';
+import { afterEach, describe, it } from 'node:test';
 
 import {
   buildSummaryLine,
   runBootSweep,
 } from '../../.agents/scripts/boot-sweep.js';
+import {
+  acquireSweepLock,
+  resolveSweepLockPath,
+} from '../../.agents/scripts/lib/single-story-sweep/sweep-lock.js';
+import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
 
 const CONFIG = {
   project: { baseBranch: 'main', paths: { tempRoot: 'temp' } },
@@ -51,7 +57,16 @@ describe('runBootSweep', () => {
     // POSIX, 'D:\\tmp\\repo' on Windows). Resolve the expected value the same
     // way so the assertion holds cross-platform (Windows Smoke).
     assert.equal(seen.protectionCtx.repoRoot, path.resolve('/tmp/repo'));
-    assert.match(seen.lockPath, /boot-sweep\.lock$/);
+    // Story #5112 — the shared merged-branch sweep lock, not a boot-sweep
+    // private one: `single-story-init.js` reaps the same branches through the
+    // same engine and must contend with this run, not run alongside it.
+    assert.equal(
+      seen.lockPath,
+      resolveSweepLockPath({
+        cwd: path.resolve('/tmp/repo'),
+        tempRoot: 'temp',
+      }),
+    );
     assert.equal(seen.lockTimeoutMs, 1234);
   });
 
@@ -167,5 +182,76 @@ describe('buildSummaryLine (Story #4396)', () => {
       line,
       '[boot-sweep] reaped 1 local + 1 remote; protected 0; 2 content-merged branch(es) left for /git-cleanup.',
     );
+  });
+});
+
+describe('boot-sweep — one lock with the init sweep (Story #5112)', () => {
+  const tmpDirs = [];
+
+  afterEach(() => {
+    while (tmpDirs.length > 0) {
+      try {
+        fs.rmSync(tmpDirs.pop(), { recursive: true, force: true });
+      } catch {
+        /* best-effort */
+      }
+    }
+  });
+
+  it('reports skipped/lock-contended while an init sweep holds the lock', async () => {
+    const root = makeTempDir('boot-sweep-lock-');
+    tmpDirs.push(root);
+
+    // Stand in for `single-story-init.js`'s in-flight merged-branch sweep: it
+    // resolves the very same path through the shared helper.
+    const held = acquireSweepLock({
+      lockPath: resolveSweepLockPath({ cwd: root, tempRoot: 'temp' }),
+      timeoutMs: 60_000,
+      ownerId: 'init-sweep',
+    });
+    assert.equal(held.acquired, true);
+
+    // No injectedSweep: the real engine runs, hits the lock and short-circuits
+    // before it can touch git.
+    const result = await runBootSweep({
+      cwd: root,
+      injectedConfig: CONFIG,
+      injectedProvider: makeProvider(),
+      purgeFn: async () => ({ purged: [] }),
+      logger: { info: () => {}, warn: () => {} },
+    });
+
+    assert.equal(result.skipped, true);
+    assert.equal(result.reason, 'lock-contended');
+    assert.equal(result.ok, true, 'contention never fails the host');
+    assert.equal(result.localDeleted, 0);
+    assert.equal(result.remoteDeleted, 0);
+
+    held.release();
+  });
+
+  it('acquires and completes once the init sweep releases', async () => {
+    const root = makeTempDir('boot-sweep-lock-');
+    tmpDirs.push(root);
+    const lockPath = resolveSweepLockPath({ cwd: root, tempRoot: 'temp' });
+
+    const held = acquireSweepLock({ lockPath, ownerId: 'init-sweep' });
+    assert.equal(held.acquired, true);
+    held.release();
+
+    let seenLockPath = null;
+    const result = await runBootSweep({
+      cwd: root,
+      injectedConfig: CONFIG,
+      injectedProvider: makeProvider(),
+      purgeFn: async () => ({ purged: [] }),
+      injectedSweep: (args) => {
+        seenLockPath = args.lockPath;
+        return okEnvelope();
+      },
+    });
+
+    assert.equal(seenLockPath, lockPath);
+    assert.equal(result.skipped, false);
   });
 });

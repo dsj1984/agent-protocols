@@ -29,8 +29,9 @@
  *                       a claim back from whoever took over).
  *
  * Provider contract (a subset of `ITicketingProvider`):
- *   - `getTicket(id)`            → `{ assignees: string[], ... }`
- *   - `updateTicket(id, { assignees })` writes the assignee list.
+ *   - `getTicket(id)`               → `{ assignees: string[], ... }`
+ *   - `updateTicket(id, { assignees })`    replaces the assignee list.
+ *   - `updateTicket(id, { addAssignees })` appends to it (Story #5112).
  */
 
 /**
@@ -128,11 +129,13 @@ function normaliseOpts(op, opts) {
  *                                     operator out, `acquired: false`,
  *                                     `owner: <foreign>`, `reason: 'lost-race'`.
  *
- * Every claiming write is verified: GitHub's assignee PATCH is not a
+ * Every claiming write is verified: GitHub's assignee write is not a
  * compare-and-set, so two runs that both read the ticket unassigned will both
  * write themselves. {@link claimAndVerify} re-reads after the write and refuses
  * (fail-closed) when a foreign login is present, so the loser of a simultaneous
- * claim never proceeds as though it holds the lease.
+ * claim never proceeds as though it holds the lease. Story #5112 made the
+ * first claim **additive** so that verify can actually see the collision —
+ * see {@link claimAndVerify}.
  *
  * @param {object} opts
  * @param {object} opts.provider              Ticketing provider.
@@ -199,7 +202,7 @@ export async function acquireLease(opts) {
  *
  * The assignee write is not atomic — GitHub offers no compare-and-set on the
  * assignees surface — so two runs that both observed the ticket unassigned (or
- * a stale foreign claim) will both PATCH themselves in. Without a check the
+ * a stale foreign claim) will both write themselves in. Without a check the
  * loser of that race returns `acquired: true` and marches into the worktree
  * the winner is already building. The verify closes that window: it re-reads
  * with `fresh: true` (bypassing any provider cache so it sees the other run's
@@ -208,9 +211,16 @@ export async function acquireLease(opts) {
  * returns `acquired: false` / `reason: 'lost-race'` so the fail-closed caller
  * refuses. A clean read (assignees exactly `[operator]`) confirms the claim.
  *
- * It does not eliminate the race — two writes still happen — but it makes the
- * outcome deterministic: exactly one operator survives as the sole assignee,
- * and the other is told it lost.
+ * **The write must be additive for the verify to work (Story #5112).** With
+ * the replacing PATCH this used unconditionally, a simultaneous claim
+ * *evicted* the other operator rather than joining it, so the co-assignment
+ * the `lost-race` branch keys on was a state the PATCH could never produce:
+ * each run read a clean `[self]` on verify and both proceeded. Claiming an
+ * unowned ticket therefore goes through the additive assignees endpoint
+ * (`addAssignees`), which makes the collision observable and lets exactly one
+ * claimer survive. The replacing form stays for the two cases that genuinely
+ * mean "replace": the `--steal` transfer of a foreign claim, and the loser's
+ * own back-out below.
  *
  * @param {object} args
  * @param {object} args.provider              Ticketing provider.
@@ -220,6 +230,21 @@ export async function acquireLease(opts) {
  * @param {string} args.reason                Success reason when the claim holds.
  * @returns {Promise<{ acquired: boolean, owner: string, previousOwner: string|null, reason: string }>}
  */
+/**
+ * The assignee mutation a claim writes. Additive when the ticket has no
+ * previous owner — that is what makes a simultaneous claim show up as a
+ * co-assignment {@link claimAndVerify} can detect. Replacing only for a
+ * steal, where evicting the previous owner *is* the intent.
+ *
+ * @param {string} operator
+ * @param {string|null} previousOwner
+ * @returns {{ addAssignees: string[] }|{ assignees: string[] }}
+ */
+function claimMutation(operator, previousOwner) {
+  if (previousOwner === null) return { addAssignees: [operator] };
+  return { assignees: [operator] };
+}
+
 async function claimAndVerify({
   provider,
   ticketId,
@@ -227,7 +252,7 @@ async function claimAndVerify({
   previousOwner,
   reason,
 }) {
-  await provider.updateTicket(ticketId, { assignees: [operator] });
+  await provider.updateTicket(ticketId, claimMutation(operator, previousOwner));
 
   const after = await provider.getTicket(ticketId, { fresh: true });
   const assignees = Array.isArray(after?.assignees) ? after.assignees : [];

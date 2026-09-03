@@ -73,6 +73,7 @@ import {
 } from './lib/orchestration/ticketing.js';
 import { createProvider } from './lib/provider-factory.js';
 import { buildProtectionCtx } from './lib/single-story-sweep/protection-ctx.js';
+import { resolveSweepLockPath } from './lib/single-story-sweep/sweep-lock.js';
 // `sweepMergedStoryBranches` is imported dynamically below — its transitive
 // graph reaches `picomatch` (via `git-cleanup.js`). Loading it statically
 // would crash module resolution before `assertDepsInstalled()` can emit a
@@ -292,6 +293,9 @@ export function decideStoryBranchSeed({ localHas, remoteHas }) {
  *     in `sweep.protected` for the operator).
  *   - Cross-session lock: a single lockfile under `tempRoot` prevents
  *     two concurrent `/single-story-deliver` invocations from racing.
+ *     Story #5112 made that lockfile shared with `boot-sweep.js` — the
+ *     other entry point into the same merged-branch reap — by routing
+ *     both through `resolveSweepLockPath`.
  *
  * Exported for testing.
  */
@@ -307,7 +311,7 @@ export async function reapMergedStoryBranches({
     injectedSweep ??
     (await import('./lib/single-story-sweep.js')).sweepMergedStoryBranches;
   const tempRoot = config?.project?.paths?.tempRoot ?? 'temp';
-  const lockPath = path.resolve(cwd, tempRoot, 'single-story-sweep.lock');
+  const lockPath = resolveSweepLockPath({ cwd, tempRoot });
   const lockTimeoutMs =
     config.delivery?.worktreeIsolation?.sweepLockMs ?? 60_000;
   try {
