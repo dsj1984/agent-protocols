@@ -243,3 +243,52 @@ Hypothesis keeps a failure DB, proptest writes `proptest-regressions/` — pin o
 commit whichever the stack provides. Once shrinking surfaces a minimal
 counterexample, **add it as an example-based regression test** alongside the
 property: the property guards the domain, the pinned example guards the bug.
+
+## The suite's child-process budget
+
+`npm test` forks one process per test file, and the spawns those leaves make
+dominate the suite's system time. Two instruments and one rule keep that
+budget visible and honest (Story #5121).
+
+### Measure it with `npm run test:census`
+
+```bash
+npm run test:census            # writes temp/census.json
+```
+
+`tests/fixtures/spawn-census.cjs` is a `--require` preload that counts every
+`child_process` call per binary, aggregates across all ~700 processes, and
+reports `nodeInSuite` (node children spawned *by test files*, excluding the
+runner's own fan-out), `git`, `gh`, `npm`, and any standalone
+`git config user.*` spawns. Read the numbers from the census rather than
+re-deriving them; two audits hand-rolled this measurement and lost it both
+times with the gitignored temp tree.
+
+The script interpolates `$PWD` deliberately. A **relative** `--require` path is
+inherited by children that run with a different `cwd`, where it fails to
+resolve and kills the child before it runs a line — measured as 15 spurious
+failures in one file.
+
+### Build a fixture repo once, then copy it
+
+A multi-commit fixture repo rebuilt in `beforeEach` is the costly shape. Build
+it once in `before()` and hand each test an `fs` copy via
+`copyGitRepo(pristine)` from `tests/fixtures/git-fixture.js`: each test still
+gets a private directory it may freely mutate, for **no subprocess at all**.
+One file went from 92 `git` spawns to 27 this way.
+
+`copyGitRepo` is safe only for a locally-`git init`ed repo, whose
+`.git/config` holds no absolute paths. Do **not** copy a **clone** (its
+`remote.origin.url` is absolute, so the copy would fetch from the original) or a
+linked worktree (its `gitdir:` / `commondir` pointers would dangle).
+
+### Never trade coverage for a spawn count
+
+Most of the suite's remaining `git` spawns are integration tests exercising
+real git against git-manipulating production code — the spawn **is** the
+subject under test, and so is a CLI's exit code in an exit-code contract test.
+Those are not fixture waste and must not be converted to in-process calls or
+mocks to make a number smaller. Hoist shared setup; leave the assertions alone.
+A spawn census also records argv, not what the binary resolved to: a
+`gh pr view 4890` line may well be a fake `gh` the test put on `PATH`, so
+verify resolution before calling a spawn a network call.

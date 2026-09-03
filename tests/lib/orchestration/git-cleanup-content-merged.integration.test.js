@@ -10,12 +10,12 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
-import { afterEach, beforeEach, describe, it } from 'node:test';
+import { after, afterEach, before, beforeEach, describe, it } from 'node:test';
 
 import { planCleanup } from '../../../.agents/scripts/lib/orchestration/git-cleanup/phases/branches.js';
 import { probeContentEquivalent } from '../../../.agents/scripts/lib/orchestration/git-cleanup/phases/git-probes.js';
 import { makeTempDir } from '../../../.agents/scripts/lib/test-temp.js';
-import { seedGitIdentity } from '../../fixtures/git-fixture.js';
+import { copyGitRepo, seedGitIdentity } from '../../fixtures/git-fixture.js';
 
 // Strip every GIT_* env var so the tmpdir cwd wins even when this suite
 // runs inside a git hook (husky pre-push exports GIT_DIR / GIT_WORK_TREE /
@@ -38,19 +38,39 @@ function writeFile(repo, name, content) {
 }
 
 describe('probeContentEquivalent + planCleanup content-merged (real git, Story #4395)', () => {
+  /** The per-test working copy — every test mutates it (branches, commits). */
   let repo;
+  /**
+   * The seeded `main` these tests all branch from, built once (Story #5121).
+   *
+   * The four-spawn seed was rebuilt per test; each test then does its own real
+   * git work, which is the point of the suite and stays untouched. Only the
+   * shared starting state is hoisted, and each test still receives a private
+   * copy it may freely mutate.
+   */
+  let pristine;
+
+  before(() => {
+    pristine = fs.realpathSync.native(makeTempDir('git-cleanup-cm-seed-'));
+    run(pristine, 'init', '-b', 'main');
+    seedGitIdentity(pristine);
+    writeFile(pristine, 'README.md', 'root\n');
+    run(pristine, 'add', '.');
+    run(pristine, 'commit', '-m', 'init');
+  });
 
   beforeEach(() => {
-    repo = fs.realpathSync.native(makeTempDir('git-cleanup-cm-'));
-    run(repo, 'init', '-b', 'main');
-    seedGitIdentity(repo);
-    writeFile(repo, 'README.md', 'root\n');
-    run(repo, 'add', '.');
-    run(repo, 'commit', '-m', 'init');
+    repo = fs.realpathSync.native(
+      copyGitRepo(pristine, { prefix: 'git-cleanup-cm-' }),
+    );
   });
 
   afterEach(() => {
     fs.rmSync(repo, { recursive: true, force: true });
+  });
+
+  after(() => {
+    fs.rmSync(pristine, { recursive: true, force: true });
   });
 
   it('reports equivalent: true for a squash-orphaned branch', () => {

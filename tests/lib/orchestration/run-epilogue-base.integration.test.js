@@ -13,14 +13,14 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
-import { afterEach, beforeEach, describe, it } from 'node:test';
+import { after, afterEach, before, beforeEach, describe, it } from 'node:test';
 
 import {
   resolveRunBaseSha,
   runPlanRunEpilogue,
 } from '../../../.agents/scripts/lib/orchestration/run-epilogue.js';
 import { makeTempDir } from '../../../.agents/scripts/lib/test-temp.js';
-import { seedGitIdentity } from '../../fixtures/git-fixture.js';
+import { copyGitRepo, seedGitIdentity } from '../../fixtures/git-fixture.js';
 
 // Strip every GIT_* env var so the tmpdir cwd wins even when this suite runs
 // inside a git hook (husky exports GIT_DIR / GIT_WORK_TREE, which would
@@ -66,37 +66,47 @@ function stubProvider(comments) {
 }
 
 describe('run-epilogue combined landed diff (real git, Story #4550)', () => {
+  /** The per-test working copy. */
   let repo;
+  /**
+   * The fixture, built with real git exactly once (Story #5121).
+   *
+   * This history costs 13 `git` spawns and every test used to pay it again in
+   * `beforeEach` — 92 spawns from this file alone. It is built once here and
+   * `fs`-copied per test below, which keeps each test's repo just as isolated
+   * (a fresh directory it may freely mutate) for no subprocess at all.
+   */
+  let pristine;
   /** The commit `main` pointed at before the run's first Story landed. */
   let preRunBase;
 
-  beforeEach(() => {
-    repo = fs.realpathSync.native(makeTempDir('run-epilogue-base-'));
-    run(repo, 'init', '-b', 'main');
-    seedGitIdentity(repo);
+  before(() => {
+    pristine = fs.realpathSync.native(makeTempDir('run-epilogue-base-'));
+    run(pristine, 'init', '-b', 'main');
+    seedGitIdentity(pristine);
 
-    commitFile(repo, 'README.md', 'root\n', 'chore: init');
+    commitFile(pristine, 'README.md', 'root\n', 'chore: init');
     commitFile(
-      repo,
+      pristine,
       'pre-run.txt',
       'before the run\n',
       'chore: pre-run commit',
     );
 
     // This is the commit `main` pointed at before the run's Stories landed.
-    preRunBase = run(repo, 'rev-parse', 'HEAD').trim();
+    preRunBase = run(pristine, 'rev-parse', 'HEAD').trim();
 
     // The run's two Stories land as squash-merges. `normalizePrTitle` in the
     // close pipeline guarantees the `(#<storyId>)` suffix on the PR title,
     // and GitHub uses the PR title as the squash subject on main.
     commitFile(
-      repo,
+      pristine,
       'story-101.txt',
       'from 101\n',
       'fix(cli): first story of the run (#101) (#900)',
     );
     commitFile(
-      repo,
+      pristine,
       'story-102.txt',
       'from 102\n',
       'feat(core): second story of the run (#102) (#901)',
@@ -105,10 +115,10 @@ describe('run-epilogue combined landed diff (real git, Story #4550)', () => {
     // A later, unrelated commit that merely *mentions* the Story ids in prose
     // — the earliest-merge walk must not be fooled into anchoring on it, and
     // the bare `#101` substring must not out-rank the `(#101)` marker.
-    fs.writeFileSync(path.join(repo, 'later.txt'), 'later\n');
-    run(repo, 'add', '.');
+    fs.writeFileSync(path.join(pristine, 'later.txt'), 'later\n');
+    run(pristine, 'add', '.');
     run(
-      repo,
+      pristine,
       'commit',
       '-m',
       'docs: follow-up',
@@ -119,11 +129,21 @@ describe('run-epilogue combined landed diff (real git, Story #4550)', () => {
     // Simulate the post-land main checkout: `origin/main` exists as a
     // remote-tracking ref and HEAD *equals* it. This is exactly the state in
     // which the old `origin/main...HEAD` diff returned zero files.
-    run(repo, 'update-ref', 'refs/remotes/origin/main', 'HEAD');
+    run(pristine, 'update-ref', 'refs/remotes/origin/main', 'HEAD');
+  });
+
+  beforeEach(() => {
+    repo = fs.realpathSync.native(
+      copyGitRepo(pristine, { prefix: 'run-epilogue-base-' }),
+    );
   });
 
   afterEach(() => {
     fs.rmSync(repo, { recursive: true, force: true });
+  });
+
+  after(() => {
+    fs.rmSync(pristine, { recursive: true, force: true });
   });
 
   it('pins the structural bug: `origin/main...HEAD` is empty where the real diff is not', () => {

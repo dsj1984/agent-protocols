@@ -16,6 +16,7 @@
 import { execFileSync } from 'node:child_process';
 import {
   appendFileSync,
+  cpSync,
   existsSync,
   readFileSync,
   statSync,
@@ -102,6 +103,34 @@ export function makeGitRepo({
   );
 
   return dir;
+}
+
+/**
+ * Copy an already-built fixture repository — **with no subprocess at all**.
+ *
+ * This is the lever for the suite's git budget (Story #5121). The costly
+ * fixture shape is a multi-commit repo rebuilt in `beforeEach`: one
+ * `run-epilogue-base` fixture is 13 `git` spawns, and six tests paid it six
+ * times over. Building it once per file in `before()` and handing each test a
+ * filesystem copy replaces every rebuild with an `fs.cpSync` — the repo is a
+ * directory of files, and duplicating it needs no git at all.
+ *
+ * Safe because a `git init` repository is position-independent: its
+ * `.git/config` holds no absolute paths (unlike a linked worktree, whose
+ * `gitdir:`/`commondir` pointers would break — do not use this on one).
+ *
+ * Use it whenever a test would otherwise mutate a shared fixture; read-only
+ * tests can share the pristine directory directly.
+ *
+ * @param {string} srcDir - a repo built by `makeGitRepo` or a local `git init`.
+ * @param {object} [opts]
+ * @param {string} [opts.prefix] - Temp-dir name prefix for the copy.
+ * @returns {string} Absolute path to the copy.
+ */
+export function copyGitRepo(srcDir, { prefix = 'git-fixture-copy-' } = {}) {
+  const dst = makeTempDir(prefix);
+  cpSync(srcDir, dst, { recursive: true });
+  return dst;
 }
 
 /**
