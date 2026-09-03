@@ -15,9 +15,18 @@
  *       scores map) or a dropped row set (CRAP rows), while the rest
  *       of the fixture set scores normally. The run does NOT throw.
  *
- * The fixture set is sized above SERIAL_THRESHOLD (8) so the pool path
- * is exercised on every run — otherwise the migration would be invisible
- * here.
+ * Both parity suites drive the pool **explicitly**, via the
+ * `serialThreshold` seam, rather than by materialising a fixture set larger
+ * than the cutover. Story #5109 raised `POOL_SERIAL_THRESHOLD` from 8 to 256
+ * against measured crossover data; a fixture count chosen to clear the old
+ * cutover silently stopped exercising the pool the moment the number moved,
+ * and the tests would have kept passing on the serial path while claiming to
+ * cover the pooled one.
+ *
+ *   (c) concurrency resolution: `runOnPool` honours an explicit option, then
+ *       `MANDREL_POOL_CONCURRENCY`, then the `node:test` clamp — asserted
+ *       through the observable worker count with an injected factory, since
+ *       the resolver itself is module-private.
  */
 
 import assert from 'node:assert/strict';
@@ -33,10 +42,17 @@ import { calculateAll } from '../../.agents/scripts/lib/maintainability-utils.js
 import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
 
 /**
+ * Pool-vs-serial cutover forced on the parity suites. `1` means "never take
+ * the serial path", so a 9-file fixture set exercises the workers regardless
+ * of what `POOL_SERIAL_THRESHOLD` is tuned to.
+ */
+const FORCE_POOL = 1;
+
+/**
  * Generate N small but non-trivial JS files under `dir`, each shaped so
  * escomplex emits a single named function with a stable cyclomatic
- * count. The fixture is intentionally above `SERIAL_THRESHOLD` so the
- * pool path is the one under test.
+ * count. The count is deliberately small: the pooled path is selected by
+ * `FORCE_POOL`, not by out-sizing the cutover.
  */
 function writeJsFixtures(dir, count, prefix = 'f') {
   const files = [];
@@ -112,7 +128,6 @@ describe('cpu-pool — byte-for-byte parity with serial baseline', () => {
   it('maintainability calculateAll: pool output matches in-process scores', async () => {
     const caseDir = path.join(workDir, 'maintainability-parity');
     fs.mkdirSync(caseDir, { recursive: true });
-    // 9 fixtures > SERIAL_THRESHOLD (8) so the pool path runs.
     const files = writeJsFixtures(caseDir, 9);
 
     // Reference: build the same map by calling the synchronous engine
@@ -129,7 +144,9 @@ describe('cpu-pool — byte-for-byte parity with serial baseline', () => {
         .map((k) => [k, reference[k]]),
     );
 
-    const fromPool = await calculateAll(files);
+    const fromPool = await calculateAll(files, {
+      serialThreshold: FORCE_POOL,
+    });
 
     // Same keys in the same order, same numeric values.
     assert.deepStrictEqual(
@@ -156,6 +173,7 @@ describe('cpu-pool — byte-for-byte parity with serial baseline', () => {
       coverage,
       requireCoverage: true,
       cwd: caseDir,
+      serialThreshold: FORCE_POOL,
     });
 
     // Every fixture surfaces exactly one row (one function per file).
@@ -220,7 +238,7 @@ describe('cpu-pool — parse-error isolation', () => {
     fs.writeFileSync(badPath, '@@@@ not valid javascript @@@@\n}}}}\n');
 
     const all = [...goodFiles, badPath];
-    const scores = await calculateAll(all);
+    const scores = await calculateAll(all, { serialThreshold: FORCE_POOL });
 
     // 11 good files surface; the bad file either drops out (null
     // score filtered) or scores 0. Assert at least the 11 are present
@@ -248,6 +266,7 @@ describe('cpu-pool — parse-error isolation', () => {
       coverage,
       requireCoverage: true,
       cwd: caseDir,
+      serialThreshold: FORCE_POOL,
     });
 
     // The bad file was scanned (it has a coverage entry so requireCoverage
@@ -534,5 +553,82 @@ describe('runOnPool — injected workerFactory', () => {
       workerFactory: factory,
     });
     assert.deepStrictEqual(results, [11, 21]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// (e) concurrency resolution — explicit option, then MANDREL_POOL_CONCURRENCY,
+//     then the node:test clamp, then availableParallelism (Story #5109).
+//
+// The resolver is module-private, so the contract is asserted where it is
+// observable: how many worker handles the pool actually builds. The fake
+// factory answers every dispatch synchronously, so a worker is only built
+// when the scheduler genuinely wanted another lane.
+// ---------------------------------------------------------------------------
+
+describe('runOnPool — concurrency resolution', () => {
+  /** Run `items` through the pool, returning how many handles were built. */
+  async function countWorkers(items, opts = {}) {
+    let built = 0;
+    const factory = () => {
+      built += 1;
+      return new FakeWorker((item, handle) => {
+        handle.emit('message', { ok: true, result: item });
+      });
+    };
+    const results = await runOnPool('fake://script', items, {
+      ...opts,
+      workerFactory: factory,
+    });
+    assert.deepStrictEqual(results, items, 'results must survive the bound');
+    return built;
+  }
+
+  const withEnv = async (value, fn) => {
+    const had = Object.hasOwn(process.env, 'MANDREL_POOL_CONCURRENCY');
+    const previous = process.env.MANDREL_POOL_CONCURRENCY;
+    if (value === null) delete process.env.MANDREL_POOL_CONCURRENCY;
+    else process.env.MANDREL_POOL_CONCURRENCY = value;
+    try {
+      return await fn();
+    } finally {
+      if (had) process.env.MANDREL_POOL_CONCURRENCY = previous;
+      else delete process.env.MANDREL_POOL_CONCURRENCY;
+    }
+  };
+
+  const items = Array.from({ length: 64 }, (_, i) => i);
+
+  it('MANDREL_POOL_CONCURRENCY bounds a pool that requested no width', async () => {
+    const built = await withEnv('1', () => countWorkers(items));
+    assert.strictEqual(built, 1, 'env override must cap the pool at one lane');
+  });
+
+  it('an explicit concurrency wins over the env override', async () => {
+    const built = await withEnv('1', () =>
+      countWorkers(items, { concurrency: 3 }),
+    );
+    assert.strictEqual(built, 3, 'the caller knows its own budget');
+  });
+
+  it('clamps to 4 under node:test when nothing else is specified', async () => {
+    // This file *is* a node:test child, so NODE_TEST_CONTEXT is set and the
+    // clamp is the effective default. Without it the pool would open one lane
+    // per core inside every test process the runner has already fanned out.
+    assert.ok(
+      process.env.NODE_TEST_CONTEXT,
+      'expected to be running under the node:test runner',
+    );
+    const built = await withEnv(null, () => countWorkers(items));
+    assert.strictEqual(built, 4, 'node:test context clamps the pool to 4');
+  });
+
+  it('falls through a non-numeric env override rather than collapsing', async () => {
+    const built = await withEnv('not-a-number', () => countWorkers(items));
+    assert.strictEqual(
+      built,
+      4,
+      'a typo must degrade to the next rule, not to a single lane',
+    );
   });
 });

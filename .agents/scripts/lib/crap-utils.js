@@ -21,7 +21,10 @@ import {
 const CRAP_WORKER_URL = new URL('./workers/crap-worker.js', import.meta.url);
 
 // Pool-vs-serial cutover — single-sourced in cpu-pool.js (see the
-// POOL_SERIAL_THRESHOLD docstring for the tuning rationale).
+// POOL_SERIAL_THRESHOLD docstring for the tuning rationale). Callers may
+// override it per scan via `serialThreshold`, which is how the parity tests
+// drive the pooled path without materialising a batch bigger than the
+// cutover (Story #5109 raised it from 8 to 256).
 const SERIAL_THRESHOLD = POOL_SERIAL_THRESHOLD;
 // 1.1.0 — TypeScript support landed in 5.29.0. Bumped from 1.0.0 because
 // the scanner now emits CRAP rows for TS/TSX paths that the previous
@@ -393,6 +396,7 @@ export async function scanAndScore({
   ignoreGlobs = [],
   preScannedFiles = null,
   incremental = null,
+  serialThreshold = SERIAL_THRESHOLD,
 }) {
   if (!Array.isArray(targetDirs)) {
     throw new TypeError('scanAndScore: targetDirs must be an array');
@@ -430,7 +434,7 @@ export async function scanAndScore({
   // Serial below the pool cutover, and ALWAYS in incremental mode: the
   // per-file baseline lookup Maps the join needs do not cross the worker
   // boundary (Story #4981).
-  const runSerial = queue.length < SERIAL_THRESHOLD || Boolean(incremental);
+  const runSerial = queue.length < serialThreshold || Boolean(incremental);
   const perFile = runSerial
     ? queue.map((item) => ({ item, result: scoreFileSerial(item, coverage) }))
     : await scoreFilesViaPool(queue, coverage);

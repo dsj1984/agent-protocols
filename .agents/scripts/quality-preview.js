@@ -381,20 +381,33 @@ export async function runCli({
   const staged = parseStagedFlag(argv);
   const ref = staged ? null : (parseChangedSinceArg(argv) ?? 'HEAD');
 
-  const [miResult, crapResult] = await Promise.all([
-    runMi({ cwd, staged, changedSinceRef: ref }).catch((err) => {
+  // Story #5109 — the two gates run **one after the other**, not under a
+  // `Promise.all`. Each scores its batch with its own `runOnPool` budget
+  // sized to `os.availableParallelism()`, so overlapping them oversubscribed
+  // the host by 2x and stacked two escomplex heaps: a 58-file preview peaked
+  // at 1.0-1.2 GB RSS for 3.9 s of CPU. Serialising them bounds the preview
+  // to one `availableParallelism` of workers and one heap at a time. The two
+  // runners share no state and neither reads the other's envelope, so the
+  // emitted envelopes — and therefore the merged table and the exit code —
+  // are identical either way; only the peak cost differs.
+  const miResult = await runMi({ cwd, staged, changedSinceRef: ref }).catch(
+    (err) => {
       stderr.write(
         `[quality:preview] MI runner failed: ${err?.message ?? err}\n`,
       );
       return { exitCode: 1, envelope: null };
-    }),
-    runCrap({ cwd, staged, changedSinceRef: ref }).catch((err) => {
-      stderr.write(
-        `[quality:preview] CRAP runner failed: ${err?.message ?? err}\n`,
-      );
-      return { exitCode: 1, envelope: null };
-    }),
-  ]);
+    },
+  );
+  const crapResult = await runCrap({
+    cwd,
+    staged,
+    changedSinceRef: ref,
+  }).catch((err) => {
+    stderr.write(
+      `[quality:preview] CRAP runner failed: ${err?.message ?? err}\n`,
+    );
+    return { exitCode: 1, envelope: null };
+  });
   const miExit = miResult.exitCode;
   const crapExit = crapResult.exitCode;
   const miEnvelope = miResult.envelope;

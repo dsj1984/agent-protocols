@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import { createRequire, SourceMap } from 'node:module';
 import path from 'node:path';
+import { resolveDependencyVersion } from './dependency-version.js';
 import { Logger } from './Logger.js';
 
 const require = createRequire(import.meta.url);
@@ -22,18 +23,30 @@ function loadTypeScript() {
   }
 }
 
+let _tsVersion = null;
+
 /**
  * Resolve the `typescript` package version, used to stamp baselines so
  * consumers can detect transpiler drift. Returns `'0.0.0'` when the
  * dependency is unresolvable — callers treat that sentinel as "unknown
  * environment" and may refuse to persist a baseline that includes TS rows.
  *
+ * **The version is read from the package manifest, never by evaluating the
+ * compiler** (Story #5109) — see
+ * [`dependency-version.js`](dependency-version.js) for how, and for what it
+ * cost to do it the other way. The manifest returns the identical string, so
+ * the stamp (and therefore every committed baseline envelope) is
+ * byte-identical either way. The compiler itself is still loaded — lazily, by
+ * `transpileIfNeeded` — the first time a `.ts`/`.tsx` input is actually
+ * transpiled.
+ *
  * @returns {string}
  */
 export function resolveTsTranspilerVersion() {
-  const ts = loadTypeScript();
-  if (ts && typeof ts.version === 'string') return ts.version;
-  return '0.0.0';
+  if (_tsVersion === null) {
+    _tsVersion = resolveDependencyVersion('typescript', require) ?? '0.0.0';
+  }
+  return _tsVersion;
 }
 
 function isTypeScriptPath(filePath) {

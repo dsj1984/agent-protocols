@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { minimatch } from 'minimatch';
+import { Minimatch } from 'minimatch';
 import { canonicalise as canonicalisePath } from './baselines/path-canon.js';
 import { POOL_SERIAL_THRESHOLD, runOnPool } from './cpu-pool.js';
 import { Logger } from './Logger.js';
@@ -28,6 +28,57 @@ const IGNORED_DIRS = new Set([
 ]);
 
 /**
+ * Compiled-matcher cache for `isIgnoredByGlobs`, keyed on the pattern list.
+ *
+ * `minimatch(path, glob)` re-parses `glob` into an AST on every call, so the
+ * scan was paying O(files × globs) glob *compilations* to answer O(files ×
+ * globs) glob *matches* — 12–17 ms over the 619-file tree against 0.5 ms
+ * once the patterns are compiled (Story #5109). The number of distinct
+ * pattern lists in a process is tiny (one per gate), and each list is
+ * config-derived and immutable, so an unbounded `Map` keyed on the joined
+ * patterns is bounded in practice.
+ *
+ * Each entry also memoises the per-path verdict. The baseline gates ask the
+ * same question about the same path many times over — `crap.json` carries
+ * thousands of method rows spread over a few hundred files, and the evaluate
+ * phase filters every row — so the second and later asks about a path cost a
+ * `Map` lookup instead of a globstar walk. Both caches are keyed on
+ * config-derived, immutable inputs, and both are bounded by the tree the
+ * process is scanning.
+ *
+ * `\u0000` is the join separator because it cannot occur in a glob, so two
+ * different lists cannot collide onto one key.
+ *
+ * @type {Map<string, {matchers: import('minimatch').Minimatch[], verdicts: Map<string, boolean>}>}
+ */
+const IGNORE_MATCHER_CACHE = new Map();
+
+/**
+ * Compile (once) the `Minimatch` instances for a pattern list, alongside the
+ * per-path verdict memo that shares their lifetime.
+ *
+ * Non-string patterns are dropped rather than compiled — `minimatch()` would
+ * have thrown on them, and the functional call site never fed it any, so
+ * dropping preserves the observable result set.
+ *
+ * @param {string[]} ignoreGlobs
+ * @returns {{matchers: import('minimatch').Minimatch[], verdicts: Map<string, boolean>}}
+ */
+function ignoreMatcherEntry(ignoreGlobs) {
+  const key = ignoreGlobs.join('\u0000');
+  let entry = IGNORE_MATCHER_CACHE.get(key);
+  if (entry) return entry;
+  entry = {
+    matchers: ignoreGlobs
+      .filter((g) => typeof g === 'string')
+      .map((g) => new Minimatch(g, { dot: true })),
+    verdicts: new Map(),
+  };
+  IGNORE_MATCHER_CACHE.set(key, entry);
+  return entry;
+}
+
+/**
  * Test whether an absolute (or repo-relative) file path matches any of the
  * configured `ignoreGlobs`. This is the single source of truth for how the
  * maintainability scorer decides a file is ignored: both the full-scope
@@ -39,7 +90,11 @@ const IGNORED_DIRS = new Set([
  *
  * Matching mirrors `scanDirectory`: the path is reduced to a canonicalised,
  * POSIX, repo-relative form and tested against each glob with minimatch's
- * `{ dot: true }` so dot-prefixed roots like `.agents/` match.
+ * `{ dot: true }` so dot-prefixed roots like `.agents/` match. The patterns
+ * are compiled at most once per distinct list (see `IGNORE_MATCHER_CACHE`);
+ * the matched set is identical to the functional `minimatch()` call this
+ * replaced, which is what the `gate-scan-fast-path` test pins over the real
+ * configured `ignoreGlobs`.
  *
  * @param {string} filePath absolute or relative path to the source file
  * @param {string[]} ignoreGlobs minimatch patterns; empty/absent is a no-op
@@ -54,7 +109,12 @@ export function isIgnoredByGlobs(filePath, ignoreGlobs = [], cwd) {
     : path.resolve(matchCwd, filePath);
   const rawRel = path.relative(matchCwd, absFilePath).replace(/\\/g, '/');
   const relPath = canonicalisePath(rawRel);
-  return ignoreGlobs.some((g) => minimatch(relPath, g, { dot: true }));
+  const { matchers, verdicts } = ignoreMatcherEntry(ignoreGlobs);
+  const memoised = verdicts.get(relPath);
+  if (memoised !== undefined) return memoised;
+  const verdict = matchers.some((m) => m.match(relPath));
+  verdicts.set(relPath, verdict);
+  return verdict;
 }
 
 /**
@@ -107,7 +167,7 @@ export function scanDirectory(dir, fileList = [], opts = {}) {
  * Calculates maintainability scores for a list of file paths.
  *
  * Each file's transpile-then-analyze unit is dispatched to a
- * worker_threads pool sized to `os.availableParallelism()`. Workers
+ * worker_threads pool whose width `runOnPool` resolves. Workers
  * are recycled across files so TypeScript loads at most once per
  * worker. The pool is bypassed for batches of fewer than
  * `SERIAL_THRESHOLD` files because spawn overhead dominates at small
@@ -129,9 +189,16 @@ export function scanDirectory(dir, fileList = [], opts = {}) {
  * and nothing said so.
  *
  * @param {string[]} paths
+ * @param {{serialThreshold?: number}} [opts] `serialThreshold` overrides the
+ *   pool-vs-serial cutover for this call only. Production callers omit it;
+ *   the parity tests use it to drive the pooled path on a small fixture set
+ *   rather than materialising 256 files to clear the cutover.
  * @returns {Promise<Record<string, number>>}
  */
-export async function calculateAll(paths) {
+export async function calculateAll(paths, opts = {}) {
+  const serialThreshold = Number.isFinite(opts?.serialThreshold)
+    ? opts.serialThreshold
+    : SERIAL_THRESHOLD;
   const cwd = process.cwd();
   const indexed = paths.map((p) => ({
     abs: p,
@@ -139,7 +206,7 @@ export async function calculateAll(paths) {
   }));
 
   let perFile;
-  if (indexed.length < SERIAL_THRESHOLD) {
+  if (indexed.length < serialThreshold) {
     perFile = indexed.map(({ abs, relPath }) => {
       try {
         return { relPath, ...scoreFile(abs) };
