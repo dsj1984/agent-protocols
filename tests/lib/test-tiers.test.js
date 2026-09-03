@@ -12,21 +12,70 @@ import {
 } from '../../.agents/scripts/lib/test-tiers.js';
 
 test('parseTierArgv defaults to full', () => {
-  assert.deepEqual(parseTierArgv(['--grep', 'foo']), {
+  assert.deepEqual(parseTierArgv([]), { tier: 'full', rest: [] });
+  assert.deepEqual(parseTierArgv(['tests/one.test.js']), {
     tier: 'full',
-    rest: ['--grep', 'foo'],
+    rest: ['tests/one.test.js'],
   });
 });
 
 test('parseTierArgv extracts tier and remainder', () => {
-  assert.deepEqual(parseTierArgv(['--tier', 'quick', '--grep', 'x']), {
-    tier: 'quick',
-    rest: ['--grep', 'x'],
-  });
+  assert.deepEqual(
+    parseTierArgv(['--tier', 'quick', '--test-name-pattern', 'x']),
+    { tier: 'quick', rest: ['--test-name-pattern', 'x'] },
+  );
+});
+
+test('parseTierArgv accepts the e2e tier', () => {
+  assert.deepEqual(parseTierArgv(['--tier', 'e2e']), { tier: 'e2e', rest: [] });
 });
 
 test('parseTierArgv rejects unknown tier', () => {
   assert.throws(() => parseTierArgv(['--tier', 'nope']), /quick, integration/);
+  assert.throws(() => parseTierArgv(['--tier', 'nope']), /e2e/);
+});
+
+// ---------------------------------------------------------------------------
+// Story #5111 — unknown flags fail loudly.
+//
+// `node --test` reads an unrecognized `--flag` as another *file pattern*, so
+// forwarding one produced a run that matched nothing, printed a plausible
+// summary and exited 0. The rejection is what makes a typo visible.
+// ---------------------------------------------------------------------------
+
+test('parseTierArgv rejects an unrecognized flag, naming the accepted set', () => {
+  assert.throws(
+    () => parseTierArgv(['--tier', 'quick', '--bogus']),
+    (err) => {
+      assert.match(err.message, /--bogus/);
+      assert.match(err.message, /--tier <full\|quick\|integration\|e2e>/);
+      assert.match(err.message, /--test-name-pattern/);
+      assert.match(err.message, /--test-only/);
+      return true;
+    },
+  );
+});
+
+test('parseTierArgv rejects an unrecognized flag with no --tier present', () => {
+  assert.throws(() => parseTierArgv(['--bogus']), /unrecognized argument/);
+});
+
+test('parseTierArgv forwards the documented node --test pass-throughs', () => {
+  assert.deepEqual(parseTierArgv(['--test-only']), {
+    tier: 'full',
+    rest: ['--test-only'],
+  });
+  assert.deepEqual(parseTierArgv(['--test-name-pattern=foo']), {
+    tier: 'full',
+    rest: ['--test-name-pattern=foo'],
+  });
+});
+
+test('parseTierArgv leaves positional file targets alone', () => {
+  assert.deepEqual(parseTierArgv(['--tier', 'quick', 'tests/a.test.js']), {
+    tier: 'quick',
+    rest: ['tests/a.test.js'],
+  });
 });
 
 test('listTestFilesForTier partitions quick vs integration', () => {
@@ -54,15 +103,69 @@ test('listTestFilesForTier partitions quick vs integration', () => {
   fs.rmSync(root, { recursive: true, force: true });
 });
 
-test('listTestFilesForTier full returns the tests + lib + .agents/scripts glob set', () => {
+test('listTestFilesForTier full enumerates every walked test file', () => {
   const root = makeTempDir('tier-full-');
-  fs.mkdirSync(path.join(root, 'tests'), { recursive: true });
+  fs.mkdirSync(path.join(root, 'tests', 'unit'), { recursive: true });
+  fs.mkdirSync(path.join(root, 'lib', 'cli', '__tests__'), { recursive: true });
+  fs.writeFileSync(path.join(root, 'tests', 'unit', 'fast.test.js'), '');
+  fs.writeFileSync(
+    path.join(root, 'tests', 'unit', 'slow.integration.test.js'),
+    '',
+  );
+  fs.writeFileSync(path.join(root, 'lib', 'cli', '__tests__', 'x.test.js'), '');
+
+  // Story #5111: the full tier used to return FULL_TIER_GLOBS verbatim. It
+  // enumerates files now, because `node --test` has no negative pattern and
+  // "everything except tests/e2e/**" is only sayable as a file set.
   assert.deepEqual(listTestFilesForTier('full', root, fs), [
-    'tests/**/*.test.js',
-    'lib/**/__tests__/**/*.test.js',
-    '.agents/scripts/**/__tests__/**/*.test.js',
+    'lib/cli/__tests__/x.test.js',
+    'tests/unit/fast.test.js',
+    'tests/unit/slow.integration.test.js',
   ]);
   fs.rmSync(root, { recursive: true, force: true });
+});
+
+// ---------------------------------------------------------------------------
+// Story #5111 — the e2e tier. `tests/e2e/**` packs the repo and drives real
+// `npm install` spawns, so it leaves every tier `npm test`, `test:quick` and
+// `test:integration` run and gets its own.
+// ---------------------------------------------------------------------------
+
+test('tests/e2e belongs to the e2e tier and to no other tier', () => {
+  const root = makeTempDir('tier-e2e-');
+  fs.mkdirSync(path.join(root, 'tests', 'e2e'), { recursive: true });
+  fs.writeFileSync(
+    path.join(root, 'tests', 'e2e', 'update-chain.integration.test.js'),
+    '',
+  );
+  fs.writeFileSync(path.join(root, 'tests', 'plain.test.js'), '');
+
+  const e2eFile = 'tests/e2e/update-chain.integration.test.js';
+  assert.deepEqual(listTestFilesForTier('e2e', root, fs), [e2eFile]);
+  for (const tier of ['full', 'quick', 'integration']) {
+    assert.ok(
+      !listTestFilesForTier(tier, root, fs).includes(e2eFile),
+      `tier ${tier} must not carry ${e2eFile}`,
+    );
+  }
+  // …and the tier does not swallow anything that is not under tests/e2e/.
+  assert.ok(
+    listTestFilesForTier('full', root, fs).includes('tests/plain.test.js'),
+  );
+  fs.rmSync(root, { recursive: true, force: true });
+});
+
+test('the real repository e2e tier is exactly the tests/e2e suites', () => {
+  const repoRoot = path.resolve(import.meta.dirname, '..', '..');
+  const e2e = listTestFilesForTier('e2e', repoRoot);
+  assert.ok(e2e.length > 0, 'the e2e tier must not be empty');
+  assert.ok(e2e.every((f) => f.startsWith('tests/e2e/')));
+  const full = listTestFilesForTier('full', repoRoot);
+  assert.deepEqual(
+    full.filter((f) => f.startsWith('tests/e2e/')),
+    [],
+    'npm test must not run tests/e2e — that is the whole point of the tier',
+  );
 });
 
 test('quick / integration walk lib/**/__tests__ as a second root', () => {
@@ -158,10 +261,28 @@ test('FULL_TIER_GLOBS names one glob per test walk root', () => {
   ]);
 });
 
-test('listTestFilesForTier("full") returns exactly FULL_TIER_GLOBS', () => {
-  const root = makeTempDir('tier-full-');
-  assert.deepEqual(listTestFilesForTier('full', root), [...FULL_TIER_GLOBS]);
-  fs.rmSync(root, { recursive: true, force: true });
+test('FULL_TIER_GLOBS is the measured surface: a superset of the full tier', () => {
+  // Story #5111. The coverage runner keeps measuring tests/e2e/** even though
+  // `npm test` no longer runs it: c8's NODE_V8_COVERAGE is inherited by the
+  // real `mandrel` child processes those suites spawn, so dropping them from
+  // the measured run would deflate bin/mandrel.js and lib/cli/update.js and
+  // red the coverage ratchet on code nobody touched.
+  const repoRoot = path.resolve(import.meta.dirname, '..', '..');
+  const measured = picomatch(FULL_TIER_GLOBS, { dot: true });
+  const e2e = listTestFilesForTier('e2e', repoRoot);
+  assert.ok(e2e.length > 0);
+  for (const file of e2e) {
+    assert.ok(
+      measured(file),
+      `${file} left the full tier but must stay in the measured surface`,
+    );
+  }
+  for (const file of listTestFilesForTier('full', repoRoot)) {
+    assert.ok(
+      measured(file),
+      `${file} is in the full tier but is not measured`,
+    );
+  }
 });
 
 test('every FULL_TIER_GLOB matches at least one real test file', () => {

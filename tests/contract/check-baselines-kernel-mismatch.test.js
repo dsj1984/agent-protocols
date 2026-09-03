@@ -29,6 +29,7 @@ import { fileURLToPath } from 'node:url';
 
 import { currentKernelVersion } from '../../.agents/scripts/lib/baselines/kernel.js';
 import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
+import { seedGitIdentity } from '../fixtures/git-fixture.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const repoRoot = path.resolve(path.dirname(__filename), '..', '..');
@@ -109,9 +110,7 @@ function setupRepo() {
   // The head (working-tree) baseline written by the test is what carries
   // the mismatched kernel.
   runGit(['init', '--initial-branch=main'], root);
-  runGit(['config', 'user.email', 'contract@example.com'], root);
-  runGit(['config', 'user.name', 'contract'], root);
-  runGit(['config', 'commit.gpgsign', 'false'], root);
+  seedGitIdentity(root, { email: 'contract@example.com', name: 'contract' });
 
   writeJson(path.join(root, 'baselines', 'coverage.json'), coverageEnvelope());
   runGit(['add', '.agentrc.json', 'baselines/coverage.json'], root);

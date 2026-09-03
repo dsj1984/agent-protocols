@@ -74,11 +74,19 @@ import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
  * PATH (the `gh-available` check) — the same precondition the Install Matrix
  * gate already relies on.
  *
- * Tier: the `.integration.test.js` suffix auto-registers this file in the
- * per-PR integration tier (`INTEGRATION_INCLUDE` glob in test-tiers.js) — it is
- * a real `npm pack` + `npm install`, so it is slow by construction and belongs
- * out of the quick tier. Every temp dir and the loopback server are torn down
- * in `afterEach`/`after`.
+ * ## Tier and install budget (Story #5111)
+ *
+ * This file lives in the dedicated **`e2e` tier** (`tests/e2e/**`, see
+ * `listTestFilesForTier` in `.agents/scripts/lib/test-tiers.js`): `npm test`,
+ * `test:quick` and `test:integration` all exclude it, `npm run test:e2e` runs
+ * it, and CI runs that tier as its own per-PR job. It is a real `npm pack` +
+ * real `npm install`, so it is slow by construction and does not belong in the
+ * loop a pre-push hook pays for.
+ *
+ * Within the tier it issues **one** `npm install` per run. The consumer is
+ * seeded once at module load (that install doubles as the warm-cache probe)
+ * and each `it` receives a recursive copy — see `setup()` and `seedConsumer()`.
+ * Every temp dir and the loopback server are torn down in `afterEach`/`after`.
  *
  * Security (security-baseline § Secrets Management / Transport): the only token
  * placed in any env is a non-secret literal dummy used solely to exercise the
@@ -91,7 +99,7 @@ import { execFileSync, spawn, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { after, afterEach, describe, it } from 'node:test';
+import { after, before, describe, it } from 'node:test';
 
 import { REPO_ROOT } from './helpers/cli-harness.js';
 import { startLocalRegistry } from './helpers/local-registry.js';
@@ -134,9 +142,10 @@ const DUMMY_TOKEN = 'mandrel-e2e-dummy-token';
  * (`cache mode is 'only-if-cached' but no cached response is available`).
  *
  * Rather than add a network-dependent online install (per-PR cost + flakiness —
- * the test-health audit already flagged this e2e's cost), we **probe** the
- * cache once and skip the whole suite cleanly with a clear reason when it is
- * cold. The update chain stays covered elsewhere on a cold runner: the
+ * the test-health audit already flagged this e2e's cost), the suite's single
+ * seed install **is** the probe (Story #5111): if it fails, the whole suite
+ * skips cleanly with a clear reason. The update chain stays covered elsewhere
+ * on a cold runner: the
  * activated `lib/cli/__tests__/update*.test.js` unit suites drive `runUpdate`
  * with injected fakes (no cache), and the Install Matrix workflow exercises a
  * real published-package install end to end. The probe + skip mirrors the
@@ -248,13 +257,14 @@ function runBinary(binPath, args, { cwd, env, timeoutMs = UPDATE_TIMEOUT_MS }) {
 }
 
 /**
- * Pack this repo, derive the "current" tarball, and probe the npm cache — all
- * at **module load** so the results are available when `describe` snapshots the
- * `it(..., { skip })` options (see COLD_CACHE_SKIP). Returns the immutable
- * artifacts the suite consumes; sets the module-scoped COLD_CACHE_SKIP as a
- * side effect when the local cache is too cold to resolve consumer deps offline.
+ * Pack this repo, derive the "current" tarball, and install the one master
+ * consumer every test copies — all at **module load** so the results are
+ * available when `describe` snapshots the `it(..., { skip })` options (see
+ * COLD_CACHE_SKIP). Returns the immutable artifacts the suite consumes; sets
+ * the module-scoped COLD_CACHE_SKIP as a side effect when that install fails,
+ * which is what a cache too cold to resolve consumer deps offline looks like.
  *
- * @returns {{ newestTarball: string, currentTarball: string, newestVersion: string, manifest: object, currentVersion: string }}
+ * @returns {{ newestTarball: string, currentTarball: string, newestVersion: string, manifest: object, currentVersion: string, seedDir: string }}
  */
 function setup() {
   // Pack THIS repo into a tarball — the artifact `npm publish` would ship and
@@ -316,32 +326,76 @@ function setup() {
     `failed to derive the current (${currentVersion}) tarball`,
   );
 
-  // Cold-cache availability probe. Do a lightweight offline resolve of the
-  // current tarball into a throwaway temp dir with `--dry-run` (no real
-  // writes): if it exits non-zero the local npm cache lacks the consumer's dep
-  // metadata (ENOTCACHED — a fresh CI runner), so set COLD_CACHE_SKIP and every
-  // `it` skips with a clear reason. Where the cache is warm (a dev machine) it
-  // stays `false` and the suite runs.
-  const probeDir = mkTempDir('mandrel-e2e-cachecheck-');
-  const probe = spawnSync(
+  // Seed the ONE consumer this suite installs (Story #5111), and let that
+  // install double as the cold-cache probe.
+  //
+  // This used to be a throwaway `npm install --dry-run` whose only product was
+  // the yes/no answer, after which each `it` paid for its own real install of
+  // the same tarball into its own temp dir — three `npm install` spawns to
+  // produce two identical consumers plus a discarded resolve. The install IS
+  // the probe: if it exits non-zero, the local npm cache lacks the consumer's
+  // dep metadata (ENOTCACHED on a fresh CI runner), so COLD_CACHE_SKIP is set
+  // and every `it` skips with a clear reason; if it succeeds, the resulting
+  // tree is the master seed every test copies. One spawn, both answers.
+  const seedDir = mkTempDir('mandrel-e2e-seed-');
+  fs.writeFileSync(
+    path.join(seedDir, 'package.json'),
+    `${JSON.stringify(
+      { name: 'update-e2e-consumer', version: '1.0.0', private: true },
+      null,
+      2,
+    )}\n`,
+  );
+  const seedInstall = spawnSync(
     'npm',
     [
       'install',
       currentTarball,
       '--offline',
-      '--dry-run',
       '--ignore-scripts',
       '--no-audit',
       '--no-fund',
     ],
-    { cwd: probeDir, encoding: 'utf8' },
+    { cwd: seedDir, encoding: 'utf8' },
   );
-  if (probe.status !== 0) {
+  if (seedInstall.status !== 0) {
     COLD_CACHE_SKIP =
       'npm cache cold for consumer deps (e.g. ajv metadata); update-chain ' +
       'e2e requires a warm cache — runs locally / where the cache is warm, ' +
       'skipped here';
+    return {
+      newestTarball,
+      currentTarball,
+      newestVersion,
+      manifest,
+      currentVersion,
+      seedDir,
+    };
   }
+
+  // Pre-state invariants, asserted once on the artifact every test copies —
+  // `--ignore-scripts` means `.agents/` is NOT materialized yet, and the
+  // installed binary really is the "current" version (no manifest-rewrite
+  // hack: npm installed it for real). Both used to be re-asserted per test
+  // against a per-test install; asserting them here loses no coverage,
+  // because every consumer handed to an `it` is a byte copy of this tree.
+  assert.ok(
+    !fs.existsSync(path.join(seedDir, '.agents')),
+    'seeded consumer must start with no materialized .agents/',
+  );
+  const seedVersion = spawnSync(
+    process.execPath,
+    [
+      path.join(seedDir, 'node_modules', PACKAGE_NAME, 'bin', 'mandrel.js'),
+      '--version',
+    ],
+    { cwd: seedDir, encoding: 'utf8' },
+  );
+  assert.equal(
+    seedVersion.stdout.trim(),
+    currentVersion,
+    'seeded binary must report the current version',
+  );
 
   return {
     newestTarball,
@@ -349,17 +403,18 @@ function setup() {
     newestVersion,
     manifest,
     currentVersion,
+    seedDir,
   };
 }
 
 // Run setup at module load (before `describe` snapshots the `it` skip options).
-const {
-  newestTarball,
-  currentTarball,
-  newestVersion,
-  manifest,
-  currentVersion,
-} = setup();
+const { newestTarball, newestVersion, manifest, seedDir } = setup();
+
+/**
+ * The install `mandrel update` is told to run. Offline against the packed
+ * tarball, so the chain's install boundary is real but hermetic.
+ */
+const INSTALL_CMD = `npm install --offline --ignore-scripts --no-audit --no-fund ${newestTarball}`;
 
 describe('mandrel update — real-binary upgrade chain (e2e)', () => {
   /** @type {string[]} per-test consumer dirs, reaped in afterEach. */
@@ -367,64 +422,75 @@ describe('mandrel update — real-binary upgrade chain (e2e)', () => {
   /** @type {Awaited<ReturnType<typeof startLocalRegistry>> | null} */
   let registry = null;
 
-  afterEach(async () => {
+  /**
+   * The one real upgrade this suite performs, and its result.
+   *
+   * Both cases need a consumer that has been through the chain once — the
+   * first to assert on that run, the second to have something already-current
+   * to re-run against. Performing it twice meant a second real
+   * `npm install --offline` of the same tarball to reach a state the first
+   * case had already produced. It happens once now, here.
+   *
+   * @type {{ dir: string, binPath: string, run: Awaited<ReturnType<typeof runBinary>> } | null}
+   */
+  let upgraded = null;
+
+  before(async () => {
+    if (COLD_CACHE_SKIP) return;
+    const { dir, binPath } = seedConsumer();
+    registry = await startLocalRegistry({
+      tarballPath: newestTarball,
+      version: newestVersion,
+      manifest,
+    });
+    // Drive the REAL update chain ASYNC (see runBinary — the in-process
+    // registry must keep answering `npm view` while the child runs). The
+    // install uses --install-cmd so it pulls the tarball offline; the
+    // `npm view` target probe hits the loopback registry.
+    const run = await runBinary(
+      binPath,
+      ['update', '--install-cmd', INSTALL_CMD],
+      {
+        cwd: dir,
+        env: updateEnv(registry.url),
+      },
+    );
+    upgraded = { dir, binPath, run };
+  });
+
+  after(async () => {
     if (registry) {
       await registry.close();
       registry = null;
     }
-    // Reap only the per-test consumer dirs; the shared pack/extract/probe dirs
-    // created in `setup()` survive until the final `after`.
     for (const dir of consumerDirs) {
       fs.rmSync(dir, { recursive: true, force: true });
     }
     consumerDirs = [];
-  });
-
-  after(() => {
     while (createdDirs.length > 0) {
       fs.rmSync(createdDirs.pop(), { recursive: true, force: true });
     }
   });
 
   /**
-   * Scaffold a temp consumer whose installed `mandrel` is genuinely at
-   * `currentVersion` (installed from the derived current tarball), with NO
-   * `.agents/` materialized yet — exactly the pre-upgrade state.
+   * Hand this `it` its own consumer: a recursive **copy** of the master seed
+   * installed once at module load, whose `mandrel` is genuinely at
+   * `currentVersion` with NO `.agents/` materialized — the pre-upgrade state.
+   *
+   * Copying rather than re-installing is the whole point of Story #5111: an
+   * `npm install --offline` of the same tarball into a second temp dir
+   * reproduces a tree we already have, at the cost of a full resolve + write
+   * pass, and this suite did it once per test. `verbatimSymlinks` keeps
+   * `node_modules/.bin/*` as the relative links npm wrote — the default would
+   * rewrite them to absolute paths pointing back into the master seed, which
+   * is exactly the cross-test coupling a per-test consumer exists to avoid.
    *
    * @returns {{ dir: string, binPath: string }}
    */
   function seedConsumer() {
     const dir = mkTempDir('mandrel-e2e-update-');
     consumerDirs.push(dir);
-    fs.writeFileSync(
-      path.join(dir, 'package.json'),
-      `${JSON.stringify(
-        { name: 'update-e2e-consumer', version: '1.0.0', private: true },
-        null,
-        2,
-      )}\n`,
-    );
-
-    // Install the genuine `currentVersion` tarball offline (deps come from the
-    // warm npm cache), skipping lifecycle scripts so `.agents/` is NOT
-    // materialized yet — the pre-upgrade state.
-    const install = spawnSync(
-      'npm',
-      [
-        'install',
-        currentTarball,
-        '--offline',
-        '--ignore-scripts',
-        '--no-audit',
-        '--no-fund',
-      ],
-      { cwd: dir, encoding: 'utf8' },
-    );
-    assert.equal(
-      install.status,
-      0,
-      `seed install failed (status ${String(install.status)}):\n${install.stderr}`,
-    );
+    fs.cpSync(seedDir, dir, { recursive: true, verbatimSymlinks: true });
 
     const binPath = path.join(
       dir,
@@ -433,20 +499,17 @@ describe('mandrel update — real-binary upgrade chain (e2e)', () => {
       'bin',
       'mandrel.js',
     );
-    // Pre-state invariants: no .agents/ yet, and the installed version really is
-    // the "current" one (no manifest-rewrite hack — npm installed it for real).
+    // Pre-state invariants for THIS consumer. The version assertion lives on
+    // the master seed (see `setup`), which every copy is byte-identical to;
+    // what has to be true here is that the copy actually carries the payload
+    // and is still pre-materialization.
+    assert.ok(
+      fs.existsSync(binPath),
+      `copied consumer is missing the seeded binary at ${binPath}`,
+    );
     assert.ok(
       !fs.existsSync(path.join(dir, '.agents')),
       'consumer must start with no materialized .agents/',
-    );
-    const ver = spawnSync(process.execPath, [binPath, '--version'], {
-      cwd: dir,
-      encoding: 'utf8',
-    });
-    assert.equal(
-      ver.stdout.trim(),
-      currentVersion,
-      'seeded binary must report the current version',
     );
 
     return { dir, binPath };
@@ -455,24 +518,7 @@ describe('mandrel update — real-binary upgrade chain (e2e)', () => {
   it('upgrades current → newest, re-materializes .agents/, and doctor reports ready', {
     skip: COLD_CACHE_SKIP,
   }, async () => {
-    const { dir, binPath } = seedConsumer();
-
-    registry = await startLocalRegistry({
-      tarballPath: newestTarball,
-      version: newestVersion,
-      manifest,
-    });
-
-    // Drive the REAL update chain ASYNC (see runBinary — the in-process
-    // registry must keep answering `npm view` while the child runs). The
-    // install uses --install-cmd so it pulls the tarball offline; the
-    // `npm view` target probe hits the loopback registry (newest = newestVersion).
-    const installCmd = `npm install --offline --ignore-scripts --no-audit --no-fund ${newestTarball}`;
-    const run = await runBinary(
-      binPath,
-      ['update', '--install-cmd', installCmd],
-      { cwd: dir, env: updateEnv(registry.url) },
-    );
+    const { dir, binPath, run } = upgraded;
 
     const detail = `\n--- stdout ---\n${run.stdout}\n--- stderr ---\n${run.stderr}`;
 
@@ -525,19 +571,11 @@ describe('mandrel update — real-binary upgrade chain (e2e)', () => {
   it('is re-runnable: a second update on the now-current consumer is a no-op (already up to date)', {
     skip: COLD_CACHE_SKIP,
   }, async () => {
-    // First update brings the consumer to newest.
-    const { dir, binPath } = seedConsumer();
-    registry = await startLocalRegistry({
-      tarballPath: newestTarball,
-      version: newestVersion,
-      manifest,
-    });
-    const installCmd = `npm install --offline --ignore-scripts --no-audit --no-fund ${newestTarball}`;
-    const first = await runBinary(
-      binPath,
-      ['update', '--install-cmd', installCmd],
-      { cwd: dir, env: updateEnv(registry.url) },
-    );
+    // Start from a COPY of the already-upgraded consumer, not from a second
+    // real upgrade of a fresh seed: the first run is setup for this case, and
+    // repeating it bought nothing but another `npm install`. A copy also keeps
+    // this case independent of whatever the first one did to its own tree.
+    const first = upgraded.run;
     assert.ok(!first.timedOut, `first update timed out:\n${first.stderr}`);
     assert.equal(
       first.status,
@@ -545,12 +583,23 @@ describe('mandrel update — real-binary upgrade chain (e2e)', () => {
       `first update failed:\n${first.stdout}\n${first.stderr}`,
     );
 
+    const dir = mkTempDir('mandrel-e2e-rerun-');
+    consumerDirs.push(dir);
+    fs.cpSync(upgraded.dir, dir, { recursive: true, verbatimSymlinks: true });
+    const binPath = path.join(
+      dir,
+      'node_modules',
+      PACKAGE_NAME,
+      'bin',
+      'mandrel.js',
+    );
+
     // Second update: current === newest AND .agents/ matches the payload, so the
     // drift-aware short-circuit reports "Already up to date" and performs no
     // install (idempotency — instructions.md § 3.4).
     const second = await runBinary(
       binPath,
-      ['update', '--install-cmd', installCmd],
+      ['update', '--install-cmd', INSTALL_CMD],
       { cwd: dir, env: updateEnv(registry.url) },
     );
     const detail = `\n--- stdout ---\n${second.stdout}\n--- stderr ---\n${second.stderr}`;

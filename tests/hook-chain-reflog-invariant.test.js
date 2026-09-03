@@ -40,6 +40,7 @@ import {
 import { getChangedFiles } from '../.agents/scripts/lib/changed-files.js';
 import { runCapture } from '../.agents/scripts/lib/coverage-capture.js';
 import { makeTempDir } from '../.agents/scripts/lib/test-temp.js';
+import { seedGitIdentity } from './fixtures/git-fixture.js';
 
 // ---------------------------------------------------------------------------
 // The mutating-subcommand set. Any first-arg in this list — when passed
@@ -162,9 +163,7 @@ function makeHookFixture() {
   const dir = makeTempDir('hook-reflog-');
   const run = gitInRepo(dir);
   run('init', '--initial-branch=main');
-  run('config', 'user.email', 'test@example.com');
-  run('config', 'user.name', 'Test');
-  run('config', 'commit.gpgsign', 'false');
+  seedGitIdentity(dir);
   // Seed commit so HEAD resolves.
   writeFileSync(path.join(dir, 'README.md'), '# repro\n');
   run('add', 'README.md');

@@ -29,6 +29,7 @@ import path from 'node:path';
 import test from 'node:test';
 import { makeTempDir } from '../../../.agents/scripts/lib/test-temp.js';
 import { WorktreeManager } from '../../../.agents/scripts/lib/worktree-manager.js';
+import { seedGitIdentity } from '../../fixtures/git-fixture.js';
 
 const SILENT_LOGGER = { info() {}, warn() {}, error() {} };
 
@@ -48,9 +49,7 @@ function mkTmpRepo() {
       env: CLEAN_ENV,
     });
   run(tmp, 'init', '-b', 'main');
-  run(tmp, 'config', 'user.email', 'test@example.com');
-  run(tmp, 'config', 'user.name', 'Test');
-  run(tmp, 'config', 'commit.gpgsign', 'false');
+  seedGitIdentity(tmp);
   fs.writeFileSync(path.join(tmp, 'README.md'), '# test\n');
   run(tmp, 'add', '.');
   run(tmp, 'commit', '-m', 'init');

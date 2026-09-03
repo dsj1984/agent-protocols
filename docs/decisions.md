@@ -60,12 +60,13 @@ the floor-vs-ratchet policy are tooling commitments rather than ADRs and live in
 
 <!-- ADR-INDEX:START -->
 
-**In force (37).** Each governs the surface named beside it.
+**In force (38).** Each governs the surface named beside it.
 A `Status` of `Accepted in part` means some clause of the entry has been
 superseded — open it before citing it.
 
 | Decision | Governs | Surface | Status |
 | --- | --- | --- | --- |
+| [`20260902-5111`](#adr-20260902-5111-keep-process-isolation-in-the-test-runner) | Keep process isolation in the test runner | `.agents/scripts/lib/test-runner-contract.js` | Accepted |
 | [`20260828-5077a`](#adr-20260828-5077a-the-dispatch-record-is-the-story-github-surface-not-a-manifest-artifact) | The dispatch record is the Story's GitHub surface | `.agents/scripts/lib/orchestration/ticketing.js` | Accepted |
 | [`20260828-5077b`](#adr-20260828-5077b-the-wired-detector-set-is-rework--retry-and-unknown-deliverysignals-keys-are-rejected) | Wired detector set is `{rework, retry}`; `delivery.signals` is closed | `.agents/scripts/lib/config/limits.js` | Accepted |
 | [`20260828-5077c`](#adr-20260828-5077c-performance-signal-telemetry-is-local-only--no-summary-comment-reaches-a-ticket) | Perf-signal telemetry is local-only — no ticket summaries | `.agents/scripts/lib/signals/write.js` | Accepted |
@@ -141,6 +142,60 @@ at the release tag named in the entry.
 - [Earlier ADRs (001 / 002 / 003)](#earlier-adrs-001--002--003)
 
 <!-- ADR-INDEX:END -->
+
+## ADR 20260902-5111: Keep process isolation in the test runner
+
+**Status:** Accepted
+**Date:** 2026-09-02
+**Surface:** `.agents/scripts/lib/test-runner-contract.js`
+**Story:** #5111
+
+### Context
+
+Story #5111 weighed `--test-isolation=none` — one process for every test file
+instead of a fork per file — as the largest available cut to the suite's
+process budget. The evidence for it was a 60-file subset: **7.26 s user**
+isolated versus **3.92 s** without. The Story made the flip conditional on
+measuring the real thing: land it only if user+sys drops at least 30% with
+identical pass counts, else record the trade-off here.
+
+### Decision
+
+`TEST_RUNNER_FLAGS` keeps process isolation. There is no
+`--test-isolation=none` path, partitioned or otherwise.
+
+The measurement inverts the subset result. The full tier was partitioned into
+674 isolation-**safe** files (no `mock.module`, no `process.chdir`, no
+`process.env` mutation) and 31 unsafe ones, and the safe partition was run both
+ways on one machine at one commit:
+
+| Run | Wall | User | Sys | User+sys | Result |
+| --- | --- | --- | --- | --- | --- |
+| Isolated, `--test-concurrency=10` | 43.8 s | 126.8 s | 70.4 s | **197.2 s** | 9597 pass / 0 fail |
+| `--test-isolation=none` | 532.0 s | 96.9 s | 164.2 s | **261.1 s** | 9582 pass / 15 fail |
+
+Not a 30% saving: a 32% **increase** in user+sys, 12x the wall clock, and 15
+failures.
+
+One cause explains both reversals, and it is why a subset cannot be
+extrapolated. Collapsing to one process removes the concurrency that makes the
+isolated run fast — 43.8 s of wall clock against 197.2 s of CPU — so the work
+serializes onto one core, and one heap holding 674 files of modules spends more
+system time in GC than the forks ever cost. The 15 failures are the same
+collapse seen from the state side: the survivors share one module registry and
+one `process.env`, so the temp-root singleton, the env-override resolvers and
+the gate-output suites trip over each other. The partition predicate is a grep,
+and a grep cannot see state shared through a helper.
+
+### Consequences
+
+- The process budget is cut by spawning fewer children **per test** — in-process
+  CLI calls, one shared git-fixture identity, one e2e install — not by removing
+  the fork boundary between files.
+- Per-file `process.env` mutation and module mocking stay legitimate;
+  `rules/test-seams.md` needs no isolation caveat.
+- Re-open only with a whole-tier measurement. A favourable subset is the
+  artefact this entry exists to warn about.
 
 ## ADR 20260802-4938-schema-compilers: A schema is compiled by code, or declares in-file why not
 

@@ -28,6 +28,7 @@ import {
   computeExitCode,
 } from '../../../.agents/scripts/lib/orchestration/git-cleanup/phases/render.js';
 import { makeTempDir } from '../../../.agents/scripts/lib/test-temp.js';
+import { seedGitIdentity } from '../../fixtures/git-fixture.js';
 
 // Strip every GIT_* env var so the tmpdir cwd wins even when this suite
 // runs inside a git hook (husky pre-push exports GIT_DIR / GIT_WORK_TREE /
@@ -76,8 +77,7 @@ describe('git-cleanup prune reporting (real git, Story #4772)', () => {
 
     fs.mkdirSync(origin);
     run(origin, 'init', '-b', 'main');
-    run(origin, 'config', 'user.email', 'test@example.com');
-    run(origin, 'config', 'user.name', 'Test');
+    seedGitIdentity(origin);
     fs.writeFileSync(path.join(origin, 'README.md'), 'root\n');
     run(origin, 'add', '.');
     run(origin, 'commit', '-m', 'init');
@@ -86,8 +86,7 @@ describe('git-cleanup prune reporting (real git, Story #4772)', () => {
     run(origin, 'branch', 'story-319');
 
     run(base, 'clone', origin, clone);
-    run(clone, 'config', 'user.email', 'test@example.com');
-    run(clone, 'config', 'user.name', 'Test');
+    seedGitIdentity(clone);
 
     // GitHub's auto-delete-on-merge, simulated: the branches vanish from the
     // origin while the clone still tracks them.

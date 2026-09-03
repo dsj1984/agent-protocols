@@ -12,6 +12,7 @@ import path from 'node:path';
 import test from 'node:test';
 import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
 import { WorktreeManager } from '../../.agents/scripts/lib/worktree-manager.js';
+import { seedGitIdentity } from '../fixtures/git-fixture.js';
 
 // Strip every GIT_* env var so the integration tests' tmpdir cwd wins.
 // When this suite runs inside a git hook (e.g. husky pre-push) the parent
@@ -43,8 +44,7 @@ test('integration: round-trips worktree add and remove on a real repo', async ()
     });
   try {
     run(tmp, 'init', '-b', 'main');
-    run(tmp, 'config', 'user.email', 'test@example.com');
-    run(tmp, 'config', 'user.name', 'Test');
+    seedGitIdentity(tmp);
     fs.writeFileSync(path.join(tmp, 'README.md'), '# test\n');
     run(tmp, 'add', '.');
     run(tmp, 'commit', '-m', 'init');
@@ -100,8 +100,7 @@ test('integration: reap() tolerates drive-letter-case mismatch on repoRoot (v5.1
     });
   try {
     run(tmp, 'init', '-b', 'main');
-    run(tmp, 'config', 'user.email', 'test@example.com');
-    run(tmp, 'config', 'user.name', 'Test');
+    seedGitIdentity(tmp);
     fs.writeFileSync(path.join(tmp, 'README.md'), '# test\n');
     run(tmp, 'add', '.');
     run(tmp, 'commit', '-m', 'init');
@@ -167,8 +166,7 @@ test('integration: ensure() leaves the resolved hooks dir populated in the workt
     });
   try {
     run(tmp, 'init', '-b', 'main');
-    run(tmp, 'config', 'user.email', 'test@example.com');
-    run(tmp, 'config', 'user.name', 'Test');
+    seedGitIdentity(tmp);
     fs.writeFileSync(path.join(tmp, 'README.md'), '# test\n');
     run(tmp, 'add', '.');
     run(tmp, 'commit', '-m', 'init');

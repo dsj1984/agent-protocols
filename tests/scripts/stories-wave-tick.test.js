@@ -17,8 +17,8 @@
  *   - parseConcurrencyOverride / resolveConcurrencyCap: cap resolution
  *   - buildReadySetEnvelope: continuous selection through planReadySet
  *   - runStoriesWaveTick: end-to-end helper (no subprocess)
- *   - CLI via spawnSync: smoke-tests --help, --dag, --dag-file, --done,
- *     cycle detection
+ *   - CLI: two real spawns (the --help contract and one end-to-end smoke),
+ *     with every other CLI case driving runStoriesWaveTick in-process
  */
 
 import assert from 'node:assert/strict';
@@ -623,6 +623,32 @@ describe('parseConcurrencyOverride', () => {
 // CLI smoke tests (spawnSync)
 // ---------------------------------------------------------------------------
 
+/**
+ * The CLI's observable contract, in-process (Story #5111).
+ *
+ * `main` in `stories-wave-tick.js` parses argv, hands the values to the
+ * exported `runStoriesWaveTick`, and prints the envelope. Only the first and
+ * last of those need a real process, and the two spawns retained below prove
+ * them. Every other case here asserts on the envelope and the exit code —
+ * which is what the CLI's callers actually consume — without paying a `node`
+ * cold start per assertion.
+ *
+ * @param {{ dag?: unknown, dagFile?: string, concurrency?: string,
+ *   done?: string, inFlight?: string }} [opts]
+ * @returns {{ status: number, envelope: object }}
+ */
+function runCli({ dag, dagFile, concurrency, done, inFlight } = {}) {
+  const { envelope, exitCode } = runStoriesWaveTick({
+    dagJson:
+      typeof dag === 'string' || dag === undefined ? dag : JSON.stringify(dag),
+    dagFile,
+    concurrency,
+    done,
+    inFlight,
+  });
+  return { status: exitCode, envelope };
+}
+
 describe('CLI', () => {
   it('--help exits 0 and prints usage', () => {
     const result = spawnSync(process.execPath, [CLI, '--help'], {
@@ -632,7 +658,9 @@ describe('CLI', () => {
     assert.ok(result.stdout.includes('stories-wave-tick'));
   });
 
-  it('--dag with valid input exits 0 and emits the ready-set envelope', () => {
+  // The one real-spawn smoke case: proves argv reaches runStoriesWaveTick,
+  // its envelope reaches stdout, and its exit code reaches the shell.
+  it('--dag with valid input exits 0 and emits the ready-set envelope (real spawn)', () => {
     const dag = JSON.stringify([
       { id: 101, dependsOn: [] },
       { id: 102, dependsOn: [101] },
@@ -650,111 +678,84 @@ describe('CLI', () => {
   });
 
   it('--dag with --done advances the ready set', () => {
-    const dag = JSON.stringify([
-      { id: 101, dependsOn: [] },
-      { id: 102, dependsOn: [101] },
-    ]);
-    const result = spawnSync(
-      process.execPath,
-      [CLI, '--dag', dag, '--done', '101'],
-      { encoding: 'utf8', cwd: REPO_ROOT },
-    );
-    assert.strictEqual(result.status, 0, `stderr: ${result.stderr}`);
-    const envelope = JSON.parse(result.stdout);
+    const { status, envelope } = runCli({
+      dag: [
+        { id: 101, dependsOn: [] },
+        { id: 102, dependsOn: [101] },
+      ],
+      done: '101',
+    });
+    assert.strictEqual(status, 0);
     assert.deepEqual(envelope.ready, [102]);
   });
 
   it('--dag with a cyclic DAG exits 2', () => {
-    const dag = JSON.stringify([
-      { id: 1, dependsOn: [2] },
-      { id: 2, dependsOn: [1] },
-    ]);
-    const result = spawnSync(process.execPath, [CLI, '--dag', dag], {
-      encoding: 'utf8',
+    const { status, envelope } = runCli({
+      dag: [
+        { id: 1, dependsOn: [2] },
+        { id: 2, dependsOn: [1] },
+      ],
     });
-    assert.strictEqual(result.status, 2, `stderr: ${result.stderr}`);
-    const envelope = JSON.parse(result.stdout);
+    assert.strictEqual(status, 2);
     assert.ok(envelope.cycleError);
   });
 
   it('missing --dag or --dag-file exits 1', () => {
-    const result = spawnSync(process.execPath, [CLI], { encoding: 'utf8' });
-    assert.strictEqual(result.status, 1);
+    assert.strictEqual(runCli().status, 1);
   });
 
   it('--dag-file with a valid JSON file exits 0', () => {
     const tmp = makeTempDir('stories-wave-tick-cli-');
     const dagPath = path.join(tmp, 'dag.json');
     writeFileSync(dagPath, JSON.stringify([{ id: 50, dependsOn: [] }]), 'utf8');
-    const result = spawnSync(process.execPath, [CLI, '--dag-file', dagPath], {
-      encoding: 'utf8',
-      cwd: REPO_ROOT,
-    });
-    assert.strictEqual(result.status, 0, `stderr: ${result.stderr}`);
-    const envelope = JSON.parse(result.stdout);
+    const { status, envelope } = runCli({ dagFile: dagPath });
+    assert.strictEqual(status, 0);
     assert.deepEqual(envelope.ready, [50]);
   });
 
   it('--dag emits a numeric concurrencyCap in the envelope', () => {
-    const dag = JSON.stringify([{ id: 101, dependsOn: [] }]);
-    const result = spawnSync(process.execPath, [CLI, '--dag', dag], {
-      encoding: 'utf8',
-      cwd: REPO_ROOT,
-    });
-    assert.strictEqual(result.status, 0, `stderr: ${result.stderr}`);
-    const envelope = JSON.parse(result.stdout);
+    const { status, envelope } = runCli({ dag: [{ id: 101, dependsOn: [] }] });
+    assert.strictEqual(status, 0);
     assert.strictEqual(typeof envelope.concurrencyCap, 'number');
     assert.ok(envelope.concurrencyCap >= 1);
   });
 
   it('--concurrency overrides the resolved cap', () => {
-    const dag = JSON.stringify([{ id: 101, dependsOn: [] }]);
-    const result = spawnSync(
-      process.execPath,
-      [CLI, '--dag', dag, '--concurrency', '8'],
-      { encoding: 'utf8', cwd: REPO_ROOT },
-    );
-    assert.strictEqual(result.status, 0, `stderr: ${result.stderr}`);
-    const envelope = JSON.parse(result.stdout);
+    const { status, envelope } = runCli({
+      dag: [{ id: 101, dependsOn: [] }],
+      concurrency: '8',
+    });
+    assert.strictEqual(status, 0);
     assert.strictEqual(envelope.concurrencyCap, 8);
   });
 
   it('an invalid --concurrency exits 1', () => {
-    const dag = JSON.stringify([{ id: 101, dependsOn: [] }]);
-    const result = spawnSync(
-      process.execPath,
-      [CLI, '--dag', dag, '--concurrency', '0'],
-      { encoding: 'utf8', cwd: REPO_ROOT },
-    );
-    assert.strictEqual(result.status, 1, `stderr: ${result.stderr}`);
-    const envelope = JSON.parse(result.stdout);
+    const { status, envelope } = runCli({
+      dag: [{ id: 101, dependsOn: [] }],
+      concurrency: '0',
+    });
+    assert.strictEqual(status, 1);
     assert.ok(envelope.inputError);
   });
 
   it('--dag forwards a declared file footprint so the overlap guard fires end-to-end', () => {
     // Two unblocked roots touching the same file: parseDag must preserve the
     // footprint and the core must withhold one on this beat.
-    const dag = JSON.stringify([
-      { id: 1, dependsOn: [], files: ['lib/shared.js'] },
-      { id: 2, dependsOn: [], files: ['lib/shared.js'] },
-    ]);
-    const result = spawnSync(process.execPath, [CLI, '--dag', dag], {
-      encoding: 'utf8',
-      cwd: REPO_ROOT,
+    const { status, envelope } = runCli({
+      dag: [
+        { id: 1, dependsOn: [], files: ['lib/shared.js'] },
+        { id: 2, dependsOn: [], files: ['lib/shared.js'] },
+      ],
     });
-    assert.strictEqual(result.status, 0, `stderr: ${result.stderr}`);
-    const envelope = JSON.parse(result.stdout);
+    assert.strictEqual(status, 0);
     assert.deepEqual(envelope.ready, [1]);
   });
 
   it('--dag rejects a malformed files footprint with exit 1', () => {
-    const dag = JSON.stringify([{ id: 1, dependsOn: [], files: [42] }]);
-    const result = spawnSync(process.execPath, [CLI, '--dag', dag], {
-      encoding: 'utf8',
-      cwd: REPO_ROOT,
+    const { status, envelope } = runCli({
+      dag: [{ id: 1, dependsOn: [], files: [42] }],
     });
-    assert.strictEqual(result.status, 1, `stderr: ${result.stderr}`);
-    const envelope = JSON.parse(result.stdout);
+    assert.strictEqual(status, 1);
     assert.ok(envelope.inputError);
     assert.ok(envelope.inputError.includes('files'));
   });
@@ -922,20 +923,12 @@ describe('the beat envelope reports the cap precedence (AC-6)', () => {
     assert.strictEqual(envelope.capPrecedence.exceedsConfigured, true);
   });
 
-  it('the CLI prints the precedence record alongside the cap', () => {
-    const res = spawnSync(
-      process.execPath,
-      [
-        CLI,
-        '--dag',
-        JSON.stringify([{ id: 101, dependsOn: [] }]),
-        '--concurrency',
-        '8',
-      ],
-      { encoding: 'utf8', cwd: REPO_ROOT },
-    );
-    assert.strictEqual(res.status, 0);
-    const envelope = JSON.parse(res.stdout.trim().split('\n').pop());
+  it('the CLI reports the precedence record alongside the cap', () => {
+    const { status, envelope } = runCli({
+      dag: [{ id: 101, dependsOn: [] }],
+      concurrency: '8',
+    });
+    assert.strictEqual(status, 0);
     assert.strictEqual(envelope.concurrencyCap, 8);
     assert.strictEqual(envelope.capPrecedence.source, 'flag');
     assert.strictEqual(typeof envelope.capPrecedence.note, 'string');

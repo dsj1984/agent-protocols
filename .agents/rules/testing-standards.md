@@ -79,6 +79,13 @@ of the pyramid.
 - **Location.** `tests/features/**/*.feature` with step definitions in
   `tests/steps/**` (or the project's equivalent). The companion skill is
   [`stack/qa/playwright-bdd`](../skills/stack/qa/playwright-bdd/SKILL.md).
+- **Run tier.** This tier MUST NOT ride inside the default suite. It is slow
+  by construction — real installs, real browsers, real stacks — and the
+  default suite is what a pre-push hook and every local iteration pay for.
+  Give it its own runner tier and its own CI job, so its cost is charged to
+  the surface whose signal it is. In this repository that is `tests/e2e/**`,
+  the `e2e` tier (`npm run test:e2e`), and the per-PR `e2e` job; the coverage
+  run still measures those files, so nothing leaves the measured surface.
 
 ## Assertion Placement Rule {#assertion-placement}
 

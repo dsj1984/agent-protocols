@@ -102,6 +102,21 @@ describe('runTierPreflight — the preflight actually executes', () => {
     );
   });
 
+  // Story #5111 — the `e2e` tier is new, and a tier absent from the preflight
+  // map does not fail: the lookup falls through to `[]`, so it runs no probe
+  // at all and the omission is invisible in a green run.
+  test('the e2e tier runs its preflight', () => {
+    const { spawn, calls } = recordingSpawn();
+    assert.equal(
+      runTierPreflight({ tier: 'e2e', repoRoot: '/repo', spawn }),
+      0,
+    );
+    assert.deepEqual(
+      calls.map((c) => c.args[0]),
+      [path.join('/repo', '.agents/scripts/test-wrapper.js')],
+    );
+  });
+
   test('the integration tier runs its preflight', () => {
     const { spawn, calls } = recordingSpawn();
     assert.equal(
@@ -117,7 +132,7 @@ describe('runTierPreflight — the preflight actually executes', () => {
   test('every declared tier runs at least one preflight script', () => {
     // The regression this guards is the original defect in its purest form:
     // a tier whose preflight silently runs nothing at all.
-    for (const tier of ['full', 'quick', 'integration']) {
+    for (const tier of ['full', 'quick', 'integration', 'e2e']) {
       const { spawn, calls } = recordingSpawn();
       runTierPreflight({ tier, repoRoot: '/repo', spawn });
       assert.ok(

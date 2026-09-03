@@ -90,13 +90,20 @@ export const TEST_RUNNER_FLAGS = Object.freeze([
  * the spawns `runTierPreflight` actually issues — which is the thing that
  * has to be true.
  */
+const STATE_PROBE_ONLY = Object.freeze(['.agents/scripts/test-wrapper.js']);
+
 const TIER_PREFLIGHT_SCRIPTS = Object.freeze({
   full: Object.freeze([
-    '.agents/scripts/test-wrapper.js',
+    ...STATE_PROBE_ONLY,
     '.agents/scripts/validate-skills.js',
   ]),
-  quick: Object.freeze(['.agents/scripts/test-wrapper.js']),
-  integration: Object.freeze(['.agents/scripts/test-wrapper.js']),
+  quick: STATE_PROBE_ONLY,
+  integration: STATE_PROBE_ONLY,
+  // Story #5111: the `e2e` tier gets the state probe like every other
+  // non-full tier. An absent entry is not a neutral default — the lookup
+  // below falls through to `[]`, so a tier missing from this map runs *no*
+  // preflight at all and the omission is invisible in a green run.
+  e2e: STATE_PROBE_ONLY,
 });
 
 /**
@@ -108,7 +115,7 @@ const TIER_PREFLIGHT_SCRIPTS = Object.freeze({
  * executes, which the npm hook does not under `ignore-scripts=true`.
  *
  * @param {object} [opts]
- * @param {'full' | 'quick' | 'integration'} [opts.tier]
+ * @param {'full' | 'quick' | 'integration' | 'e2e'} [opts.tier]
  * @param {string} [opts.repoRoot] Absolute repository root.
  * @param {typeof spawnSync} [opts.spawn] Injected in tests.
  * @param {string} [opts.execPath] Node binary to spawn; injected in tests.
@@ -127,8 +134,9 @@ export function runTierPreflight({
       stdio: 'inherit',
     });
     if (run.error) throw run.error;
-    const status = run.status ?? 1;
-    if (status !== 0) return status;
+    // A signal-killed child reports `status: null`; treat that as the
+    // reserved failure code rather than letting it read as "not zero, no code".
+    if (run.status !== 0) return run.status ?? 1;
   }
   return 0;
 }

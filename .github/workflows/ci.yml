@@ -306,6 +306,57 @@ jobs:
           node .agents/scripts/check-schema-references.js
           node .agents/scripts/check-baseline-scope.js
 
+  e2e:
+    # Story #5111 — the real-binary tier, as its own job.
+    #
+    # `tests/e2e/**` packs this repository, installs it into a temp consumer
+    # and drives the shipped `mandrel` binary end to end. Measured on the
+    # authoring machine, `update-chain.integration.test.js` alone cost ~7 s of
+    # system time and ~17 s of summed `npm install` wall clock — and every
+    # second of it was charged to `npm test`, so every pre-push hook and every
+    # local iteration paid for a signal that only moves when the release-shaped
+    # install path moves. The tier now leaves `npm test`; this job is what
+    # keeps the per-PR signal.
+    #
+    # Advisory, not required: `branchProtection.requiredChecks` in
+    # `.agentrc.json` stays `lint` / `test` / `baselines`. Two of these three
+    # suites degrade to a documented skip on a fresh runner by design — the
+    # update chain probes for a warm npm cache (ENOTCACHED) and the
+    # interactive-init guard probes for a loadable node-pty addon — so a
+    # required check here would gate merges on cache warmth. The required
+    # coverage job still *executes* these files (`FULL_TIER_GLOBS` in
+    # lib/test-tiers.js is deliberately a superset of the `full` runner tier),
+    # so nothing about the measured surface depends on this job's verdict.
+    name: e2e
+    runs-on: ubuntu-latest
+    # Observed ~2.5 min locally for the whole tier including a real npm pack
+    # and install. 20 minutes is ample headroom and still bounds a wedged
+    # child that outlives the suite's own 180 s per-run timeout.
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node & Install
+        uses: ./.github/actions/setup
+
+      - name: Build node-pty for the PTY init guard
+        # Same rationale as the `validate` job: node-pty ships no Linux
+        # prebuild and the shared setup installs with `--ignore-scripts`, so
+        # without an explicit source build
+        # tests/e2e/init-interactive.integration.test.js skips its guard.
+        # Best-effort + non-fatal — the test's own availability probe still
+        # skips gracefully if this does not yield a loadable binary.
+        run: |
+          ( cd node_modules/node-pty && npx --yes node-gyp rebuild ) || echo "::warning::node-pty source build failed; PTY init guard will skip on this run"
+
+      - name: Run the e2e tier
+        run: npm run test:e2e
+
   windows-smoke:
     # Story #3389 — advisory Windows leg. Exercises bootstrap, command sync,
     # config resolution, and the quick test tier without joining the

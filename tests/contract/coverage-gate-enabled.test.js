@@ -28,6 +28,7 @@ import {
   selectEnabledGates,
 } from '../../.agents/scripts/lib/orchestration/check-baselines/phases/pipeline.js';
 import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
+import { seedGitIdentity } from '../fixtures/git-fixture.js';
 
 const REPO_ROOT = path.resolve(import.meta.dirname, '..', '..');
 const DISPATCHER = path.join(
@@ -78,9 +79,7 @@ function setupRepo(agentrc = REAL_AGENTRC) {
   writeJson(path.join(root, '.agentrc.json'), agentrc);
   writeJson(path.join(root, 'baselines', 'coverage.json'), REAL_BASELINE);
   runGit(['init', '--initial-branch=main'], root);
-  runGit(['config', 'user.email', 'contract@example.com'], root);
-  runGit(['config', 'user.name', 'contract'], root);
-  runGit(['config', 'commit.gpgsign', 'false'], root);
+  seedGitIdentity(root, { email: 'contract@example.com', name: 'contract' });
   runGit(['add', '.agentrc.json', 'baselines/coverage.json'], root);
   runGit(['commit', '-m', 'baseline: initial'], root);
   return root;

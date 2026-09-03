@@ -16,16 +16,18 @@
  * to opt back in for the rare case where a contract test deliberately
  * exercises a sandbox endpoint.
  *
- * Windows arg-length safety: the `quick` / `integration` tiers enumerate
- * explicit test-file targets (they exclude specific slow suites, so a single
- * glob will not do). With ~700+ targets the joined command line crosses the
- * Windows `CreateProcess` ~32 767-char `lpCommandLine` ceiling, and
- * `spawnSync` throws `ENAMETOOLONG` before a single test runs. To stay safe
- * on every platform the runner partitions the targets into chunks whose
- * joined length stays well under that ceiling (`MAX_TARGET_CHARS`) and spawns
- * one `node --test` process per chunk, aggregating the exit codes. The
- * `full` tier (a single recursive `tests` glob) yields exactly one chunk, so
- * its behaviour is unchanged.
+ * Windows arg-length safety: every tier enumerates explicit test-file
+ * targets. `quick` / `integration` always did (they exclude specific slow
+ * suites, so a single glob will not do), and `full` joined them in Story
+ * #5111 — `node --test` has no negative pattern, so "everything except
+ * `tests/e2e/**`" is only sayable as a file set. With ~700+ targets the
+ * joined command line crosses the Windows `CreateProcess` ~32 767-char
+ * `lpCommandLine` ceiling, and `spawnSync` throws `ENAMETOOLONG` before a
+ * single test runs. To stay safe on every platform the runner partitions the
+ * targets into chunks whose joined length stays well under that ceiling
+ * (`MAX_TARGET_CHARS`) and spawns one `node --test` process per chunk,
+ * aggregating the exit codes. On POSIX the far larger
+ * `POSIX_MAX_TARGET_CHARS` budget collapses every tier back into one spawn.
  */
 
 import { spawnSync } from 'node:child_process';
@@ -189,8 +191,9 @@ export function runTestSuite({
   for (const chunk of chunks) {
     const testRun = spawn(
       process.execPath,
-      // `rest` carries pass-through runner flags (`--test-name-pattern`,
-      // `--test-reporter`, …). They precede the targets for the same reason
+      // `rest` carries the documented `node --test` pass-throughs
+      // (`--test-name-pattern`, `--test-only`) — `parseTierArgv` has already
+      // rejected anything else. They precede the targets for the same reason
       // `buildNodeTestArgs` orders them that way: Node stops parsing options
       // at the first positional, so a flag after a target is silently read as
       // another file pattern.
@@ -238,18 +241,22 @@ export function runTestSuite({
  * Exported so the unit test can assert the documented surface without
  * spawning the CLI.
  */
-export const USAGE = `Usage: node .agents/scripts/run-tests.js [--tier <full|quick|integration>] [runner args...]
+export const USAGE = `Usage: node .agents/scripts/run-tests.js [--tier <full|quick|integration|e2e>] [runner args...]
 
 Run the test suite: tier preflight, \`node --test\` over the tier's targets,
 then reserved-temp cleanup — which runs even when the suite fails.
 
 Flags:
-  --tier <full|quick|integration>
-                        Tier to run. Default: full (every \`tests/**/*.test.js\`).
-  --test-name-pattern <re>
-                        Pass-through to \`node --test\`. Every unrecognized
-                        argument is forwarded verbatim, in flag position,
-                        ahead of the file targets.
+  --tier <full|quick|integration|e2e>
+                        Tier to run. Default: full — every test file except
+                        \`tests/e2e/**\`, which only \`--tier e2e\` runs.
+  --test-name-pattern <re>, --test-only
+                        The documented \`node --test\` pass-throughs, forwarded
+                        verbatim in flag position, ahead of the file targets.
+                        Any other \`--flag\` is rejected rather than forwarded:
+                        \`node --test\` reads an unrecognized flag as another
+                        file pattern, so forwarding one ran nothing and
+                        still exited 0.
   --help                Show this message.
 
 Exits with the first non-zero \`node --test\` chunk status, or 2 when the tier
