@@ -1,14 +1,14 @@
 {
   "$schema": "https://mandrel.dev/baselines/context-budget.schema.json",
-  "generatedAt": "2026-08-28T18:23:09.460Z",
+  "generatedAt": "2026-09-03T01:37:26.612Z",
   "toleranceBytes": 2048,
   "tiers": {
     "alwaysLoaded": {
-      "totalBytes": 21245,
+      "totalBytes": 21244,
       "files": [
         {
           "path": ".agentrc.json",
-          "bytes": 1949
+          "bytes": 1948
         },
         {
           "path": ".agents/instructions.md",
@@ -33,7 +33,7 @@
       ]
     },
     "mandatoryRead": {
-      "totalBytes": 353725,
+      "totalBytes": 353728,
       "files": [
         {
           "path": "docs/architecture.md",
@@ -45,16 +45,16 @@
         },
         {
           "path": "docs/decisions.md",
-          "bytes": 173502
+          "bytes": 173508
         },
         {
           "path": "docs/patterns.md",
-          "bytes": 52302
+          "bytes": 52299
         }
       ]
     },
     "workflow": {
-      "totalBytes": 272313,
+      "totalBytes": 272479,
       "files": [
         {
           "path": ".agents/workflows/audit-accessibility.md",
@@ -62,7 +62,7 @@
         },
         {
           "path": ".agents/workflows/audit-adrs.md",
-          "bytes": 13360
+          "bytes": 13659
         },
         {
           "path": ".agents/workflows/audit-architecture.md",
@@ -90,7 +90,7 @@
         },
         {
           "path": ".agents/workflows/audit-documentation.md",
-          "bytes": 12787
+          "bytes": 12654
         },
         {
           "path": ".agents/workflows/audit-navigability.md",
@@ -205,7 +205,7 @@
     ]
   },
   "workflowClosure": {
-    "reachableTotalBytes": 469132,
+    "reachableTotalBytes": 469298,
     "entryPoints": [
       {
         "path": ".agents/workflows/audit-accessibility.md",
@@ -214,8 +214,8 @@
       },
       {
         "path": ".agents/workflows/audit-adrs.md",
-        "mandatoryBytes": 13360,
-        "reachableBytes": 251127
+        "mandatoryBytes": 13659,
+        "reachableBytes": 251293
       },
       {
         "path": ".agents/workflows/audit-architecture.md",
@@ -249,8 +249,8 @@
       },
       {
         "path": ".agents/workflows/audit-documentation.md",
-        "mandatoryBytes": 12787,
-        "reachableBytes": 251127
+        "mandatoryBytes": 12654,
+        "reachableBytes": 251293
       },
       {
         "path": ".agents/workflows/audit-navigability.md",
