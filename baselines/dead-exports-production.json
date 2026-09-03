@@ -1,7 +1,7 @@
 {
   "$schema": "https://mandrel.dev/baselines/dead-exports.schema.json",
   "kernelVersion": "6.17.1",
-  "generatedAt": "2026-08-07T14:16:19.314Z",
+  "generatedAt": "2026-09-03T02:24:54.182Z",
   "mode": "production",
   "rows": [
     {
@@ -23,10 +23,6 @@
     {
       "file": ".agents/scripts/lib/audit-suite/findings.js",
       "symbol": "aggregateBaselineDelta"
-    },
-    {
-      "file": ".agents/scripts/lib/audit-suite/frontmatter-lint.js",
-      "symbol": "*"
     },
     {
       "file": ".agents/scripts/lib/audit-suite/frontmatter.js",
@@ -174,10 +170,6 @@
     },
     {
       "file": ".agents/scripts/lib/baselines/env-overrides.js",
-      "symbol": "MI_DEFAULT_TOLERANCE"
-    },
-    {
-      "file": ".agents/scripts/lib/baselines/env-overrides.js",
       "symbol": "resolveMaintainabilityEnvOverrides"
     },
     {
@@ -235,10 +227,6 @@
     {
       "file": ".agents/scripts/lib/baselines/kinds/maintainability.js",
       "symbol": "MI_REPORT_KERNEL_VERSION"
-    },
-    {
-      "file": ".agents/scripts/lib/baselines/maintainability-baseline-save.js",
-      "symbol": "*"
     },
     {
       "file": ".agents/scripts/lib/baselines/orphan-pruner.js",
@@ -321,10 +309,6 @@
       "symbol": "__testing"
     },
     {
-      "file": ".agents/scripts/lib/bootstrap/branch-protection.js",
-      "symbol": "diffProtection"
-    },
-    {
       "file": ".agents/scripts/lib/bootstrap/commit-push.js",
       "symbol": "BOOTSTRAP_COMMIT_PATHS"
     },
@@ -335,10 +319,6 @@
     {
       "file": ".agents/scripts/lib/bootstrap/hitl-confirm.js",
       "symbol": "ABORT_MESSAGE"
-    },
-    {
-      "file": ".agents/scripts/lib/bootstrap/install-ledger.js",
-      "symbol": "resolveExecutedAction"
     },
     {
       "file": ".agents/scripts/lib/bootstrap/issue-forms-template.js",
@@ -438,10 +418,6 @@
     },
     {
       "file": ".agents/scripts/lib/bootstrap/prompt.js",
-      "symbol": "KNOWN_FLAGS"
-    },
-    {
-      "file": ".agents/scripts/lib/bootstrap/prompt.js",
       "symbol": "normalizePickerChoice"
     },
     {
@@ -494,15 +470,7 @@
     },
     {
       "file": ".agents/scripts/lib/bootstrap/quality-bootstrap.js",
-      "symbol": "FRAMEWORK_PRE_COMMIT"
-    },
-    {
-      "file": ".agents/scripts/lib/bootstrap/quality-bootstrap.js",
       "symbol": "pruneLegacyEpicBaselines"
-    },
-    {
-      "file": ".agents/scripts/lib/bootstrap/quality-bootstrap.js",
-      "symbol": "QUALITY_CONFIG_DEFAULTS"
     },
     {
       "file": ".agents/scripts/lib/bootstrap/summary.js",
@@ -597,10 +565,6 @@
       "symbol": "wantsHelp"
     },
     {
-      "file": ".agents/scripts/lib/cli/parse-numeric.js",
-      "symbol": "*"
-    },
-    {
       "file": ".agents/scripts/lib/cli/standard-args.js",
       "symbol": "FLAG_NAMES"
     },
@@ -642,10 +606,6 @@
     },
     {
       "file": ".agents/scripts/lib/close-validation/runner.js",
-      "symbol": "*"
-    },
-    {
-      "file": ".agents/scripts/lib/close-validation/telemetry.js",
       "symbol": "*"
     },
     {
@@ -765,10 +725,6 @@
       "symbol": "collectRedundantAdvisories"
     },
     {
-      "file": ".agents/scripts/lib/config/sync-agentrc.js",
-      "symbol": "isLeafSchemaRemovable"
-    },
-    {
       "file": ".agents/scripts/lib/config/temp-paths.js",
       "symbol": "_clearMainCheckoutRootCache"
     },
@@ -802,15 +758,7 @@
     },
     {
       "file": ".agents/scripts/lib/coverage-baseline.js",
-      "symbol": "COVERAGE_FINAL_PATH"
-    },
-    {
-      "file": ".agents/scripts/lib/coverage-baseline.js",
       "symbol": "COVERAGE_TOLERANCE"
-    },
-    {
-      "file": ".agents/scripts/lib/coverage-baseline.js",
-      "symbol": "NOISE_EVENT_HEADROOM"
     },
     {
       "file": ".agents/scripts/lib/coverage-baseline.js",
@@ -906,10 +854,6 @@
     },
     {
       "file": ".agents/scripts/lib/duplicate-search.js",
-      "symbol": "rankOpenStoryDuplicates"
-    },
-    {
-      "file": ".agents/scripts/lib/duplicate-search.js",
       "symbol": "tokenize"
     },
     {
@@ -961,20 +905,8 @@
       "symbol": "resolveRepoRoot"
     },
     {
-      "file": ".agents/scripts/lib/errors/index.js",
-      "symbol": "ConflictingTypeLabelsError"
-    },
-    {
       "file": ".agents/scripts/lib/feedback-loop/graduator-core.js",
       "symbol": "createFollowUpIssue"
-    },
-    {
-      "file": ".agents/scripts/lib/feedback-loop/graduator-core.js",
-      "symbol": "CROSS_REPO_DEFERRED_COMMENT_TYPE"
-    },
-    {
-      "file": ".agents/scripts/lib/feedback-loop/graduator-core.js",
-      "symbol": "DEFAULT_RUN_CHILD_TIMEOUT_MS"
     },
     {
       "file": ".agents/scripts/lib/feedback-loop/graduator-core.js",
@@ -983,10 +915,6 @@
     {
       "file": ".agents/scripts/lib/feedback-loop/graduator-core.js",
       "symbol": "probePathStatus"
-    },
-    {
-      "file": ".agents/scripts/lib/feedback-loop/prior-feedback-fetcher.js",
-      "symbol": "extractRecurringDefectClasses"
     },
     {
       "file": ".agents/scripts/lib/feedback-loop/retro-proposals-graduator.js",
@@ -1007,10 +935,6 @@
     {
       "file": ".agents/scripts/lib/feedback-loop/retro-proposals-graduator.js",
       "symbol": "issueNumberFromUrl"
-    },
-    {
-      "file": ".agents/scripts/lib/feedback-loop/retro-proposals-graduator.js",
-      "symbol": "parseRepoSlug"
     },
     {
       "file": ".agents/scripts/lib/findings/classify-finding.js",
@@ -1151,10 +1075,6 @@
     {
       "file": ".agents/scripts/lib/Graph.js",
       "symbol": "transitiveReduction"
-    },
-    {
-      "file": ".agents/scripts/lib/install-cmd-parser.js",
-      "symbol": "parseInstallCmd"
     },
     {
       "file": ".agents/scripts/lib/knip-entry-sync.js",
@@ -1321,10 +1241,6 @@
       "symbol": "decideStashAnswer"
     },
     {
-      "file": ".agents/scripts/lib/orchestration/label-transitions.js",
-      "symbol": "*"
-    },
-    {
       "file": ".agents/scripts/lib/orchestration/light-suitability.js",
       "symbol": "LIGHT_DIFF_CEILINGS"
     },
@@ -1354,14 +1270,6 @@
     },
     {
       "file": ".agents/scripts/lib/orchestration/model-attribution.js",
-      "symbol": "*"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/parked-follow-ons.js",
-      "symbol": "*"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/phase-runner.js",
       "symbol": "*"
     },
     {
@@ -1498,27 +1406,7 @@
     },
     {
       "file": ".agents/scripts/lib/orchestration/pr-watch.js",
-      "symbol": "RECOGNIZED_CHECK_STATES"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/pr-watch.js",
       "symbol": "reduceOutcomes"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/pr-watch.js",
-      "symbol": "STILL_RUNNING"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/reassert-status-column.js",
-      "symbol": "DEFAULT_POLL_ATTEMPTS"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/reassert-status-column.js",
-      "symbol": "DEFAULT_POLL_DELAY_MS"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/recut.js",
-      "symbol": "*"
     },
     {
       "file": ".agents/scripts/lib/orchestration/remote-verifier.js",
@@ -1546,10 +1434,6 @@
     },
     {
       "file": ".agents/scripts/lib/orchestration/review-providers/codex.js",
-      "symbol": "buildCodexReviewPrompt"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/review-providers/codex.js",
       "symbol": "buildCodexUnavailableError"
     },
     {
@@ -1566,14 +1450,6 @@
     },
     {
       "file": ".agents/scripts/lib/orchestration/review-providers/codex.js",
-      "symbol": "DEFAULT_PLUGIN_MARKERS"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/review-providers/codex.js",
-      "symbol": "defaultInvokeCodexReview"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/review-providers/codex.js",
       "symbol": "defaultProbeCodexCommand"
     },
     {
@@ -1587,10 +1463,6 @@
     {
       "file": ".agents/scripts/lib/orchestration/review-providers/findings-renderer.js",
       "symbol": "renderFinding"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/review-providers/findings-renderer.js",
-      "symbol": "renderManualPromptsSection"
     },
     {
       "file": ".agents/scripts/lib/orchestration/review-providers/native.js",
@@ -1645,14 +1517,6 @@
       "symbol": "unwrapEnvelope"
     },
     {
-      "file": ".agents/scripts/lib/orchestration/review-providers/review-depth.js",
-      "symbol": "DEPTH_DIRECTIVES"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/review-providers/review-depth.js",
-      "symbol": "normalizeDepth"
-    },
-    {
       "file": ".agents/scripts/lib/orchestration/review-providers/review-provider-factory.js",
       "symbol": "buildGate"
     },
@@ -1702,23 +1566,11 @@
     },
     {
       "file": ".agents/scripts/lib/orchestration/review-providers/security-review.js",
-      "symbol": "defaultInvokeSecurityReview"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/review-providers/security-review.js",
-      "symbol": "defaultProbeClaudeCli"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/review-providers/security-review.js",
       "symbol": "mapSecurityReviewSeverity"
     },
     {
       "file": ".agents/scripts/lib/orchestration/review-providers/security-review.js",
       "symbol": "parseSecurityReviewFindings"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/review-providers/security-review.js",
-      "symbol": "SECURITY_REVIEW_INVOKE_PROMPT"
     },
     {
       "file": ".agents/scripts/lib/orchestration/review-providers/security-review.js",
@@ -1875,10 +1727,6 @@
     {
       "file": ".agents/scripts/lib/orchestration/story-deliver-terminal.js",
       "symbol": "validateTerminalEnvelope"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/story-follow-ups.js",
-      "symbol": "FOLLOW_UPS_COMMENT_TYPE"
     },
     {
       "file": ".agents/scripts/lib/orchestration/story-follow-ups.js",
@@ -2041,18 +1889,6 @@
       "symbol": "*"
     },
     {
-      "file": ".agents/scripts/lib/preflight-runner.js",
-      "symbol": "logBlockers"
-    },
-    {
-      "file": ".agents/scripts/lib/preflight-runner.js",
-      "symbol": "logFixes"
-    },
-    {
-      "file": ".agents/scripts/lib/preflight-runner.js",
-      "symbol": "logNonBlockers"
-    },
-    {
       "file": ".agents/scripts/lib/qa/console-allowlist.js",
       "symbol": "*"
     },
@@ -2079,10 +1915,6 @@
     {
       "file": ".agents/scripts/lib/runtime-deps/ensure-installed.js",
       "symbol": "ensureRuntimeDepsInstalled"
-    },
-    {
-      "file": ".agents/scripts/lib/runtime-deps/manifest.js",
-      "symbol": "MANIFEST_PATH"
     },
     {
       "file": ".agents/scripts/lib/runtime-deps/scan-imports.js",
@@ -2157,10 +1989,6 @@
       "symbol": "*"
     },
     {
-      "file": ".agents/scripts/lib/skills/walk-skill-files.js",
-      "symbol": "walkSkillFiles"
-    },
-    {
       "file": ".agents/scripts/lib/temp-retention.js",
       "symbol": "collectTempEntries"
     },
@@ -2203,18 +2031,6 @@
     {
       "file": ".agents/scripts/lib/test-isolate/runner.js",
       "symbol": "bisectFlipper"
-    },
-    {
-      "file": ".agents/scripts/lib/test-isolate/runner.js",
-      "symbol": "runFileIsolated"
-    },
-    {
-      "file": ".agents/scripts/lib/test-isolate/runner.js",
-      "symbol": "runIsolatedPool"
-    },
-    {
-      "file": ".agents/scripts/lib/test-isolate/runner.js",
-      "symbol": "runSuite"
     },
     {
       "file": ".agents/scripts/lib/test-temp.js",
@@ -2399,14 +2215,6 @@
     {
       "file": ".agents/scripts/lib/worktree/node-modules-strategy.js",
       "symbol": "lockfileHash"
-    },
-    {
-      "file": ".agents/scripts/lib/worktree/node-modules-strategy.js",
-      "symbol": "PNPM_STORE_PRIME_SENTINEL"
-    },
-    {
-      "file": ".agents/scripts/lib/worktree/node-modules-strategy.js",
-      "symbol": "primePnpmStore"
     },
     {
       "file": ".agents/scripts/lib/worktree/node-modules-strategy.js",

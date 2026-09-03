@@ -1,12 +1,12 @@
 {
   "$schema": ".agents/schemas/baselines/coverage.schema.json",
   "kernelVersion": "1.0.0",
-  "generatedAt": "2026-09-03T01:33:56.392Z",
+  "generatedAt": "2026-09-03T02:24:43.248Z",
   "rollup": {
     "*": {
-      "lines": 96.04,
-      "branches": 86.88,
-      "functions": 88.24
+      "lines": 95.96,
+      "branches": 86.91,
+      "functions": 88.02
     }
   },
   "rows": [
@@ -84,9 +84,9 @@
     },
     {
       "path": ".agents/scripts/check-context-budget.js",
-      "lines": 95.36,
-      "branches": 87.23,
-      "functions": 100
+      "lines": 93.72,
+      "branches": 87.59,
+      "functions": 95
     },
     {
       "path": ".agents/scripts/check-cyclomatic.js",
@@ -121,13 +121,13 @@
     {
       "path": ".agents/scripts/check-lifecycle-lint.js",
       "lines": 100,
-      "branches": 97.87,
+      "branches": 93.1,
       "functions": 100
     },
     {
       "path": ".agents/scripts/check-schema-references.js",
-      "lines": 98.98,
-      "branches": 88.57,
+      "lines": 98.91,
+      "branches": 88.41,
       "functions": 100
     },
     {
@@ -320,12 +320,6 @@
       "path": ".agents/scripts/lib/audit-suite/findings.js",
       "lines": 96.79,
       "branches": 76.47,
-      "functions": 100
-    },
-    {
-      "path": ".agents/scripts/lib/audit-suite/frontmatter-lint.js",
-      "lines": 100,
-      "branches": 100,
       "functions": 100
     },
     {
@@ -599,12 +593,6 @@
       "functions": 100
     },
     {
-      "path": ".agents/scripts/lib/baselines/maintainability-baseline-save.js",
-      "lines": 100,
-      "branches": 75,
-      "functions": 100
-    },
-    {
       "path": ".agents/scripts/lib/baselines/orphan-pruner.js",
       "lines": 100,
       "branches": 90.48,
@@ -744,9 +732,9 @@
     },
     {
       "path": ".agents/scripts/lib/bootstrap/project-bootstrap.js",
-      "lines": 85.5,
-      "branches": 86.87,
-      "functions": 50
+      "lines": 88.42,
+      "branches": 86,
+      "functions": 51.43
     },
     {
       "path": ".agents/scripts/lib/bootstrap/prompt.js",
@@ -756,8 +744,8 @@
     },
     {
       "path": ".agents/scripts/lib/bootstrap/quality-bootstrap.js",
-      "lines": 98.91,
-      "branches": 85.94,
+      "lines": 99.07,
+      "branches": 84.29,
       "functions": 100
     },
     {
@@ -804,8 +792,8 @@
     },
     {
       "path": ".agents/scripts/lib/checks/loop-health.js",
-      "lines": 99.41,
-      "branches": 81.69,
+      "lines": 99.36,
+      "branches": 81.82,
       "functions": 100
     },
     {
@@ -851,12 +839,6 @@
       "functions": 100
     },
     {
-      "path": ".agents/scripts/lib/cli/parse-numeric.js",
-      "lines": 100,
-      "branches": 100,
-      "functions": 100
-    },
-    {
       "path": ".agents/scripts/lib/cli/standard-args.js",
       "lines": 96.2,
       "branches": 88.99,
@@ -876,7 +858,7 @@
     },
     {
       "path": ".agents/scripts/lib/close-validation/process.js",
-      "lines": 91.63,
+      "lines": 91.13,
       "branches": 80,
       "functions": 55.56
     },
@@ -915,12 +897,6 @@
       "lines": 80.78,
       "branches": 50,
       "functions": 72.73
-    },
-    {
-      "path": ".agents/scripts/lib/close-validation/telemetry.js",
-      "lines": 98.73,
-      "branches": 77.78,
-      "functions": 100
     },
     {
       "path": ".agents/scripts/lib/command-header.js",
@@ -1171,7 +1147,7 @@
     {
       "path": ".agents/scripts/lib/cpu-pool.js",
       "lines": 98.31,
-      "branches": 90.7,
+      "branches": 90,
       "functions": 100
     },
     {
@@ -1320,9 +1296,9 @@
     },
     {
       "path": ".agents/scripts/lib/errors/index.js",
-      "lines": 95.52,
+      "lines": 74.63,
       "branches": 100,
-      "functions": 83.33
+      "functions": 16.67
     },
     {
       "path": ".agents/scripts/lib/escomplex-ast-compat.js",
@@ -1332,8 +1308,8 @@
     },
     {
       "path": ".agents/scripts/lib/feedback-loop/graduator-core.js",
-      "lines": 97.51,
-      "branches": 81.67,
+      "lines": 97.98,
+      "branches": 82.67,
       "functions": 100
     },
     {
@@ -1345,8 +1321,8 @@
     {
       "path": ".agents/scripts/lib/feedback-loop/retro-proposals-graduator.js",
       "lines": 95.59,
-      "branches": 69.57,
-      "functions": 94.44
+      "branches": 69.12,
+      "functions": 100
     },
     {
       "path": ".agents/scripts/lib/findings/classify-finding.js",
@@ -1500,8 +1476,8 @@
     },
     {
       "path": ".agents/scripts/lib/knip-entry-sync.js",
-      "lines": 98.23,
-      "branches": 91.11,
+      "lines": 98.01,
+      "branches": 91.43,
       "functions": 100
     },
     {
@@ -1782,9 +1758,9 @@
     },
     {
       "path": ".agents/scripts/lib/orchestration/git-cleanup/phases/git-probes-ff.js",
-      "lines": 81.87,
-      "branches": 65,
-      "functions": 81.25
+      "lines": 87.36,
+      "branches": 78.13,
+      "functions": 100
     },
     {
       "path": ".agents/scripts/lib/orchestration/git-cleanup/phases/git-probes.js",
@@ -1832,12 +1808,6 @@
       "path": ".agents/scripts/lib/orchestration/git-cleanup/phases/stashes.js",
       "lines": 99.27,
       "branches": 89.47,
-      "functions": 100
-    },
-    {
-      "path": ".agents/scripts/lib/orchestration/label-transitions.js",
-      "lines": 100,
-      "branches": 100,
       "functions": 100
     },
     {
@@ -1898,18 +1868,6 @@
       "path": ".agents/scripts/lib/orchestration/model-attribution.js",
       "lines": 97.61,
       "branches": 83.02,
-      "functions": 100
-    },
-    {
-      "path": ".agents/scripts/lib/orchestration/parked-follow-ons.js",
-      "lines": 100,
-      "branches": 78.95,
-      "functions": 100
-    },
-    {
-      "path": ".agents/scripts/lib/orchestration/phase-runner.js",
-      "lines": 100,
-      "branches": 81.25,
       "functions": 100
     },
     {
@@ -2022,7 +1980,7 @@
     },
     {
       "path": ".agents/scripts/lib/orchestration/pr-watch.js",
-      "lines": 96.17,
+      "lines": 95.99,
       "branches": 84.62,
       "functions": 88.24
     },
@@ -2043,12 +2001,6 @@
       "lines": 90.2,
       "branches": 83.33,
       "functions": 50
-    },
-    {
-      "path": ".agents/scripts/lib/orchestration/recut.js",
-      "lines": 100,
-      "branches": 87.5,
-      "functions": 100
     },
     {
       "path": ".agents/scripts/lib/orchestration/remote-verifier.js",
@@ -2076,7 +2028,7 @@
     },
     {
       "path": ".agents/scripts/lib/orchestration/review-providers/codex.js",
-      "lines": 92.21,
+      "lines": 91.56,
       "branches": 75,
       "functions": 66.67
     },
@@ -2130,7 +2082,7 @@
     },
     {
       "path": ".agents/scripts/lib/orchestration/review-providers/security-review.js",
-      "lines": 90.34,
+      "lines": 89.72,
       "branches": 64.52,
       "functions": 70
     },
@@ -2334,8 +2286,8 @@
     },
     {
       "path": ".agents/scripts/lib/orchestration/story-follow-ups.js",
-      "lines": 98.01,
-      "branches": 82.17,
+      "lines": 98.48,
+      "branches": 86.47,
       "functions": 100
     },
     {
@@ -2407,7 +2359,7 @@
     {
       "path": ".agents/scripts/lib/orchestration/ticketing/reads.js",
       "lines": 99.8,
-      "branches": 91.67,
+      "branches": 91.8,
       "functions": 100
     },
     {
@@ -2442,7 +2394,7 @@
     },
     {
       "path": ".agents/scripts/lib/preflight-runner.js",
-      "lines": 87.76,
+      "lines": 86.73,
       "branches": 53.33,
       "functions": 37.5
     },
@@ -2521,7 +2473,7 @@
     {
       "path": ".agents/scripts/lib/runtime-deps/scan-imports.js",
       "lines": 100,
-      "branches": 97.92,
+      "branches": 96.3,
       "functions": 100
     },
     {
@@ -2598,6 +2550,12 @@
     },
     {
       "path": ".agents/scripts/lib/source-extensions.js",
+      "lines": 100,
+      "branches": 100,
+      "functions": 100
+    },
+    {
+      "path": ".agents/scripts/lib/source-text/strip-js-comments.js",
       "lines": 100,
       "branches": 100,
       "functions": 100
@@ -2718,8 +2676,8 @@
     },
     {
       "path": ".agents/scripts/lib/transpile.js",
-      "lines": 93.64,
-      "branches": 81.13,
+      "lines": 90.91,
+      "branches": 80,
       "functions": 100
     },
     {
@@ -2946,9 +2904,9 @@
     },
     {
       "path": ".agents/scripts/pr-watch-with-update.js",
-      "lines": 94.98,
-      "branches": 88.89,
-      "functions": 81.25
+      "lines": 95.84,
+      "branches": 89.34,
+      "functions": 86.96
     },
     {
       "path": ".agents/scripts/providers/github.js",

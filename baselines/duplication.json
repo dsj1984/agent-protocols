@@ -1,13 +1,13 @@
 {
   "$schema": ".agents/schemas/baselines/duplication.schema.json",
   "kernelVersion": "1.0.0",
-  "generatedAt": "2026-09-03T01:34:00.670Z",
+  "generatedAt": "2026-09-03T02:24:49.787Z",
   "rollup": {
     "*": {
-      "percentage": 6.11,
-      "duplicatedLines": 1324,
-      "totalLines": 21654,
-      "filesWithDuplication": 72
+      "percentage": 5.97,
+      "duplicatedLines": 1329,
+      "totalLines": 22264,
+      "filesWithDuplication": 73
     }
   },
   "rows": [
@@ -20,8 +20,8 @@
     {
       "path": ".agents/scripts/check-context-budget.js",
       "duplicatedLines": 36,
-      "totalLines": 625,
-      "percentage": 5.76
+      "totalLines": 717,
+      "percentage": 5.02
     },
     {
       "path": ".agents/scripts/check-cyclomatic.js",
@@ -36,10 +36,10 @@
       "percentage": 4.43
     },
     {
-      "path": ".agents/scripts/check-lifecycle-lint.js",
-      "duplicatedLines": 11,
-      "totalLines": 300,
-      "percentage": 3.67
+      "path": ".agents/scripts/check-schema-references.js",
+      "duplicatedLines": 8,
+      "totalLines": 366,
+      "percentage": 2.19
     },
     {
       "path": ".agents/scripts/check-windows-git-perf.js",
@@ -214,6 +214,12 @@
       "duplicatedLines": 11,
       "totalLines": 156,
       "percentage": 7.05
+    },
+    {
+      "path": ".agents/scripts/lib/knip-entry-sync.js",
+      "duplicatedLines": 8,
+      "totalLines": 452,
+      "percentage": 1.77
     },
     {
       "path": ".agents/scripts/lib/mandrel-catalog.js",

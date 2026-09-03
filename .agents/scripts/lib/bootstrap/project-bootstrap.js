@@ -280,7 +280,7 @@ export function ensurePackageJson(ctx) {
  * @param {typeof fs} [ctx.fsImpl]
  * @param {typeof defaultSpawnSync} [ctx.spawnImpl]
  */
-function ensureDependenciesInstalled(ctx) {
+export function ensureDependenciesInstalled(ctx) {
   const { fsImpl = fs, spawnImpl = defaultSpawnSync } = ctx;
   const manager = detectPackageManager(ctx.projectRoot, fsImpl);
   const sentinel = path.join(
@@ -603,7 +603,7 @@ export function ensureSystemPromptWiring(ctx) {
  * @param {typeof fs} [ctx.fsImpl]
  * @param {typeof defaultSpawnSync} [ctx.spawnImpl]
  */
-function checkWindowsGitPerf(ctx) {
+export function checkWindowsGitPerf(ctx) {
   const { fsImpl = fs, spawnImpl = defaultSpawnSync } = ctx;
   if (os.platform() !== 'win32') {
     return { platform: process.platform, skipped: true };
