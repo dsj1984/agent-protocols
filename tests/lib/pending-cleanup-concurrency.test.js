@@ -20,7 +20,6 @@ import { afterEach, beforeEach, describe, it, mock } from 'node:test';
 import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
 import {
   drainPendingCleanup,
-  manifestLockPath,
   manifestPath,
   readManifest,
   recordPendingCleanup,
@@ -28,6 +27,20 @@ import {
 } from '../../.agents/scripts/lib/worktree/lifecycle/pending-cleanup.js';
 
 let worktreeRoot;
+
+/**
+ * The manifest-adjacent lockfile name. Deliberately a test-local literal
+ * rather than an import: the lock is internal to the manifest's
+ * read-modify-write, so the module does not export its path. The tests below
+ * only need it to *plant* a crashed holder's lockfile — every assertion about
+ * the lock is made by observing the directory, not by calling into the module.
+ */
+const MANIFEST_LOCK = '.pending-cleanup.lock';
+
+/** Lockfiles currently sitting in the worktree root. */
+function strayLocks() {
+  return fs.readdirSync(worktreeRoot).filter((n) => n.endsWith('.lock'));
+}
 
 /** `git` stub: every spawn succeeds, so removal hinges on `fsRm` alone. */
 const OK_GIT = { gitSpawn: () => ({ status: 0, stdout: '', stderr: '' }) };
@@ -229,17 +242,16 @@ describe('pending-cleanup — the manifest is written via rename', () => {
 
 describe('pending-cleanup — read-modify-write runs under a manifest lock', () => {
   it('releases the lock after each mutation', () => {
-    const lockPath = manifestLockPath(worktreeRoot);
     recordPendingCleanup(worktreeRoot, {
       storyId: 606,
       branch: 'story-606',
       path: path.join(worktreeRoot, 'story-606'),
       push: false,
     });
-    assert.equal(fs.existsSync(lockPath), false, 'lock released after record');
+    assert.deepEqual(strayLocks(), [], 'lock released after record');
 
     removePendingCleanup(worktreeRoot, 606);
-    assert.equal(fs.existsSync(lockPath), false, 'lock released after remove');
+    assert.deepEqual(strayLocks(), [], 'lock released after remove');
     assert.deepEqual(readManifest(worktreeRoot), []);
   });
 
@@ -247,7 +259,8 @@ describe('pending-cleanup — read-modify-write runs under a manifest lock', () 
     // A crashed holder's lockfile must not be able to stall a reap hand-off:
     // the lock damps contention, the merge is what makes losing it harmless.
     fs.mkdirSync(worktreeRoot, { recursive: true });
-    fs.writeFileSync(manifestLockPath(worktreeRoot), 'someone-else\n', 'utf8');
+    const foreignLock = path.join(worktreeRoot, MANIFEST_LOCK);
+    fs.writeFileSync(foreignLock, 'someone-else\n', 'utf8');
 
     const entry = recordPendingCleanup(worktreeRoot, {
       storyId: 707,
@@ -262,6 +275,6 @@ describe('pending-cleanup — read-modify-write runs under a manifest lock', () 
       [707],
     );
     // The foreign lockfile is untouched — we never released what we did not take.
-    assert.equal(fs.existsSync(manifestLockPath(worktreeRoot)), true);
+    assert.equal(fs.existsSync(foreignLock), true);
   });
 });

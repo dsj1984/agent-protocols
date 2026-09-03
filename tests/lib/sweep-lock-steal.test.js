@@ -9,6 +9,12 @@
  * timer, and a fake `fs` whose inode counter models a real unlink/create —
  * because a test that waited out a real 60 s window would be untenable and a
  * test that raced real processes would be flaky.
+ *
+ * Everything is asserted through the public surface: `acquireSweepLock`, the
+ * `release()` it hands back, and the `setIntervalFn` seam it already accepts.
+ * "Who holds the lock" is observed the way a competing process observes it —
+ * by whether the next acquire is contended, and by whose `release()` actually
+ * frees it — never by reaching into the module for an owner-line reader.
  */
 
 import assert from 'node:assert/strict';
@@ -18,10 +24,7 @@ import { afterEach, beforeEach, describe, it } from 'node:test';
 
 import {
   acquireSweepLock,
-  heartbeatIntervalFor,
-  readLockOwner,
   resolveSweepLockPath,
-  sameLockIdentity,
 } from '../../.agents/scripts/lib/single-story-sweep/sweep-lock.js';
 import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
 
@@ -103,10 +106,35 @@ function makeFakeTimers() {
     tick() {
       for (const timer of [...timers.values()]) timer.fn();
     },
+    /** The interval the one live heartbeat was scheduled at. */
+    intervalMs() {
+      return [...timers.values()][0]?.ms ?? null;
+    },
   };
 }
 
 const LOCK = '/fake/temp/merged-branch-sweep.lock';
+
+/**
+ * Is the lock currently held? Asked the way a competing process asks it — by
+ * attempting to acquire. Uses a nowFn that never advances so the probe cannot
+ * itself trip the staleness rule, and releases anything it happens to win so
+ * the probe leaves no trace.
+ */
+function isHeld(fsImpl, nowMs) {
+  const probe = acquireSweepLock({
+    lockPath: LOCK,
+    ownerId: 'probe',
+    nowFn: () => nowMs,
+    fsImpl,
+    heartbeatMs: 0,
+  });
+  if (probe.acquired) {
+    probe.release();
+    return false;
+  }
+  return true;
+}
 
 describe('sweep-lock — heartbeat keeps a live holder alive (Story #5112)', () => {
   it('a second acquire is contended even past the 60s default timeoutMs', () => {
@@ -124,8 +152,6 @@ describe('sweep-lock — heartbeat keeps a live holder alive (Story #5112)', () 
     });
     assert.equal(holder.acquired, true);
     assert.equal(timers.timers.size, 1, 'the holder started a heartbeat');
-    // Below the staleness threshold, so a refresh always lands in time.
-    assert.ok([...timers.timers.values()][0].ms < 60_000);
 
     // The sweep runs long: advance well past the default 60s window, letting
     // the holder's heartbeat fire as it would in a live process.
@@ -139,25 +165,27 @@ describe('sweep-lock — heartbeat keeps a live holder alive (Story #5112)', () 
       ownerId: 'holder-b',
       nowFn: () => now,
       fsImpl,
-      setIntervalFn: timers.setIntervalFn,
-      clearIntervalFn: timers.clearIntervalFn,
+      heartbeatMs: 0,
     });
     assert.equal(second.acquired, false);
     assert.equal(second.reason, 'contended');
-    assert.equal(readLockOwner(LOCK, fsImpl), 'holder-a');
+
+    // Still holder-a's lock: only its release frees it.
+    holder.release();
+    assert.equal(isHeld(fsImpl, now), false, 'the live holder released it');
   });
 
   it('without a heartbeat the same elapsed time reads stale (the pre-fix behaviour)', () => {
     let now = 1_000_000;
     const fsImpl = makeFakeFs(() => now);
-    const holder = acquireSweepLock({
+    const dead = acquireSweepLock({
       lockPath: LOCK,
       ownerId: 'holder-a',
       nowFn: () => now,
       fsImpl,
       heartbeatMs: 0,
     });
-    assert.equal(holder.acquired, true);
+    assert.equal(dead.acquired, true);
 
     now += 120_000;
     const second = acquireSweepLock({
@@ -168,7 +196,12 @@ describe('sweep-lock — heartbeat keeps a live holder alive (Story #5112)', () 
       heartbeatMs: 0,
     });
     assert.equal(second.acquired, true, 'stale steal still works when dead');
-    assert.equal(readLockOwner(LOCK, fsImpl), 'holder-b');
+
+    // The zombie's late release must not drop the new holder's lock.
+    dead.release();
+    assert.equal(isHeld(fsImpl, now), true, 'holder-b still holds it');
+    second.release();
+    assert.equal(isHeld(fsImpl, now), false);
   });
 
   it('stops heartbeating (and does not resurrect) a lock stolen from it', () => {
@@ -185,7 +218,7 @@ describe('sweep-lock — heartbeat keeps a live holder alive (Story #5112)', () 
     });
     assert.equal(holder.acquired, true);
 
-    // Simulate a steal: someone else now owns the file at this path.
+    // Simulate a steal: another process now owns the file at this path.
     fsImpl.unlinkSync(LOCK);
     fsImpl.openSync(LOCK);
     fsImpl.writeSync(LOCK, 'holder-c\n');
@@ -194,14 +227,32 @@ describe('sweep-lock — heartbeat keeps a live holder alive (Story #5112)', () 
     assert.equal(timers.timers.size, 0, 'heartbeat stopped on owner mismatch');
     // And release must not drop the new owner's lock.
     holder.release();
-    assert.equal(readLockOwner(LOCK, fsImpl), 'holder-c');
+    assert.equal(isHeld(fsImpl, now), true, 'holder-c still holds it');
   });
 
-  it('heartbeatIntervalFor stays strictly under the staleness window', () => {
-    assert.ok(heartbeatIntervalFor(60_000) < 60_000);
-    assert.equal(heartbeatIntervalFor(60_000), 20_000);
+  it('schedules the heartbeat strictly under the staleness window', () => {
+    // Read the interval off the injected timer seam rather than the private
+    // derivation, so the assertion is about what the lock actually schedules.
+    const intervalFor = (timeoutMs) => {
+      const now = 1_000_000;
+      const timers = makeFakeTimers();
+      const held = acquireSweepLock({
+        lockPath: LOCK,
+        timeoutMs,
+        ownerId: 'holder',
+        nowFn: () => now,
+        fsImpl: makeFakeFs(() => now),
+        setIntervalFn: timers.setIntervalFn,
+        clearIntervalFn: timers.clearIntervalFn,
+      });
+      assert.equal(held.acquired, true);
+      return timers.intervalMs();
+    };
+
+    assert.ok(intervalFor(60_000) < 60_000);
+    assert.equal(intervalFor(60_000), 20_000);
     // Floor: never sub-second, however small the configured timeout.
-    assert.equal(heartbeatIntervalFor(30), 1_000);
+    assert.equal(intervalFor(30), 1_000);
   });
 });
 
@@ -237,11 +288,20 @@ describe('sweep-lock — two stale-breakers yield exactly one acquisition', () =
     assert.equal(breakerB.acquired, false);
     assert.equal(breakerB.reason, 'contended');
 
-    // The winner's lockfile is a genuinely new file and is still there: the
-    // loser observed the *crashed* file's identity, re-statted, saw a
-    // different inode, and refused to unlink.
-    assert.equal(readLockOwner(LOCK, fsImpl), 'breaker-a');
+    // The winner's lockfile is a genuinely new file: the loser observed the
+    // *crashed* file's identity, re-statted, saw a different inode, and
+    // refused to unlink.
     assert.notEqual(fsImpl.statSync(LOCK).ino, crashedIno);
+    // The loser is handed no release at all — it owns nothing to give back —
+    // and the lock stays held until the winner releases it.
+    assert.equal(breakerB.release, undefined);
+    assert.equal(
+      isHeld(fsImpl, now),
+      true,
+      'still held after the loser gave up',
+    );
+    breakerA.release();
+    assert.equal(isHeld(fsImpl, now), false, 'the winner freed it');
   });
 
   it('refuses the steal when the observed file was replaced under it', () => {
@@ -249,6 +309,7 @@ describe('sweep-lock — two stale-breakers yield exactly one acquisition', () =
     const fsImpl = makeFakeFs(() => now);
     fsImpl.openSync(LOCK);
     fsImpl.writeSync(LOCK, 'crashed-owner\n');
+    const originalIno = fsImpl.statSync(LOCK).ino;
     now += 120_000;
 
     // Replace the file between the staleness stat and the identity re-stat by
@@ -270,19 +331,8 @@ describe('sweep-lock — two stale-breakers yield exactly one acquisition', () =
     });
     assert.equal(result.acquired, false);
     assert.equal(result.reason, 'contended');
-    assert.equal(
-      readLockOwner(LOCK, fsImpl),
-      'crashed-owner',
-      'the observed-but-changed file was left alone',
-    );
-  });
-
-  it('sameLockIdentity treats an absent file as never the same', () => {
-    const id = { mtimeMs: 1, ino: 2, dev: 3 };
-    assert.equal(sameLockIdentity(id, { ...id }), true);
-    assert.equal(sameLockIdentity(id, { ...id, ino: 9 }), false);
-    assert.equal(sameLockIdentity(id, null), false);
-    assert.equal(sameLockIdentity(null, id), false);
+    // The observed-but-changed file was left alone, not unlinked.
+    assert.equal(realStat(LOCK).ino, originalIno);
   });
 });
 
@@ -315,7 +365,8 @@ describe('sweep-lock — release is owner-checked', () => {
     // The zombie's release must be a no-op — the file is not its lock.
     first.release();
     assert.equal(fs.existsSync(lockPath), true);
-    assert.equal(readLockOwner(lockPath), 'second');
+    const contended = acquireSweepLock({ lockPath, ownerId: 'third' });
+    assert.equal(contended.acquired, false, 'second still holds the lock');
 
     second.release();
     assert.equal(fs.existsSync(lockPath), false);

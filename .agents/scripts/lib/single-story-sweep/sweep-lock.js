@@ -86,14 +86,15 @@ export function resolveSweepLockPath({ cwd, tempRoot = 'temp' } = {}) {
 }
 
 /**
- * Derive the heartbeat interval for a given staleness threshold. Exported so
- * the contract ("strictly below `timeoutMs`") is testable directly rather
- * than inferred from timer behaviour.
+ * Derive the heartbeat interval for a given staleness threshold. Module-
+ * private: the contract that matters ("strictly below `timeoutMs`") is
+ * observable at the `setIntervalFn` seam {@link acquireSweepLock} accepts, so
+ * a test pins it there rather than reaching past the public surface.
  *
  * @param {number} timeoutMs
  * @returns {number}
  */
-export function heartbeatIntervalFor(timeoutMs) {
+function heartbeatIntervalFor(timeoutMs) {
   const derived = Math.floor(
     (Number.isFinite(timeoutMs) ? timeoutMs : DEFAULT_TIMEOUT_MS) /
       HEARTBEAT_DIVISOR,
@@ -142,13 +143,15 @@ export function readLockMtime(lockPath, fsImpl = fs) {
 
 /**
  * Read the owner id a lockfile was created with (its first line). Returns
- * `null` when the file is absent, unreadable, or empty. Exported for tests.
+ * `null` when the file is absent, unreadable, or empty. Module-private — the
+ * owner line is an implementation detail of this primitive; callers observe
+ * ownership through which acquire wins and which `release()` is a no-op.
  *
  * @param {string} lockPath
  * @param {object} [fsImpl]
  * @returns {string|null}
  */
-export function readLockOwner(lockPath, fsImpl = fs) {
+function readLockOwner(lockPath, fsImpl = fs) {
   try {
     const raw = fsImpl.readFileSync(lockPath, 'utf8');
     const first = String(raw).split('\n', 1)[0];
@@ -161,13 +164,14 @@ export function readLockOwner(lockPath, fsImpl = fs) {
 /**
  * Pure: do two identity tuples describe the same lockfile instance? A `null`
  * on either side is "not the same" — an absent file is never the file we
- * observed.
+ * observed. Module-private, like {@link readLockIdentity} it compares:
+ * nothing outside this primitive should reason about a lockfile's inode.
  *
  * @param {ReturnType<typeof readLockIdentity>} a
  * @param {ReturnType<typeof readLockIdentity>} b
  * @returns {boolean}
  */
-export function sameLockIdentity(a, b) {
+function sameLockIdentity(a, b) {
   if (!a || !b) return false;
   return a.mtimeMs === b.mtimeMs && a.ino === b.ino && a.dev === b.dev;
 }

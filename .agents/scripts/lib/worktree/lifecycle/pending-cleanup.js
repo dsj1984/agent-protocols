@@ -63,12 +63,14 @@ export function manifestPath(worktreeRoot) {
 /**
  * Path of the lockfile guarding manifest read-modify-write. Manifest-adjacent
  * (same gitignored `.worktrees/` directory) so it needs no extra config and
- * shares the manifest's lifetime.
+ * shares the manifest's lifetime. Module-private: the lock is internal to
+ * this manifest's read-modify-write, and callers only ever observe that a
+ * mutation completed and left nothing behind.
  *
  * @param {string} worktreeRoot
  * @returns {string}
  */
-export function manifestLockPath(worktreeRoot) {
+function manifestLockPath(worktreeRoot) {
   return path.join(worktreeRoot, MANIFEST_LOCK_FILENAME);
 }
 
