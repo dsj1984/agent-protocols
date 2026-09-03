@@ -99,7 +99,7 @@ import { execFileSync, spawn, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { after, afterEach, describe, it } from 'node:test';
+import { after, before, describe, it } from 'node:test';
 
 import { REPO_ROOT } from './helpers/cli-harness.js';
 import { startLocalRegistry } from './helpers/local-registry.js';
@@ -410,26 +410,63 @@ function setup() {
 // Run setup at module load (before `describe` snapshots the `it` skip options).
 const { newestTarball, newestVersion, manifest, seedDir } = setup();
 
+/**
+ * The install `mandrel update` is told to run. Offline against the packed
+ * tarball, so the chain's install boundary is real but hermetic.
+ */
+const INSTALL_CMD = `npm install --offline --ignore-scripts --no-audit --no-fund ${newestTarball}`;
+
 describe('mandrel update — real-binary upgrade chain (e2e)', () => {
   /** @type {string[]} per-test consumer dirs, reaped in afterEach. */
   let consumerDirs = [];
   /** @type {Awaited<ReturnType<typeof startLocalRegistry>> | null} */
   let registry = null;
 
-  afterEach(async () => {
+  /**
+   * The one real upgrade this suite performs, and its result.
+   *
+   * Both cases need a consumer that has been through the chain once — the
+   * first to assert on that run, the second to have something already-current
+   * to re-run against. Performing it twice meant a second real
+   * `npm install --offline` of the same tarball to reach a state the first
+   * case had already produced. It happens once now, here.
+   *
+   * @type {{ dir: string, binPath: string, run: Awaited<ReturnType<typeof runBinary>> } | null}
+   */
+  let upgraded = null;
+
+  before(async () => {
+    if (COLD_CACHE_SKIP) return;
+    const { dir, binPath } = seedConsumer();
+    registry = await startLocalRegistry({
+      tarballPath: newestTarball,
+      version: newestVersion,
+      manifest,
+    });
+    // Drive the REAL update chain ASYNC (see runBinary — the in-process
+    // registry must keep answering `npm view` while the child runs). The
+    // install uses --install-cmd so it pulls the tarball offline; the
+    // `npm view` target probe hits the loopback registry.
+    const run = await runBinary(
+      binPath,
+      ['update', '--install-cmd', INSTALL_CMD],
+      {
+        cwd: dir,
+        env: updateEnv(registry.url),
+      },
+    );
+    upgraded = { dir, binPath, run };
+  });
+
+  after(async () => {
     if (registry) {
       await registry.close();
       registry = null;
     }
-    // Reap only the per-test consumer dirs; the shared pack/extract/probe dirs
-    // created in `setup()` survive until the final `after`.
     for (const dir of consumerDirs) {
       fs.rmSync(dir, { recursive: true, force: true });
     }
     consumerDirs = [];
-  });
-
-  after(() => {
     while (createdDirs.length > 0) {
       fs.rmSync(createdDirs.pop(), { recursive: true, force: true });
     }
@@ -481,24 +518,7 @@ describe('mandrel update — real-binary upgrade chain (e2e)', () => {
   it('upgrades current → newest, re-materializes .agents/, and doctor reports ready', {
     skip: COLD_CACHE_SKIP,
   }, async () => {
-    const { dir, binPath } = seedConsumer();
-
-    registry = await startLocalRegistry({
-      tarballPath: newestTarball,
-      version: newestVersion,
-      manifest,
-    });
-
-    // Drive the REAL update chain ASYNC (see runBinary — the in-process
-    // registry must keep answering `npm view` while the child runs). The
-    // install uses --install-cmd so it pulls the tarball offline; the
-    // `npm view` target probe hits the loopback registry (newest = newestVersion).
-    const installCmd = `npm install --offline --ignore-scripts --no-audit --no-fund ${newestTarball}`;
-    const run = await runBinary(
-      binPath,
-      ['update', '--install-cmd', installCmd],
-      { cwd: dir, env: updateEnv(registry.url) },
-    );
+    const { dir, binPath, run } = upgraded;
 
     const detail = `\n--- stdout ---\n${run.stdout}\n--- stderr ---\n${run.stderr}`;
 
@@ -551,19 +571,11 @@ describe('mandrel update — real-binary upgrade chain (e2e)', () => {
   it('is re-runnable: a second update on the now-current consumer is a no-op (already up to date)', {
     skip: COLD_CACHE_SKIP,
   }, async () => {
-    // First update brings the consumer to newest.
-    const { dir, binPath } = seedConsumer();
-    registry = await startLocalRegistry({
-      tarballPath: newestTarball,
-      version: newestVersion,
-      manifest,
-    });
-    const installCmd = `npm install --offline --ignore-scripts --no-audit --no-fund ${newestTarball}`;
-    const first = await runBinary(
-      binPath,
-      ['update', '--install-cmd', installCmd],
-      { cwd: dir, env: updateEnv(registry.url) },
-    );
+    // Start from a COPY of the already-upgraded consumer, not from a second
+    // real upgrade of a fresh seed: the first run is setup for this case, and
+    // repeating it bought nothing but another `npm install`. A copy also keeps
+    // this case independent of whatever the first one did to its own tree.
+    const first = upgraded.run;
     assert.ok(!first.timedOut, `first update timed out:\n${first.stderr}`);
     assert.equal(
       first.status,
@@ -571,12 +583,23 @@ describe('mandrel update — real-binary upgrade chain (e2e)', () => {
       `first update failed:\n${first.stdout}\n${first.stderr}`,
     );
 
+    const dir = mkTempDir('mandrel-e2e-rerun-');
+    consumerDirs.push(dir);
+    fs.cpSync(upgraded.dir, dir, { recursive: true, verbatimSymlinks: true });
+    const binPath = path.join(
+      dir,
+      'node_modules',
+      PACKAGE_NAME,
+      'bin',
+      'mandrel.js',
+    );
+
     // Second update: current === newest AND .agents/ matches the payload, so the
     // drift-aware short-circuit reports "Already up to date" and performs no
     // install (idempotency — instructions.md § 3.4).
     const second = await runBinary(
       binPath,
-      ['update', '--install-cmd', installCmd],
+      ['update', '--install-cmd', INSTALL_CMD],
       { cwd: dir, env: updateEnv(registry.url) },
     );
     const detail = `\n--- stdout ---\n${second.stdout}\n--- stderr ---\n${second.stderr}`;
