@@ -122,16 +122,25 @@ npm run format            # biome format --write . — JavaScript/JSON only, NOT
 npm run format:check      # biome ci . — verify without modifying files
 npm run test:quick        # TDD loop — excludes slow integration-style suites
 npm run test:integration  # Real-git / hook-chain / long orchestration suites only
-npm test                  # Full suite (same as CI test gate)
+npm run test:e2e          # tests/e2e/** only — real npm pack + install, own CI job
+npm test                  # Full suite minus the e2e tier
 npm run test:profile      # Slow-test report → temp/test-profile.{tap,summary.txt}
 npm run verify            # Full local gate: audit + lint + full tests + baselines
                           #   + dead-exports/context-budget ratchets
                           #   (true CI mirror; CI-only gates in docs/ci-contract.md)
 ```
 
+The runner tiers are `full` (the `npm test` default), `quick`, `integration`
+and `e2e`. `tests/e2e/**` belongs to the `e2e` tier and to no other one: those
+suites `npm pack` this repository and `npm install` it into a temp consumer, so
+they used to charge every `npm test` for a signal that only moves when the
+release-shaped install path moves. `npm run test:e2e` runs them and a dedicated
+CI job runs that per PR — and `run-coverage.js` still measures them, so the
+coverage and CRAP baselines see exactly the surface they always did.
+
 Use `test:quick` while iterating, `test:integration` before pushing when you
-touched git/orchestration hooks, and `npm run verify` when you want pre-PR
-confidence (audit + lint + full tests + baselines + the dead-exports and
+touched git/orchestration hooks, `test:e2e` when you touched the install /
+update / sync path, and `npm run verify` when you want pre-PR confidence (audit + lint + full tests + baselines + the dead-exports and
 context-budget ratchets; the arch-cycles ratchet rides along inside `lint`).
 `npm run verify` is a **true CI mirror** for the gates it can prove locally,
 but a small set of CI gates (action pinning, the TruffleHog secret scan, and
