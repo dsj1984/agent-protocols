@@ -32,6 +32,7 @@
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { after, before, describe, it } from 'node:test';
 
@@ -630,5 +631,63 @@ describe('runOnPool — concurrency resolution', () => {
       4,
       'a typo must degrade to the next rule, not to a single lane',
     );
+  });
+});
+
+describe('runOnPool — concurrency resolution outside node:test', () => {
+  /**
+   * Drop `NODE_TEST_CONTEXT` for the duration of `fn`. Every test process the
+   * runner spawns carries it, so the production default —
+   * `os.availableParallelism()` — is otherwise unreachable from a test and
+   * the clamp would be the only branch anything ever exercised.
+   */
+  const withoutTestContext = async (fn) => {
+    const previous = process.env.NODE_TEST_CONTEXT;
+    delete process.env.NODE_TEST_CONTEXT;
+    const hadOverride = Object.hasOwn(process.env, 'MANDREL_POOL_CONCURRENCY');
+    const previousOverride = process.env.MANDREL_POOL_CONCURRENCY;
+    delete process.env.MANDREL_POOL_CONCURRENCY;
+    try {
+      return await fn();
+    } finally {
+      if (previous !== undefined) process.env.NODE_TEST_CONTEXT = previous;
+      if (hadOverride) process.env.MANDREL_POOL_CONCURRENCY = previousOverride;
+    }
+  };
+
+  async function countWorkers(items, opts = {}) {
+    let built = 0;
+    const factory = () => {
+      built += 1;
+      return new FakeWorker((item, handle) => {
+        handle.emit('message', { ok: true, result: item });
+      });
+    };
+    await runOnPool('fake://script', items, {
+      ...opts,
+      workerFactory: factory,
+    });
+    return built;
+  }
+
+  it('falls back to availableParallelism when nothing else applies', async () => {
+    const items = Array.from({ length: 512 }, (_, i) => i);
+    const built = await withoutTestContext(() => countWorkers(items));
+    assert.strictEqual(built, os.availableParallelism());
+  });
+
+  it('never opens more lanes than there are items', async () => {
+    const built = await withoutTestContext(() => countWorkers([1, 2]));
+    assert.strictEqual(built, Math.min(2, os.availableParallelism()));
+  });
+
+  it('ignores a non-positive explicit concurrency rather than honouring it', async () => {
+    // `0` would mean "no workers at all" — a pool that never drains. It must
+    // fall through to the next rule in the chain, not be taken literally.
+    const items = Array.from({ length: 64 }, (_, i) => i);
+    const built = await withoutTestContext(() =>
+      countWorkers(items, { concurrency: 0 }),
+    );
+    assert.strictEqual(built, os.availableParallelism());
   });
 });

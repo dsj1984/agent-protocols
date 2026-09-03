@@ -24,13 +24,17 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
+import { createRequire } from 'node:module';
 import path from 'node:path';
 import { describe, it } from 'node:test';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { minimatch } from 'minimatch';
 
-import { runCli as runGeneratedValidatorCli } from '../../.agents/scripts/check-generated-validator.js';
+import {
+  GENERATED_VALIDATOR_PATH,
+  runCli as runGeneratedValidatorCli,
+} from '../../.agents/scripts/check-generated-validator.js';
 import {
   getQuality,
   resolveConfig,
@@ -41,11 +45,13 @@ import {
   resolveCyclomaticPolicy,
   scanCyclomatic,
 } from '../../.agents/scripts/lib/cyclomatic-ceiling.js';
+import { resolveDependencyVersion } from '../../.agents/scripts/lib/dependency-version.js';
 import {
   calculateAll,
   isIgnoredByGlobs,
   scanDirectory,
 } from '../../.agents/scripts/lib/maintainability-utils.js';
+import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
 import { resolveTsTranspilerVersion } from '../../.agents/scripts/lib/transpile.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -316,6 +322,116 @@ describe('precompiled .agentrc validator', () => {
         dynamic.errors,
         `errors diverged for ${JSON.stringify(config)}`,
       );
+    }
+  });
+});
+
+describe('dependency-version — manifest resolution without loading', () => {
+  const realRequire = createRequire(import.meta.url);
+
+  it('reads a real installed package version through the subpath resolver', () => {
+    assert.equal(
+      resolveDependencyVersion('typescript', realRequire),
+      JSON.parse(
+        fs.readFileSync(
+          path.join(REPO_ROOT, 'node_modules/typescript/package.json'),
+          'utf-8',
+        ),
+      ).version,
+    );
+  });
+
+  it('walks up from the main entry when the package.json subpath is withheld', () => {
+    // A package whose `exports` map does not expose `./package.json` — real,
+    // and increasingly common. The fallback resolves the main entry (still
+    // without loading it) and walks to the enclosing manifest.
+    const stub = {
+      resolve: (request) => {
+        if (request.endsWith('/package.json')) {
+          throw new Error('ERR_PACKAGE_PATH_NOT_EXPORTED');
+        }
+        return realRequire.resolve(request);
+      },
+    };
+    assert.equal(
+      resolveDependencyVersion('typescript', stub),
+      resolveDependencyVersion('typescript', realRequire),
+    );
+  });
+
+  it('returns null when the package cannot be resolved at all', () => {
+    const stub = {
+      resolve: () => {
+        throw new Error('MODULE_NOT_FOUND');
+      },
+    };
+    assert.equal(resolveDependencyVersion('typescript', stub), null);
+  });
+
+  it('returns null when the manifest declares no usable version', () => {
+    const tmp = makeTempDir('dep_version_');
+    try {
+      fs.mkdirSync(path.join(tmp, 'lib'), { recursive: true });
+      fs.writeFileSync(path.join(tmp, 'package.json'), '{"name":"noversion"}');
+      const entry = path.join(tmp, 'lib', 'index.js');
+      fs.writeFileSync(entry, 'module.exports = {};\n');
+      const stub = {
+        resolve: (request) => {
+          if (request.endsWith('/package.json')) throw new Error('nope');
+          return entry;
+        },
+      };
+      assert.equal(resolveDependencyVersion('noversion', stub), null);
+    } finally {
+      fs.rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+});
+
+describe('check-generated-validator — write mode', () => {
+  it('writes the emitted source and reports its size', () => {
+    const tmp = makeTempDir('gen_validator_');
+    try {
+      const written = [];
+      const out = [];
+      const code = runGeneratedValidatorCli({
+        argv: [],
+        cwd: tmp,
+        stdout: { write: (s) => out.push(s) },
+        stderr: { write: () => {} },
+        generateImpl: () => 'export default 1;\n',
+        writeFileImpl: (p, data) => written.push([p, data]),
+      });
+      assert.equal(code, 0);
+      assert.equal(written.length, 1);
+      assert.equal(
+        written[0][0],
+        path.join(tmp, GENERATED_VALIDATOR_PATH),
+        'writes to the artifact path under the given cwd',
+      );
+      assert.equal(written[0][1], 'export default 1;\n');
+      assert.match(out.join(''), /wrote 18 bytes/);
+    } finally {
+      fs.rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it('--check reports a missing artifact distinctly from a stale one', () => {
+    const tmp = makeTempDir('gen_validator_missing_');
+    try {
+      const err = [];
+      const code = runGeneratedValidatorCli({
+        argv: ['--check'],
+        cwd: tmp,
+        stdout: { write: () => {} },
+        stderr: { write: (s) => err.push(s) },
+        generateImpl: () => 'export default 1;\n',
+      });
+      assert.equal(code, 1);
+      assert.match(err.join(''), /is missing/);
+      assert.doesNotMatch(err.join(''), /stale/);
+    } finally {
+      fs.rmSync(tmp, { recursive: true, force: true });
     }
   });
 });

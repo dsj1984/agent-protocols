@@ -1,10 +1,10 @@
 {
   "$schema": ".agents/schemas/baselines/coverage.schema.json",
   "kernelVersion": "1.0.0",
-  "generatedAt": "2026-08-28T20:14:19.531Z",
+  "generatedAt": "2026-09-03T01:33:06.316Z",
   "rollup": {
     "*": {
-      "lines": 96.04,
+      "lines": 96.05,
       "branches": 86.71,
       "functions": 89.11
     }
@@ -90,9 +90,9 @@
     },
     {
       "path": ".agents/scripts/check-cyclomatic.js",
-      "lines": 95.33,
-      "branches": 85.19,
-      "functions": 80
+      "lines": 96.48,
+      "branches": 86.21,
+      "functions": 87.5
     },
     {
       "path": ".agents/scripts/check-dead-exports.js",
@@ -105,6 +105,12 @@
       "lines": 95.61,
       "branches": 89.77,
       "functions": 86.67
+    },
+    {
+      "path": ".agents/scripts/check-generated-validator.js",
+      "lines": 98.51,
+      "branches": 83.33,
+      "functions": 60
     },
     {
       "path": ".agents/scripts/check-gherkin-corpus.js",
@@ -457,7 +463,7 @@
     {
       "path": ".agents/scripts/lib/baselines/components.js",
       "lines": 100,
-      "branches": 81.08,
+      "branches": 82.05,
       "functions": 100
     },
     {
@@ -1170,8 +1176,8 @@
     },
     {
       "path": ".agents/scripts/lib/cpu-pool.js",
-      "lines": 98.31,
-      "branches": 90.7,
+      "lines": 98.74,
+      "branches": 92.59,
       "functions": 100
     },
     {
@@ -1207,8 +1213,14 @@
     {
       "path": ".agents/scripts/lib/cyclomatic-ceiling.js",
       "lines": 100,
-      "branches": 76.79,
+      "branches": 78.95,
       "functions": 85.71
+    },
+    {
+      "path": ".agents/scripts/lib/cyclomatic-scope.js",
+      "lines": 96.55,
+      "branches": 78.95,
+      "functions": 100
     },
     {
       "path": ".agents/scripts/lib/dead-exports-knip.js",
@@ -1232,6 +1244,12 @@
       "path": ".agents/scripts/lib/dependency-parser.js",
       "lines": 100,
       "branches": 96.67,
+      "functions": 100
+    },
+    {
+      "path": ".agents/scripts/lib/dependency-version.js",
+      "lines": 97.67,
+      "branches": 85,
       "functions": 100
     },
     {
@@ -1536,8 +1554,8 @@
     },
     {
       "path": ".agents/scripts/lib/maintainability-utils.js",
-      "lines": 93.48,
-      "branches": 85.37,
+      "lines": 95.22,
+      "branches": 88.46,
       "functions": 100
     },
     {
@@ -2718,8 +2736,8 @@
     },
     {
       "path": ".agents/scripts/lib/transpile.js",
-      "lines": 93.64,
-      "branches": 81.13,
+      "lines": 94.42,
+      "branches": 81.48,
       "functions": 100
     },
     {
