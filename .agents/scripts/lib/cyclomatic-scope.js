@@ -57,14 +57,13 @@ const CHANGE_PROBES = Object.freeze([
  *   baselineRows?: Array<{ file?: string }>,
  *   git?: ReturnType<typeof createGitInterface>,
  * }} args
+ * Module-private: `resolveScanScope` below is the only caller, and it is the
+ * one the CLI actually asks. Exporting both would ship a seam whose only
+ * importer is a test, which the `--production` dead-export pass discounts.
+ *
  * @returns {Set<string> | null}
  */
-export function resolveCyclomaticScope({
-  cwd,
-  baseRef,
-  baselineRows = [],
-  git,
-}) {
+function resolveCyclomaticScope({ cwd, baseRef, baselineRows = [], git }) {
   const gitIface = git ?? createGitInterface({});
   const scope = new Set();
   for (const row of baselineRows) {
