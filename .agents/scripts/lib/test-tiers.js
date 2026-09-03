@@ -132,6 +132,37 @@ function walkTestFiles(dir, prefix, fsLike) {
 }
 
 /**
+ * Split the walked set into the `e2e` tier and the remainder every other tier
+ * is drawn from, so an e2e file belongs to exactly one tier and `npm test`
+ * never pays for it.
+ *
+ * @param {string[]} all
+ * @returns {{ e2e: string[], rest: string[] }}
+ */
+function partitionE2E(all) {
+  const e2e = all.filter((file) => matchesE2E(file));
+  const e2eSet = new Set(e2e);
+  return { e2e, rest: all.filter((file) => !e2eSet.has(file)) };
+}
+
+/**
+ * Split the non-e2e remainder into the slow `integration` tier and the `quick`
+ * complement — the historical partition, unchanged.
+ *
+ * @param {string[]} rest
+ * @param {'quick' | 'integration'} tier
+ * @returns {string[]}
+ */
+function splitBySpeed(rest, tier) {
+  const integration = rest.filter((file) => matchesIntegration(file));
+  if (tier === 'integration') {
+    return integration;
+  }
+  const integrationSet = new Set(integration);
+  return rest.filter((file) => !integrationSet.has(file));
+}
+
+/**
  * List repo-relative test file paths for a tier.
  *
  * `full` used to return {@link FULL_TIER_GLOBS} verbatim and let `node --test`
@@ -149,23 +180,14 @@ export function listTestFilesForTier(tier, repoRoot, fsLike = fs) {
   const all = TEST_WALK_ROOTS.flatMap((root) =>
     walkTestFiles(path.join(repoRoot, root), root, fsLike),
   ).sort();
-  const e2e = all.filter((file) => matchesE2E(file));
+  const { e2e, rest } = partitionE2E(all);
   if (tier === 'e2e') {
     return e2e;
   }
-  // Every other tier is drawn from the non-e2e remainder, so an e2e file
-  // belongs to exactly one tier and `npm test` never pays for it.
-  const e2eSet = new Set(e2e);
-  const rest = all.filter((file) => !e2eSet.has(file));
   if (tier === 'full') {
     return rest;
   }
-  const integration = rest.filter((file) => matchesIntegration(file));
-  if (tier === 'integration') {
-    return integration;
-  }
-  const integrationSet = new Set(integration);
-  return rest.filter((file) => !integrationSet.has(file));
+  return splitBySpeed(rest, tier);
 }
 
 /**

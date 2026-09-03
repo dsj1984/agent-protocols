@@ -443,7 +443,7 @@ test('--help short-circuits: usage on stdout, and zero runner spawns', () => {
 
     assert.equal(spawns, 0, `${flag} must spawn no test runner`);
     assert.match(printed, /^Usage: node \.agents\/scripts\/run-tests\.js/);
-    assert.match(printed, /--tier <full\|quick\|integration>/);
+    assert.match(printed, /--tier <full\|quick\|integration\|e2e>/);
     assert.match(printed, /--test-name-pattern/);
   }
 });
@@ -457,7 +457,19 @@ test('run-tests.js hands its usage spec to runAsCli, so main never runs for --he
   );
   assert.match(src, /usage: USAGE/);
   assert.match(USAGE, /^Usage: node \.agents\/scripts\/run-tests\.js/);
-  assert.match(USAGE, /--tier <full\|quick\|integration>/);
+  assert.match(USAGE, /--tier <full\|quick\|integration\|e2e>/);
+  // Story #5111 — the usage block must describe the argv contract
+  // `parseTierArgv` actually enforces. It previously promised that "every
+  // unrecognized argument is forwarded verbatim", which is now the opposite
+  // of what happens, and a --help that contradicts the CLI is worse than no
+  // --help: it is the surface an operator trusts instead of reading the code.
+  assert.match(USAGE, /--test-only/);
+  assert.match(USAGE, /rejected rather than forwarded/);
+  assert.equal(
+    /forwarded verbatim, in flag position/.test(USAGE),
+    false,
+    'the retired "every unrecognized argument is forwarded" promise must not survive',
+  );
 });
 
 test('the runner defaults to the shared preflight rather than a no-op', () => {
