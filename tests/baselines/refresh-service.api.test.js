@@ -12,14 +12,49 @@
 import assert from 'node:assert/strict';
 import { readFileSync, rmSync } from 'node:fs';
 import path from 'node:path';
-import { afterEach, beforeEach, describe, it } from 'node:test';
+import { afterEach, beforeEach, describe, it, mock } from 'node:test';
 import { fileURLToPath } from 'node:url';
-
-import * as refreshServiceModule from '../../.agents/scripts/lib/baselines/refresh-service.js';
-import { refreshBaseline } from '../../.agents/scripts/lib/baselines/refresh-service.js';
 import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
 
 const FIXED = '2026-05-15T00:00:00Z';
+
+/**
+ * Pinned transpiler stamp — the environment half of the crap envelope,
+ * fixed for the same reason `FIXED` pins `generatedAt`.
+ *
+ * `kinds/crap.js#envelopeExtras` stamps every crap envelope with
+ * `resolveTsTranspilerVersion()`, which `require()`s the whole TypeScript
+ * compiler to read `ts.version` — 108 MB of resident memory, in a unit test
+ * that writes a two-row envelope and asserts its `$schema` and one row path.
+ * Pinning it keeps this file's assertions identical and its footprint honest;
+ * the real stamp (and its drift axis) is covered where it belongs, in
+ * `tests/baselines/writer.test.js`, `crap-compat-axes.test.js`,
+ * `reader.test.js` and `baselines-byte-identical-js-only.test.js`.
+ */
+const PINNED_TS_VERSION = '5.9.3';
+
+const TRANSPILE_URL = new URL(
+  '../../.agents/scripts/lib/transpile.js',
+  import.meta.url,
+).href;
+
+// Only the version stamp is replaced: `transpileIfNeeded` /
+// `prepareSourceForScoring` are re-exported from the real module, so the
+// maintainability scoring the default-scorer test drives is untouched. The
+// mock is installed before `refresh-service.js` is imported — a static
+// import would be hoisted above it and would resolve the real module.
+const realTranspile = await import(TRANSPILE_URL);
+mock.module(TRANSPILE_URL, {
+  namedExports: {
+    ...realTranspile,
+    resolveTsTranspilerVersion: () => PINNED_TS_VERSION,
+  },
+});
+
+const refreshServiceModule = await import(
+  '../../.agents/scripts/lib/baselines/refresh-service.js'
+);
+const { refreshBaseline } = refreshServiceModule;
 
 /**
  * A two-file repository the registered default scorer can walk in full.
