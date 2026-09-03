@@ -14,6 +14,11 @@ import assert from 'node:assert/strict';
 import path from 'node:path';
 import { describe, it } from 'node:test';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import {
+  classifyGithubError,
+  TRANSIENT_RETRY_DEFAULTS,
+  withTransientRetry,
+} from '../../../.agents/scripts/providers/github/errors.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..', '..', '..');
@@ -157,15 +162,75 @@ describe('providers/github/labels.js — LabelGateway', () => {
   });
 
   it('ensureLabels: rethrows non-"already exists" errors', async () => {
+    // Deliberately a *permanent* failure shape. `ensureLabels` wraps each
+    // create in `withTransientRetry`, so a transient message here ("rate
+    // limited") bought six attempts of real 0.5s→8s backoff — ~16 seconds of
+    // a held worker slot to assert one rethrow. The retry behaviour itself is
+    // covered below, on the injected clock; this test owns the rethrow.
+    const err = new Error('validation failed: color is invalid');
     const gh = makeFakeGh({
       onCreate: () => {
-        throw new Error('rate limited');
+        throw err;
       },
     });
+    assert.equal(
+      classifyGithubError(err),
+      'permanent',
+      'this fixture must not enter the retry loop',
+    );
     const gw = new LabelGateway({ gh, owner: 'o', repo: 'r' });
     await assert.rejects(
       () => gw.ensureLabels([{ name: 'x', color: '#fff' }]),
+      /validation failed/,
+    );
+  });
+
+  it('ensureLabels: a transient create failure is retried, then propagates', async () => {
+    // The retry half of the test above, driven through the `sleep` seam
+    // `withTransientRetry` already exposes rather than through the wall
+    // clock. `ensureLabels` calls that primitive with no options, so this
+    // exercises the exact defaults it inherits — asserted here, not
+    // redefined.
+    const err = new Error('rate limited');
+    assert.equal(
+      classifyGithubError(err),
+      'transient',
+      'a rate-limit message is what makes the create retry-eligible',
+    );
+
+    const slept = [];
+    const retries = [];
+    let attempts = 0;
+    await assert.rejects(
+      () =>
+        withTransientRetry(
+          async () => {
+            attempts += 1;
+            throw err;
+          },
+          {
+            sleep: async (ms) => {
+              slept.push(ms);
+            },
+            random: () => 0,
+            onRetry: (info) => retries.push(info),
+          },
+        ),
       /rate limited/,
+    );
+
+    assert.equal(attempts, TRANSIENT_RETRY_DEFAULTS.maxAttempts);
+    assert.equal(retries.length, TRANSIENT_RETRY_DEFAULTS.maxAttempts - 1);
+    assert.equal(slept.length, TRANSIENT_RETRY_DEFAULTS.maxAttempts - 1);
+    // Exponential, capped — the defaults are read, never re-stated.
+    assert.deepEqual(
+      slept,
+      retries.map((_, i) =>
+        Math.min(
+          TRANSIENT_RETRY_DEFAULTS.capMs,
+          TRANSIENT_RETRY_DEFAULTS.baseDelayMs * 2 ** i,
+        ),
+      ),
     );
   });
 
