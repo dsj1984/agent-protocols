@@ -1,7 +1,7 @@
 {
   "$schema": ".agents/schemas/baselines/maintainability.schema.json",
   "kernelVersion": "0.1.0",
-  "generatedAt": "2026-09-03T02:33:04.228Z",
+  "generatedAt": "2026-09-03T17:32:54.886Z",
   "rollup": {
     "*": {
       "min": 76.381,
@@ -144,7 +144,7 @@
     },
     {
       "path": ".agents/scripts/drain-pending-cleanup.js",
-      "mi": 102.676
+      "mi": 103.222
     },
     {
       "path": ".agents/scripts/evidence-gate.js",
@@ -1432,7 +1432,7 @@
     },
     {
       "path": ".agents/scripts/lib/orchestration/single-story-close/phases/options.js",
-      "mi": 99.122
+      "mi": 99.651
     },
     {
       "path": ".agents/scripts/lib/orchestration/single-story-close/phases/post-land.js",
@@ -1536,7 +1536,7 @@
     },
     {
       "path": ".agents/scripts/lib/orchestration/ticket-lease.js",
-      "mi": 95.392
+      "mi": 96.506
     },
     {
       "path": ".agents/scripts/lib/orchestration/ticket-validator-conflicts.js",
@@ -1668,7 +1668,7 @@
     },
     {
       "path": ".agents/scripts/lib/single-story-sweep/sweep-lock.js",
-      "mi": 101.053
+      "mi": 101.742
     },
     {
       "path": ".agents/scripts/lib/single-story/confirm-merge.js",
@@ -1764,7 +1764,7 @@
     },
     {
       "path": ".agents/scripts/lib/test-tiers.js",
-      "mi": 105.636
+      "mi": 106.929
     },
     {
       "path": ".agents/scripts/lib/ticket-body-sections.js",
@@ -1872,7 +1872,7 @@
     },
     {
       "path": ".agents/scripts/lib/worktree/lifecycle/pending-cleanup.js",
-      "mi": 93.488
+      "mi": 98.312
     },
     {
       "path": ".agents/scripts/lib/worktree/lifecycle/precheck.js",
@@ -2016,7 +2016,7 @@
     },
     {
       "path": ".agents/scripts/providers/github/tickets.js",
-      "mi": 96.306
+      "mi": 97.023
     },
     {
       "path": ".agents/scripts/provision-git-hooks.js",
