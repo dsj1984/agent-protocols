@@ -1,7 +1,7 @@
 {
   "$schema": "https://mandrel.dev/baselines/dead-exports.schema.json",
   "kernelVersion": "6.17.1",
-  "generatedAt": "2026-09-03T02:03:51.520Z",
+  "generatedAt": "2026-09-03T02:33:14.947Z",
   "rows": [
     {
       "file": ".agents/scripts/lib/baseline-schema-registry.js",
@@ -16,24 +16,12 @@
       "symbol": "readLineCount"
     },
     {
-      "file": ".agents/scripts/lib/baselines/env-overrides.js",
-      "symbol": "MI_DEFAULT_TOLERANCE"
-    },
-    {
       "file": ".agents/scripts/lib/baselines/envelope.js",
       "symbol": "KNOWN_KINDS"
     },
     {
       "file": ".agents/scripts/lib/baselines/reader.js",
       "symbol": "BASELINE_KIND_SCHEMA_FILES"
-    },
-    {
-      "file": ".agents/scripts/lib/bootstrap/branch-protection.js",
-      "symbol": "diffProtection"
-    },
-    {
-      "file": ".agents/scripts/lib/bootstrap/install-ledger.js",
-      "symbol": "resolveExecutedAction"
     },
     {
       "file": ".agents/scripts/lib/bootstrap/manifest.js",
@@ -49,39 +37,11 @@
     },
     {
       "file": ".agents/scripts/lib/bootstrap/project-bootstrap.js",
-      "symbol": "ensureDependenciesInstalled"
-    },
-    {
-      "file": ".agents/scripts/lib/bootstrap/project-bootstrap.js",
       "symbol": "runSyncCommands"
     },
     {
       "file": ".agents/scripts/lib/bootstrap/project-bootstrap.js",
       "symbol": "validateAgentrc"
-    },
-    {
-      "file": ".agents/scripts/lib/bootstrap/prompt.js",
-      "symbol": "KNOWN_FLAGS"
-    },
-    {
-      "file": ".agents/scripts/lib/bootstrap/quality-bootstrap.js",
-      "symbol": "FRAMEWORK_PRE_COMMIT"
-    },
-    {
-      "file": ".agents/scripts/lib/bootstrap/quality-bootstrap.js",
-      "symbol": "QUALITY_CONFIG_DEFAULTS"
-    },
-    {
-      "file": ".agents/scripts/lib/checks/loop-health.js",
-      "symbol": "MAX_SAMPLE_LINES"
-    },
-    {
-      "file": ".agents/scripts/lib/close-validation/gates.js",
-      "symbol": "INDEPENDENT_GATE_NAMES"
-    },
-    {
-      "file": ".agents/scripts/lib/close-validation/process.js",
-      "symbol": "isBiomeNoFilesProcessed"
     },
     {
       "file": ".agents/scripts/lib/config-schema-shared.js",
@@ -132,56 +92,16 @@
       "symbol": "TOLERANCE_SCHEMA"
     },
     {
-      "file": ".agents/scripts/lib/config/sync-agentrc.js",
-      "symbol": "isLeafSchemaRemovable"
-    },
-    {
-      "file": ".agents/scripts/lib/coverage-baseline.js",
-      "symbol": "COVERAGE_FINAL_PATH"
-    },
-    {
-      "file": ".agents/scripts/lib/coverage-baseline.js",
-      "symbol": "NOISE_EVENT_HEADROOM"
-    },
-    {
       "file": ".agents/scripts/lib/duplicate-search.js",
       "symbol": "__test"
-    },
-    {
-      "file": ".agents/scripts/lib/duplicate-search.js",
-      "symbol": "rankOpenStoryDuplicates"
     },
     {
       "file": ".agents/scripts/lib/dynamic-workflow/report-contract-core.js",
       "symbol": "escapeRegExp"
     },
     {
-      "file": ".agents/scripts/lib/errors/index.js",
-      "symbol": "ConflictingTypeLabelsError"
-    },
-    {
-      "file": ".agents/scripts/lib/feedback-loop/graduator-core.js",
-      "symbol": "CROSS_REPO_DEFERRED_COMMENT_TYPE"
-    },
-    {
-      "file": ".agents/scripts/lib/feedback-loop/graduator-core.js",
-      "symbol": "DEFAULT_RUN_CHILD_TIMEOUT_MS"
-    },
-    {
-      "file": ".agents/scripts/lib/feedback-loop/prior-feedback-fetcher.js",
-      "symbol": "extractRecurringDefectClasses"
-    },
-    {
-      "file": ".agents/scripts/lib/feedback-loop/retro-proposals-graduator.js",
-      "symbol": "parseRepoSlug"
-    },
-    {
       "file": ".agents/scripts/lib/findings/classify-finding.js",
       "symbol": "__testing"
-    },
-    {
-      "file": ".agents/scripts/lib/install-cmd-parser.js",
-      "symbol": "parseInstallCmd"
     },
     {
       "file": ".agents/scripts/lib/Logger.js",
@@ -196,64 +116,8 @@
       "symbol": "LABEL_TO_COLUMN"
     },
     {
-      "file": ".agents/scripts/lib/orchestration/git-cleanup/phases/git-probes-ff.js",
-      "symbol": "makeFfProbes"
-    },
-    {
       "file": ".agents/scripts/lib/orchestration/git-cleanup/phases/git-probes.js",
       "symbol": "defaultGhRunner"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/pr-watch.js",
-      "symbol": "RECOGNIZED_CHECK_STATES"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/pr-watch.js",
-      "symbol": "STILL_RUNNING"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/reassert-status-column.js",
-      "symbol": "DEFAULT_POLL_ATTEMPTS"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/reassert-status-column.js",
-      "symbol": "DEFAULT_POLL_DELAY_MS"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/review-providers/codex.js",
-      "symbol": "buildCodexReviewPrompt"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/review-providers/codex.js",
-      "symbol": "DEFAULT_PLUGIN_MARKERS"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/review-providers/codex.js",
-      "symbol": "defaultInvokeCodexReview"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/review-providers/findings-renderer.js",
-      "symbol": "renderManualPromptsSection"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/review-providers/review-depth.js",
-      "symbol": "DEPTH_DIRECTIVES"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/review-providers/review-depth.js",
-      "symbol": "normalizeDepth"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/review-providers/security-review.js",
-      "symbol": "defaultInvokeSecurityReview"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/review-providers/security-review.js",
-      "symbol": "defaultProbeClaudeCli"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/review-providers/security-review.js",
-      "symbol": "SECURITY_REVIEW_INVOKE_PROMPT"
     },
     {
       "file": ".agents/scripts/lib/orchestration/single-story-close/phases/base-sync.js",
@@ -280,18 +144,6 @@
       "symbol": "currentBranch"
     },
     {
-      "file": ".agents/scripts/lib/orchestration/story-close/format-autofix.js",
-      "symbol": "listDirtyPaths"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/story-close/format-autofix.js",
-      "symbol": "resolveFormatterCmd"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/story-follow-ups.js",
-      "symbol": "FOLLOW_UPS_COMMENT_TYPE"
-    },
-    {
       "file": ".agents/scripts/lib/orchestration/ticket-lease.js",
       "symbol": "OPERATOR_HANDLE_PLACEHOLDER"
     },
@@ -312,40 +164,12 @@
       "symbol": "transitionStoryDirect"
     },
     {
-      "file": ".agents/scripts/lib/preflight-runner.js",
-      "symbol": "logBlockers"
-    },
-    {
-      "file": ".agents/scripts/lib/preflight-runner.js",
-      "symbol": "logFixes"
-    },
-    {
-      "file": ".agents/scripts/lib/preflight-runner.js",
-      "symbol": "logNonBlockers"
-    },
-    {
-      "file": ".agents/scripts/lib/qa/qa-session.js",
-      "symbol": "QA_LEDGER_DIRNAME"
-    },
-    {
-      "file": ".agents/scripts/lib/runtime-deps/manifest.js",
-      "symbol": "MANIFEST_PATH"
-    },
-    {
-      "file": ".agents/scripts/lib/runtime-deps/scan-imports.js",
-      "symbol": "BUILTIN_MODULES"
-    },
-    {
       "file": ".agents/scripts/lib/runtime-deps/scan-imports.js",
       "symbol": "listJsFiles"
     },
     {
       "file": ".agents/scripts/lib/single-story/story-merged-notify.js",
       "symbol": "*"
-    },
-    {
-      "file": ".agents/scripts/lib/skills/walk-skill-files.js",
-      "symbol": "walkSkillFiles"
     },
     {
       "file": ".agents/scripts/lib/test-isolate/env-snapshot-loader.js",
@@ -356,32 +180,12 @@
       "symbol": "walkTestFiles"
     },
     {
-      "file": ".agents/scripts/lib/test-isolate/runner.js",
-      "symbol": "runFileIsolated"
-    },
-    {
-      "file": ".agents/scripts/lib/test-isolate/runner.js",
-      "symbol": "runIsolatedPool"
-    },
-    {
-      "file": ".agents/scripts/lib/test-isolate/runner.js",
-      "symbol": "runSuite"
-    },
-    {
       "file": ".agents/scripts/lib/worktree/git-hooks.js",
       "symbol": "resolveCommonCheckout"
     },
     {
       "file": ".agents/scripts/lib/worktree/lifecycle-manager.js",
       "symbol": "findByPath"
-    },
-    {
-      "file": ".agents/scripts/lib/worktree/node-modules-strategy.js",
-      "symbol": "PNPM_STORE_PRIME_SENTINEL"
-    },
-    {
-      "file": ".agents/scripts/lib/worktree/node-modules-strategy.js",
-      "symbol": "primePnpmStore"
     },
     {
       "file": ".agents/scripts/post-structured-comment.js",

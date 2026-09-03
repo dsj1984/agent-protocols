@@ -60,7 +60,7 @@ import { upsertStructuredComment } from '../orchestration/ticketing.js';
  * finalize indefinitely; the walk now caps every spawn at this bound unless
  * a caller overrides it.
  */
-export const DEFAULT_RUN_CHILD_TIMEOUT_MS = 30000;
+const DEFAULT_RUN_CHILD_TIMEOUT_MS = 30000;
 
 /**
  * Default per-run filing cap. `graduate()` files at most this many follow-up
@@ -72,7 +72,7 @@ export const DEFAULT_MAX_FILINGS_PER_RUN = 20;
  * Structured-comment type used to durably persist cross-repo-deferred
  * findings on the Epic. Registered in `STRUCTURED_COMMENT_TYPES`.
  */
-export const CROSS_REPO_DEFERRED_COMMENT_TYPE = 'cross-repo-deferred';
+const CROSS_REPO_DEFERRED_COMMENT_TYPE = 'cross-repo-deferred';
 
 /**
  * Explicit, greppable opt-back-in to live issue filing from a context the

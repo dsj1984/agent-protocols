@@ -43,7 +43,7 @@ const TARGET_APPROVAL_COUNT = 0;
  * return value is a structured diff suitable for `hitlConfirm` so the
  * operator sees exactly what would flip.
  */
-export function diffProtection(current, targetContexts) {
+function diffProtection(current, targetContexts) {
   if (!current) return null; // create-from-scratch path; no diff needed.
 
   const diff = {};

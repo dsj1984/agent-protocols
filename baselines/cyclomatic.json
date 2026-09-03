@@ -1,11 +1,11 @@
 {
   "$schema": "https://mandrel.dev/baselines/cyclomatic.schema.json",
-  "generatedAt": "2026-08-07T14:28:04.822Z",
+  "generatedAt": "2026-09-03T02:33:21.942Z",
   "ceiling": 12,
   "rollup": {
     "*": {
-      "filesAboveCeiling": 52,
-      "methodsAboveCeiling": 56,
+      "filesAboveCeiling": 48,
+      "methodsAboveCeiling": 52,
       "maxCyclomatic": 20
     }
   },
@@ -16,19 +16,9 @@
       "maxCyclomatic": 18
     },
     {
-      "file": ".agents/scripts/check-context-budget.js",
-      "methodsAboveCeiling": 1,
-      "maxCyclomatic": 20
-    },
-    {
       "file": ".agents/scripts/check-doc-links.js",
       "methodsAboveCeiling": 1,
       "maxCyclomatic": 13
-    },
-    {
-      "file": ".agents/scripts/check-lifecycle-lint.js",
-      "methodsAboveCeiling": 1,
-      "maxCyclomatic": 19
     },
     {
       "file": ".agents/scripts/diagnose-friction.js",
@@ -216,11 +206,6 @@
       "maxCyclomatic": 16
     },
     {
-      "file": ".agents/scripts/lib/runtime-deps/scan-imports.js",
-      "methodsAboveCeiling": 1,
-      "maxCyclomatic": 18
-    },
-    {
       "file": ".agents/scripts/lib/signals/detectors/common.js",
       "methodsAboveCeiling": 1,
       "maxCyclomatic": 20
@@ -244,11 +229,6 @@
       "file": ".agents/scripts/notify.js",
       "methodsAboveCeiling": 1,
       "maxCyclomatic": 17
-    },
-    {
-      "file": ".agents/scripts/pr-watch-with-update.js",
-      "methodsAboveCeiling": 1,
-      "maxCyclomatic": 20
     },
     {
       "file": ".agents/scripts/single-story-init.js",

@@ -11,7 +11,6 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 
 import { getBaseline } from '../../.agents/scripts/lib/baselines/maintainability-baseline-io.js';
-import { saveBaseline } from '../../.agents/scripts/lib/baselines/maintainability-baseline-save.js';
 import {
   calculateAll,
   scanDirectory,
@@ -69,47 +68,6 @@ describe('getBaseline', () => {
     } finally {
       fs.unlinkSync(abs);
     }
-  });
-});
-
-describe('saveBaseline', () => {
-  it('throws on empty / non-string baselinePath', () => {
-    assert.throws(() => saveBaseline({}, ''), /baselinePath is required/);
-    assert.throws(() => saveBaseline({}, null), /baselinePath is required/);
-  });
-
-  it('writes a canonical envelope (schema, rows, rollup) with a trailing newline', () => {
-    const p = path.join(tmp, 'out.json');
-    saveBaseline({ 'src/c.js': 70, 'src/a.js': 90, 'src/b.js': 80 }, p);
-    const raw = fs.readFileSync(p, 'utf-8');
-    assert.equal(raw.endsWith('\n'), true);
-    const parsed = JSON.parse(raw);
-    assert.equal(
-      parsed.$schema,
-      '.agents/schemas/baselines/maintainability.schema.json',
-    );
-    assert.equal(typeof parsed.kernelVersion, 'string');
-    assert.equal(typeof parsed.generatedAt, 'string');
-    assert.ok(parsed.rollup && typeof parsed.rollup === 'object');
-    assert.ok(Object.hasOwn(parsed.rollup, '*'));
-    assert.ok(Array.isArray(parsed.rows));
-    assert.deepEqual(
-      parsed.rows.map((r) => r.path),
-      ['src/a.js', 'src/b.js', 'src/c.js'],
-    );
-  });
-
-  it('creates intermediate directories when they do not exist', () => {
-    const p = path.join(tmp, 'nested', 'deep', 'baseline.json');
-    saveBaseline({ 'a.js': 1 }, p);
-    assert.equal(fs.existsSync(p), true);
-  });
-
-  it('round-trips with getBaseline (legacy flat-map projection)', () => {
-    const p = path.join(tmp, 'rt.json');
-    const data = { 'a.js': 10, 'b.js': 20 };
-    saveBaseline(data, p);
-    assert.deepEqual(getBaseline(p), data);
   });
 });
 

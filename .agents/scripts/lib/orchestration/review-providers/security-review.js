@@ -59,7 +59,7 @@ export const SECURITY_REVIEW_REMEDIATIONS = Object.freeze({
  * @param {{ spawnFn?: typeof spawnSync }} [opts]
  * @returns {boolean}
  */
-export function defaultProbeClaudeCli(opts = {}) {
+function defaultProbeClaudeCli(opts = {}) {
   const spawnFn = opts.spawnFn ?? spawnSync;
   try {
     const result = spawnFn('claude', ['--version'], {
@@ -162,7 +162,7 @@ export function parseSecurityReviewFindings(rawStdout) {
  * (Story #3937) so a high-risk Epic instructs the model toward a deeper
  * second-pass review while a low-risk one keeps it light.
  */
-export const SECURITY_REVIEW_INVOKE_PROMPT =
+const SECURITY_REVIEW_INVOKE_PROMPT =
   'Run /security-review against the diff `{baseRef}`...`{headRef}` ' +
   'for {scopeLabel} #{ticketId}. {depthDirective} After the review, emit ' +
   'ONLY a JSON array of findings on stdout with this exact shape:\n\n' +
@@ -208,7 +208,7 @@ export function buildSecurityReviewPrompt(input) {
  * @param {ReviewInput} input
  * @returns {{ status: number, stdout: string, stderr: string }}
  */
-export function defaultInvokeSecurityReview(input) {
+function defaultInvokeSecurityReview(input) {
   const prompt = buildSecurityReviewPrompt(input);
   const result = spawnSync('claude', ['--print', prompt], {
     encoding: 'utf-8',

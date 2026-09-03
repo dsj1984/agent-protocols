@@ -80,7 +80,7 @@ const TARGET_TO_PHASE = Object.freeze({
  * @param {Record<string, { action?: string }>} [report]
  * @returns {string|undefined}
  */
-export function resolveExecutedAction(entry, report) {
+function resolveExecutedAction(entry, report) {
   if (!report) return undefined;
   const phaseName = TARGET_TO_PHASE[entry.target];
   if (!phaseName) return undefined;

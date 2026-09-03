@@ -1,14 +1,14 @@
 {
   "$schema": "https://mandrel.dev/baselines/context-budget.schema.json",
-  "generatedAt": "2026-09-03T01:37:26.612Z",
+  "generatedAt": "2026-09-03T02:33:22.929Z",
   "toleranceBytes": 2048,
   "tiers": {
     "alwaysLoaded": {
-      "totalBytes": 21244,
+      "totalBytes": 21388,
       "files": [
         {
           "path": ".agentrc.json",
-          "bytes": 1948
+          "bytes": 2092
         },
         {
           "path": ".agents/instructions.md",

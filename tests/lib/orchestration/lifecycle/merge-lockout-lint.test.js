@@ -17,10 +17,8 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, it } from 'node:test';
 
-import {
-  findMergeLockoutViolations,
-  stripComments,
-} from '../../../../.agents/scripts/check-lifecycle-lint.js';
+import { findMergeLockoutViolations } from '../../../../.agents/scripts/check-lifecycle-lint.js';
+import { stripJsComments } from '../../../../.agents/scripts/lib/source-text/strip-js-comments.js';
 import { makeTempDir } from '../../../../.agents/scripts/lib/test-temp.js';
 
 /**
@@ -38,24 +36,24 @@ function makeFixtureTree(files) {
   return root;
 }
 
-describe('stripComments', () => {
+describe('stripJsComments', () => {
   it('preserves string literals containing comment-like sequences', () => {
     const input = `const s = "// not a comment"; const t = '/* still not */';`;
-    const out = stripComments(input);
+    const out = stripJsComments(input);
     assert.match(out, /"\/\/ not a comment"/);
     assert.match(out, /'\/\* still not \*\/'/);
   });
 
   it('removes line comments and block comments', () => {
     const input = 'a // forbidden line\nb /* forbidden block */ c';
-    const out = stripComments(input);
+    const out = stripJsComments(input);
     assert.ok(!out.includes('forbidden line'));
     assert.ok(!out.includes('forbidden block'));
   });
 
   it('preserves line numbers across block-comment newlines', () => {
     const input = 'line1\n/*\nblock\n*/\nline5';
-    const out = stripComments(input);
+    const out = stripJsComments(input);
     const lines = out.split('\n');
     // 5 lines preserved (line1, "", "", "", line5)
     assert.equal(lines.length, 5);

@@ -387,7 +387,7 @@ export function enrichRoutedProposalsWithFilings(routedProposals, filed) {
  * @param {string|null|undefined} slug
  * @returns {{ owner: string, repo: string } | null}
  */
-export function parseRepoSlug(slug) {
+function parseRepoSlug(slug) {
   if (typeof slug !== 'string') return null;
   const parts = slug.split('/');
   if (parts.length !== 2) return null;

@@ -59,6 +59,7 @@ import {
   resolveKnipEntryPatterns,
   __testing as resolverTesting,
 } from './knip-config-resolver.js';
+import { stripJsComments } from './source-text/strip-js-comments.js';
 
 // Only `resolveEntrySync` and `renderEntrySyncReport` are public — they are
 // what `check-knip-entries.js` calls. Everything else is module-private and
@@ -88,63 +89,6 @@ const INVOCATION_SURFACES = Object.freeze([
   { kind: 'dir', at: path.join('.agents', 'rules'), test: /\.md$/ },
   { kind: 'dir', at: SCRIPTS_DIR, test: /\.js$/ },
 ]);
-
-/**
- * Strip line and block comments from JavaScript source, preserving string and
- * template literals so a `'https://…'` or a `` `${x}//y` `` is not mangled.
- *
- * Comments are stripped before scanning `.js` surfaces so a JSDoc paragraph
- * that merely *names* a CLI ("superseded by `node .agents/scripts/foo.js`")
- * cannot confer liveness on it. Several such mentions exist today; every one
- * of them is prose about a script's internals, not a call.
- *
- * Replaces comment bodies with equivalent whitespace rather than deleting
- * them, so byte offsets and line numbers survive for any future caller that
- * wants to report a position.
- *
- * @param {string} source
- * @returns {string}
- */
-function stripJsComments(source) {
-  const text = String(source ?? '');
-  let out = '';
-  let i = 0;
-  const blank = (s) => s.replace(/[^\n]/g, ' ');
-  while (i < text.length) {
-    const two = text.slice(i, i + 2);
-    if (two === '//') {
-      const end = text.indexOf('\n', i);
-      const stop = end === -1 ? text.length : end;
-      out += blank(text.slice(i, stop));
-      i = stop;
-    } else if (two === '/*') {
-      const end = text.indexOf('*/', i + 2);
-      const stop = end === -1 ? text.length : end + 2;
-      out += blank(text.slice(i, stop));
-      i = stop;
-    } else {
-      const ch = text[i];
-      if (ch === "'" || ch === '"' || ch === '`') {
-        let j = i + 1;
-        while (j < text.length) {
-          if (text[j] === '\\') {
-            j += 2;
-            continue;
-          }
-          if (text[j] === ch) break;
-          j += 1;
-        }
-        const stop = Math.min(j + 1, text.length);
-        out += text.slice(i, stop);
-        i = stop;
-      } else {
-        out += ch;
-        i += 1;
-      }
-    }
-  }
-  return out;
-}
 
 /**
  * Recursively list files under `dir`, skipping `node_modules` and `.git`.
