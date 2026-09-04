@@ -1,7 +1,7 @@
 {
   "$schema": ".agents/schemas/baselines/maintainability.schema.json",
   "kernelVersion": "0.1.0",
-  "generatedAt": "2026-09-03T17:32:54.886Z",
+  "generatedAt": "2026-09-04T17:34:12.161Z",
   "rollup": {
     "*": {
       "min": 76.381,
@@ -536,7 +536,7 @@
     },
     {
       "path": ".agents/scripts/lib/changed-files.js",
-      "mi": 104.057
+      "mi": 100.02
     },
     {
       "path": ".agents/scripts/lib/checks/core-bare-clean.js",

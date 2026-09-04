@@ -123,12 +123,97 @@ export function getChangedFiles({
 }
 
 /**
+ * A full-length hex object id, as `git rev-parse` prints it. Used to reject
+ * anything that is not a resolved commit — a stubbed git interface in a test
+ * answers every `gitSpawn` with the same canned stdout, and a file list must
+ * never be mistaken for a merge head.
+ */
+const OBJECT_ID_RE = /^[0-9a-f]{40}(?:[0-9a-f]{24})?$/;
+
+/**
+ * Resolve the commit an in-progress merge is merging **in**, or `null` when no
+ * merge is in progress.
+ *
+ * Story #5131. `git diff --cached` with no commit argument diffs the index
+ * against `HEAD`, and during a merge `HEAD` is still the pre-merge tip — so a
+ * base-sync merge commit (`git merge --no-edit origin/<base>`, which
+ * `single-story-close`'s base-sync phase tells the operator to run by hand)
+ * put every file the base branch had landed into the staged scope. The
+ * pre-commit MI/CRAP gate then blocked the resolution commit for deltas
+ * belonging to already-landed, already-gated work, with no remedy: the preview
+ * is a delta against the baseline, not a baseline comparison, so no baseline
+ * refresh could silence it.
+ *
+ * Two details are load-bearing:
+ *
+ *   - **Ask git, never the filesystem.** `.git` is a *file*, not a directory,
+ *     in the linked worktrees this repo delivers from, so an
+ *     `existsSync('.git/MERGE_HEAD')` probe would be silently inert exactly
+ *     where deliveries happen. `rev-parse --verify` resolves the ref through
+ *     git's own worktree-aware lookup.
+ *   - **`--verify` fails closed on an octopus merge.** It refuses a
+ *     `MERGE_HEAD` naming more than one head, which lands here as `null` — the
+ *     pre-#5131 behaviour. Narrowing the scope wrongly would hide a real
+ *     regression; widening it only restores the status quo.
+ *
+ * Never throws: a merge is either detectable or it is not, and an
+ * undetectable one must degrade to the plain cached diff rather than fail the
+ * gate.
+ *
+ * @param {object} [params]
+ * @param {string} [params.cwd=process.cwd()]
+ * @param {ReturnType<typeof createGitInterface>} [params.git]
+ * @returns {string | null} The merge head's object id, or `null`.
+ */
+export function resolveMergeHead({ cwd = process.cwd(), git } = {}) {
+  const gitIface = git ?? createGitInterface({});
+  let res;
+  try {
+    res = gitIface.gitSpawn(cwd, 'rev-parse', '-q', '--verify', 'MERGE_HEAD');
+  } catch {
+    return null;
+  }
+  if (res?.status !== 0) return null;
+  const sha = (res.stdout ?? '').trim();
+  return OBJECT_ID_RE.test(sha) ? sha : null;
+}
+
+/**
+ * Read the index file list against an explicit base, shared by
+ * `getStagedFiles` and `resolvePreviewScope` so the merge head is resolved
+ * once per scope resolution rather than once per caller.
+ *
+ * @param {object} params
+ * @param {string} params.cwd
+ * @param {ReturnType<typeof createGitInterface>} params.git
+ * @param {string | null} params.mergeHead
+ * @returns {string[]}
+ */
+function stagedFilesAgainst({ cwd, git, mergeHead }) {
+  const args = ['diff', '--name-only', '--cached'];
+  if (mergeHead) args.push(mergeHead);
+  const res = git.gitSpawn(cwd, ...args);
+  if (res.status !== 0) {
+    const detail = res.stderr || res.stdout || `exit ${res.status}`;
+    throw new Error(`[staged] unable to read cached diff: ${detail}`);
+  }
+  return parseNameOnlyStdout(res.stdout);
+}
+
+/**
  * Resolve paths in the index (staged for commit). Used by `quality-preview
  * --staged` so pre-commit gates score only the commit payload, not unstaged
  * working-tree edits.
  *
  * Semantics:
- *   - Runs `git diff --name-only --cached`.
+ *   - Runs `git diff --name-only --cached`, which diffs the index against
+ *     `HEAD`.
+ *   - **During a merge**, diffs the index against `MERGE_HEAD` instead
+ *     (Story #5131), so the scope is the merging branch's own contribution
+ *     plus its conflict resolutions — not the base branch's incoming work.
+ *     `git merge-base HEAD MERGE_HEAD` would *not* do: diffing the index
+ *     against the fork point re-admits everything the base branch landed since
+ *     it, which is the whole defect.
  *   - Returns forward-slash-normalized repo-relative paths.
  *   - Non-zero git exit throws — staged mode must not silently widen scope.
  *
@@ -139,12 +224,11 @@ export function getChangedFiles({
  */
 export function getStagedFiles({ cwd = process.cwd(), git } = {}) {
   const gitIface = git ?? createGitInterface({});
-  const res = gitIface.gitSpawn(cwd, 'diff', '--name-only', '--cached');
-  if (res.status !== 0) {
-    const detail = res.stderr || res.stdout || `exit ${res.status}`;
-    throw new Error(`[staged] unable to read cached diff: ${detail}`);
-  }
-  return parseNameOnlyStdout(res.stdout);
+  return stagedFilesAgainst({
+    cwd,
+    git: gitIface,
+    mergeHead: resolveMergeHead({ cwd, git: gitIface }),
+  });
 }
 
 /**
@@ -153,6 +237,11 @@ export function getStagedFiles({ cwd = process.cwd(), git } = {}) {
  * When `staged` is true, only index paths are returned and `changedSinceRef`
  * is ignored. Otherwise a `changedSinceRef` limits to that three-dot diff;
  * when both are absent the caller runs in full-repo mode (`scopeSet: null`).
+ *
+ * In `staged` scope, `diffRef` carries the in-progress merge head when there
+ * is one (Story #5131) and `null` otherwise, so a caller can tell the operator
+ * *why* the scope narrowed. `scope` stays `'staged'` either way — the merge is
+ * a property of the base the index is read against, not a different mode.
  *
  * @param {object} [params]
  * @param {boolean} [params.staged=false]
@@ -172,8 +261,10 @@ export function resolvePreviewScope({
   git,
 } = {}) {
   if (staged) {
-    const files = getStagedFiles({ cwd, git });
-    return { scopeSet: new Set(files), scope: 'staged', diffRef: null };
+    const gitIface = git ?? createGitInterface({});
+    const mergeHead = resolveMergeHead({ cwd, git: gitIface });
+    const files = stagedFilesAgainst({ cwd, git: gitIface, mergeHead });
+    return { scopeSet: new Set(files), scope: 'staged', diffRef: mergeHead };
   }
   if (changedSinceRef) {
     try {

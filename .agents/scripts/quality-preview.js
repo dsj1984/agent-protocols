@@ -12,9 +12,18 @@
  *   2. `npm run quality:watch`     — chokidar wrapper re-emits on save.
  *   3. `.husky/pre-commit`         — block the commit on threshold violations.
  *
- * Story #1394 (Epic #1386) flipped the default scope of both gates to
- * diff-against-`main`, so passing `--changed-since HEAD` here mirrors what the
- * pre-commit hook actually wants: the delta the operator is about to commit.
+ * The pre-commit hook passes `--staged` and nothing else — the index is
+ * already the exact delta the operator is about to commit, and
+ * `tests/pre-commit-hook.test.js` pins that `--changed-since` stays off it.
+ * (This docblock previously claimed the hook passed `--changed-since HEAD`,
+ * describing a wiring the hook has not used for some time; the stale prose
+ * sent at least one bug report at the wrong flag — Story #5131.)
+ *
+ * `--staged` is merge-aware: while a merge is in progress the index is read
+ * against `MERGE_HEAD` rather than `HEAD`, so a base-sync merge commit is
+ * scored for the merging branch's own work and its conflict resolutions, not
+ * for everything the base branch landed. See `resolveMergeHead` in
+ * `lib/changed-files.js`.
  *
  * The CLI exits 0 when both envelopes report zero violations and the script
  * could not surface a regression. Any violation in either envelope, or any
@@ -29,6 +38,7 @@ import {
   runCrapPreview,
   runMaintainabilityPreview,
 } from './lib/baselines/preview-gates.js';
+import { resolveMergeHead } from './lib/changed-files.js';
 import { respondToHelp } from './lib/cli-usage.js';
 import { getQuality, resolveConfig } from './lib/config-resolver.js';
 import { resolveCyclomaticPolicy } from './lib/cyclomatic-ceiling.js';
@@ -39,7 +49,10 @@ const USAGE = {
   summary:
     'Preview the per-file maintainability and CRAP deltas for the change set, and exit non-zero on any threshold violation.',
   flags: [
-    ['--staged', 'Score the git index only (the pre-commit-hook scope).'],
+    [
+      '--staged',
+      'Score the git index only (the pre-commit-hook scope). During a merge the index is read against MERGE_HEAD.',
+    ],
     [
       '--changed-since <ref>',
       'Score the diff against <ref> (default: HEAD). Last occurrence wins.',
@@ -389,6 +402,35 @@ function runGateSafely(runner, args, label, stderr) {
 }
 
 /**
+ * Render the scope header line.
+ *
+ * Story #5131 — when `--staged` runs during a merge the scope is re-based to
+ * `MERGE_HEAD`, and the header says so. Without that line the operator sees a
+ * table whose row count does not match `git diff --cached` with no way to tell
+ * the narrowing was deliberate.
+ *
+ * The merge state is resolved here rather than read back off a gate envelope's
+ * `summary.diffRef`: that field means "the ref this scope was resolved
+ * against" for every scope kind, so anything that populates it — a future
+ * scope mode, a test stub — would render a merge banner over a repo that is
+ * not merging. Resolving it after the `!staged` early return also keeps the
+ * probe off the `--changed-since` path, which has no use for it.
+ *
+ * @param {{ staged: boolean, ref: string|null, cwd: string }} args
+ * @returns {string}
+ */
+function stagedScopeLine({ staged, ref, cwd }) {
+  if (!staged) return `scope=diff ref=${ref}\n\n`;
+  const mergeHead = resolveMergeHead({ cwd });
+  if (!mergeHead) return 'scope=staged (git diff --cached)\n\n';
+  return (
+    `scope=staged (git diff --cached ${mergeHead.slice(0, 12)}) — merge in ` +
+    "progress: scored against MERGE_HEAD, not HEAD, so the base branch's " +
+    'incoming files are excluded\n\n'
+  );
+}
+
+/**
  * Write the run's report — the `--json` envelope, or the human-readable
  * table plus any gate diagnostics and the non-zero-exit summary.
  *
@@ -401,6 +443,7 @@ function runGateSafely(runner, args, label, stderr) {
  *   json: boolean,
  *   staged: boolean,
  *   ref: string|null,
+ *   cwd: string,
  *   miResult: {exitCode: number, envelope: object|null},
  *   crapResult: {exitCode: number, envelope: object|null},
  *   merged: ReturnType<typeof mergeEnvelopes>,
@@ -413,6 +456,7 @@ function emitReport({
   json,
   staged,
   ref,
+  cwd,
   miResult,
   crapResult,
   merged,
@@ -438,11 +482,7 @@ function emitReport({
     return;
   }
   stdout.write('\n--- quality:preview ---\n');
-  stdout.write(
-    staged
-      ? 'scope=staged (git diff --cached)\n\n'
-      : `scope=diff ref=${ref}\n\n`,
-  );
+  stdout.write(stagedScopeLine({ staged, ref, cwd }));
   stdout.write(`${renderTable(merged)}\n`);
   const diagnostics = renderDiagnostics([miResult, crapResult]);
   if (diagnostics) stdout.write(`\n${diagnostics}\n`);
@@ -518,6 +558,7 @@ export async function runCli({
     json,
     staged,
     ref,
+    cwd,
     miResult,
     crapResult,
     merged,
