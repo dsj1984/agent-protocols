@@ -15,6 +15,17 @@ All notable changes to this project will be documented in this file.
 -->
 <!-- markdownlint-disable-file MD004 MD012 MD037 -->
 
+## [2.38.0](https://github.com/dsj1984/mandrel/compare/mandrel-v2.37.0...mandrel-v2.38.0) (2026-09-04)
+
+
+### ⚠ BREAKING CHANGES
+
+* the `/plan` and `/deliver` slash commands are renamed to `/mandrel-plan` and `/mandrel-deliver`. Run `mandrel sync` (or `npm run sync:commands`) to reap the old command files and project the new ones. No `/plan` or `/deliver` alias remains.
+
+### Added
+
+* rename /plan and /deliver to /mandrel-plan and /mandrel-deliver ([#5126](https://github.com/dsj1984/mandrel/issues/5126)) ([#5127](https://github.com/dsj1984/mandrel/issues/5127)) ([945d8de](https://github.com/dsj1984/mandrel/commit/945d8de4a41aeca7adc89c009a0252f5bb5387b4))
+
 ## [2.37.0](https://github.com/dsj1984/mandrel/compare/mandrel-v2.36.0...mandrel-v2.37.0) (2026-09-03)
 
 
