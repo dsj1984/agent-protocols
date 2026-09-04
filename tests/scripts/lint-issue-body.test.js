@@ -111,6 +111,39 @@ describe('renderConformanceComment', () => {
       assert.ok(comment.includes(problem));
     }
   });
+
+  it('omits the warnings block when the parser raised none', () => {
+    const comment = renderConformanceComment({
+      conformant: false,
+      problems: ['Missing Goal'],
+      warnings: [],
+      parseFailed: false,
+    });
+    assert.doesNotMatch(comment, /<details>/);
+  });
+
+  it('folds parser warnings into a collapsed details block', () => {
+    // The warnings arm was the uncovered half of this renderer: non-blocking
+    // parser output still has to reach the author, and collapsed so it never
+    // buries the blocking problems above it.
+    const comment = renderConformanceComment({
+      conformant: false,
+      problems: ['Missing Goal'],
+      warnings: ['unknown section "## Notes"', 'empty Verify entry'],
+      parseFailed: false,
+    });
+    assert.match(
+      comment,
+      /<details><summary>Parser warnings \(non-blocking\)<\/summary>/,
+    );
+    assert.match(comment, /<\/details>$/);
+    assert.ok(comment.includes('- unknown section "## Notes"'));
+    assert.ok(comment.includes('- empty Verify entry'));
+    assert.ok(
+      comment.indexOf('- Missing Goal') < comment.indexOf('<details>'),
+      'blocking problems must precede the collapsed warnings',
+    );
+  });
 });
 
 describe('isStoryTicket / runLintIssueBody', () => {
