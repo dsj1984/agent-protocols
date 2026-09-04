@@ -1,6 +1,6 @@
 /**
  * plan-critic-conditions.js — size/heuristic-conditional dispatch decisions for
- * the /plan author-step critics (Epic #4474 PR6, design §4).
+ * the /mandrel-plan author-step critics (Epic #4474 PR6, design §4).
  *
  * The collapsed plan flow keeps the consolidation and pre-mortem critics as
  * fresh-context sub-agent dispatches, but makes each dispatch
@@ -44,7 +44,7 @@
  * (`appendCriticSkip`) by the caller so under-firing is auditable.
  *
  * Pure, synchronous, no I/O. The single caller is `plan-critics-evaluate.js`,
- * driven by the `plan-critics.js` CLI that `/plan` runs between Author and
+ * driven by the `plan-critics.js` CLI that `/mandrel-plan` runs between Author and
  * Persist (Story #4592); the CLI owns reading the authored artifacts and the
  * resolved config.
  */

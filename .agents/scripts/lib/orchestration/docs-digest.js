@@ -1,7 +1,7 @@
 /**
  * docs-digest.js — per-run docs digest builder (Story #4338).
  *
- * `/deliver` story sub-agents previously re-read every file in
+ * `/mandrel-deliver` story sub-agents previously re-read every file in
  * `project.docsContextFiles` on every Story, re-paying the full docs payload
  * per child. This module produces a single **digest** — one compact markdown
  * outline per configured doc — that the parent threads into every child prompt
@@ -17,7 +17,7 @@
  * generate-and-write export so the planner-context surface
  * (`plan-context.js` / `authoring-context.js`) can produce a session docs
  * digest without duplicating the mkdir+writeFile plumbing shared by
- * `plan-context.js` / `authoring-context.js` and the `/deliver` workflow.
+ * `plan-context.js` / `authoring-context.js` and the `/mandrel-deliver` workflow.
  */
 
 import fs from 'node:fs';
@@ -145,7 +145,7 @@ export async function buildDocsDigest({ docsContextFiles, docsRoot } = {}) {
  * Build the docs digest and write it to `outputPath`, returning `null` (no
  * write) when there is nothing to digest. This is the single shared
  * generate-and-persist export both digest producers call: the per-run
- * `/deliver` docs digest (`helpers/deliver-story.md`) and the planner-
+ * `/mandrel-deliver` docs digest (`helpers/deliver-story.md`) and the planner-
  * context digest (`plan-context.js` → `authoring-context.js`, Story
  * #4433). Callers own path construction (temp-root layout, run id, etc.)
  * so both surfaces can keep — or deliberately share — their own convention;

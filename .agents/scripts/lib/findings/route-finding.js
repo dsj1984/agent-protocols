@@ -249,9 +249,9 @@ function parseAllFooterValues(text, pattern, isValid) {
  * Carry audit dedup provenance from a source document into a target body
  * (Story #4877).
  *
- * The audit sweep's Single-plan path emits a `/plan` seed whose MVP Scope
+ * The audit sweep's Single-plan path emits a `/mandrel-plan` seed whose MVP Scope
  * bullets already carry the `audit-fingerprints` / `audit-semantic-keys`
- * footers (Story #4626). Nothing then copied them into the Story `/plan`
+ * footers (Story #4626). Nothing then copied them into the Story `/mandrel-plan`
  * actually persisted, so the recommended path filed Stories that the next
  * sweep could not recognise and re-filed as new. It was left to the authoring
  * agent to notice HTML comments in a one-pager and hand-carry them — a

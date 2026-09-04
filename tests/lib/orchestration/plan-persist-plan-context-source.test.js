@@ -1,5 +1,5 @@
 /**
- * Envelope discovery + read policy for `/plan --tickets` source ids
+ * Envelope discovery + read policy for `/mandrel-plan --tickets` source ids
  * (Story #4554).
  *
  * These exercise the real filesystem wiring — the part that decides whether a

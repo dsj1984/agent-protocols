@@ -1,11 +1,11 @@
 /**
- * supersede-ops.js — close the `/plan --tickets` source issues that the
+ * supersede-ops.js — close the `/mandrel-plan --tickets` source issues that the
  * authored Stories supersede (Story #4535).
  *
  * `plan-context.js` fetches the source issues, emits `sourceTickets[]` on the
- * `/plan` envelope, and (with `--out`) writes that envelope to disk.
+ * `/mandrel-plan` envelope, and (with `--out`) writes that envelope to disk.
  * `resolveSourceTicketIds` below reads the id set back off it, so the normal
- * `/plan --tickets` path needs no flag; an explicit `--source-tickets` still
+ * `/mandrel-plan --tickets` path needs no flag; an explicit `--source-tickets` still
  * wins when passed, as the override for hand-driven runs (Story #4554).
  * Before that thread existed the ids reached
  * this module *solely* via the hand-passed flag, so a forgotten flag left
@@ -187,7 +187,7 @@ function sameIdSet(a, b) {
  *      loudly (the operator is overriding what the run actually fetched)
  *      but honoured.
  *   2. otherwise the envelope's `sourceTickets[]` — so the common
- *      `/plan --tickets` path needs no flag at all.
+ *      `/mandrel-plan --tickets` path needs no flag at all.
  *   3. otherwise empty, reported as `origin: 'none'`.
  *
  * `origin` is surfaced on the persist envelope so a run that superseded
@@ -240,7 +240,7 @@ function describeStoryIds(entries) {
  * live against an inconsistent tracker.
  *
  * @param {Array<{ slug: string, supersedes: Array<{ id: number }> }>} stories
- * @param {number[]} sourceTicketIds Ids passed to `/plan --tickets`.
+ * @param {number[]} sourceTicketIds Ids passed to `/mandrel-plan --tickets`.
  */
 export function assertSupersedePartition(stories, sourceTicketIds = []) {
   const list = Array.isArray(stories) ? stories : [];
@@ -313,7 +313,7 @@ export function buildSupersedeCommentBody({
   const lines = [
     `**Superseded by #${story.id}** — *${story.title}* (${labels.join(', ')}).`,
     '',
-    `Planned via \`/plan --tickets ${sourceTicketIds.join(',')}\`.`,
+    `Planned via \`/mandrel-plan --tickets ${sourceTicketIds.join(',')}\`.`,
   ];
   if (note) {
     lines.push('', note);

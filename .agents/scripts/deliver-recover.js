@@ -12,7 +12,7 @@
  * is the thing they cannot act on.
  *
  * The strand this exists for above all others is the **merged-but-label-stale**
- * Story: a `/deliver` re-run refuses it outright, because
+ * Story: a `/mandrel-deliver` re-run refuses it outright, because
  * `single-story-init.js` hard-errors on an already-closed Story. Before this
  * surface, that Story had no automated way back.
  *

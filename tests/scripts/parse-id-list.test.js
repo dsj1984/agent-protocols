@@ -3,7 +3,7 @@
  *
  * Tier: unit. Pure parsing, no I/O.
  *
- * Covers the dash-range shape an operator types at `/deliver` — a contiguous
+ * Covers the dash-range shape an operator types at `/mandrel-deliver` — a contiguous
  * span written `4922-4926` rather than enumerated — plus the guards that keep
  * a typo (`1-4926`) or a backwards span from being read as a delivery set.
  */

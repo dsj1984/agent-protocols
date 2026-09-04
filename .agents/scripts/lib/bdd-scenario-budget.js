@@ -1,6 +1,6 @@
 /**
  * bdd-scenario-budget.js — envelope byte budget for the `bddScenarios`
- * `/plan` context-envelope field (Story #4977).
+ * `/mandrel-plan` context-envelope field (Story #4977).
  *
  * `bdd-scenario-scanner.js`'s `scanBddScenarios` stays a faithful, uncapped
  * index of the project's `.feature` corpus — that scan is also used

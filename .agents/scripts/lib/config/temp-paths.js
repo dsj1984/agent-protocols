@@ -41,7 +41,7 @@
  * parent of `git rev-parse --git-common-dir`) rather than `process.cwd()`.
  * Without this, a story child that `cd`s into `.worktrees/story-<id>/` before
  * emitting a lifecycle record would append it to
- * `<worktree>/temp/run-N/lifecycle.ndjson`, while the `/deliver` host
+ * `<worktree>/temp/run-N/lifecycle.ndjson`, while the `/mandrel-deliver` host
  * (running from the main checkout) reads the main-checkout copy — so the
  * host never sees the child's records (the audit-#3513 bug class; its
  * original `story.heartbeat` instance is gone with that emitter, but the
@@ -372,7 +372,7 @@ function storyTerminalEnvelopeName(sid) {
  * `close-gates-<sid>.log`, and `deliver-recover.js` reads the pair together to
  * tell a finished close from a live one. Sharing `orchestrationLogDir` also
  * means it inherits main-checkout anchoring for free — the close runs inside
- * `.worktrees/story-<sid>/` while the `/deliver` host reads from the main
+ * `.worktrees/story-<sid>/` while the `/mandrel-deliver` host reads from the main
  * checkout, and an un-anchored path would put the envelope somewhere the
  * router never looks.
  *

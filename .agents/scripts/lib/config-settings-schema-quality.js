@@ -223,7 +223,7 @@ export const QUALITY_SCHEMA = {
     navigability: {
       type: 'object',
       description:
-        "Navigability lens + journey-suite config (Epic #4131, F2/F3/F1/F4). Read by audit-suite/selector.js (route globs) and /deliver's per-Story ceremony (journey suite). Opt-in: absent or empty routeGlobs degrades to a silent no-op.",
+        "Navigability lens + journey-suite config (Epic #4131, F2/F3/F1/F4). Read by audit-suite/selector.js (route globs) and /mandrel-deliver's per-Story ceremony (journey suite). Opt-in: absent or empty routeGlobs degrades to a silent no-op.",
       properties: {
         routeGlobs: {
           type: 'array',
@@ -242,7 +242,7 @@ export const QUALITY_SCHEMA = {
         journeySuite: {
           type: 'string',
           description:
-            "Path or command for the per-persona journey suite /deliver's per-Story ceremony runs.",
+            "Path or command for the per-persona journey suite /mandrel-deliver's per-Story ceremony runs.",
         },
       },
       additionalProperties: false,
@@ -253,7 +253,7 @@ export const QUALITY_SCHEMA = {
 
 /**
  * `delivery.codeReview` — review-provider chain + bounded-retry knobs for
- * the /deliver code-review ceremony (Story-close and plan-run close).
+ * the /mandrel-deliver code-review ceremony (Story-close and plan-run close).
  *
  * `autoFixSeverity` (Story #4399) is the threshold that governs which
  * findings the host-LLM focused-fix routing remediates on-branch —
@@ -263,7 +263,7 @@ export const QUALITY_SCHEMA = {
 export const CODE_REVIEW_SCHEMA = {
   type: 'object',
   description:
-    'Review-provider chain plus bounded-retry knobs for the /deliver code-review ceremony.',
+    'Review-provider chain plus bounded-retry knobs for the /mandrel-deliver code-review ceremony.',
   properties: {
     // Story #2825 (Epic #2815) seeded the pluggable review backend
     // with `native`; Story #2830 added `codex` (the
@@ -353,7 +353,7 @@ export const CODE_REVIEW_SCHEMA = {
       type: 'integer',
       minimum: 0,
       description:
-        'Maximum auto-fix retry attempts per finding in /deliver Phase 5 (code-review). 0 disables auto-fix. Default 3.',
+        'Maximum auto-fix retry attempts per finding in /mandrel-deliver Phase 5 (code-review). 0 disables auto-fix. Default 3.',
       default: DEFAULT_CODE_REVIEW.maxFixAttempts,
     },
     maxFixScopeFiles: {
@@ -367,7 +367,7 @@ export const CODE_REVIEW_SCHEMA = {
       type: 'string',
       enum: ['high', 'medium'],
       description:
-        'Severity threshold for on-branch remediation in /deliver Phase 5 (code-review). `medium` (default) routes 🔴/🟠/🟡 findings into the host-LLM focused-fix routing (Mediums batched per lens: one commit per lens, a single validation + rescan at the end) while 🟢 suggestions still graduate to follow-up issues; `high` reproduces the pre-4399 Critical/High-only routing. Hard cutover — no back-compat flag.',
+        'Severity threshold for on-branch remediation in /mandrel-deliver Phase 5 (code-review). `medium` (default) routes 🔴/🟠/🟡 findings into the host-LLM focused-fix routing (Mediums batched per lens: one commit per lens, a single validation + rescan at the end) while 🟢 suggestions still graduate to follow-up issues; `high` reproduces the pre-4399 Critical/High-only routing. Hard cutover — no back-compat flag.',
       default: DEFAULT_CODE_REVIEW.autoFixSeverity,
     },
   },

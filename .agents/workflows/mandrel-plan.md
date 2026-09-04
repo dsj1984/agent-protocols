@@ -5,7 +5,7 @@ description:
   policy.
 ---
 
-# /plan
+# /mandrel-plan
 
 > **Lean spine.** Happy path + gate list; edge-case detail lives on demand in
 > [`helpers/plan-reference.md`](helpers/plan-reference.md).
@@ -18,11 +18,11 @@ it, act**:
 
 | Invocation | Mode | Behavior |
 | --- | --- | --- |
-| `/plan` | ask | Ask what to plan; nothing runs first. |
-| `/plan add a --json flag to doctor` | seed | Ideation from prose: interrogate → author **one Story by default** → persist. |
-| `/plan temp/notes/idea.md` | seed-file | Same, from notes. An existing file is a path, not prose. |
-| `/plan 4712[,4713…]` | tickets | Fetch issue(s), analyze into proper Stories (prefer N=1 rewrite). |
-| `/plan 4712`, already delivered | amends | Amend a shipped Story from a **delta envelope**, not a re-interrogation. |
+| `/mandrel-plan` | ask | Ask what to plan; nothing runs first. |
+| `/mandrel-plan add a --json flag to doctor` | seed | Ideation from prose: interrogate → author **one Story by default** → persist. |
+| `/mandrel-plan temp/notes/idea.md` | seed-file | Same, from notes. An existing file is a path, not prose. |
+| `/mandrel-plan 4712[,4713…]` | tickets | Fetch issue(s), analyze into proper Stories (prefer N=1 rewrite). |
+| `/mandrel-plan 4712`, already delivered | amends | Amend a shipped Story from a **delta envelope**, not a re-interrogation. |
 
 **Resolving a bare id.** Read live state rather than asking: `agent::done` can
 only be amended, an open unplanned issue can only be planned. **Announce the
@@ -156,14 +156,14 @@ JSON. Tickets mode also comments on and closes each source id
 
 ## Constraints
 
-- `/plan` starts delivery **only** through a confirmed Gate #1 light route —
-  never off its own authored Stories, which land via [`/deliver`](deliver.md).
+- `/mandrel-plan` starts delivery **only** through a confirmed Gate #1 light route —
+  never off its own authored Stories, which land via [`/mandrel-deliver`](mandrel-deliver.md).
 - Duplicate search targets open Stories (`type::story`), not Epics; and
   deterministic gates still fail closed under `--yes`.
 
 ## See also
 
-[`/deliver`](deliver.md), [`/audit-to-stories`](audit-to-stories.md),
+[`/mandrel-deliver`](mandrel-deliver.md), [`/audit-to-stories`](audit-to-stories.md),
 [`helpers/plan-reference.md`](helpers/plan-reference.md) (on-demand detail),
 [`core/scope-triage`](../skills/core/scope-triage/SKILL.md) — optional
 split-advisory notes only (no routing verdict).

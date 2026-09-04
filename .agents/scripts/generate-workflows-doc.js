@@ -93,7 +93,7 @@ export function renderWorkflowsDoc(catalog, loopCatalog = []) {
     'Every command file lives at `.agents/workflows/<name>.md` and is projected',
     'into a flat `.claude/commands/` tree by `npm run sync:commands` (kept',
     'current at install time and on every `mandrel sync`/`update`) so it shows',
-    'up as a bare `/<name>` slash command (e.g. `/deliver`). The projection',
+    'up as a bare `/<name>` slash command (e.g. `/mandrel-deliver`). The projection',
     'writes only `.claude/commands/<name>.md` — there is no plugin manifest and no',
     'marketplace listing. The commands load in every Claude Code environment.',
     '',

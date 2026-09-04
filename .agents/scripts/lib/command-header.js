@@ -36,7 +36,7 @@ export function applyHeader(content, header) {
  * True when a workflow opts out of slash-command projection via a
  * `command: false` key in its YAML frontmatter (#4482). Used for dual-use
  * lens files (e.g. `audit-security.md`) that stay in
- * the payload as `/deliver` audit-suite prompts but must NOT surface as
+ * the payload as `/mandrel-deliver` audit-suite prompts but must NOT surface as
  * standalone slash commands because the host ships a native equivalent.
  *
  * Both `sync-claude-commands.js` (projection + orphan-reap) and the

@@ -2432,7 +2432,8 @@ The Story-level verdict therefore collapses the four candidate outcomes into one
 
 **Status:** Accepted in part — the **base-name discipline below still holds**
 (descriptive names, no `mandrel-` prefix, projected as flat `/<name>`
-commands). The **single-brand `/mandrel` catalog entry is retired**:
+commands), **narrowed by the host-built-in collision carve-out
+amended below (Story #5126, 2026-09-04)**. The **single-brand `/mandrel` catalog entry is retired**:
 `20260603-plugin-namespace-cutover` replaced it with a `/mandrel:<name>`
 namespace, then
 [`20260604-flat-command-projection-revert`](#adr-20260604-flat-command-projection-revert-revert-the-plugin-cutover--project-workflows-as-flat-name-commands)
@@ -2440,7 +2441,8 @@ reverted that cutover without restoring the catalog command; no `mandrel.md`
 workflow exists. Defer to `20260604` on the projection axis.
 **What survives (scoped by Story #5077, 2026-08-28 — "the rest holds" was too
 broad):** the abstract rule in Decision item 1 (domain-vocabulary names, no
-brand prefix), which visibly governs all 28 flat commands; and two matrix rows
+brand prefix), which visibly governs 26 of the 28 flat commands — the two
+exceptions are the carve-out named below; and two matrix rows
 whose subject is still live — `agents-update → mandrel-update`
 (`.agents/workflows/mandrel-update.md`) and `worktree-lifecycle → helper`
 (`.agents/workflows/helpers/worktree-lifecycle.md`). **Four rows are overturned
@@ -2477,6 +2479,43 @@ The seven-row recategorization matrix from the Epic body (#1184) codifies the sp
 | `story-deliver` → helper | ~~**Keep as command**~~ → **Overturned: moved to `helpers/`** (Story #5077) | The same collapse made delivery one engine: `deliver-story.md` is now `.agents/workflows/helpers/deliver-story.md`, invoked by `/deliver` rather than typed. Original rationale (operator-facing single-Story re-runs) is served by `/deliver <id>`. |
 | `worktree-lifecycle` → helper | **Move to `.agents/workflows/helpers/`** | The file self-describes as "operator and reviewer reference" — it is documentation, not an executable workflow. It is already path-included from `story-deliver.md`. It should not appear in the `/` menu as runnable. After the move, `sync-claude-commands.js` automatically drops `.claude/commands/worktree-lifecycle.md` because the sync filter excludes the `helpers/` subdirectory. |
 | `drain-pending-cleanup` → helper | ~~**Keep as command**~~ → **Overturned: moved to `helpers/`** (Story #3706) | Original rationale assumed the manual path was load-bearing as a slash command. A later wiring audit (Story #3706) found it is **not** — see [`20260607-3706`](#adr-20260607-3706-drain-pending-cleanup-demoted-to-a-helper). |
+
+### Amendment 2026-09-04 (Story #5126): the host-built-in collision carve-out
+
+**A descriptive base name that collides with a host built-in takes the
+`mandrel-` prefix.** `/plan` and `/deliver` become `/mandrel-plan` and
+`/mandrel-deliver`; the other 26 flat commands are untouched.
+
+The rule above was authored in May 2026, when no Claude Code built-in shared a
+name with a Mandrel command. Once `/plan` existed on both sides, the operator
+could not tell which surface a typed `/plan` reached, and the rule's own
+justification inverted: a descriptive name is chosen because it *identifies*
+the command, and a colliding one identifies nothing. The prefix is not brand
+decoration here — it is the disambiguator.
+
+**Scope of the carve-out.** It fires on a demonstrated collision with a host
+built-in, not on a hypothetical one and not on a generic-sounding name. Every
+other command keeps its descriptive unprefixed form; the maximalist position
+this ADR rejected — prefix everything — stays rejected. `/deliver` is renamed
+alongside `/plan` despite having no collision of its own, because the two are
+one SDLC pair and splitting their naming would cost more legibility than the
+prefix does.
+
+**Shape: hyphen, not namespace.** `/mandrel-plan`, never `/mandrel:plan`.
+[`20260603-plugin-namespace-cutover`](#adr-20260603-plugin-namespace-cutover-project-workflows-as-a-claude-code-plugin-mandrelname-superseded)
+tried the plugin namespace and
+[`20260604-flat-command-projection-revert`](#adr-20260604-flat-command-projection-revert-revert-the-plugin-cutover--project-workflows-as-flat-name-commands)
+reverted it one day later: the plugin system is unavailable in some Claude Code
+environments, which left those commands unreachable. A prefixed flat name buys
+the disambiguation without reopening that failure.
+
+**Hard cutover, no shim.** No compatibility `plan.md` or `deliver.md` remains
+under `.agents/workflows/`. A shim would re-project `.claude/commands/plan.md`
+and recreate the exact collision the rename removes, so the old names are gone
+rather than deprecated. Consumers need no migration step: the
+`sync-claude-commands.js` orphan reap deletes their stale command files on the
+next sync. The rename is consumer-breaking and ships with a `BREAKING CHANGE:`
+footer.
 
 ### Consequences
 

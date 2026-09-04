@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * plan-run-epilogue.js — execute the real per-run closeout for a
- * multi-Story `/deliver`.
+ * multi-Story `/mandrel-deliver`.
  *
  * Usage:
  *   node .agents/scripts/plan-run-epilogue.js --stories 1,2,3
@@ -67,7 +67,7 @@ export async function main(argv = process.argv.slice(2), deps = {}) {
   // along with the label itself. The epilogue is keyed on the delivered id
   // set, and the synthesized `adhoc-<ids>` id it already used for positional
   // runs is now the only id it needs.
-  // Range tokens expand here too (`--stories 101-104`): /deliver blesses the
+  // Range tokens expand here too (`--stories 101-104`): /mandrel-deliver blesses the
   // dash range at the operator surface, so the id set the epilogue is keyed on
   // must read the same shape. Rejecting a bad token is deliberate — the old
   // silent filter turned a typo into an empty, wrongly-keyed rollup.

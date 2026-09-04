@@ -136,7 +136,7 @@ export function toParagraphs(lines) {
  *      heading (inclusive) — i.e. the section is *about* that script, so the
  *      table is restating its surface.
  *
- * A slash command's own argument table (`/plan`, `/deliver`) has no script
+ * A slash command's own argument table (`/mandrel-plan`, `/mandrel-deliver`) has no script
  * behind it — nothing owns those flags but the workflow prose itself — so
  * condition 2 leaves it alone by design.
  *

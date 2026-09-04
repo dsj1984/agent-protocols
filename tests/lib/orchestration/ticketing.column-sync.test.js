@@ -99,7 +99,7 @@ describe('transitionTicketState — Projects v2 Status column sync', () => {
   // driven here reads and WRITES `<tempRoot>/cache/project-meta.json`, and a
   // relative tempRoot anchors to the MAIN checkout — so with no config this
   // suite wrote its `acme/42` fixture ids (`PROJ`/`FIELD`) into the cache real
-  // `/deliver` runs consume, and the throwOnMutation case invalidated that key
+  // `/mandrel-deliver` runs consume, and the throwOnMutation case invalidated that key
   // back out again. `transitionTicketState` threads `opts.config` down to
   // ColumnSync; an ABSOLUTE tempRoot is used verbatim
   // (`temp-paths.js#anchorTempRoot`), so this can never reach the shared file.

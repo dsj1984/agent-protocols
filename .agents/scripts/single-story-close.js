@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 
 /**
- * single-story-close.js — Close a Story against `main` (v2 `/deliver` path).
+ * single-story-close.js — Close a Story against `main` (v2 `/mandrel-deliver` path).
  *
- * Thin CLI entry for `/deliver` / `helpers/deliver-story`. Opens a PR from
+ * Thin CLI entry for `/mandrel-deliver` / `helpers/deliver-story`. Opens a PR from
  * `story-<id>` to `project.baseBranch`, runs Story-scope review, and arms
  * auto-merge. There is no Epic parent, epic-merge-lock, or wave merge.
  *

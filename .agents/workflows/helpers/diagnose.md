@@ -9,7 +9,7 @@ description: >-
 
 > **Helper, not a slash command.** Files under `workflows/helpers/` are not
 > projected into the mandrel plugin command tree. The same `lib/checks/` registry runs
-> automatically as preflight inside `/deliver`, `single-story-close`, and
+> automatically as preflight inside `/mandrel-deliver`, `single-story-close`, and
 > `npm test` — this viewer exists only for ad-hoc inspection. Invoke the
 > backing script directly: `node .agents/scripts/diagnose.js [args]`.
 
@@ -18,7 +18,7 @@ description: >-
 `diagnose.js` runs the checks registry assembled under
 `.agents/scripts/lib/checks/` in read-only mode and surfaces every
 finding declared on the requested scope. It is the operator-facing read
-of the same registry that preflight guards (`/deliver`,
+of the same registry that preflight guards (`/mandrel-deliver`,
 `single-story-close`), the retro hook, and `npm test` consult — but with
 `autoFix: false` always, no remote GitHub writes, and no commits.
 

@@ -67,7 +67,7 @@ describe('plan summary — names the exact deliver command (Story #4540)', () =>
   it('prints the literal ids for a multi-Story plan', () => {
     // This comment is posted to GitHub on every plan run, so it is the
     // operator's primary instruction. It used to end with
-    // "/deliver --run <planRunId> (N>1)" — a flag that no longer exists —
+    // "/mandrel-deliver --run <planRunId> (N>1)" — a flag that no longer exists —
     // and to claim "Plan-run: single Story (default)" even for N=3.
     const body = buildPlanSummaryCommentBody({
       ...base,
@@ -78,7 +78,7 @@ describe('plan summary — names the exact deliver command (Story #4540)', () =>
         { id: 4542, slug: 'c' },
       ],
     });
-    assert.match(body, /\/deliver 4540 4541 4542/);
+    assert.match(body, /\/mandrel-deliver 4540 4541 4542/);
   });
 
   it('never advertises the retired --run flag or a plan-run label', () => {
@@ -89,12 +89,12 @@ describe('plan summary — names the exact deliver command (Story #4540)', () =>
     assert.doesNotMatch(body, /--run/);
     assert.doesNotMatch(body, /plan-run/i);
     assert.doesNotMatch(body, /Plan-run: single Story/);
-    assert.match(body, /\/deliver 4540/);
+    assert.match(body, /\/mandrel-deliver 4540/);
   });
 
   it('falls back to a generic form when no story ids are supplied', () => {
     const body = buildPlanSummaryCommentBody(base);
-    assert.match(body, /\/deliver <storyId>/);
+    assert.match(body, /\/mandrel-deliver <storyId>/);
     assert.doesNotMatch(body, /--run/);
   });
 });

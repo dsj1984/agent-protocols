@@ -188,7 +188,7 @@ auditable.
 ## Periodic full-scope sweep
 
 Context Economy findings accrete slowly — a doc that is lean today grows a
-bloated tail over many deliveries, and no single change-set-scoped `/deliver`
+bloated tail over many deliveries, and no single change-set-scoped `/mandrel-deliver`
 run sees the whole picture. Run this lens **full-scope** on a
 recurring cadence so the drift is caught before it compounds:
 
@@ -202,7 +202,7 @@ recurring cadence so the drift is caught before it compounds:
 Route the resulting `audit-documentation-results.md` through
 [`/audit-to-stories`](audit-to-stories.md), which groups the findings,
 deduplicates them against existing Issues by fingerprint, and opens
-remediation Stories (or chains into `/plan --seed`) so the Context-Economy
+remediation Stories (or chains into `/mandrel-plan --seed`) so the Context-Economy
 findings land as actionable, tracked work rather than a report nobody reads.
 
 ## Constraint (lens-specific carve-out)

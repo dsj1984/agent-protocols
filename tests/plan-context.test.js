@@ -1,6 +1,6 @@
 /**
  * tests/plan-context.test.js — unit tests for the folded planner-context
- * envelope (Epic #4474, M3 PR2 — `/plan` collapse step 1).
+ * envelope (Epic #4474, M3 PR2 — `/mandrel-plan` collapse step 1).
  *
  * Covers the design's named PR2 test surface:
  *  - stdout purity: everything the emit path writes to stdout is exactly
@@ -1187,7 +1187,7 @@ describe('plan-context uiSurface offer (Story #4765)', () => {
     assert.equal(
       ui.automatic,
       false,
-      'a truthy uiSurface must never reroute /plan — the operator invokes /prototype',
+      'a truthy uiSurface must never reroute /mandrel-plan — the operator invokes /prototype',
     );
     // The signal adds no gate: the enclosing signal bag is still advisory-only.
     assert.equal(env.complexitySignals.routingAuthority, false);
@@ -1228,7 +1228,7 @@ describe('plan-context uiSurface offer (Story #4765)', () => {
   it('adds no gate: a fired and an unfired signal build the same envelope shape (AC-8)', async () => {
     // The signal has no refusal path. A fired offer and an unfired one both
     // resolve through the same successful build, leave every other advisory
-    // field intact, and produce an identical key set — so no /plan exit code
+    // field intact, and produce an identical key set — so no /mandrel-plan exit code
     // can depend on it.
     const fired = await envelopeFor(UI_SEED, WEB_CONFIG);
     const unfired = await envelopeFor(UI_SEED, {});

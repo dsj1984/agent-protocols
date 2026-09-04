@@ -1,7 +1,7 @@
 /**
  * tests/lib/memory-pool-advisory.test.js — Story #4919
  *
- * Covers the `/plan` Phase 0 memory-hygiene advisory that replaced the retired
+ * Covers the `/mandrel-plan` Phase 0 memory-hygiene advisory that replaced the retired
  * memory-freshness scanner: pool resolution (override + cwd-slug), the
  * fail-soft absent path, and each recommend branch.
  *

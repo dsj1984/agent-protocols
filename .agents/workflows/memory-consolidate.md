@@ -2,7 +2,7 @@
 description: >-
   Attended consolidation pass over this project's agent memory pool — merge
   duplicates, verify claims against the current tree, prune with operator
-  confirmation, rewrite the index, and stamp the pool so the /plan advisory
+  confirmation, rewrite the index, and stamp the pool so the /mandrel-plan advisory
   goes quiet.
 ---
 
@@ -96,7 +96,7 @@ Then write the receipt to `.consolidation-stamp.json` in the pool root:
 { "lastConsolidatedAt": "<ISO-8601 timestamp>" }
 ```
 
-The `/plan` Phase 0 advisory reads this file; until it is written, the nudge
+The `/mandrel-plan` Phase 0 advisory reads this file; until it is written, the nudge
 keeps firing. Write it **only** after Gate #2 — the stamp asserts an operator
 reviewed the pass, so writing it early makes it a lie.
 
@@ -112,5 +112,5 @@ Close with counts: entries read, corrected, merged, pruned, and the new total.
 
 ## See also
 
-[`/plan`](plan.md) (surfaces the advisory at its Gate #1),
-[`/deliver`](deliver.md) (point-of-write corrections as work lands).
+[`/mandrel-plan`](mandrel-plan.md) (surfaces the advisory at its Gate #1),
+[`/mandrel-deliver`](mandrel-deliver.md) (point-of-write corrections as work lands).

@@ -220,8 +220,8 @@ test('resolveDocTiers adds the workflow tiers without double-counting any path (
     'AGENTS.md': 'onboarding\n',
     '.agents/rules/git-conventions.md': 'always-on rule\n',
     '.agents/rules/testing-standards.md': 'on-demand rule\n',
-    '.agents/workflows/deliver.md':
-      '---\ndescription: fixture\nmandatoryReads: [helpers/digest.md]\n---\n\n# /deliver\n\n[digest](helpers/digest.md) [appendix](helpers/appendix.md) [rule](../rules/testing-standards.md)\n',
+    '.agents/workflows/mandrel-deliver.md':
+      '---\ndescription: fixture\nmandatoryReads: [helpers/digest.md]\n---\n\n# /mandrel-deliver\n\n[digest](helpers/digest.md) [appendix](helpers/appendix.md) [rule](../rules/testing-standards.md)\n',
     '.agents/workflows/helpers/digest.md': '# Digest\n',
     '.agents/workflows/helpers/appendix.md': '# Appendix\n',
   });
@@ -229,7 +229,10 @@ test('resolveDocTiers adds the workflow tiers without double-counting any path (
 
   assert.deepEqual(
     tiers.workflow.map((e) => e.path),
-    ['.agents/workflows/deliver.md', '.agents/workflows/helpers/digest.md'],
+    [
+      '.agents/workflows/helpers/digest.md',
+      '.agents/workflows/mandrel-deliver.md',
+    ],
   );
   assert.deepEqual(
     tiers.workflowOnDemand.map((e) => e.path),
@@ -256,7 +259,7 @@ test('resolveDocTiers adds the workflow tiers without double-counting any path (
   );
   assert.deepEqual(
     workflowClosure.entryPoints.map((e) => e.path),
-    ['.agents/workflows/deliver.md'],
+    ['.agents/workflows/mandrel-deliver.md'],
   );
 });
 

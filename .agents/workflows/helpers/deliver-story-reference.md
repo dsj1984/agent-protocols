@@ -33,7 +33,7 @@ Epic-scoped dispatch manifest to serialise two operators driving the same
 Story, so this lease is the only guard against a concurrent
 `single-story-init` clobbering an in-flight run.
 
-**Fail-closed.** Unlike `/deliver`, the standalone path
+**Fail-closed.** Unlike `/mandrel-deliver`, the standalone path
 has **no Epic-scoped lifecycle ledger** to read a per-owner
 `story.heartbeat` from, so there is no live-heartbeat source to decide
 whether a foreign claim is stale. Rather than silently reclaim every
@@ -131,7 +131,7 @@ The v2 engine's trait table:
 | Ceremony      | Per-Story, routed off the derived change level via `ceremony-routing.js` |
 
 **Ceremony-lite Stories still land through this engine unchanged.** A
-lite-routed Story collapses only the _advisory_ plan/deliver
+lite-routed Story collapses only the _advisory_ plan/mandrel-deliver
 ceremony — the fresh-critic / Tech-Spec authoring a one-artifact scope does
 not earn. It does **not** get a cheaper landing: the close-validation gates
 (lint / test / format / coverage / CRAP / maintainability), the PR to `main`,
@@ -231,7 +231,7 @@ demand. See [`.agents/instructions.md` § 3](../../instructions.md).
 write and self-check as you author. When absent, lens-aware coverage still
 runs maker-blind at Story-scope review inside the close subprocess. The
 dispatch step produces `checklistPath` from the Story's predicted footprint
-before it spawns the worker — see [`/deliver`](../deliver.md).
+before it spawns the worker — see [`/mandrel-deliver`](../mandrel-deliver.md).
 
 **Pre-eval full-suite discipline (spine step 1.3).** Repo-invariant guards —
 drift-guard and schema tests living outside the Story's scoped greps — are
@@ -542,7 +542,7 @@ The `single-story-close.js` script, in order:
    `gh pr merge <prNumber> --auto --squash --delete-branch`. Once CI's
    required checks turn green, GitHub squash-merges the PR and deletes
    the source branch — the operator does not need to babysit the merge
-   button. Mirrors the `/deliver` finalize path. Failure is
+   button. Mirrors the `/mandrel-deliver` finalize path. Failure is
    non-fatal: the operator retains the manual merge surface in the
    GitHub UI. Pass `--no-auto-merge` to opt out when the PR needs a
    pre-merge eyeball.
@@ -908,6 +908,11 @@ up").
 ---
 
 ## Idempotence and the standing constraints
+
+**Why a no-envelope hand-off must never be re-dispatched.** Only Step 3 mints a
+terminal envelope, so a sub-agent returning without one is the normal shape. The
+branch already exists, and re-running Step 0 underneath live work is how one
+Story ends up with two closes — resume per the spine's § Recovery instead.
 
 Every script in the chain no-ops safely on re-run: `single-story-init.js`
 re-prints `workCwd` for an already-initialized Story; `single-story-close.js`

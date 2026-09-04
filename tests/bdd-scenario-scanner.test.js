@@ -18,7 +18,7 @@ import { makeTempDir } from '../.agents/scripts/lib/test-temp.js';
 /**
  * Story #2637 — BDD scenario cross-reference scanner.
  *
- * The Acceptance Engineer step in /plan Phase 7 reads the scanner
+ * The Acceptance Engineer step in /mandrel-plan Phase 7 reads the scanner
  * output to annotate planned ACs with matching existing scenarios. The
  * scanner is deterministic, conservative on match scoring, and silent
  * when the project has no .feature files.

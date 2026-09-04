@@ -1,5 +1,5 @@
 /**
- * run-epilogue.js — real per-run closeout for `/deliver --run`.
+ * run-epilogue.js — real per-run closeout for `/mandrel-deliver --run`.
  *
  * After the last Story in a multi-Story plan-run lands, this module:
  *   1. Selects the cross-Story audit lens roster over the combined landed
@@ -100,7 +100,7 @@ export function planRunEpilogue({ planRunId, stories } = {}) {
     };
   }
 
-  // Positional `/deliver 101 102` has no plan-run label. Synthesize a
+  // Positional `/mandrel-deliver 101 102` has no plan-run label. Synthesize a
   // stable adhoc id from the sorted Story set so the epilogue still
   // anchors comments / audit roster without requiring `--run`.
   const effectiveRunId =

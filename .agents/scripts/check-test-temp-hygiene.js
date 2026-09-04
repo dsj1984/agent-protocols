@@ -422,7 +422,7 @@ export function findReservedIdStreamFiles(tempDir) {
  * the **repository-root** temp tree (Story #4892).
  *
  * Resolution matters more than it looks: every writer anchors a relative
- * `tempRoot` to the *main checkout* (so a Story worktree and its `/deliver`
+ * `tempRoot` to the *main checkout* (so a Story worktree and its `/mandrel-deliver`
  * host converge on one ledger), so a guard that scanned `cwd` would scan an
  * empty worktree tree and pass vacuously on the very tree it is meant to
  * protect. `resolveRoot` is the injection seam for tests.

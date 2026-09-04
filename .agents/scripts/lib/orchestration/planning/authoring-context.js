@@ -2,7 +2,7 @@
  * phases/authoring-context.js — emit-context phase.
  *
  * Builds the authoring context the host LLM (or the
- * `/plan` author step) needs to write the Tech Spec.
+ * `/mandrel-plan` author step) needs to write the Tech Spec.
  * Returns a plain JSON-serialisable object; never hits the network beyond
  * the provider call needed to load the Epic.
  */
@@ -31,12 +31,12 @@ import { buildMemoryPoolAdvisory } from './memory-pool-advisory.js';
  * pull-on-demand, mirroring the Story #4324 delivery-children cutover).
  *
  * Ensures a docs digest exists at the **same** per-Epic temp path the
- * `/deliver` story sub-agents already consume
+ * `/mandrel-deliver` story sub-agents already consume
  * (`<tempRoot>/epic-<seedIssueId>/docs-digest.md`) via the shared
  * `ensureDocsDigest` export in `docs-digest.js` — one generator, one file,
  * reused across the planning and delivery surfaces for the same Epic. The
  * envelope carries only the digest path, not embedded doc content; the
- * planner (host LLM driving the `/plan` author step) reads the digest
+ * planner (host LLM driving the `/mandrel-plan` author step) reads the digest
  * and pulls a full file/section on demand when it bears on the decision.
  *
  * Returns `null` — a silent no-op — when `project.docsContextFiles` is not
@@ -80,7 +80,7 @@ async function buildPlanningDocsContext({ seedIssueId, settings, cwd }) {
  * Story #4977 — the scan itself stays uncapped (a faithful `.feature`
  * index), but the envelope-bound result is truncated to
  * `BDD_SCENARIOS_BYTE_BUDGET` via `capBddScenarios` so a mature Gherkin
- * corpus cannot alone consume the `/plan` context-envelope ceiling. Callers
+ * corpus cannot alone consume the `/mandrel-plan` context-envelope ceiling. Callers
  * needing the raw count read `totalScenarios` vs `includedScenarios`.
  *
  * @returns {ReturnType<typeof capBddScenarios>}
@@ -97,7 +97,7 @@ function scanBddScenariosBestEffort() {
 
 /**
  * Build the authoring context the host LLM (or the
- * `/plan` author step) needs to write the Tech Spec.
+ * `/mandrel-plan` author step) needs to write the Tech Spec.
  *
  * `docsContext` is digest-first (Story #4433): a pointer at the per-Epic
  * docs digest rather than embedded doc content, `null` when
@@ -133,7 +133,7 @@ export async function buildAuthoringContext(
   const githubCfg = opts.github ?? null;
 
   // Story #4952 — these five gathers share no data, so they run under bounded
-  // concurrency instead of five sequential awaits on the interactive `/plan`
+  // concurrency instead of five sequential awaits on the interactive `/mandrel-plan`
   // path. `concurrentMap` preserves input order, so the destructuring is
   // positional and the produced context is identical to the serial build:
   //
@@ -149,7 +149,7 @@ export async function buildAuthoringContext(
   //      memory corpus is delivery retrospectives whose subject IS a delivered
   //      Story — and its directory (`~/.claude/projects/<repo>/memory/`) never
   //      resolved, because harness project dirs are cwd-slugs. This renders no
-  //      per-entry verdict at all: it stats and counts, and the `/plan` spine
+  //      per-entry verdict at all: it stats and counts, and the `/mandrel-plan` spine
   //      surfaces `recommend` at Gate #1. Filesystem-only and total;
   //   5. Story #2554 — open meta feedback issues, so retro signals are routed
   //      into durable substrates rather than lost in chat. Best-effort:

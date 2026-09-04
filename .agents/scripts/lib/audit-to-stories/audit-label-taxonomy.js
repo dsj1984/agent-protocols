@@ -140,7 +140,7 @@ const AUDIT_STORY_AXIS_LABELS = Object.freeze([
     name: AGENT_LABELS.READY,
     color: hex(LABEL_COLORS.AGENT),
     description:
-      'Parking state — frozen dispatch manifest exists; awaiting local /deliver',
+      'Parking state — frozen dispatch manifest exists; awaiting local /mandrel-deliver',
   },
   {
     name: RISK_LABELS.HIGH,

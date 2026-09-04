@@ -35,7 +35,7 @@ it once and reuse the context as you read through any individual gate.
 
 ## Concurrent close safety
 
-`/deliver` may close multiple Stories from separate branches in quick
+`/mandrel-deliver` may close multiple Stories from separate branches in quick
 succession; each rebases onto the latest `main` in its own base-sync phase
 (`phases/base-sync.js`) before the push, so concurrent closes serialize
 through their own worktrees rather than racing one shared branch. The push
@@ -517,7 +517,7 @@ should land in a commit whose:
 
 There is no CI guardrail rejecting unlabeled baseline edits; the convention is
 preserved so the operator can grep refresh commits in a PR diff, but
-self-policing is the operator's job during `/deliver`'s watch loop.
+self-policing is the operator's job during `/mandrel-deliver`'s watch loop.
 
 ### The per-method coverage join (Story #4775)
 

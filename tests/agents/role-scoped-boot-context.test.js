@@ -227,7 +227,7 @@ describe('story-worker boot context carries every delivery MUST (default-true ga
 
 describe('the close-and-land tail belongs to the orchestrator (Story #4876)', () => {
   const spine = (rel) => readFileSync(path.join(REPO_ROOT, rel), 'utf8');
-  const DELIVER = '.agents/workflows/deliver.md';
+  const DELIVER = '.agents/workflows/mandrel-deliver.md';
   const DELIVER_STORY = '.agents/workflows/helpers/deliver-story.md';
 
   test(`${DELIVER_STORY} assigns Step 3 to the dispatching orchestrator`, () => {
@@ -284,17 +284,17 @@ describe('the close-and-land tail belongs to the orchestrator (Story #4876)', ()
     assertDocMentions(
       body,
       /Serialize the tail/i,
-      '/deliver must state that the tail is serialized',
+      '/mandrel-deliver must state that the tail is serialized',
     );
     assertDocMentions(
       body,
       /one Story at a time/i,
-      '/deliver must cap the tail at one close',
+      '/mandrel-deliver must cap the tail at one close',
     );
     assertDocMentions(
       body,
       /[Ii]mplementation runs in parallel/,
-      '/deliver must contrast parallel implementation with a serial tail',
+      '/mandrel-deliver must contrast parallel implementation with a serial tail',
     );
   });
 

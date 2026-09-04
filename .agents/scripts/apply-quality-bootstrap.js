@@ -20,7 +20,7 @@
  *
  * Story #5007 retired the second step. `migrateBaselinesLayout` relocated
  * per-Epic ratchet snapshots into `temp/epic/<id>/baselines/` on the contract
- * that `/deliver` reaps that namespace on merge — a mechanism the Story-only
+ * that `/mandrel-deliver` reaps that namespace on merge — a mechanism the Story-only
  * v2 model deleted, so the migration moved dead data into a namespace no code
  * path writes, reads, or reaps. Its one residual hygiene value (getting the
  * committed `baselines/epic/` tree out of version control) survives as

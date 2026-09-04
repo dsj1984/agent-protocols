@@ -40,7 +40,7 @@ export const LABEL_TAXONOMY = [
     name: AGENT_LABELS.READY,
     color: LABEL_COLORS.AGENT,
     description:
-      'Parking state — frozen dispatch manifest exists; awaiting local /deliver',
+      'Parking state — frozen dispatch manifest exists; awaiting local /mandrel-deliver',
   },
   {
     name: AGENT_LABELS.EXECUTING,

@@ -6,7 +6,7 @@
  * (`retro-proposals.js`) already split the Epic's source-tagged friction
  * into `framework` / `consumer` actionable items, each carrying a
  * pre-drafted `gh issue create` command stanza. Historically an operator
- * had to copy-paste those stanzas by hand, so `/plan` Phase 0's
+ * had to copy-paste those stanzas by hand, so `/mandrel-plan` Phase 0's
  * `recurringDefectClasses` stayed empty unless someone remembered to run
  * the commands. This module files them mechanically instead — the retro
  * body then lists the real filed issue numbers rather than paste-ready

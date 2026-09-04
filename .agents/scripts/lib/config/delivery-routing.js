@@ -36,7 +36,7 @@ export const DELIVERY_ROUTING_DEFAULTS = Object.freeze({
   /** @type {'minimal'|'standard'|'strict'} */
   ceremonyProfile: 'standard',
   /**
-   * When true (default), attended `/deliver` lands through merge in one
+   * When true (default), attended `/mandrel-deliver` lands through merge in one
    * close (`--wait-merge` semantics) instead of stopping at `agent::closing`.
    * Operators opt out per-run with `--no-wait-merge`.
    */

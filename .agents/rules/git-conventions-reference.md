@@ -95,7 +95,7 @@ signature is worth naming:
 **Invariant (stated in the core): the delivering flow owns tidying the local
 checkout — reaping its own merged refs and fast-forwarding the base branch.
 `/git-cleanup` is a recovery tool, not a routine chore.** The outcome every
-delivering flow (`/deliver`, `/git-deliver`) guarantees, with the mechanics
+delivering flow (`/mandrel-deliver`, `/git-deliver`) guarantees, with the mechanics
 owned by `boot-sweep.js` / `git-cleanup.js`:
 
 - **`main` is fast-forwarded** by the flow itself in its cleanup phase, so the
@@ -104,7 +104,7 @@ owned by `boot-sweep.js` / `git-cleanup.js`:
 - **Merged local refs are reaped** at the next workflow boot's protected sweep
   (`boot-sweep.js`) — every local branch whose PR is already merged, skipping
   any candidate with unpushed work, a dirty worktree, or a still-open parent
-  ticket. `/plan` and `/git-deliver` widen the sweep's `--include` scope beyond
+  ticket. `/mandrel-plan` and `/git-deliver` widen the sweep's `--include` scope beyond
   the default `story-*` to their own branch namespaces at their boot call site.
 - **Content-merged branches are report-only.** A branch detected only via the
   weaker content-equivalence signal (`detectedBy: 'content-merged'` — content
@@ -149,13 +149,13 @@ different hazards:
 - **Recognition signature**: close aborts naming stray files in the main
   checkout that intersect the Story's diff. **Resolution**: relocate those
   edits under the worktree, restore the main checkout
-  (`git -C <main-repo> checkout -- <files>`), then re-run `/deliver <storyId>`.
+  (`git -C <main-repo> checkout -- <files>`), then re-run `/mandrel-deliver <storyId>`.
   Never `git reset --hard` or `git checkout --force` to clear the way.
 
 ## Meta Labels (Retrospective Signal Routing)
 
 Two `meta::*` labels route retrospective signals into durable substrates so
-the `/plan` Phase 0 fetcher (see
+the `/mandrel-plan` Phase 0 fetcher (see
 [`prior-feedback-fetcher.js`](../scripts/lib/feedback-loop/prior-feedback-fetcher.js))
 can surface open feedback issues to the planner. Both labels live in
 [`label-constants.js`](../scripts/lib/label-constants.js) under the

@@ -115,7 +115,7 @@ is no per-workflow finding schema.
 Route the ledger through the shared classify/route/dedup/promote core. The
 outcome is that **every ledger item carries a class, a route decision, and an
 operator-confirmed disposition**, with each `file` item promoted via
-`promote-finding.js` into `/plan` — verified by the cluster's fingerprint
+`promote-finding.js` into `/mandrel-plan` — verified by the cluster's fingerprint
 footer landing in each seed body. For each untriaged item:
 
 1. **Classify** via
@@ -140,7 +140,7 @@ footer landing in each seed body. For each untriaged item:
    against it.
 3. **Decide the disposition** with the operator (`file` / `defer` / `dismiss`)
    and record it back onto the ledger item.
-4. **Promote the `file`-dispositioned findings through `/plan`** via
+4. **Promote the `file`-dispositioned findings through `/mandrel-plan`** via
    [`promote-finding.js`](../../scripts/lib/findings/promote-finding.js) — the
    same cluster/size/route/file path `audit-to-stories` consumes. Never
    hand-roll the clustering, sizing, or promotion in prose:
@@ -149,8 +149,8 @@ footer landing in each seed body. For each untriaged item:
    import { promoteFindings } from '../scripts/lib/findings/promote-finding.js';
    const { promotions } = await promoteFindings(ledgerItems, {
      searchIssues, // GitHub provider, open + closed
-     createStory, // tight cluster (≤2 surfaces): seed → /plan --seed-file
-     createPlanSeed, // broad cluster (>2 surfaces): same /plan --seed-file path (may N>1)
+     createStory, // tight cluster (≤2 surfaces): seed → /mandrel-plan --seed-file
+     createPlanSeed, // broad cluster (>2 surfaces): same /mandrel-plan --seed-file path (may N>1)
    });
    ```
 
@@ -159,16 +159,16 @@ footer landing in each seed body. For each untriaged item:
    `createPlanSeed` — neither opens an Epic; both render a **redacted** plan
    seed (redaction already ran at capture), **stamp the cluster's
    `fingerprintFooter(sha)` verbatim into the seed body**, and chain
-   `/plan --seed-file <seed>`. Prefer one Story; split only under the
+   `/mandrel-plan --seed-file <seed>`. Prefer one Story; split only under the
    default-single policy. A `file` disposition **never** opens a raw GitHub
-   Issue; only `defer` and `dismiss` skip the `/plan` handoff.
+   Issue; only `defer` and `dismiss` skip the `/mandrel-plan` handoff.
 
 ## The HITL write gate
 
 Capture stays read-only precisely so every state change lands in Triage,
-deliberately and confirmed. Any ticket-filing, seed write, `/plan` invocation,
+deliberately and confirmed. Any ticket-filing, seed write, `/mandrel-plan` invocation,
 or label mutation is a **write** — present the artifact, confirm each one with
 the operator, and wait before it happens. The agent never files tickets,
 promotes findings, or mutates a label autonomously. The plan→deliver hard stop
-is preserved: each `/plan` chain pauses at its own HITL gates and never
+is preserved: each `/mandrel-plan` chain pauses at its own HITL gates and never
 auto-delivers.

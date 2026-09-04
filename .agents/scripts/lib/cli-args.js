@@ -253,7 +253,7 @@ export function parseSprintArgs(
       process.env.AGENT_WORKTREE_ROOT ||
       null,
     recutOf: parseTicketId(values['recut-of']),
-    // Story #4253: pre-resolved Epic linkage threaded by the /deliver
+    // Story #4253: pre-resolved Epic linkage threaded by the /mandrel-deliver
     // fan-out so `single-story-init.js` can skip redundant Epic lookups when
     // the parent already threaded Epic context (pre-v2; field retained for
     // CLI compatibility).

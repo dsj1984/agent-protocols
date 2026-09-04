@@ -94,7 +94,7 @@ describe('wireAuditStoryEdges — declared ordering for a standalone audit cohor
       bodies,
     });
 
-    // Half one: the canonical body footer, which is what /deliver's resolver
+    // Half one: the canonical body footer, which is what /mandrel-deliver's resolver
     // parses and the fallback when the dependencies API says no.
     assert.deepEqual(
       [...bodies.keys()],

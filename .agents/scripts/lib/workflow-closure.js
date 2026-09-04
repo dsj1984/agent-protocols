@@ -345,7 +345,7 @@ function loadDocs(root, fs) {
  * (`helpers/deliver-story.md` → `# /deliver-story …`). The self-naming test is
  * what separates an invocable helper from an appendix that merely titles itself
  * after the command it documents (`helpers/deliver-reference.md` →
- * `# /deliver — reference appendix`), which is read on demand, never invoked.
+ * `# /mandrel-deliver — reference appendix`), which is read on demand, never invoked.
  *
  * @param {WorkflowDoc} doc
  * @returns {boolean}

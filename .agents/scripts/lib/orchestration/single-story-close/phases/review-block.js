@@ -19,7 +19,7 @@ export async function handleCriticalReviewBlock({
     '### Code review blocked delivery',
     '',
     `The Story-scope review reported **${criticalCount} critical blocker(s)** on ${prUrl}.`,
-    'Remediate the posted findings, then re-run `/deliver`.',
+    'Remediate the posted findings, then re-run `/mandrel-deliver`.',
     '',
     'If you have reviewed a finding and judged it wrong, re-run close with',
     '`--override-review-block "<reason>"` rather than merging by hand — see',

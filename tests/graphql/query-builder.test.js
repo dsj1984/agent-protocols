@@ -95,7 +95,7 @@ describe('shared GraphQL query builders', () => {
   // anchors to the MAIN checkout — so with no config this test both (a) read
   // a cache warmed by its own previous run, short-circuiting the `loadMeta`
   // query it asserts was issued, and (b) wrote fixture ids (`PROJ`/`FIELD`)
-  // into the cache real `/deliver` runs consume. An ABSOLUTE tempRoot is used
+  // into the cache real `/mandrel-deliver` runs consume. An ABSOLUTE tempRoot is used
   // verbatim (`temp-paths.js#anchorTempRoot`), so this can never reach the
   // shared file.
   let tempRoot;

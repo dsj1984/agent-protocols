@@ -142,8 +142,8 @@ the string fails lint.
 - [`docs/architecture.md`](architecture.md) — system overview; Story
   delivery scripts and operator-tunable knobs.
 - [`.agents/docs/SDLC.md`](../.agents/docs/SDLC.md) — end-to-end SDLC narrative.
-- [`.agents/workflows/deliver.md`](../.agents/workflows/deliver.md)
-  — operator-facing `/deliver` router.
+- [`.agents/workflows/mandrel-deliver.md`](../.agents/workflows/mandrel-deliver.md)
+  — operator-facing `/mandrel-deliver` router.
 - [`docs/decisions.md`](decisions.md) — architectural decisions log; the
   Epic #2172 entry records the original bus refit and
   `20260806-lifecycle-bus-retired` records its retirement.

@@ -343,7 +343,7 @@ function scanForBreaking(text, readHeaderBang) {
  *     writing the commit that does the breaking.
  *   - **The Story body** — the same footer, written as its own line anywhere
  *     in the Story issue (the `## Spec` block is the natural home). This is
- *     the declarative path: `/plan` can state the break up front and close
+ *     the declarative path: `/mandrel-plan` can state the break up front and close
  *     propagates it even when no individual commit remembered the footer.
  *     Only the footer form counts; prose describing a break does not, because
  *     a keyword-free sentence is exactly what release-please cannot parse.

@@ -163,8 +163,8 @@ export function buildPlanSummaryCommentBody({
   // must name real ids, not a batch token that no longer exists.
   const deliverCommand =
     Array.isArray(stories) && stories.length > 0
-      ? `/deliver ${stories.map((s) => s.id).join(' ')}`
-      : '/deliver <storyId> [<storyId> ...]';
+      ? `/mandrel-deliver ${stories.map((s) => s.id).join(' ')}`
+      : '/mandrel-deliver <storyId> [<storyId> ...]';
 
   return [
     `### 📋 Plan Summary — Story #${epicId} is \`agent::ready\``,
@@ -182,6 +182,6 @@ export function buildPlanSummaryCommentBody({
     ...renderWaveTableLines(waveTable),
     ...renderSharedEditorLines(conflictFindings),
     '',
-    `_Deliver with \`${deliverCommand}\` — \`/deliver\` resolves the dependency graph from live state, so edges may point at Stories from earlier plan runs._`,
+    `_Deliver with \`${deliverCommand}\` — \`/mandrel-deliver\` resolves the dependency graph from live state, so edges may point at Stories from earlier plan runs._`,
   ].join('\n');
 }

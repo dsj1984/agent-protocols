@@ -3,7 +3,7 @@
  * kernel shared by the three per-surface lease guards.
  *
  * The per-surface lease guards — today `single-story-lease-guard.js`;
- * historically also the retired Epic-tier deliver/plan guards —
+ * historically also the retired Epic-tier deliver/mandrel-plan guards —
  * each carried their own copy of
  * the operator-handle resolution and the fail-closed acquire wrapper around
  * `ticket-lease.acquireLease` (refuse any foreign assignee, throwing an
@@ -20,7 +20,7 @@
  *
  *   - **Operator candidates** — each surface supplies its own ordered
  *     candidate list (e.g. `--as` flag → `github.operatorHandle` →
- *     `git user.email` for `/deliver`; bare `operatorHandle` for the
+ *     `git user.email` for `/mandrel-deliver`; bare `operatorHandle` for the
  *     plan/standalone paths).
  *   - **Missing-handle behaviour** — `'null'` (return null; the caller fails
  *     closed at acquire time) vs `'throw'` (refuse immediately with surface

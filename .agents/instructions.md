@@ -114,7 +114,7 @@ always wins regardless of tier.
 ## 2. FinOps & Token Budgeting (Economic Guardrails)
 
 Mandrel does not enforce live LLM spend; your host owns session quota.
-Fixed framework ceilings (the `/plan` context envelope, plan-time Story
+Fixed framework ceilings (the `/mandrel-plan` context envelope, plan-time Story
 sizing) **fail closed** naming what to trim:
 [`docs/execution-reference.md`](docs/execution-reference.md#finops--token-budgeting-economic-guardrails).
 
@@ -132,7 +132,7 @@ sizing) **fail closed** naming what to trim:
    `acceptance[]` / `verify[]`); prefer targeted retrieval over broad
    reads.
 2. **Plan First.** For non-trivial tasks (3+ steps or architectural
-   decisions), update the Story's `## Spec` via `/plan` before code.
+   decisions), update the Story's `## Spec` via `/mandrel-plan` before code.
 3. **Artifacts over Chat.** Write test/build/debug output to log
    files, not into chat.
 4. **Idempotency.** Scripts must be safe to run repeatedly.
@@ -174,10 +174,10 @@ prompted.
 The v2 ticket model is Story-only: `acceptance[]` / `verify[]` live
 inline plus the folded Tech Spec in `## Spec` (over-budget Specs fail
 closed — split or tighten; never write Specs under `docs/`). Optional
-`depends_on` edges order rare multi-Story runs, resolved by `/deliver`
+`depends_on` edges order rare multi-Story runs, resolved by `/mandrel-deliver`
 from live state; the `plan-run::<id>` label is filter metadata only.
 Commit subjects reference the Story via `(refs #<storyId>)`. There is no
-`type::epic` / `type::task` label; `/deliver` refuses tickets carrying an
+`type::epic` / `type::task` label; `/mandrel-deliver` refuses tickets carrying an
 `Epic: #N` footer.
 
 ---
@@ -192,7 +192,7 @@ anything under it.
 
 ## 7. Complexity-Aware Execution
 
-`/plan` sizes each Story as a **capability slice a frontier model
+`/mandrel-plan` sizes each Story as a **capability slice a frontier model
 delivers and self-verifies in one pass** — a broad footprint is normal
 when the change is cohesive (backstop: `DEFAULT_MODEL_CAPACITY` in
 `ticket-validator-sizing.js`); do not re-slice it into per-module

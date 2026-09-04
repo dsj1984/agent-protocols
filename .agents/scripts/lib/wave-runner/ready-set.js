@@ -2,7 +2,7 @@
  * lib/wave-runner/ready-set.js — the path-agnostic ready-set scheduling
  * core.
  *
- * This module is the scheduling kernel the v2 `/deliver` multi-Story path
+ * This module is the scheduling kernel the v2 `/mandrel-deliver` multi-Story path
  * dispatches through (`stories-wave-tick.js`). It replaces wave-*batch* selection
  * (group N must fully drain before group N+1 opens) with *continuous*,
  * dependency-driven selection: a Story becomes dispatchable the instant

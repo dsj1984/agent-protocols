@@ -15,7 +15,7 @@
  * Epic-hierarchy write surface. It composed the exact `Epic: #N` footer that
  * `pr-base-guard.js` hard-refuses at delivery, so the framework retained the
  * ability to generate work it would then reject; it had no production caller
- * (`/plan` persists through the bare `createIssue` below).
+ * (`/mandrel-plan` persists through the bare `createIssue` below).
  *
  * Public surface: `GitHubProvider.createIssue / getTicket /
  * getTickets / updateTicket / getTicketDependencies / primeTicketCache /
@@ -251,8 +251,8 @@ export class TicketGateway {
 
   /**
    * Create a **bare** issue — no footer composition and no sub-issue link.
-   * Since Story #4545 this is the *only* create path: `/plan` persist and the
-   * `/plan` Phase 4 Epic open (`openEpicFromOnePager`'s `createIssue` port)
+   * Since Story #4545 this is the *only* create path: `/mandrel-plan` persist and the
+   * `/mandrel-plan` Phase 4 Epic open (`openEpicFromOnePager`'s `createIssue` port)
    * both route through it.
    *
    * After the POST, the new issue is added to the configured Project V2
@@ -264,13 +264,13 @@ export class TicketGateway {
    * The POST is wrapped in `withTransientRetry` (Story #4541) so it absorbs
    * the same 502/429/ECONNRESET blips the read surfaces already do. It used
    * to post bare, which made a single transient failure at story *k* of *N*
-   * abort `/plan` persist with `1..k-1` already live on the tracker.
+   * abort `/mandrel-plan` persist with `1..k-1` already live on the tracker.
    *
    * Retry alone is not sufficient for that failure mode — a POST whose
    * response is lost would double-create on the retry. Story #5112 closed
    * that: `findExisting` is consulted **before every retry POST**, and a hit
    * is adopted instead of re-created, so a response-lost first attempt files
-   * exactly one issue. `/plan` persist supplies the plan-fingerprint lookup
+   * exactly one issue. `/mandrel-plan` persist supplies the plan-fingerprint lookup
    * its resume path already uses (`plan-persist`'s `createStoryIssues`);
    * callers with no content identity omit it and keep the pre-#5112
    * retry-only behaviour.
@@ -405,7 +405,7 @@ export class TicketGateway {
    *
    * The additive POST goes through `withTransientRetry` (Story #4961) on the
    * same policy as every other call in this file. Story #4952 raised the
-   * `/plan` write loops that reach this endpoint — the `agent::ready` flips
+   * `/mandrel-plan` write loops that reach this endpoint — the `agent::ready` flips
    * and the checkpoint fan-out — off serial, which is precisely what makes
    * GitHub's secondary rate limit likelier; `gh-exec` already classifies that
    * as transient, so the only thing missing was a backoff behind it.

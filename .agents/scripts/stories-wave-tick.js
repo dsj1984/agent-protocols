@@ -2,7 +2,7 @@
 
 /**
  * stories-wave-tick.js — continuous ready-set planner for the standalone
- * `/deliver` story-list path.
+ * `/mandrel-deliver` story-list path.
  *
  * Thin **adapter** over the path-agnostic ready-set scheduling core
  * (`lib/wave-runner/ready-set.js#planReadySet`). It emits the set of
@@ -21,7 +21,7 @@
  * **Two modes, one kernel.**
  *
  *   - **Probe mode** (`--stories <csv> --probe-live [--dispatched <csv>]`) is
- *     the canonical `/deliver` beat: the graph, the done set, and the in-flight
+ *     the canonical `/mandrel-deliver` beat: the graph, the done set, and the in-flight
  *     count are resolved from **live state** via `lib/wave-runner/live-probe.js`.
  *     The caller supplies ids, so there is no accounting to hand-maintain
  *     across beats — the seed-the-first-beat's-`--done` footgun the workflow
@@ -97,14 +97,14 @@
  * `--done` and `ready` is empty.
  *
  * The per-beat concurrency cap is resolved from the same config seam
- * `/deliver` uses — `resolveConfig` + `getRunners` reading
+ * `/mandrel-deliver` uses — `resolveConfig` + `getRunners` reading
  * `delivery.deliverRunner.concurrencyCap` (default 3) — so a
  * `.agentrc.local.json` override is honored. A `--concurrency <n>` CLI flag
  * overrides the config-resolved value for that run only, and the envelope's
  * `capPrecedence` names which source won so the override is never silent
  * (Story #4875). This shares one
  * deterministic config source (`delivery.deliverRunner.concurrencyCap`) and
- * one scheduling kernel with every `/deliver` multi-Story invocation.
+ * one scheduling kernel with every `/mandrel-deliver` multi-Story invocation.
  *
  * Exit codes: 0 ok · 1 input error · 2 dependency cycle (`cycleError`) ·
  * 3 wedged (`wedged`) — ready is empty, nothing is in flight, and undone
@@ -170,7 +170,7 @@ and the same file-overlap guard as planReadySet.
 
 Two modes:
   --probe-live  Resolve the graph and derive done / in-flight from LIVE state
-                (the canonical /deliver beat). Nothing is hand-maintained
+                (the canonical /mandrel-deliver beat). Nothing is hand-maintained
                 across beats. Mutually exclusive with --dag/--dag-file/--done/
                 --in-flight. Adds "done" and "epilogueDue" to the envelope.
   --dag         Legacy flag mode: the caller supplies the graph and the run
@@ -662,7 +662,7 @@ export function parseConcurrencyOverride(raw) {
 /**
  * Resolve the per-beat concurrency cap.
  *
- * Mirrors the `/deliver` multi-Story seam (`helpers/deliver-story.md`): resolve the
+ * Mirrors the `/mandrel-deliver` multi-Story seam (`helpers/deliver-story.md`): resolve the
  * project config (which deep-merges `.agentrc.local.json` over `.agentrc.json`)
  * then read `delivery.deliverRunner.concurrencyCap` via `getRunners` (default
  * 3). An explicit `override` (the `--concurrency <n>` CLI flag) wins over
@@ -855,7 +855,7 @@ export function buildReadySetEnvelope(
     return {
       envelope: {
         ...base,
-        cycleError: `Dependency cycle detected: ${cycle.join(' → ')}. Fix the depends_on declarations before running /deliver.`,
+        cycleError: `Dependency cycle detected: ${cycle.join(' → ')}. Fix the depends_on declarations before running /mandrel-deliver.`,
       },
       exitCode: 2,
     };
@@ -1087,7 +1087,7 @@ export function runStoriesWaveTick({
  *
  * This is the flag-free beat. The caller supplies only the Story ids it was
  * asked to deliver; `done` and `inFlight` are probed rather than transcribed,
- * which is what makes the `/deliver` loop's old seed-the-first-beat footgun
+ * which is what makes the `/mandrel-deliver` loop's old seed-the-first-beat footgun
  * structurally impossible instead of merely documented.
  *
  * The envelope is the flag mode's, plus three probe-only fields the caller can

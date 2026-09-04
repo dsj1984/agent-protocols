@@ -1,7 +1,7 @@
 /**
  * phases/wrong-tree-guard.js — detect worktree/main-checkout edit divergence.
  *
- * Story #3364 — `/single-story-deliver` (and `/deliver`) materializes a
+ * Story #3364 — `/single-story-deliver` (and `/mandrel-deliver`) materializes a
  * per-Story worktree and instructs the agent to `cd` into it before editing.
  * On Windows that guidance is silently insufficient: `cd <workCwd>` steers the
  * Bash tool's working directory, but the path-based Edit/Write tools operate on
@@ -232,7 +232,7 @@ export function formatWrongTreeFinding({ storyId, strayFiles, worktreePath }) {
     `**Recovery:** relocate these edits into the worktree (re-apply them under ` +
     `\`${worktreePath}\`), restore the main checkout ` +
     `(\`git -C <main-repo> checkout -- <files>\`), then re-run ` +
-    `\`/deliver ${storyId}\`.`
+    `\`/mandrel-deliver ${storyId}\`.`
   );
 }
 
@@ -307,7 +307,7 @@ async function abortWrongTree({
       `diff-path set while the worktree (${worktreePath}) is the active work ` +
       `tree. Close aborted to avoid an empty-diff PR. Stray files: ` +
       `${strayFiles.join(', ')}. Relocate the edits into the worktree, ` +
-      `restore the main checkout, then re-run /deliver ${storyId}.`,
+      `restore the main checkout, then re-run /mandrel-deliver ${storyId}.`,
   );
 }
 

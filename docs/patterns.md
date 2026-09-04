@@ -781,7 +781,7 @@ One primitive at `lib/util/concurrent-map.js`:
 the first unhandled rejection aggregates out. Live adoption points
 include:
 
-- `resolve-stories.js` — the `/deliver` dependency-graph fanout.
+- `resolve-stories.js` — the `/mandrel-deliver` dependency-graph fanout.
 - `providers/github/issues.js`, `providers/github/sub-issues.js`, and
   `providers/github/blocked-by-add.js` — provider-side bulk reads and
   edge writes.

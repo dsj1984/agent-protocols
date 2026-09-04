@@ -132,7 +132,7 @@ export const LITE_ROUTE_LABEL = 'route::lite';
  *                        footprint: `trivial` < `moderate` < `substantial`.
  *   - `maxUncertainty` — is the shape determined by the request
  *                        (`determined`), or does it still need the design
- *                        decisions `/plan` exists to resolve
+ *                        decisions `/mandrel-plan` exists to resolve
  *                        (`needs-design`)?
  *   - `maxDeployables` — named deployable roots (`apps/<x>`, `packages/<x>`, …)
  *                        the footprint spans; more than one is epic by
@@ -325,7 +325,7 @@ const EFFORT_RULES = Object.freeze([
       UNCERTAINTY_SCALE.indexOf(s.uncertainty) >
       UNCERTAINTY_SCALE.indexOf(c.maxUncertainty),
     reason: (s) =>
-      `the shape is not determined by the request (uncertainty "${s.uncertainty}") — the design decisions /plan exists to resolve are still open; full route`,
+      `the shape is not determined by the request (uncertainty "${s.uncertainty}") — the design decisions /mandrel-plan exists to resolve are still open; full route`,
   },
   {
     code: SHAPE_CODES.DEPLOYABLE_SPAN,
@@ -657,7 +657,7 @@ function buildEffortShape({
 /**
  * Derive the complexity route from an authored Story's **effort and risk**
  * (Story #4722 AC-3/AC-4; re-anchored off artifact cardinality by Story #4764)
- * — the single shape function persist's backstop and `/deliver`'s dispatch
+ * — the single shape function persist's backstop and `/mandrel-deliver`'s dispatch
  * derivation both read, so the two can never disagree about the same body.
  *
  * `lite` requires **every** signal to agree, against
@@ -804,7 +804,7 @@ export function deriveStoryShape({
 }
 
 /**
- * Decide how `/deliver` executes a Story: **run topology, and nothing else.**
+ * Decide how `/mandrel-deliver` executes a Story: **run topology, and nothing else.**
  *
  * **`inline` names one indivisible resource: the router's own session.** Two
  * Stories cannot both own it, so exactly one premise can grant it —
@@ -839,7 +839,7 @@ export function deriveStoryShape({
  * module header's non-negotiables.
  *
  * @param {{ storyCount?: unknown }} [args] `storyCount` is the number of
- *   Stories the invoking `/deliver` run resolved. Omitted (or not exactly 1)
+ *   Stories the invoking `/mandrel-deliver` run resolved. Omitted (or not exactly 1)
  *   means the run cannot be shown sibling-free and therefore dispatches as a
  *   sub-agent — never an assumed 1.
  * @returns {{ mode: 'inline'|'subagent', reasons: string[] }}

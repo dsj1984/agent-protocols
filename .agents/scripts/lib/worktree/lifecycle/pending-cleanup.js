@@ -7,7 +7,7 @@
  * on a Windows lock-class failure, the entry is appended to
  * `.worktrees/.pending-cleanup.json`. The plan-time `worktree-sweep.js`
  * reader (shipped in Epic #349) picks up the manifest on the next
- * `/plan` run and retries removal
+ * `/mandrel-plan` run and retries removal
  * (`git worktree remove` then `fs.rm`) — by then the live file handles from Node / AV / the Windows
  * Search indexer are almost always gone. If `MAX_SWEEP_ATTEMPTS` elapses
  * without clearing, an `OPERATOR ACTION REQUIRED: persistent-lock` line
@@ -17,7 +17,7 @@
  * git-ignored; no tracked state is mutated.
  *
  * **Story #5112 — the manifest is shared mutable state.** `recordPendingCleanup`
- * runs from the close reap and `drainPendingCleanup` runs from the `/plan`
+ * runs from the close reap and `drainPendingCleanup` runs from the `/mandrel-plan`
  * boot, so two concurrent delivery sessions can read-modify-write the same
  * file. Three properties close that:
  *

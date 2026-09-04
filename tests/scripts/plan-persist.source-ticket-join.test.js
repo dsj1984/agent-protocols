@@ -4,7 +4,7 @@
  *
  * The unit tests around `resolveSourceTicketIds` prove the resolver; these
  * prove the CLI actually *wires it up*. Without this, a regression in
- * `buildPersistOptions` would silently un-wire `/plan --tickets` superseding
+ * `buildPersistOptions` would silently un-wire `/mandrel-plan --tickets` superseding
  * while every resolver test stayed green.
  */
 

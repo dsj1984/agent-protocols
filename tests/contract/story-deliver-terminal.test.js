@@ -139,10 +139,10 @@ describe('story-deliver-terminal — the status contract', () => {
 describe('story-deliver-terminal — escalated (Story #4746)', () => {
   const ESCALATION_REASONS = [
     'shape: changes[] declares 7 entries (> maxChanges 2)',
-    '--yes on over-scope fails closed to /plan (never silently proceeds light)',
+    '--yes on over-scope fails closed to /mandrel-plan (never silently proceeds light)',
   ];
 
-  it('is the pre-Story terminal: null storyId, /plan next command, exit 2', () => {
+  it('is the pre-Story terminal: null storyId, /mandrel-plan next command, exit 2', () => {
     const env = buildEscalationTerminal({
       prompt: 'rework the whole billing pipeline',
       reasons: ESCALATION_REASONS,
@@ -152,7 +152,7 @@ describe('story-deliver-terminal — escalated (Story #4746)', () => {
     assert.equal(env.phase, 'suitability-gate');
     assert.equal(env.storyId, null);
     assert.equal(exitCodeForTerminal(env), 2);
-    assert.match(env.nextCommand, /^\/plan "/);
+    assert.match(env.nextCommand, /^\/mandrel-plan "/);
     assert.match(env.nextCommand, /billing pipeline/);
     assert.deepEqual(env.escalation.reasons, ESCALATION_REASONS);
   });
@@ -193,7 +193,7 @@ describe('story-deliver-terminal — escalated (Story #4746)', () => {
         reasons: ESCALATION_REASONS,
         created: { receiptStory: false, storyBranch: false, worktree: false },
       },
-      nextCommand: '/plan "x"',
+      nextCommand: '/mandrel-plan "x"',
       elapsedSeconds: 0,
     });
     assert.equal(valid, false);
@@ -229,8 +229,8 @@ describe('story-deliver-terminal — escalated (Story #4746)', () => {
     }
   });
 
-  it('refuses an escalation with no prompt to hand /plan', () => {
-    // `/plan ""` is the walk-past-able non-outcome in envelope clothing.
+  it('refuses an escalation with no prompt to hand /mandrel-plan', () => {
+    // `/mandrel-plan ""` is the walk-past-able non-outcome in envelope clothing.
     assert.throws(
       () =>
         buildEscalationTerminal({ prompt: '   ', reasons: ESCALATION_REASONS }),

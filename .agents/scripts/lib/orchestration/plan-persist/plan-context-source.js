@@ -1,6 +1,6 @@
 /**
  * plan-context-source.js — locate and read the `plan-context.js` envelope so
- * persist can derive the `/plan --tickets` source ids from the run that
+ * persist can derive the `/mandrel-plan --tickets` source ids from the run that
  * actually fetched them (Story #4554).
  *
  * This lives beside the persist ops rather than inside `plan-persist.js` so
@@ -17,7 +17,7 @@ import path from 'node:path';
 import { Logger } from '../../Logger.js';
 
 /**
- * Filename the `/plan` interrogate step writes its envelope to inside
+ * Filename the `/mandrel-plan` interrogate step writes its envelope to inside
  * `--plan-dir` (`plan-context.js --out <plan-dir>/plan-context.json`).
  */
 export const PLAN_CONTEXT_FILENAME = 'plan-context.json';
@@ -81,7 +81,7 @@ export async function loadPlanContextEnvelope(planContext) {
   if (!planContext) {
     Logger.warn(
       '[plan-persist] no --plan-dir or --plan-context given, so no ' +
-        'plan-context envelope was read. If this was a `/plan --tickets` ' +
+        'plan-context envelope was read. If this was a `/mandrel-plan --tickets` ' +
         'run, its source tickets can only come from --source-tickets and ' +
         `will NOT be closed otherwise. ${CAPTURE_HINT}`,
     );

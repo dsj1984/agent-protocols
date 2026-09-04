@@ -14,7 +14,7 @@ into the wrong commit. Each Story runs in its own `git worktree` at
 isolated per-Story. The main checkout stays quiet.
 
 This document is the operator and reviewer reference. See
-[`/deliver`](../deliver.md) and [`helpers/deliver-story`](deliver-story.md)
+[`/mandrel-deliver`](../mandrel-deliver.md) and [`helpers/deliver-story`](deliver-story.md)
 for the broader execution flow.
 
 ## Configuration
@@ -50,7 +50,7 @@ root, and shell-metacharacter injection in `root`.
 | **Sweep**       | Operator-driven (`WorktreeManager.sweepStaleLocks`)                           | Stale `*.lock` files under `.git/` (older than 5 min) are removed before GC.                                                                                |
 | **GC**          | Operator-driven (`WorktreeManager.gc`)                                        | Orphan `.worktrees/story-*` whose Stories are closed are reaped if clean.                                                                                   |
 | **Force-drain** | Operator-driven (`drain-pending-cleanup.js`)                                  | Retries `.worktrees/.pending-cleanup.json` (`git worktree remove` then `fs.rm`); Windows-only escalation enumerates user-mode handle holders and `taskkill`s them before re-trying. |
-| **Ensure**      | `single-story-init.js` (entry for `/deliver`)                                 | `git worktree add .worktrees/story-<id>/` on the `story-<id>` branch.                                                                                       |
+| **Ensure**      | `single-story-init.js` (entry for `/mandrel-deliver`)                                 | `git worktree add .worktrees/story-<id>/` on the `story-<id>` branch.                                                                                       |
 | **Run**         | During Story execution                                                        | Agent runs inside the worktree; HEAD/reflog activity is isolated.                                                                                           |
 | **Reap**        | After successful Story merge (in `single-story-close`)                        | `git worktree remove` — refuses to delete dirty trees or unmerged branches.                                                                                 |
 
@@ -85,13 +85,13 @@ epic-runner. The lifecycle surfaces that do run automatically are:
 
 | Entry point                       | Script / caller                                                      | What it cleans                                                                                                          |
 | --------------------------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| Story init (`/deliver <storyId>`) | `single-story-init.js` boot sweep (`sweepMergedStoryBranches`)        | Merged/closed `story-*` branches (local + origin) from prior runs; it then creates only its own worktree.                 |
-| Story close (`/deliver` close)    | `single-story-close.js` worktree-reap phase (`WorktreeManager.reap`)  | The per-Story worktree; on a Windows EBUSY-class lock the entry is deferred into `.worktrees/.pending-cleanup.json`.       |
+| Story init (`/mandrel-deliver <storyId>`) | `single-story-init.js` boot sweep (`sweepMergedStoryBranches`)        | Merged/closed `story-*` branches (local + origin) from prior runs; it then creates only its own worktree.                 |
+| Story close (`/mandrel-deliver` close)    | `single-story-close.js` worktree-reap phase (`WorktreeManager.reap`)  | The per-Story worktree; on a Windows EBUSY-class lock the entry is deferred into `.worktrees/.pending-cleanup.json`.       |
 | Drain pending-cleanup (operator)  | `drain-pending-cleanup.js` (run directly — see below)                 | The pending-cleanup ledger, with optional Windows handle-holder escalation. This is the only path that drains the ledger. |
 
 Operator takeaway: if worktrees or stale locks accumulate, run
 `node .agents/scripts/drain-pending-cleanup.js` — nothing in the
-`/plan` → `/deliver` loop force-sweeps or GCs on your behalf.
+`/mandrel-plan` → `/mandrel-deliver` loop force-sweeps or GCs on your behalf.
 
 ## Draining the pending-cleanup ledger
 
@@ -297,6 +297,6 @@ Human reviewers should **keep using the main checkout** — not a worktree:
   `git worktree remove --force <path>`. Confirm there is no uncommitted work
   first.
 - **Disable temporarily**: flip `enabled: false` in `.agentrc.json`. The next
-  `/deliver` skips worktree creation entirely.
+  `/mandrel-deliver` skips worktree creation entirely.
 - **Inspect live worktrees**: `git worktree list --porcelain` on the main
   checkout. Each block shows `worktree <path>` / `branch refs/heads/story-<id>`.

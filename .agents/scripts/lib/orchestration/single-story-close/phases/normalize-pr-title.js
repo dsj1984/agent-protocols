@@ -191,7 +191,11 @@ function synthesizeSubject({ description, storyId, commitMessages }) {
  * @returns {string}
  */
 function buildPrBody({ storyId, breakingNotes }) {
-  const lines = [`Closes #${storyId}`, '', '_Auto-opened by `/deliver`._'];
+  const lines = [
+    `Closes #${storyId}`,
+    '',
+    '_Auto-opened by `/mandrel-deliver`._',
+  ];
   if (breakingNotes.length > 0) {
     lines.push('', `BREAKING CHANGE: ${breakingNotes.join(' ')}`);
   }

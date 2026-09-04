@@ -59,8 +59,8 @@ function makeRepo({
   }
   if (withWorkflows) {
     write(
-      '.agents/workflows/deliver.md',
-      '---\ndescription: fixture\nmandatoryReads: [helpers/digest.md]\n---\n\n# /deliver\n\n[digest](helpers/digest.md) [appendix](helpers/appendix.md)\n',
+      '.agents/workflows/mandrel-deliver.md',
+      '---\ndescription: fixture\nmandatoryReads: [helpers/digest.md]\n---\n\n# /mandrel-deliver\n\n[digest](helpers/digest.md) [appendix](helpers/appendix.md)\n',
     );
     write('.agents/workflows/helpers/digest.md', '# Digest\n');
     write('.agents/workflows/helpers/appendix.md', '# Appendix\n');
@@ -591,7 +591,10 @@ test('--update records the workflow tier and the per-entry-point reachable closu
   assert.ok(baseline.tiers.workflow.totalBytes > 0);
   assert.deepEqual(
     baseline.tiers.workflow.files.map((f) => f.path),
-    ['.agents/workflows/deliver.md', '.agents/workflows/helpers/digest.md'],
+    [
+      '.agents/workflows/mandrel-deliver.md',
+      '.agents/workflows/helpers/digest.md',
+    ],
   );
   // Reachable is recorded alongside the gated tiers, never inside them.
   assert.ok(
@@ -600,7 +603,7 @@ test('--update records the workflow tier and the per-entry-point reachable closu
   );
   assert.deepEqual(
     baseline.workflowClosure.entryPoints.map((e) => e.path),
-    ['.agents/workflows/deliver.md'],
+    ['.agents/workflows/mandrel-deliver.md'],
   );
   assert.ok(baseline.workflowClosure.entryPoints[0].reachableBytes > 0);
 });
@@ -651,8 +654,8 @@ test('a promoted on-demand read trips the ratchet — the marker, not the bytes,
     stderr: makeSink(),
   });
   write(
-    '.agents/workflows/deliver.md',
-    '---\ndescription: fixture\nmandatoryReads: [helpers/digest.md, helpers/appendix.md]\n---\n\n# /deliver\n\n[digest](helpers/digest.md) [appendix](helpers/appendix.md)\n',
+    '.agents/workflows/mandrel-deliver.md',
+    '---\ndescription: fixture\nmandatoryReads: [helpers/digest.md, helpers/appendix.md]\n---\n\n# /mandrel-deliver\n\n[digest](helpers/digest.md) [appendix](helpers/appendix.md)\n',
   );
   const stdout = makeSink();
   const code = await runCli({
@@ -792,21 +795,21 @@ function runScript(root) {
 test('the CLI exits non-zero naming the workflow and path when a mandatoryReads entry is missing', () => {
   const { root, write } = makeRepo({ withWorkflows: true });
   write(
-    '.agents/workflows/deliver.md',
-    '---\ndescription: fixture\nmandatoryReads: [helpers/gone.md]\n---\n\n# /deliver\n',
+    '.agents/workflows/mandrel-deliver.md',
+    '---\ndescription: fixture\nmandatoryReads: [helpers/gone.md]\n---\n\n# /mandrel-deliver\n',
   );
   const result = runScript(root);
   assert.notEqual(result.status, 0);
   const output = `${result.stdout}${result.stderr}`;
-  assert.match(output, /\.agents\/workflows\/deliver\.md/);
+  assert.match(output, /\.agents\/workflows\/mandrel-deliver\.md/);
   assert.match(output, /helpers\/gone\.md/);
 });
 
 test('the CLI exits non-zero naming the cycle when mandatoryReads edges loop', () => {
   const { root, write } = makeRepo({ withWorkflows: true });
   write(
-    '.agents/workflows/deliver.md',
-    '---\ndescription: fixture\nmandatoryReads: [helpers/digest.md]\n---\n\n# /deliver\n',
+    '.agents/workflows/mandrel-deliver.md',
+    '---\ndescription: fixture\nmandatoryReads: [helpers/digest.md]\n---\n\n# /mandrel-deliver\n',
   );
   write(
     '.agents/workflows/helpers/digest.md',
@@ -824,8 +827,8 @@ test('the CLI exits non-zero naming the cycle when mandatoryReads edges loop', (
 test('runCli propagates a loud workflow-closure failure instead of degrading', async () => {
   const { root, config, write } = makeRepo({ withWorkflows: true });
   write(
-    '.agents/workflows/deliver.md',
-    '---\ndescription: fixture\nmandatoryReads: [helpers/gone.md]\n---\n\n# /deliver\n',
+    '.agents/workflows/mandrel-deliver.md',
+    '---\ndescription: fixture\nmandatoryReads: [helpers/gone.md]\n---\n\n# /mandrel-deliver\n',
   );
   await assert.rejects(
     runCli({

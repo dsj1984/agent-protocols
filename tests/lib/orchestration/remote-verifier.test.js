@@ -2,7 +2,7 @@
  * tests/lib/orchestration/remote-verifier.test.js — issue #4483.
  *
  * Unit tests for the deterministic remote-evidence probes that back the
- * `/deliver` land-or-block entry contract:
+ * `/mandrel-deliver` land-or-block entry contract:
  *
  *   - `verifyRemote` — `git remote get-url origin` + bounded
  *     `git ls-remote origin HEAD`; `remoteVerified` is true only when

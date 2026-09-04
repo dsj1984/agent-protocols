@@ -5,7 +5,7 @@ description: >-
   system prompt (no CLAUDE.md / instructions.md closure). Reviews an authored
   plan draft (stories.json, optional techspec.md) against a single critic
   charter — consolidation or pre-mortem — and returns findings, without seeing
-  the planner's authoring transcript. Dispatched by workflows/plan.md §2.5 when
+  the planner's authoring transcript. Dispatched by workflows/mandrel-plan.md §2.5 when
   delivery.routing.roleScopedAgents is enabled (the default).
 ---
 

@@ -21,7 +21,7 @@
  *   - `closing` with a red PR → enter the fix loop. Waiting is pointless; no
  *     budget turns a failed check green.
  *   - `closing` with a MERGED PR → run confirm. **This is the strand a
- *     `/deliver` re-run refuses outright**, because `single-story-init.js`
+ *     `/mandrel-deliver` re-run refuses outright**, because `single-story-init.js`
  *     hard-errors on an already-closed Story — so before this surface, the
  *     merged-but-label-stale Story had no automated way back.
  *   - `done` with a drifted board → run resync. The GitHub Projects bot won
@@ -367,7 +367,7 @@ export function decideRecovery({
       nextCommand: NEXT_COMMANDS.confirmMerge(storyId),
       detail:
         `PR #${pr.number} is MERGED but the Story is at \`${label ?? 'no state label'}\`. ` +
-        `A /deliver re-run cannot fix this — single-story-init.js hard-errors on an ` +
+        `A /mandrel-deliver re-run cannot fix this — single-story-init.js hard-errors on an ` +
         `already-closed Story. The confirm CLI is idempotent and flips the label from ` +
         `the already-merged PR, then runs the land tail.`,
       evidence,
@@ -482,7 +482,7 @@ export function decideRecovery({
     nextCommand: NEXT_COMMANDS.close(storyId),
     detail:
       `Story is at \`${label ?? 'no agent:: state label'}\` — not mid-delivery, so there ` +
-      `is no strand to recover. Deliver it normally via /deliver ${storyId}.`,
+      `is no strand to recover. Deliver it normally via /mandrel-deliver ${storyId}.`,
     evidence,
   };
 }

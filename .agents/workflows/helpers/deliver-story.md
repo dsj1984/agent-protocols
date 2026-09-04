@@ -9,7 +9,7 @@ mandatoryReads: [deliver-digest.md]
 
 > **Lean spine.** Happy path + gate list; edge-case, recovery and reference
 > detail lives in [`deliver-story-reference.md`](deliver-story-reference.md)
-> ("reference" below). Invoked by [`/deliver`](../deliver.md).
+> ("reference" below). Invoked by [`/mandrel-deliver`](../mandrel-deliver.md).
 > **Read [`deliver-digest.md`](deliver-digest.md) once, first** — the one
 > bundled read every delivery needs. Steps cite it as "digest § N".
 
@@ -34,14 +34,13 @@ that dispatched the work**, never to a spawned worker.
 - **Inline dispatch** (a one-Story run — digest § 1): one session is both
   roles and walks Steps 0→7, no hand-off.
 - **Sub-agent dispatch**: the `story-worker` stops at Step 2.5 with the branch
-  pushed and returns a hand-off; the dispatching `/deliver` session runs Step 3
+  pushed and returns a hand-off; the dispatching `/mandrel-deliver` session runs Step 3
   **in its own turn** and **serializes the tail — one close at a time across
   the run**, even though implementation ran in parallel (reference § Step 3).
 
-**A worker returning no terminal envelope is expected, not a failure.** Only
-Step 3 mints one, so a hand-off is the normal sub-agent return. Never
-re-dispatch the Story on it — the branch exists, and re-running Step 0 under
-live work is how one Story gets two closes. Resume per § Recovery instead.
+**A worker returning no terminal envelope is expected, not a failure** — only
+Step 3 mints one. Never re-dispatch the Story on it; resume per § Recovery
+(reference § Idempotence and the standing constraints).
 
 ## Step 0 — Initialize (`single-story-init.js`)
 
@@ -162,5 +161,5 @@ not process. Drive `agent::*` through
 
 ## See also
 
-[`deliver-digest.md`](deliver-digest.md), [`/deliver`](../deliver.md),
+[`deliver-digest.md`](deliver-digest.md), [`/mandrel-deliver`](../mandrel-deliver.md),
 [`deliver-story-reference.md`](deliver-story-reference.md).

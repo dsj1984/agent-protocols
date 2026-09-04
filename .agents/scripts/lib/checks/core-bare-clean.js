@@ -26,7 +26,7 @@ export default {
   severity: 'blocker',
   // 'npm-test' keeps the test-wrapper preflight's refusal claim true: a
   // poisoned shared config is caught before a suite (or N concurrent
-  // /deliver workers) inherits it, not only at close/retro time (#4580).
+  // /mandrel-deliver workers) inherits it, not only at close/retro time (#4580).
   scope: ['story-close', 'retro', 'npm-test'],
   autoCorrect: 'refuse-and-print',
   detect(state) {

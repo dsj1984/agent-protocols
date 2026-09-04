@@ -128,7 +128,7 @@ describe('sweepMergedStoryBranches', () => {
     });
     assert.equal(result.ok, false);
     assert.equal(result.skipped, true);
-    assert.match(result.error ?? '', /plan: git not available/);
+    assert.match(result.error ?? '', /mandrel-plan: git not available/);
     assert.equal(warns.length, 1);
   });
 

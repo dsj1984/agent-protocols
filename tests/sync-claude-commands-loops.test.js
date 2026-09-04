@@ -65,7 +65,7 @@ const namespacedCommand = (name) => `/loops:${name}`;
  *                           .claude/commands/ to pre-populate.
  *
  * Returns { dest, result, commands, tmp, cleanup }. `commands` is a flat
- * map keyed by the destination-relative path (`loops/foo.md`, `plan.md`).
+ * map keyed by the destination-relative path (`loops/foo.md`, `mandrel-plan.md`).
  */
 function runSyncIsolated({ payloadFiles = {}, existingDest = {} } = {}) {
   const tmp = makeTempDir('sync-loops-test-');
@@ -294,7 +294,11 @@ test('AC5: removing a loop unit reaps loops/<name>.md without touching flat comm
   try {
     const payloadSrc = path.join(tmp, 'workflows');
     fs.mkdirSync(path.join(payloadSrc, 'loops'), { recursive: true });
-    fs.writeFileSync(path.join(payloadSrc, 'plan.md'), '# /plan\n', 'utf8');
+    fs.writeFileSync(
+      path.join(payloadSrc, 'plan.md'),
+      '# /mandrel-plan\n',
+      'utf8',
+    );
     fs.writeFileSync(
       path.join(payloadSrc, 'loops', 'converge.md'),
       LOOP_UNIT,

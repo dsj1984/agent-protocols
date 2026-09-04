@@ -147,7 +147,7 @@ test('a title that already carries `!` is not double-marked', () => {
 
 test('the body carries the Closes footer, and nothing else when clean', () => {
   const { body } = build({ storyTitle: 'Tidy up', storyId: 5004 });
-  assert.equal(body, 'Closes #5004\n\n_Auto-opened by `/deliver`._');
+  assert.equal(body, 'Closes #5004\n\n_Auto-opened by `/mandrel-deliver`._');
 });
 
 test('the BREAKING CHANGE footer goes last', () => {

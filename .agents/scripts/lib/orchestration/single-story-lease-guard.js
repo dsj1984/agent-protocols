@@ -105,7 +105,7 @@ export async function acquireStoryLease({
     steal,
     renderRefusal: (result) =>
       `single-story lease: Story #${storyId} is currently held by @${result.owner}. ` +
-      'Another /deliver run owns this Story. Coordinate with that ' +
+      'Another /mandrel-deliver run owns this Story. Coordinate with that ' +
       'operator, or re-run with --steal to forcibly transfer the claim once you ' +
       'have confirmed the other run is dead. (A foreign assignee always ' +
       'blocks unless stolen.)',

@@ -43,7 +43,7 @@ const schema = JSON.parse(
   readFileSync(path.join(SCHEMAS_ROOT, 'audit-rules.schema.json'), 'utf8'),
 );
 
-/** A Story body exactly as `/plan` writes it — machine comment and all. */
+/** A Story body exactly as `/mandrel-plan` writes it — machine comment and all. */
 const STORY_BODY_WITH_META_COMMENT = [
   '<!-- meta: {"type":"story","planRun":"run-4579"} -->',
   '',
@@ -105,7 +105,7 @@ test('selector: audit-seo is not selected on a no-web-surface repo despite a who
 test('selector: no web lens survives the gate on a no-web-surface repo', async () => {
   const selected = await select({
     body: 'Rework the ui, seo, meta and accessibility handling of the component tree.',
-    changedFiles: ['.agents/scripts/deliver.js'],
+    changedFiles: ['.agents/scripts/mandrel-deliver.js'],
     hasWebSurfaceFn: () => false,
   });
 
@@ -257,7 +257,7 @@ test('selector: the probe is not consulted when no web lens clears its gate', as
   // the filesystem scan at all.
   await select({
     body: 'Refactor the dispatcher.',
-    changedFiles: ['.agents/scripts/deliver.js'],
+    changedFiles: ['.agents/scripts/mandrel-deliver.js'],
     gate: 'gate1',
     hasWebSurfaceFn: () => {
       probeCalls += 1;
@@ -271,7 +271,7 @@ test('selector: the probe is resolved at most once per call', async () => {
   let probeCalls = 0;
   await select({
     body: 'ui seo meta accessibility route tree',
-    changedFiles: ['.agents/scripts/deliver.js'],
+    changedFiles: ['.agents/scripts/mandrel-deliver.js'],
     hasWebSurfaceFn: () => {
       probeCalls += 1;
       return false;

@@ -10,7 +10,7 @@
  *   - executing with no PR → resume implement
  *   - closing with a pending PR → resume the land
  *   - closing with a red PR → the fix loop
- *   - closing with a merged PR → confirm (the strand a /deliver re-run
+ *   - closing with a merged PR → confirm (the strand a /mandrel-deliver re-run
  *     refuses outright, because init hard-errors on an already-closed Story)
  *   - done with a drifted board → resync
  *   - blocked → the class-specific remediation the friction comment names
@@ -87,7 +87,7 @@ describe('deliver-recover — the decision table', () => {
       command: NEXT_COMMANDS.watchCi(STORY_ID, 99),
     },
     {
-      name: 'closing with a MERGED PR → confirm (the strand /deliver refuses)',
+      name: 'closing with a MERGED PR → confirm (the strand /mandrel-deliver refuses)',
       probes: {
         ticket: ticket('agent::closing'),
         branch: BRANCH_PRESENT,
@@ -194,7 +194,7 @@ describe('deliver-recover — the decision table', () => {
 
   it('a merged PR outranks a stale label — this is the /deliver-refuses strand', () => {
     // `single-story-init.js` hard-errors on an already-closed Story, so a
-    // /deliver re-run cannot resolve this. Recovery must, and the confirm CLI
+    // /mandrel-deliver re-run cannot resolve this. Recovery must, and the confirm CLI
     // is idempotent against an already-merged PR.
     const decision = decideRecovery({
       storyId: STORY_ID,

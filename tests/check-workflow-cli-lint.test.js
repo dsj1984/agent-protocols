@@ -3,7 +3,7 @@
  *
  * The rule: no workflow may instruct calling an exported library function
  * that has no CLI entrypoint — the measured shim-writing failure mode of
- * the retired 12-phase /plan pipeline (the bench cohort spent ~12–15 turns
+ * the retired 12-phase /mandrel-plan pipeline (the bench cohort spent ~12–15 turns
  * writing throwaway `.mjs` shims to invoke `findSimilarOpenEpics` and
  * friends).
  *
@@ -169,7 +169,7 @@ describe('workflow-cli-lint — no-cli-flag-table (Story #4546)', () => {
   });
 
   it("does NOT flag a slash command's own flag table (no script owns those flags)", () => {
-    // `/plan` and `/deliver` document their own argument surface; there is no
+    // `/mandrel-plan` and `/mandrel-deliver` document their own argument surface; there is no
     // CLI `--help` behind it, so this is the single home for that contract.
     const source = [
       '## Flags',

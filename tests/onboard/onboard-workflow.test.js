@@ -1,5 +1,5 @@
 /**
- * Story #4045 — init tail sequencing, stub-marker detection, and /plan handoff.
+ * Story #4045 — init tail sequencing, stub-marker detection, and /mandrel-plan handoff.
  *
  * The `/onboard` slash command has been retired. Its four phases now live in
  * `lib/onboard/init-tail.js` and run as the configure-path tail of
@@ -11,7 +11,7 @@
  *   - Phase 1 acceptance writes stubs and reports the MANDREL:STUB marker.
  *   - Phase 2 (doctor) gate: non-zero exit stops the tail (ok: false).
  *   - Phase 2 (doctor) gate: zero exit proceeds to Phase 3.
- *   - Phase 3 (/plan handoff) text is printed on a green doctor run.
+ *   - Phase 3 (/mandrel-plan handoff) text is printed on a green doctor run.
  *   - Non-TTY: scaffold offer auto-declines without prompting.
  */
 
@@ -194,17 +194,17 @@ describe('init tail — Phase 2 (doctor gate)', async () => {
 });
 
 // ---------------------------------------------------------------------------
-// Phase 3 — /plan handoff
+// Phase 3 — /mandrel-plan handoff
 // ---------------------------------------------------------------------------
 
-describe('init tail — Phase 3 (/plan handoff)', async () => {
-  it('prints the /plan handoff text when doctor passes', async () => {
+describe('init tail — Phase 3 (/mandrel-plan handoff)', async () => {
+  it('prints the /mandrel-plan handoff text when doctor passes', async () => {
     const root = track(makeProject([]));
     const { output } = await runTail(root, {
       runDoctor: doctor(0),
       isTTY: false,
     });
-    assert.match(output, /\/plan/);
+    assert.match(output, /\/mandrel-plan/);
     assert.ok(
       output.includes(PLAN_HANDOFF_TEXT),
       'PLAN_HANDOFF_TEXT should appear in output',

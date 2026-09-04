@@ -3,7 +3,7 @@
 This rule governs the shape of per-release entries in the project CHANGELOG
 (typically `docs/CHANGELOG.md` or `CHANGELOG.md`). It applies whenever a
 release entry is authored or edited — most commonly inside Story #N's
-docs sweep before `/deliver` opens the release PR.
+docs sweep before `/mandrel-deliver` opens the release PR.
 
 The contract is **guidance-tier**: no automated gate fails a close when an
 entry drifts off-template. It still binds every author.
@@ -152,12 +152,12 @@ worktree cleanup.
 - **Shared-store worktrees.** Per-story worktrees link a shared
   `node_modules` store, so parallel waves no longer duplicate installs
   or leave residue that blocks reap.
-- **`/deliver` auto-invokes pre-merge gates** (code review, retro)
+- **`/mandrel-deliver` auto-invokes pre-merge gates** (code review, retro)
   inline. `--skip-code-review` is available as an override.
 - **Closure sweep covers Epic Health tickets** in addition to PRD and
   Tech Spec tickets.
 - **Stale-lock sweep** on the shared `.git/` directory runs at
-  `/deliver` start, clearing lock files left behind by interrupted
+  `/mandrel-deliver` start, clearing lock files left behind by interrupted
   operations.
 ```
 

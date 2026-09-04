@@ -9,7 +9,7 @@
  *   1. **Discovery** — which files under a scope's `stepRoots` hold step
  *      definitions, and which `.feature` files sit under its `featureRoots`.
  *      Feature discovery is delegated to `listFeatureFiles` in
- *      `bdd-scenario-scanner.js` rather than copied: /plan's scenario index and
+ *      `bdd-scenario-scanner.js` rather than copied: /mandrel-plan's scenario index and
  *      this gate must agree on what counts as a feature file, and two walkers
  *      would eventually disagree.
  *   2. **Matching** — turn each definition's Cucumber expression or regular

@@ -1,6 +1,6 @@
-# /plan — on-demand reference appendix
+# /mandrel-plan — on-demand reference appendix
 
-> **Applies when:** you are executing [`/plan`](../plan.md) and hit one of the
+> **Applies when:** you are executing [`/mandrel-plan`](../mandrel-plan.md) and hit one of the
 > situations below — input-mode derivation, the Gate #1 light handoff,
 > shape-derived complexity routing, tickets-mode supersede authoring, critic
 > dispatch detail, a failed persist, or source-id resolution. The spine stays
@@ -8,7 +8,7 @@
 
 ## Deriving the input mode
 
-`/plan` has no operator-facing flags; the CLIs below still take every flag they
+`/mandrel-plan` has no operator-facing flags; the CLIs below still take every flag they
 always did. Read the invocation, **announce what you derived**, then fill in
 the flag — the same derive-then-announce contract `/git-deliver` uses for its
 terminal level.
@@ -94,7 +94,7 @@ not re-deriving which assumptions were really the agent's to make.
 
 ## Gate #1 → the light path (in-session handoff)
 
-On a confirmed `deliverLightSuggestion`, `/plan` routes into
+On a confirmed `deliverLightSuggestion`, `/mandrel-plan` routes into
 [`deliver-light.md`](deliver-light.md) **without ending the session**. Two
 things make that safe, and both are worth understanding before changing it:
 
@@ -110,7 +110,7 @@ things make that safe, and both are worth understanding before changing it:
    span). Two different checks on purpose, so a confirm is not a bypass.
 
 **When the light gate answers `ask-operator`**, the two ceiling sets disagreed.
-Resume `/plan` at step 2 (Author) **in this same session** — the interrogation
+Resume `/mandrel-plan` at step 2 (Author) **in this same session** — the interrogation
 is still valid and re-paying for it buys nothing. This bounce-back is not an
 escalation.
 
@@ -138,7 +138,7 @@ in `audit-rules.json`. There is no configuration key to set: a project with no
 rendered frontend resolves falsey and the offer never fires.
 
 When it does fire, **name [`/prototype`](../prototype.md) and stop there.**
-`/plan` must never invoke it — operator invocation is the entire design, because
+`/mandrel-plan` must never invoke it — operator invocation is the entire design, because
 the value is a human looking at a layout before its UI acceptance criteria are
 frozen.
 
@@ -182,7 +182,7 @@ decision:
 
 **The label is a hint; deliver re-derives.** Persist labels a
 lite cohort's Stories with **`route::lite`** as a *human-visible hint only* —
-`/deliver` computes the route from each fetched Story body via the same shape
+`/mandrel-deliver` computes the route from each fetched Story body via the same shape
 function at dispatch, so neither a lost label nor an unread marker can
 misroute delivery: a lite-shaped Story derives `lite` even with the label
 absent, and a sensitive-footprint Story routes `full` and keeps its fresh
@@ -421,7 +421,7 @@ The order is: create unlabelled → upsert `story-plan-state` on
 every Story → upsert `plan-summary` on the primary → flip every Story to
 `agent::ready`.
 
-This is what lets `/deliver` trust the label: a Story carrying
+This is what lets `/mandrel-deliver` trust the label: a Story carrying
 `agent::ready` always has its persist receipt on the ticket, so nothing can
 pick it up mid-write and read a half-persisted plan.
 
@@ -436,7 +436,7 @@ So if a transient GitHub failure strands the run at Story `k` of `N`:
 
 | | Behaviour |
 | --- | --- |
-| The `1..k-1` Stories | Live, but **not** `agent::ready` — invisible to `/deliver`, not half-delivered. |
+| The `1..k-1` Stories | Live, but **not** `agent::ready` — invisible to `/mandrel-deliver`, not half-delivered. |
 | Re-running persist | Adopts them by fingerprint, creates only the missing ones, then flips the whole cohort ready. |
 | Editing `stories.json` first | Changing a slug or title changes the fingerprint — the old issue is orphaned rather than adopted. Close it by hand. |
 

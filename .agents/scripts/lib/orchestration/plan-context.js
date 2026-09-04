@@ -1,5 +1,5 @@
 /**
- * plan-context.js — single planner-context envelope build for `/plan`.
+ * plan-context.js — single planner-context envelope build for `/mandrel-plan`.
  *
  * Folds the authoring-context builders plus the cross-Story dup search into
  * ONE JSON envelope, so the authoring middle reads a single file instead of
@@ -481,7 +481,7 @@ export function buildDeliverLightSuggestion(complexitySignals) {
     reasons: suggested
       ? [
           'seed carries no risk signal (no risk-heuristic hits, no ' +
-            'sensitive-path classes) — the operator may prefer /deliver for ' +
+            'sensitive-path classes) — the operator may prefer /mandrel-deliver for ' +
             "this scope; the light path's own gate and diff backstop decide size",
         ]
       : reasons,
@@ -597,7 +597,7 @@ function uiSurfaceReason({
  * derived from the consumer's own checkout, so a frontend-less project — this
  * repository included — resolves falsey and the offer never fires.
  *
- * The signal carries **no routing authority** (`automatic: false`): `/plan`
+ * The signal carries **no routing authority** (`automatic: false`): `/mandrel-plan`
  * may say that a plan touches UI and that `/prototype` exists, and must never
  * invoke it. Pure over its inputs and total — a malformed signal bag or an
  * unreadable manifest degrades, never throws.
@@ -911,7 +911,7 @@ async function gatherEnvelopeInputs({
     (gather) => gather(),
     // The per-mode envelope gathers (Story #4952): the duplicate search, the
     // authoring-context fold and the docs digest have no data dependency on
-    // one another, so their serialization was incidental and `/plan` paid it
+    // one another, so their serialization was incidental and `/mandrel-plan` paid it
     // with the operator waiting at Gate #1.
     { concurrency: FANOUT_CONCURRENCY },
   );

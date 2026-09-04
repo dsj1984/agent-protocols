@@ -40,12 +40,12 @@ const MIN_HEADROOM_BYTES = 256;
 /** Spine → the on-demand appendix helper its detail moved into. */
 const SPINES = [
   {
-    spine: '.agents/workflows/plan.md',
+    spine: '.agents/workflows/mandrel-plan.md',
     appendix: '.agents/workflows/helpers/plan-reference.md',
     appendixRef: 'helpers/plan-reference.md',
   },
   {
-    spine: '.agents/workflows/deliver.md',
+    spine: '.agents/workflows/mandrel-deliver.md',
     appendix: '.agents/workflows/helpers/deliver-reference.md',
     appendixRef: 'helpers/deliver-reference.md',
   },

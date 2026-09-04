@@ -47,29 +47,29 @@ const paths = (entries) => entries.map((e) => e.path);
 
 test('every top-level workflow is an entry point; plain helpers are not', () => {
   const root = makeRepo({
-    '.agents/workflows/plan.md': `${frontmatter()}# /plan\n\n[helper](helpers/notes.md)\n`,
-    '.agents/workflows/deliver.md': `${frontmatter()}# Deliver\n`,
+    '.agents/workflows/mandrel-plan.md': `${frontmatter()}# /mandrel-plan\n\n[helper](helpers/notes.md)\n`,
+    '.agents/workflows/mandrel-deliver.md': `${frontmatter()}# Deliver\n`,
     '.agents/workflows/helpers/notes.md': '# Notes (helper)\n',
   });
   const closure = resolveWorkflowClosures(root);
   assert.deepEqual(paths(closure.entryPoints), [
-    '.agents/workflows/deliver.md',
-    '.agents/workflows/plan.md',
+    '.agents/workflows/mandrel-deliver.md',
+    '.agents/workflows/mandrel-plan.md',
   ]);
 });
 
 test('a helper whose H1 declares its own slash command is an entry point, an appendix titled after another command is not', () => {
   const root = makeRepo({
-    '.agents/workflows/deliver.md': `${frontmatter()}# /deliver\n`,
+    '.agents/workflows/mandrel-deliver.md': `${frontmatter()}# /mandrel-deliver\n`,
     '.agents/workflows/helpers/deliver-story.md':
       '# /deliver-story #[Story ID]\n',
     '.agents/workflows/helpers/deliver-reference.md':
-      '# /deliver — reference appendix (on-demand)\n',
+      '# /mandrel-deliver — reference appendix (on-demand)\n',
   });
   const closure = resolveWorkflowClosures(root);
   assert.deepEqual(paths(closure.entryPoints), [
-    '.agents/workflows/deliver.md',
     '.agents/workflows/helpers/deliver-story.md',
+    '.agents/workflows/mandrel-deliver.md',
   ]);
 });
 
@@ -79,12 +79,12 @@ test('a helper whose H1 declares its own slash command is an entry point, an app
 
 test('an absent mandatoryReads key is not an error — the closure is the entry point alone', () => {
   const root = makeRepo({
-    '.agents/workflows/plan.md': `${frontmatter()}# /plan\n\n[ref](helpers/ref.md)\n`,
+    '.agents/workflows/mandrel-plan.md': `${frontmatter()}# /mandrel-plan\n\n[ref](helpers/ref.md)\n`,
     '.agents/workflows/helpers/ref.md': '# Ref\n',
   });
   const closure = resolveWorkflowClosures(root);
   assert.deepEqual(paths(closure.mandatoryFiles), [
-    '.agents/workflows/plan.md',
+    '.agents/workflows/mandrel-plan.md',
   ]);
   assert.equal(
     closure.entryPoints[0].mandatoryBytes,
@@ -94,21 +94,21 @@ test('an absent mandatoryReads key is not an error — the closure is the entry 
 
 test('a flow-style mandatoryReads list resolves transitively', () => {
   const root = makeRepo({
-    '.agents/workflows/deliver.md': `${frontmatter('mandatoryReads: [helpers/digest.md]')}# /deliver\n`,
+    '.agents/workflows/mandrel-deliver.md': `${frontmatter('mandatoryReads: [helpers/digest.md]')}# /mandrel-deliver\n`,
     '.agents/workflows/helpers/digest.md': `${frontmatter('mandatoryReads: [nested.md]')}# Digest\n`,
     '.agents/workflows/helpers/nested.md': '# Nested\n',
   });
   const closure = resolveWorkflowClosures(root);
   assert.deepEqual(paths(closure.mandatoryFiles), [
-    '.agents/workflows/deliver.md',
     '.agents/workflows/helpers/digest.md',
     '.agents/workflows/helpers/nested.md',
+    '.agents/workflows/mandrel-deliver.md',
   ]);
 });
 
 test('a block-style mandatoryReads list resolves, and quoted entries are unwrapped', () => {
   const root = makeRepo({
-    '.agents/workflows/plan.md': `---\ndescription: fixture\nmandatoryReads:\n  - helpers/a.md\n  - "helpers/b.md"\n---\n\n# /plan\n`,
+    '.agents/workflows/mandrel-plan.md': `---\ndescription: fixture\nmandatoryReads:\n  - helpers/a.md\n  - "helpers/b.md"\n---\n\n# /mandrel-plan\n`,
     '.agents/workflows/helpers/a.md': '# A\n',
     '.agents/workflows/helpers/b.md': '# B\n',
   });
@@ -116,20 +116,20 @@ test('a block-style mandatoryReads list resolves, and quoted entries are unwrapp
   assert.deepEqual(paths(closure.mandatoryFiles), [
     '.agents/workflows/helpers/a.md',
     '.agents/workflows/helpers/b.md',
-    '.agents/workflows/plan.md',
+    '.agents/workflows/mandrel-plan.md',
   ]);
 });
 
 test('every reachable link not named in mandatoryReads is classified on-demand', () => {
   const root = makeRepo({
-    '.agents/workflows/deliver.md': `${frontmatter('mandatoryReads: [helpers/digest.md]')}# /deliver\n\n[digest](helpers/digest.md) [appendix](helpers/appendix.md#step-3)\n`,
+    '.agents/workflows/mandrel-deliver.md': `${frontmatter('mandatoryReads: [helpers/digest.md]')}# /mandrel-deliver\n\n[digest](helpers/digest.md) [appendix](helpers/appendix.md#step-3)\n`,
     '.agents/workflows/helpers/digest.md': '# Digest\n',
     '.agents/workflows/helpers/appendix.md': '# Appendix\n',
   });
   const closure = resolveWorkflowClosures(root);
   assert.deepEqual(paths(closure.mandatoryFiles), [
-    '.agents/workflows/deliver.md',
     '.agents/workflows/helpers/digest.md',
+    '.agents/workflows/mandrel-deliver.md',
   ]);
   assert.deepEqual(paths(closure.onDemandFiles), [
     '.agents/workflows/helpers/appendix.md',
@@ -147,12 +147,12 @@ test('every reachable link not named in mandatoryReads is classified on-demand',
 
 test('a mandatoryReads entry naming a missing file throws, naming the workflow and the path', () => {
   const root = makeRepo({
-    '.agents/workflows/deliver.md': `${frontmatter('mandatoryReads: [helpers/gone.md]')}# /deliver\n`,
+    '.agents/workflows/mandrel-deliver.md': `${frontmatter('mandatoryReads: [helpers/gone.md]')}# /mandrel-deliver\n`,
   });
   assert.throws(
     () => resolveWorkflowClosures(root),
     (err) => {
-      assert.match(err.message, /\.agents\/workflows\/deliver\.md/);
+      assert.match(err.message, /\.agents\/workflows\/mandrel-deliver\.md/);
       assert.match(err.message, /helpers\/gone\.md/);
       return true;
     },
@@ -161,7 +161,7 @@ test('a mandatoryReads entry naming a missing file throws, naming the workflow a
 
 test('a mandatoryReads entry pointing outside the workflow tree throws rather than silently dropping', () => {
   const root = makeRepo({
-    '.agents/workflows/deliver.md': `${frontmatter('mandatoryReads: [../rules/testing-standards.md]')}# /deliver\n`,
+    '.agents/workflows/mandrel-deliver.md': `${frontmatter('mandatoryReads: [../rules/testing-standards.md]')}# /mandrel-deliver\n`,
     '.agents/rules/testing-standards.md': '# Rules\n',
   });
   assert.throws(() => resolveWorkflowClosures(root), /testing-standards\.md/);
@@ -169,7 +169,7 @@ test('a mandatoryReads entry pointing outside the workflow tree throws rather th
 
 test('a cycle among mandatoryReads edges throws, naming the cycle', () => {
   const root = makeRepo({
-    '.agents/workflows/deliver.md': `${frontmatter('mandatoryReads: [helpers/a.md]')}# /deliver\n`,
+    '.agents/workflows/mandrel-deliver.md': `${frontmatter('mandatoryReads: [helpers/a.md]')}# /mandrel-deliver\n`,
     '.agents/workflows/helpers/a.md': `${frontmatter('mandatoryReads: [b.md]')}# A\n`,
     '.agents/workflows/helpers/b.md': `${frontmatter('mandatoryReads: [a.md]')}# B\n`,
   });
@@ -190,7 +190,7 @@ test('a cycle among mandatoryReads edges throws, naming the cycle', () => {
 
 test('a cycle in the prose link graph terminates and counts each file exactly once', () => {
   const root = makeRepo({
-    '.agents/workflows/deliver.md': `${frontmatter()}# /deliver\n\n[spine](helpers/spine.md)\n`,
+    '.agents/workflows/mandrel-deliver.md': `${frontmatter()}# /mandrel-deliver\n\n[spine](helpers/spine.md)\n`,
     '.agents/workflows/helpers/spine.md': '# Spine\n\n[digest](digest.md)\n',
     '.agents/workflows/helpers/digest.md':
       '# Digest\n\n[back to the spine](spine.md)\n',
@@ -201,9 +201,9 @@ test('a cycle in the prose link graph terminates and counts each file exactly on
     ...paths(closure.onDemandFiles),
   ];
   assert.deepEqual(reachable.sort(), [
-    '.agents/workflows/deliver.md',
     '.agents/workflows/helpers/digest.md',
     '.agents/workflows/helpers/spine.md',
+    '.agents/workflows/mandrel-deliver.md',
   ]);
   const sizes = reachable.map((rel) => fs.statSync(path.join(root, rel)).size);
   assert.equal(
@@ -214,13 +214,13 @@ test('a cycle in the prose link graph terminates and counts each file exactly on
 
 test('links outside the workflow tree and non-markdown links are neither followed nor recorded', () => {
   const root = makeRepo({
-    '.agents/workflows/deliver.md': `${frontmatter()}# /deliver\n\n[rule](../rules/git.md) [schema](../schemas/x.json) [web](https://example.com/a.md)\n`,
+    '.agents/workflows/mandrel-deliver.md': `${frontmatter()}# /mandrel-deliver\n\n[rule](../rules/git.md) [schema](../schemas/x.json) [web](https://example.com/a.md)\n`,
     '.agents/rules/git.md': '# Git rules\n',
     '.agents/schemas/x.json': '{}\n',
   });
   const closure = resolveWorkflowClosures(root);
   assert.deepEqual(paths(closure.mandatoryFiles), [
-    '.agents/workflows/deliver.md',
+    '.agents/workflows/mandrel-deliver.md',
   ]);
   assert.deepEqual(closure.onDemandFiles, []);
 });

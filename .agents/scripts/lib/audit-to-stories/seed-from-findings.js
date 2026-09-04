@@ -1,8 +1,8 @@
 /**
  * lib/audit-to-stories/seed-from-findings.js
  *
- * Build the `/plan --seed`-shaped one-pager markdown that the audit-to-
- * stories Single-plan grouping path emits for `/plan` to consume.
+ * Build the `/mandrel-plan --seed`-shaped one-pager markdown that the audit-to-
+ * stories Single-plan grouping path emits for `/mandrel-plan` to consume.
  *
  * The seed renders the canonical one-pager sections so the authoring
  * pass can sharpen it without having to invent context:
@@ -10,7 +10,7 @@
  *   - Recommended Direction (rollup of recommendations by dimension)
  *   - Key Assumptions (carries the source-report links forward)
  *   - MVP Scope (the proposed Stories, one bullet per group)
- *   - Key Files (explicit file paths so `/plan` authoring has concrete
+ *   - Key Files (explicit file paths so `/mandrel-plan` authoring has concrete
  *     anchors)
  *   - Not Doing (out-of-scope items by convention)
  *
@@ -97,8 +97,8 @@ function formatMVPScope(groups) {
       const dims = g.dimensions.join(' / ');
       const file = g.files[0] ? ` (\`${g.files[0]}\`)` : '';
       // Carry each group's fingerprint (and location-based semantic-key)
-      // footer into the seed so a Story authored from it via `/plan` inherits
-      // the dedup identity — without this the recommended `/plan --seed-file`
+      // footer into the seed so a Story authored from it via `/mandrel-plan` inherits
+      // the dedup identity — without this the recommended `/mandrel-plan --seed-file`
       // path is invisible to the next sweep's dedup (Story #4626). The footers
       // are HTML comments, so they never render in the visible one-pager but
       // stay machine-readable for the dedup probe.

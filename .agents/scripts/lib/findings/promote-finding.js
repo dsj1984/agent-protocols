@@ -5,8 +5,8 @@
  * tail of the exploratory-QA Triage path: once an operator has dispositioned a
  * session's ledger items (see `.agents/schemas/qa-ledger.schema.json` and
  * `lib/qa/qa-session.js`), the still-untriaged backlog is clustered and each
- * cluster is promoted to a follow-up ticket — a single Story (via `/plan`)
- * for a tight, one-deliverable cluster, or a multi-Story plan-seed (via `/plan --seed`) for
+ * cluster is promoted to a follow-up ticket — a single Story (via `/mandrel-plan`)
+ * for a tight, one-deliverable cluster, or a multi-Story plan-seed (via `/mandrel-plan --seed`) for
  * a broad cluster that spans multiple coverage surfaces. Each contributing
  * ledger item then has the resulting `routedTo` issue link written back onto it
  * so a resume run sees the item as filed rather than re-promoting it.
@@ -23,7 +23,7 @@
  * Pure orchestration: **no network I/O lives here.** Every GitHub side-effect
  * (issue search, ticket creation) flows through INJECTED PORTS so the unit test
  * runs with no network. Production wires the ports to the GitHub provider /
- * `/plan` / `/plan` surfaces; tests pass in-memory stubs.
+ * `/mandrel-plan` / `/mandrel-plan` surfaces; tests pass in-memory stubs.
  */
 
 import { fingerprintFinding, routeFinding } from './route-finding.js';
@@ -35,8 +35,8 @@ const TRIAGED_DISPOSITIONS = Object.freeze(['file', 'defer', 'dismiss']);
 /**
  * The two promotion targets a cluster routes to.
  *
- * `PLAN_SEED` promotes a broad cluster by seeding a multi-Story `/plan`
- * run (`/plan --seed`). Its persisted wire token is the legacy string
+ * `PLAN_SEED` promotes a broad cluster by seeding a multi-Story `/mandrel-plan`
+ * run (`/mandrel-plan --seed`). Its persisted wire token is the legacy string
  * `'epic'`: archived qa-ledger records (and the distributed
  * `qa-ledger.schema.json` `routedTo.kind` enum) still carry `'epic'`, so
  * the value is kept read-compatible while the write-side constant name is
@@ -49,8 +49,8 @@ export const PROMOTION_TARGETS = Object.freeze({
 
 /**
  * A cluster of more than this many distinct coverage surfaces is broad enough
- * to warrant a plan-seed (`/plan --seed`) rather than a single Story
- * (`/plan`). One or two surfaces is a tight, single-deliverable cluster.
+ * to warrant a plan-seed (`/mandrel-plan --seed`) rather than a single Story
+ * (`/mandrel-plan`). One or two surfaces is a tight, single-deliverable cluster.
  */
 const EPIC_COVERAGE_THRESHOLD = 2;
 
@@ -168,8 +168,8 @@ export function clusterLedgerItems(items) {
 /**
  * Decide a cluster's promotion target. A cluster that spans more than
  * {@link EPIC_COVERAGE_THRESHOLD} distinct coverage surfaces is broad enough to
- * warrant a plan-seed (`/plan --seed`); otherwise it is a single-deliverable
- * Story (`/plan`).
+ * warrant a plan-seed (`/mandrel-plan --seed`); otherwise it is a single-deliverable
+ * Story (`/mandrel-plan`).
  *
  * @param {{ coverages: string[] }} cluster
  * @returns {'story'|'epic'}
@@ -242,7 +242,7 @@ function routedToLink(issue, kind) {
  *      shared `routeFinding` against existing Issues (via the injected search
  *      port). This dedups against work already filed.
  *   2. On a `new` decision, open the follow-up ticket through the injected
- *      `createStory` (`/plan`) or `createPlanSeed` (`/plan --seed`) port,
+ *      `createStory` (`/mandrel-plan`) or `createPlanSeed` (`/mandrel-plan --seed`) port,
  *      chosen by {@link targetForCluster}. On any other decision, link back to
  *      the matched Issue rather than creating a duplicate.
  *   3. Stamp the resolved `routedTo` link onto every contributing ledger item
@@ -259,9 +259,9 @@ function routedToLink(issue, kind) {
  * @param {(finding: object) => Promise<Array<{ number: number, state: string, title?: string, body?: string }>>} [ports.searchCandidates]
  *   Optional semantic candidate search, forwarded to `routeFinding`.
  * @param {(cluster: object) => Promise<{ number: number, url?: string }>} ports.createStory
- *   Opens a single Story (`/plan`) for a tight cluster.
+ *   Opens a single Story (`/mandrel-plan`) for a tight cluster.
  * @param {(cluster: object) => Promise<{ number: number, url?: string }>} ports.createPlanSeed
- *   Opens a plan-seed (`/plan --seed`) run for a broad cluster.
+ *   Opens a plan-seed (`/mandrel-plan --seed`) run for a broad cluster.
  * @returns {Promise<{
  *   promotions: Array<{
  *     clusterKey: string,

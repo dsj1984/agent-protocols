@@ -47,7 +47,7 @@ async function select({ body, changedFiles, gate = 'gate3' }) {
 test('selector: "ui" fragment inside "requires" does not select the web lenses', async () => {
   const selected = await select({
     body: 'validateTaskBodies requires non-empty acceptance criteria.',
-    changedFiles: ['.agents/scripts/deliver.js'],
+    changedFiles: ['.agents/scripts/mandrel-deliver.js'],
   });
   assert.ok(
     !selected.includes('audit-ux-ui'),

@@ -31,7 +31,7 @@ exactly one of two ways, and no others:
    delivery's scope — a pre-existing flaky test, a runner/infra weakness, a
    framework-level environment gap. Open the issue with the `meta::framework-gap`
    label (see [`git-conventions.md`](git-conventions.md)) carrying **the run
-   link and the failure signature** so a later `/plan` Phase 0 sweep can act on
+   link and the failure signature** so a later `/mandrel-plan` Phase 0 sweep can act on
    it. Remediate this delivery only if the pre-existing defect is genuinely
    blocking it.
 

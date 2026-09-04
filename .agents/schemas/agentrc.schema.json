@@ -298,7 +298,7 @@
     },
     "planning": {
       "type": "object",
-      "description": "Inputs to `/plan`: risk escalation heuristics, ceremony-lite routing, and the cross-Story conflict-finding severity gates.",
+      "description": "Inputs to `/mandrel-plan`: risk escalation heuristics, ceremony-lite routing, and the cross-Story conflict-finding severity gates.",
       "properties": {
         "riskHeuristics": {
           "oneOf": [
@@ -440,7 +440,7 @@
     },
     "delivery": {
       "type": "object",
-      "description": "Everything `/deliver` and `single-story-close` consume: execution timeouts, worktree isolation, runner concurrency, docs freshness, signals, quality gates, merge/CI watch, review ceremony, and the feedback loop.",
+      "description": "Everything `/mandrel-deliver` and `single-story-close` consume: execution timeouts, worktree isolation, runner concurrency, docs freshness, signals, quality gates, merge/CI watch, review ceremony, and the feedback loop.",
       "properties": {
         "execution": {
           "type": "object",
@@ -521,12 +521,12 @@
         },
         "deliverRunner": {
           "type": "object",
-          "description": "Bounded-concurrency knob for the /deliver fan-out.",
+          "description": "Bounded-concurrency knob for the /mandrel-deliver fan-out.",
           "properties": {
             "concurrencyCap": {
               "type": "integer",
               "minimum": 1,
-              "description": "Maximum ready Stories dispatched by /deliver at once. Default 3. Moderate by design — keeps host-quota consumption predictable while allowing a small ready-set fan-out. Set 1 for strictly sequential delivery; raise further on hosts with adequate parallel-agent quota. See deliver.md for the sequencing model and throughput tradeoff.",
+              "description": "Maximum ready Stories dispatched by /mandrel-deliver at once. Default 3. Moderate by design — keeps host-quota consumption predictable while allowing a small ready-set fan-out. Set 1 for strictly sequential delivery; raise further on hosts with adequate parallel-agent quota. See deliver.md for the sequencing model and throughput tradeoff.",
               "default": 3
             },
             "footprintGuard": {
@@ -1628,7 +1628,7 @@
             },
             "navigability": {
               "type": "object",
-              "description": "Navigability lens + journey-suite config (Epic #4131, F2/F3/F1/F4). Read by audit-suite/selector.js (route globs) and /deliver's per-Story ceremony (journey suite). Opt-in: absent or empty routeGlobs degrades to a silent no-op.",
+              "description": "Navigability lens + journey-suite config (Epic #4131, F2/F3/F1/F4). Read by audit-suite/selector.js (route globs) and /mandrel-deliver's per-Story ceremony (journey suite). Opt-in: absent or empty routeGlobs degrades to a silent no-op.",
               "properties": {
                 "routeGlobs": {
                   "type": "array",
@@ -1648,7 +1648,7 @@
                 },
                 "journeySuite": {
                   "type": "string",
-                  "description": "Path or command for the per-persona journey suite /deliver's per-Story ceremony runs."
+                  "description": "Path or command for the per-persona journey suite /mandrel-deliver's per-Story ceremony runs."
                 }
               },
               "additionalProperties": false
@@ -1692,7 +1692,7 @@
         },
         "codeReview": {
           "type": "object",
-          "description": "Review-provider chain plus bounded-retry knobs for the /deliver code-review ceremony.",
+          "description": "Review-provider chain plus bounded-retry knobs for the /mandrel-deliver code-review ceremony.",
           "properties": {
             "providers": {
               "type": "array",
@@ -1780,7 +1780,7 @@
             "maxFixAttempts": {
               "type": "integer",
               "minimum": 0,
-              "description": "Maximum auto-fix retry attempts per finding in /deliver Phase 5 (code-review). 0 disables auto-fix. Default 3.",
+              "description": "Maximum auto-fix retry attempts per finding in /mandrel-deliver Phase 5 (code-review). 0 disables auto-fix. Default 3.",
               "default": 3
             },
             "maxFixScopeFiles": {
@@ -1792,7 +1792,7 @@
             "autoFixSeverity": {
               "type": "string",
               "enum": ["high", "medium"],
-              "description": "Severity threshold for on-branch remediation in /deliver Phase 5 (code-review). `medium` (default) routes 🔴/🟠/🟡 findings into the host-LLM focused-fix routing (Mediums batched per lens: one commit per lens, a single validation + rescan at the end) while 🟢 suggestions still graduate to follow-up issues; `high` reproduces the pre-4399 Critical/High-only routing. Hard cutover — no back-compat flag.",
+              "description": "Severity threshold for on-branch remediation in /mandrel-deliver Phase 5 (code-review). `medium` (default) routes 🔴/🟠/🟡 findings into the host-LLM focused-fix routing (Mediums batched per lens: one commit per lens, a single validation + rescan at the end) while 🟢 suggestions still graduate to follow-up issues; `high` reproduces the pre-4399 Critical/High-only routing. Hard cutover — no back-compat flag.",
               "default": "medium"
             }
           },

@@ -2,7 +2,7 @@
  * tests/prototype-workflow.test.js — the `/prototype` command contract.
  *
  * `/prototype` is workflow prose interpreted by the host LLM, so — like the
- * `/plan` flag contract — this spec is a structural assertion over the authored
+ * `/mandrel-plan` flag contract — this spec is a structural assertion over the authored
  * workflow source. Four things are load-bearing enough that nothing else fails
  * when they erode:
  *
@@ -14,7 +14,7 @@
  *      that same file; committing a prototype is opt-in; the default
  *      carry-through is a fold into the Story's `## Spec`, because delivery
  *      reads the Story body and never the temp tree.
- *   4. **`/plan` never invokes it.** The advisory `uiSurface` signal may name
+ *   4. **`/mandrel-plan` never invokes it.** The advisory `uiSurface` signal may name
  *      the command; an instruction to run it would make the operator-invocation
  *      design a fiction. That is the assertion most likely to erode by someone
  *      "finishing the wiring", so it is checked negatively and structurally.
@@ -237,7 +237,7 @@ describe('/prototype keeps the artifact of record in one place', () => {
   });
 });
 
-describe('/plan names the /prototype option but never invokes it', () => {
+describe('/mandrel-plan names the /prototype option but never invokes it', () => {
   const planMd = readDoc(PLAN);
 
   it('mentions the option for UI-touching plans', () => {
@@ -263,7 +263,7 @@ describe('/plan names the /prototype option but never invokes it', () => {
       assertDocOmits(
         planMd,
         forbidden,
-        '/plan must never instruct itself to invoke /prototype',
+        '/mandrel-plan must never instruct itself to invoke /prototype',
       );
     }
     assertDocMentions(

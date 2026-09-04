@@ -531,7 +531,7 @@ describe('createStoryIssues — native blocked_by mirroring (Story #4544)', () =
   it('completes the persist when the dependencies API rejects, and reports the failure', async () => {
     // Non-fatal is the right call here — and only because the ordering has a
     // second home. A dropped edge is cosmetic: the `blocked by #N` footer is
-    // already in the created body, and that is what /deliver's resolver reads.
+    // already in the created body, and that is what /mandrel-deliver's resolver reads.
     const provider = makeMirrorProvider({ postShouldFail: true });
     const { created, dependencyEdges } = await createStoryIssues({
       provider,

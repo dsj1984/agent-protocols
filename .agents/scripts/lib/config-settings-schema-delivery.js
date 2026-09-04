@@ -66,13 +66,13 @@ const DOCS_FRESHNESS_SCHEMA = {
  */
 const DELIVER_RUNNER_SCHEMA = {
   type: 'object',
-  description: 'Bounded-concurrency knob for the /deliver fan-out.',
+  description: 'Bounded-concurrency knob for the /mandrel-deliver fan-out.',
   properties: {
     concurrencyCap: {
       type: 'integer',
       minimum: 1,
       description:
-        'Maximum ready Stories dispatched by /deliver at once. Default 3. Moderate by design — keeps host-quota consumption predictable while allowing a small ready-set fan-out. Set 1 for strictly sequential delivery; raise further on hosts with adequate parallel-agent quota. See deliver.md for the sequencing model and throughput tradeoff.',
+        'Maximum ready Stories dispatched by /mandrel-deliver at once. Default 3. Moderate by design — keeps host-quota consumption predictable while allowing a small ready-set fan-out. Set 1 for strictly sequential delivery; raise further on hosts with adequate parallel-agent quota. See deliver.md for the sequencing model and throughput tradeoff.',
       // getRunners() resolves this from its own DEFAULT_DELIVER_RUNNER
       // constant, not from this annotation; the parity suite asserts the two
       // agree.
@@ -637,7 +637,7 @@ const TEMP_RETENTION_SCHEMA = {
 export const DELIVERY_SCHEMA = {
   type: 'object',
   description:
-    'Everything `/deliver` and `single-story-close` consume: execution timeouts, worktree isolation, runner concurrency, docs freshness, signals, quality gates, merge/CI watch, review ceremony, and the feedback loop.',
+    'Everything `/mandrel-deliver` and `single-story-close` consume: execution timeouts, worktree isolation, runner concurrency, docs freshness, signals, quality gates, merge/CI watch, review ceremony, and the feedback loop.',
   properties: {
     execution: EXECUTION_SCHEMA,
     docsFreshness: DOCS_FRESHNESS_SCHEMA,

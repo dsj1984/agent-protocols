@@ -71,7 +71,7 @@ function runDiffBackstop({
  *
  * A refusal also **preserves** the work before it reports (Story #4875): the
  * implementation is finished and the recycle command hands the receipt to
- * `/plan`, so leaving it on an untracked local branch that routine cleanup may
+ * `/mandrel-plan`, so leaving it on an untracked local branch that routine cleanup may
  * reap is not an acceptable end state. Preservation is best-effort and its
  * outcome is reported either way — a failed push degrades the message, never
  * the verdict or the exit code.

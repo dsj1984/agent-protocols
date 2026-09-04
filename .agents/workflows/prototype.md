@@ -13,7 +13,7 @@ active runs" says nothing about layout, density, or interaction, so delivery
 resolves those by taste. `/prototype` puts a reviewable artifact in front of the
 operator before the criteria are written.
 
-**Operator-invoked only.** `/plan` may report that a plan touches UI and that
+**Operator-invoked only.** `/mandrel-plan` may report that a plan touches UI and that
 this command exists; it must never run it. No workflow, gate, or script invokes
 `/prototype` — the whole design rests on the operator asking for it.
 
@@ -89,7 +89,7 @@ documentation-freshness gate already carries that failure mode.
 - **One file, under the temp tree.** Never a second artifact, never outside the
   gitignored workspace-root temp tree, and never a committed prototype
   directory by default.
-- **Never invoked automatically.** `/plan` records the offer and proceeds with
+- **Never invoked automatically.** `/mandrel-plan` records the offer and proceeds with
   planning; no workflow, gate, or script may call this command.
 - **Read-only over the codebase.** The prototype file is the only write. Do not
   edit application source, tokens, or components to make a prototype render.
@@ -100,5 +100,5 @@ documentation-freshness gate already carries that failure mode.
 
 - [`/audit-ux-ui`](audit-ux-ui.md) — the same design-system SSOT discovery,
   applied as a review lens after the UI ships.
-- [`/plan`](plan.md) — where the advisory `complexitySignals.uiSurface` offer
+- [`/mandrel-plan`](mandrel-plan.md) — where the advisory `complexitySignals.uiSurface` offer
   surfaces. It names this command; it never runs it.

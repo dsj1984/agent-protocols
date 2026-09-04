@@ -10,7 +10,7 @@ import {
 
 /**
  * Story #4780 — the boot sweep's CLI shell scored CRAP 72: the argv →
- * sweep → render path (the one `/deliver` and `/plan` call at boot) was
+ * sweep → render path (the one `/mandrel-deliver` and `/mandrel-plan` call at boot) was
  * unreached, so a flag that silently stopped reaching the engine would have
  * shipped green.
  *
