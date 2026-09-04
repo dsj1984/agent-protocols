@@ -4,6 +4,7 @@ import {
   diffNameOnly,
   getChangedFiles,
   getStagedFiles,
+  resolveMergeHead,
   resolvePreviewScope,
 } from '../../.agents/scripts/lib/changed-files.js';
 
@@ -102,11 +103,149 @@ describe('getStagedFiles', () => {
     });
     const out = getStagedFiles({ cwd: '/repo', git: iface });
     assert.deepEqual(out, ['lib/staged.js']);
-    assert.deepEqual(calls[0].args, ['diff', '--name-only', '--cached']);
+    // The merge probe runs first; the canned stdout is not an object id, so
+    // it resolves to "not merging" and the cached diff keeps its bare form.
+    assert.deepEqual(calls[0].args, [
+      'rev-parse',
+      '-q',
+      '--verify',
+      'MERGE_HEAD',
+    ]);
+    assert.deepEqual(calls[1].args, ['diff', '--name-only', '--cached']);
   });
 
   it('throws on non-zero git exit', () => {
     const { iface } = makeGit({ status: 1, stdout: '', stderr: 'boom' });
+    assert.throws(
+      () => getStagedFiles({ cwd: '/repo', git: iface }),
+      /unable to read cached diff/,
+    );
+  });
+});
+
+const MERGE_SHA = '4f2c276f0959da4563ad973b4d40f068d1315152';
+
+/**
+ * A git stub that answers the `MERGE_HEAD` probe and the cached diff
+ * separately, so a test can put the repo in — or out of — a merge.
+ *
+ * @param {{ mergeHead?: string|null, staged?: string, revParseStatus?: number }} opts
+ */
+function makeMergeGit({ mergeHead = null, staged = '', revParseStatus } = {}) {
+  const calls = [];
+  return {
+    calls,
+    iface: {
+      gitSpawn: (cwd, ...args) => {
+        calls.push({ cwd, args });
+        if (args[0] === 'rev-parse') {
+          const status = revParseStatus ?? (mergeHead ? 0 : 1);
+          return {
+            status,
+            stdout: mergeHead ? `${mergeHead}\n` : '',
+            stderr: '',
+          };
+        }
+        return { status: 0, stdout: staged, stderr: '' };
+      },
+      gitSync: () => {
+        throw new Error('gitSync not used');
+      },
+    },
+  };
+}
+
+// Story #5131 — `git diff --cached` diffs the index against HEAD, which during
+// a merge is still the pre-merge tip. Left alone it put every file the base
+// branch landed into the pre-commit gate's scope.
+describe('resolveMergeHead', () => {
+  it('returns the object id when a merge is in progress', () => {
+    const { iface, calls } = makeMergeGit({ mergeHead: MERGE_SHA });
+    assert.equal(resolveMergeHead({ cwd: '/repo', git: iface }), MERGE_SHA);
+    assert.deepEqual(calls[0].args, [
+      'rev-parse',
+      '-q',
+      '--verify',
+      'MERGE_HEAD',
+    ]);
+  });
+
+  it('returns null when no merge is in progress (non-zero rev-parse)', () => {
+    const { iface } = makeMergeGit({ mergeHead: null });
+    assert.equal(resolveMergeHead({ cwd: '/repo', git: iface }), null);
+  });
+
+  it('returns null when rev-parse succeeds but prints a non-object-id', () => {
+    // `--verify` refuses a multi-head (octopus) MERGE_HEAD; anything that is
+    // not a resolved commit must degrade to the plain cached diff rather than
+    // narrow the scope on a guess.
+    const { iface } = makeMergeGit({
+      mergeHead: 'not-a-sha',
+      revParseStatus: 0,
+    });
+    assert.equal(resolveMergeHead({ cwd: '/repo', git: iface }), null);
+  });
+
+  it('never throws when the git interface itself throws', () => {
+    const iface = {
+      gitSpawn: () => {
+        throw new Error('git missing');
+      },
+      gitSync: () => {
+        throw new Error('gitSync not used');
+      },
+    };
+    assert.equal(resolveMergeHead({ cwd: '/repo', git: iface }), null);
+  });
+
+  it('asks git rather than probing the filesystem for .git/MERGE_HEAD', () => {
+    // `.git` is a FILE in a linked worktree, so a path probe would be
+    // silently inert exactly where this repo delivers from.
+    const { iface, calls } = makeMergeGit({ mergeHead: MERGE_SHA });
+    resolveMergeHead({ cwd: '/repo', git: iface });
+    assert.ok(
+      calls.every((c) => !c.args.some((a) => String(a).includes('.git/'))),
+    );
+  });
+});
+
+describe('getStagedFiles during a merge', () => {
+  it('diffs the index against MERGE_HEAD', () => {
+    const { iface, calls } = makeMergeGit({
+      mergeHead: MERGE_SHA,
+      staged: 'branch-only.js\nshared.js\n',
+    });
+    const out = getStagedFiles({ cwd: '/repo', git: iface });
+    assert.deepEqual(out, ['branch-only.js', 'shared.js']);
+    assert.deepEqual(calls[1].args, [
+      'diff',
+      '--name-only',
+      '--cached',
+      MERGE_SHA,
+    ]);
+  });
+
+  it('falls back to the bare cached diff when the merge head is unusable', () => {
+    const { iface, calls } = makeMergeGit({
+      mergeHead: 'not-a-sha',
+      revParseStatus: 0,
+      staged: 'a.js\n',
+    });
+    assert.deepEqual(getStagedFiles({ cwd: '/repo', git: iface }), ['a.js']);
+    assert.deepEqual(calls[1].args, ['diff', '--name-only', '--cached']);
+  });
+
+  it('still throws when the cached diff itself fails', () => {
+    // Fail closed: the scope must never silently empty.
+    const iface = {
+      gitSpawn: (_cwd, ...args) =>
+        args[0] === 'rev-parse'
+          ? { status: 0, stdout: `${MERGE_SHA}\n`, stderr: '' }
+          : { status: 128, stdout: '', stderr: 'boom' },
+      gitSync: () => {
+        throw new Error('gitSync not used');
+      },
+    };
     assert.throws(
       () => getStagedFiles({ cwd: '/repo', git: iface }),
       /unable to read cached diff/,
@@ -169,6 +308,19 @@ describe('resolvePreviewScope', () => {
     assert.equal(out.scope, 'full');
     assert.equal(out.scopeSet, null);
     assert.equal(out.diffRef, null);
+  });
+
+  it('staged during a merge reports the merge head as diffRef', () => {
+    const { iface, calls } = makeMergeGit({
+      mergeHead: MERGE_SHA,
+      staged: 'branch-only.js\nshared.js\n',
+    });
+    const out = resolvePreviewScope({ staged: true, cwd: '/repo', git: iface });
+    assert.equal(out.scope, 'staged');
+    assert.equal(out.diffRef, MERGE_SHA);
+    assert.deepEqual([...out.scopeSet], ['branch-only.js', 'shared.js']);
+    // Resolved once for the whole scope, not once per caller.
+    assert.equal(calls.filter((c) => c.args[0] === 'rev-parse').length, 1);
   });
 });
 
