@@ -8,7 +8,7 @@
   "rollup": {
     "*": {
       "p50": 2,
-      "p95": 9.492711370262391,
+      "p95": 9.309057806099226,
       "max": 29.000120920774684,
       "methodsAbove20": 5
     }
@@ -17,58 +17,70 @@
     {
       "path": ".agents/scripts/acceptance-eval.js",
       "method": "getVerdictValidator",
-      "startLine": 98,
+      "startLine": 114,
       "crap": 1
     },
     {
       "path": ".agents/scripts/acceptance-eval.js",
       "method": "validateVerdict",
-      "startLine": 118,
+      "startLine": 134,
       "crap": 2
     },
     {
       "path": ".agents/scripts/acceptance-eval.js",
       "method": "<anon validateVerdict/(e)#0>",
-      "startLine": 125,
+      "startLine": 141,
       "crap": 2,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/acceptance-eval.js",
       "method": "parseCliArgs",
-      "startLine": 134,
+      "startLine": 150,
       "crap": 3
     },
     {
       "path": ".agents/scripts/acceptance-eval.js",
-      "method": "runAcceptanceEval",
-      "startLine": 172,
+      "method": "resolveExpectedCriteria",
+      "startLine": 189,
       "crap": 6
     },
     {
       "path": ".agents/scripts/acceptance-eval.js",
+      "method": "assertCriteriaCoverage",
+      "startLine": 218,
+      "crap": 4
+    },
+    {
+      "path": ".agents/scripts/acceptance-eval.js",
+      "method": "runAcceptanceEval",
+      "startLine": 249,
+      "crap": 7
+    },
+    {
+      "path": ".agents/scripts/acceptance-eval.js",
       "method": "<anon runAcceptanceEval/(c)#0>",
-      "startLine": 224,
+      "startLine": 316,
       "crap": 1,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/acceptance-eval.js",
       "method": "runAcceptanceEvalCli",
-      "startLine": 260,
+      "startLine": 356,
       "crap": 8
     },
     {
       "path": ".agents/scripts/acceptance-eval.js",
       "method": "<anon runAcceptanceEvalCli/(c)#0>",
-      "startLine": 326,
+      "startLine": 429,
       "crap": 1,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/acceptance-eval.js",
       "method": "main",
-      "startLine": 341,
+      "startLine": 444,
       "crap": 1.2962962962962963
     },
     {
@@ -1421,150 +1433,175 @@
     {
       "path": ".agents/scripts/check-test-temp-hygiene.js",
       "method": "tempDirFor",
-      "startLine": 105,
+      "startLine": 110,
       "crap": 1
     },
     {
       "path": ".agents/scripts/check-test-temp-hygiene.js",
       "method": "defaultBaselinePath",
-      "startLine": 121,
+      "startLine": 126,
       "crap": 1
     },
     {
       "path": ".agents/scripts/check-test-temp-hygiene.js",
       "method": "checkedBaselinePath",
-      "startLine": 142,
+      "startLine": 147,
       "crap": 3
     },
     {
       "path": ".agents/scripts/check-test-temp-hygiene.js",
       "method": "isStreamFile",
-      "startLine": 161,
+      "startLine": 166,
       "crap": 3
     },
     {
       "path": ".agents/scripts/check-test-temp-hygiene.js",
       "method": "listStreamFiles",
-      "startLine": 175,
+      "startLine": 180,
       "crap": 2
     },
     {
       "path": ".agents/scripts/check-test-temp-hygiene.js",
       "method": "<anon listStreamFiles/(absDir,relDir)#0>",
-      "startLine": 179,
+      "startLine": 184,
       "crap": 5,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/check-test-temp-hygiene.js",
       "method": "fingerprintFile",
-      "startLine": 199,
+      "startLine": 204,
       "crap": 1
     },
     {
       "path": ".agents/scripts/check-test-temp-hygiene.js",
       "method": "buildManifest",
-      "startLine": 213,
+      "startLine": 218,
       "crap": 1
     },
     {
       "path": ".agents/scripts/check-test-temp-hygiene.js",
       "method": "writeSnapshot",
-      "startLine": 230,
+      "startLine": 235,
       "crap": 1
     },
     {
       "path": ".agents/scripts/check-test-temp-hygiene.js",
       "method": "readSnapshot",
-      "startLine": 256,
+      "startLine": 261,
       "crap": 2
     },
     {
       "path": ".agents/scripts/check-test-temp-hygiene.js",
       "method": "diffAgainstSnapshot",
-      "startLine": 278,
+      "startLine": 283,
       "crap": 4
     },
     {
       "path": ".agents/scripts/check-test-temp-hygiene.js",
       "method": "runDirId",
-      "startLine": 303,
+      "startLine": 308,
       "crap": 2
     },
     {
       "path": ".agents/scripts/check-test-temp-hygiene.js",
       "method": "findFixtureDirs",
-      "startLine": 318,
+      "startLine": 323,
       "crap": 10
     },
     {
       "path": ".agents/scripts/check-test-temp-hygiene.js",
       "method": "<anon findFixtureDirs/(a,b)#0>",
-      "startLine": 343,
+      "startLine": 348,
       "crap": 1,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/check-test-temp-hygiene.js",
       "method": "cleanFixtureDirs",
-      "startLine": 355,
+      "startLine": 360,
       "crap": 2
     },
     {
       "path": ".agents/scripts/check-test-temp-hygiene.js",
-      "method": "parseArgv",
-      "startLine": 377,
-      "crap": 10
+      "method": "streamOwnerIds",
+      "startLine": 388,
+      "crap": 3
+    },
+    {
+      "path": ".agents/scripts/check-test-temp-hygiene.js",
+      "method": "findReservedIdStreamFiles",
+      "startLine": 414,
+      "crap": 1
     },
     {
       "path": ".agents/scripts/check-test-temp-hygiene.js",
       "method": "<anon findReservedIdStreamFiles/(rel)#0>",
-      "startLine": 394,
+      "startLine": 415,
       "crap": 1,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/check-test-temp-hygiene.js",
+      "method": "assertNoReservedIdStreams",
+      "startLine": 436,
+      "crap": 2
+    },
+    {
+      "path": ".agents/scripts/check-test-temp-hygiene.js",
+      "method": "parseArgv",
+      "startLine": 460,
+      "crap": 10
+    },
+    {
+      "path": ".agents/scripts/check-test-temp-hygiene.js",
       "method": "<anon parseArgv/(s)#0>",
-      "startLine": 400,
+      "startLine": 477,
       "crap": 1,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/check-test-temp-hygiene.js",
       "method": "<anon parseArgv/(s)#1>",
-      "startLine": 401,
+      "startLine": 483,
+      "crap": 1,
+      "anonymous": true
+    },
+    {
+      "path": ".agents/scripts/check-test-temp-hygiene.js",
+      "method": "<anon parseArgv/(n)#0>",
+      "startLine": 484,
       "crap": 2,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/check-test-temp-hygiene.js",
       "method": "runHygiene",
-      "startLine": 423,
+      "startLine": 506,
       "crap": 6
     },
     {
       "path": ".agents/scripts/check-test-temp-hygiene.js",
       "method": "assertStreamTree",
-      "startLine": 488,
+      "startLine": 571,
       "crap": 3
     },
     {
       "path": ".agents/scripts/check-test-temp-hygiene.js",
       "method": "assertNoSurvivingSuiteRoots",
-      "startLine": 518,
+      "startLine": 601,
       "crap": 3
     },
     {
       "path": ".agents/scripts/check-test-temp-hygiene.js",
       "method": "assertNoRawTmpdirMkdtemp",
-      "startLine": 546,
+      "startLine": 629,
       "crap": 4
     },
     {
       "path": ".agents/scripts/check-test-temp-hygiene.js",
-      "method": "<anon parseArgv/(n)#0>",
-      "startLine": 572,
+      "method": "<anon ()#0>",
+      "startLine": 655,
       "crap": 1.125,
       "anonymous": true
     },
@@ -3497,92 +3534,86 @@
     {
       "path": ".agents/scripts/lib/audit-to-stories/seed-from-findings.js",
       "method": "tallySeverities",
-      "startLine": 42,
-      "crap": 2
-    },
-    {
-      "path": ".agents/scripts/lib/audit-to-stories/seed-from-findings.js",
-      "method": "tallyDimensions",
-      "startLine": 50,
-      "crap": 1
-    },
-    {
-      "path": ".agents/scripts/lib/audit-to-stories/seed-from-findings.js",
-      "method": "formatProblemStatement",
-      "startLine": 58,
+      "startLine": 49,
       "crap": 2
     },
     {
       "path": ".agents/scripts/lib/audit-to-stories/seed-from-findings.js",
       "method": "<anon tallySeverities/(s)#0>",
-      "startLine": 61,
+      "startLine": 50,
       "crap": 1,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/audit-to-stories/seed-from-findings.js",
+      "method": "tallyDimensions",
+      "startLine": 57,
+      "crap": 1
+    },
+    {
+      "path": ".agents/scripts/lib/audit-to-stories/seed-from-findings.js",
+      "method": "formatProblemStatement",
+      "startLine": 65,
+      "crap": 2
+    },
+    {
+      "path": ".agents/scripts/lib/audit-to-stories/seed-from-findings.js",
       "method": "<anon formatProblemStatement/(k)#0>",
-      "startLine": 62,
+      "startLine": 68,
       "crap": 1,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/audit-to-stories/seed-from-findings.js",
       "method": "<anon formatProblemStatement/(k)#1>",
-      "startLine": 65,
+      "startLine": 69,
       "crap": 1,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/audit-to-stories/seed-from-findings.js",
       "method": "<anon formatProblemStatement/(a,b)#0>",
-      "startLine": 67,
+      "startLine": 72,
+      "crap": 1,
+      "anonymous": true
+    },
+    {
+      "path": ".agents/scripts/lib/audit-to-stories/seed-from-findings.js",
+      "method": "<anon formatProblemStatement/(d)#0>",
+      "startLine": 74,
       "crap": 1,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/audit-to-stories/seed-from-findings.js",
       "method": "formatRecommendedDirection",
-      "startLine": 72,
+      "startLine": 79,
       "crap": 4
     },
     {
       "path": ".agents/scripts/lib/audit-to-stories/seed-from-findings.js",
       "method": "formatMVPScope",
-      "startLine": 87,
+      "startLine": 94,
       "crap": 1
     },
     {
       "path": ".agents/scripts/lib/audit-to-stories/seed-from-findings.js",
-      "method": "<anon formatProblemStatement/(d)#0>",
-      "startLine": 89,
+      "method": "<anon formatMVPScope/(g,idx)#0>",
+      "startLine": 96,
       "crap": 3,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/audit-to-stories/seed-from-findings.js",
-      "method": "<anon formatMVPScope/(g,idx)#0>",
-      "startLine": 103,
+      "method": "<anon formatMVPScope/(g,idx)#0/(f)#0>",
+      "startLine": 110,
       "crap": 1,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/audit-to-stories/seed-from-findings.js",
       "method": "formatKeyFiles",
-      "startLine": 110,
-      "crap": 2
-    },
-    {
-      "path": ".agents/scripts/lib/audit-to-stories/seed-from-findings.js",
-      "method": "<anon formatMVPScope/(g,idx)#0/(f)#0>",
-      "startLine": 116,
-      "crap": 1,
-      "anonymous": true
-    },
-    {
-      "path": ".agents/scripts/lib/audit-to-stories/seed-from-findings.js",
-      "method": "formatKeyAssumptions",
-      "startLine": 120,
+      "startLine": 117,
       "crap": 2
     },
     {
@@ -3594,8 +3625,21 @@
     },
     {
       "path": ".agents/scripts/lib/audit-to-stories/seed-from-findings.js",
+      "method": "formatKeyAssumptions",
+      "startLine": 127,
+      "crap": 2
+    },
+    {
+      "path": ".agents/scripts/lib/audit-to-stories/seed-from-findings.js",
+      "method": "<anon formatKeyAssumptions/(r)#0>",
+      "startLine": 130,
+      "crap": 1,
+      "anonymous": true
+    },
+    {
+      "path": ".agents/scripts/lib/audit-to-stories/seed-from-findings.js",
       "method": "buildPlanSeedMarkdown",
-      "startLine": 133,
+      "startLine": 140,
       "crap": 6
     },
     {
@@ -11880,46 +11924,72 @@
     {
       "path": ".agents/scripts/lib/orchestration/acceptance-eval-decision.js",
       "method": "effectiveCap",
-      "startLine": 65,
+      "startLine": 80,
       "crap": 4
     },
     {
       "path": ".agents/scripts/lib/orchestration/acceptance-eval-decision.js",
       "method": "partitionCriteria",
-      "startLine": 83,
+      "startLine": 98,
       "crap": 2
     },
     {
       "path": ".agents/scripts/lib/orchestration/acceptance-eval-decision.js",
       "method": "<anon partitionCriteria/(c,i)#0>",
-      "startLine": 87,
+      "startLine": 102,
       "crap": 6,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/orchestration/acceptance-eval-decision.js",
       "method": "decideAcceptanceEval",
-      "startLine": 127,
+      "startLine": 142,
       "crap": 5
     },
     {
       "path": ".agents/scripts/lib/orchestration/acceptance-eval-decision.js",
       "method": "buildAcceptanceEvalSignal",
-      "startLine": 169,
-      "crap": 3
+      "startLine": 184,
+      "crap": 5
     },
     {
       "path": ".agents/scripts/lib/orchestration/acceptance-eval-decision.js",
       "method": "<anon buildAcceptanceEvalSignal/(c)#0>",
-      "startLine": 195,
+      "startLine": 218,
       "crap": 1,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/orchestration/acceptance-eval-decision.js",
-      "method": "deriveAcceptanceEvalRound",
-      "startLine": 226,
+      "method": "readPriorAcceptanceEvalRecords",
+      "startLine": 249,
       "crap": 11.000968
+    },
+    {
+      "path": ".agents/scripts/lib/orchestration/acceptance-eval-decision.js",
+      "method": "computeVerdictFingerprint",
+      "startLine": 315,
+      "crap": 2
+    },
+    {
+      "path": ".agents/scripts/lib/orchestration/acceptance-eval-decision.js",
+      "method": "<anon computeVerdictFingerprint/(c)#0>",
+      "startLine": 317,
+      "crap": 5,
+      "anonymous": true
+    },
+    {
+      "path": ".agents/scripts/lib/orchestration/acceptance-eval-decision.js",
+      "method": "resolveAcceptanceEvalRound",
+      "startLine": 350,
+      "crap": 6
+    },
+    {
+      "path": ".agents/scripts/lib/orchestration/acceptance-eval-decision.js",
+      "method": "<anon resolveAcceptanceEvalRound/(r)#0>",
+      "startLine": 356,
+      "crap": 1,
+      "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/orchestration/auto-merge-cwd.js",
@@ -14042,88 +14112,125 @@
     },
     {
       "path": ".agents/scripts/lib/orchestration/light-suitability.js",
-      "method": "normalizeMaxFiles",
-      "startLine": 104,
+      "method": "deriveUnwaivableRisk",
+      "startLine": 117,
       "crap": 4
     },
     {
       "path": ".agents/scripts/lib/orchestration/light-suitability.js",
+      "method": "<anon deriveUnwaivableRisk/(c)#0>",
+      "startLine": 121,
+      "crap": 2,
+      "anonymous": true
+    },
+    {
+      "path": ".agents/scripts/lib/orchestration/light-suitability.js",
+      "method": "normalizeCeiling",
+      "startLine": 189,
+      "crap": 4
+    },
+    {
+      "path": ".agents/scripts/lib/orchestration/light-suitability.js",
+      "method": "resolveDiffCeilings",
+      "startLine": 202,
+      "crap": 1
+    },
+    {
+      "path": ".agents/scripts/lib/orchestration/light-suitability.js",
       "method": "resolveLedgeredVerdict",
-      "startLine": 129,
+      "startLine": 233,
       "crap": 5
     },
     {
       "path": ".agents/scripts/lib/orchestration/light-suitability.js",
       "method": "deriveLightSuitability",
-      "startLine": 191,
-      "crap": 3
+      "startLine": 298,
+      "crap": 5
     },
     {
       "path": ".agents/scripts/lib/orchestration/light-suitability.js",
       "method": "resolveOperatorOverride",
-      "startLine": 260,
-      "crap": 7
+      "startLine": 380,
+      "crap": 9
     },
     {
       "path": ".agents/scripts/lib/orchestration/light-suitability.js",
-      "method": "<anon deriveUnwaivableRisk/(c)#0>",
-      "startLine": 267,
+      "method": "<anon resolveOperatorOverride/(note)#0>",
+      "startLine": 387,
       "crap": 1,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/orchestration/light-suitability.js",
       "method": "resolveLightGateOutcome",
-      "startLine": 335,
+      "startLine": 471,
       "crap": 6
     },
     {
       "path": ".agents/scripts/lib/orchestration/light-suitability.js",
       "method": "checkLightDiffBackstop",
-      "startLine": 419,
-      "crap": 10.0244140625
+      "startLine": 569,
+      "crap": 6
     },
     {
       "path": ".agents/scripts/lib/orchestration/light-suitability.js",
-      "method": "<anon resolveOperatorOverride/(note)#0>",
-      "startLine": 430,
-      "crap": 2.0009765625,
+      "method": "<anon checkLightDiffBackstop/(f)#0>",
+      "startLine": 578,
+      "crap": 2,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/orchestration/light-suitability.js",
+      "method": "normalizeMagnitude",
+      "startLine": 632,
+      "crap": 5
+    },
+    {
+      "path": ".agents/scripts/lib/orchestration/light-suitability.js",
+      "method": "describeSensitivity",
+      "startLine": 646,
+      "crap": 3.262175694128357
+    },
+    {
+      "path": ".agents/scripts/lib/orchestration/light-suitability.js",
+      "method": "describeMagnitude",
+      "startLine": 667,
+      "crap": 4
+    },
+    {
+      "path": ".agents/scripts/lib/orchestration/light-suitability.js",
       "method": "slugifyPrompt",
-      "startLine": 493,
+      "startLine": 696,
       "crap": 2
     },
     {
       "path": ".agents/scripts/lib/orchestration/light-suitability.js",
       "method": "normalizeAmends",
-      "startLine": 513,
+      "startLine": 716,
       "crap": 8.233045061447429
     },
     {
       "path": ".agents/scripts/lib/orchestration/light-suitability.js",
       "method": "deriveReceiptTitle",
-      "startLine": 534,
+      "startLine": 737,
       "crap": 3
     },
     {
       "path": ".agents/scripts/lib/orchestration/light-suitability.js",
       "method": "toReceiptChanges",
-      "startLine": 553,
+      "startLine": 756,
       "crap": 5
     },
     {
       "path": ".agents/scripts/lib/orchestration/light-suitability.js",
       "method": "renderOverrideNote",
-      "startLine": 576,
+      "startLine": 779,
       "crap": 5
     },
     {
       "path": ".agents/scripts/lib/orchestration/light-suitability.js",
       "method": "buildReceiptStoryTicket",
-      "startLine": 607,
+      "startLine": 810,
       "crap": 4
     },
     {
@@ -15200,168 +15307,194 @@
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/supersede-ops.js",
       "method": "normalizeSupersedeEntry",
-      "startLine": 66,
+      "startLine": 70,
       "crap": 10
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/supersede-ops.js",
       "method": "normalizeSupersedes",
-      "startLine": 98,
+      "startLine": 102,
       "crap": 5
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/supersede-ops.js",
       "method": "<anon normalizeSupersedes/(entry)#0>",
-      "startLine": 107,
+      "startLine": 111,
       "crap": 1,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/supersede-ops.js",
       "method": "normalizeSourceTicketIds",
-      "startLine": 128,
+      "startLine": 132,
       "crap": 8
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/supersede-ops.js",
       "method": "<anon normalizeSourceTicketIds/(token)#0>",
-      "startLine": 134,
+      "startLine": 138,
       "crap": 1,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/supersede-ops.js",
       "method": "<anon normalizeSourceTicketIds/(token)#1>",
-      "startLine": 135,
+      "startLine": 139,
       "crap": 1,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/supersede-ops.js",
       "method": "extractEnvelopeSourceTicketIds",
-      "startLine": 160,
+      "startLine": 164,
       "crap": 3
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/supersede-ops.js",
       "method": "<anon extractEnvelopeSourceTicketIds/(ticket)#0>",
-      "startLine": 164,
+      "startLine": 168,
       "crap": 3,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/supersede-ops.js",
       "method": "sameIdSet",
-      "startLine": 171,
+      "startLine": 175,
       "crap": 2
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/supersede-ops.js",
       "method": "<anon sameIdSet/(id)#0>",
-      "startLine": 172,
+      "startLine": 176,
       "crap": 1,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/supersede-ops.js",
       "method": "resolveSourceTicketIds",
-      "startLine": 197,
+      "startLine": 201,
       "crap": 5
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/supersede-ops.js",
       "method": "<anon resolveSourceTicketIds/(id)#0>",
-      "startLine": 208,
+      "startLine": 212,
       "crap": 1,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/supersede-ops.js",
       "method": "<anon resolveSourceTicketIds/(id)#1>",
-      "startLine": 210,
+      "startLine": 214,
       "crap": 1,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/supersede-ops.js",
       "method": "<anon resolveSourceTicketIds/(id)#2>",
-      "startLine": 220,
+      "startLine": 224,
       "crap": 1,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/supersede-ops.js",
       "method": "describeStoryIds",
-      "startLine": 228,
+      "startLine": 232,
       "crap": 1
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/supersede-ops.js",
       "method": "<anon describeStoryIds/(e)#0>",
-      "startLine": 229,
+      "startLine": 233,
       "crap": 1,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/supersede-ops.js",
       "method": "assertSupersedePartition",
-      "startLine": 241,
+      "startLine": 245,
       "crap": 6
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/supersede-ops.js",
       "method": "<anon assertSupersedePartition/(e)#0>",
-      "startLine": 285,
+      "startLine": 289,
       "crap": 1,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/supersede-ops.js",
       "method": "buildSupersedeCommentBody",
-      "startLine": 300,
+      "startLine": 304,
       "crap": 2
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/supersede-ops.js",
       "method": "probeSourceTicket",
-      "startLine": 330,
+      "startLine": 334,
       "crap": 2
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/supersede-ops.js",
       "method": "closeOneSupersededTicket",
-      "startLine": 345,
+      "startLine": 349,
       "crap": 3
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/supersede-ops.js",
       "method": "emptyReport",
-      "startLine": 395,
+      "startLine": 399,
       "crap": 1
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/supersede-ops.js",
       "method": "closeSupersededTickets",
-      "startLine": 424,
-      "crap": 8
+      "startLine": 428,
+      "crap": 4
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/supersede-ops.js",
       "method": "<anon closeSupersededTickets/(story)#0>",
-      "startLine": 441,
+      "startLine": 445,
       "crap": 1,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/supersede-ops.js",
+      "method": "<anon closeSupersededTickets/(id,note,createdStory)#0>",
+      "startLine": 457,
+      "crap": 3,
+      "anonymous": true
+    },
+    {
+      "path": ".agents/scripts/lib/orchestration/plan-persist/supersede-ops.js",
+      "method": "<anon closeSupersededTickets/(result,index)#0>",
+      "startLine": 481,
+      "crap": 1,
+      "anonymous": true
+    },
+    {
+      "path": ".agents/scripts/lib/orchestration/plan-persist/supersede-ops.js",
+      "method": "collectSupersedeUnits",
+      "startLine": 497,
+      "crap": 1
+    },
+    {
+      "path": ".agents/scripts/lib/orchestration/plan-persist/supersede-ops.js",
+      "method": "recordSupersedeOutcome",
+      "startLine": 516,
+      "crap": 4
+    },
+    {
+      "path": ".agents/scripts/lib/orchestration/plan-persist/supersede-ops.js",
       "method": "logSupersedeReport",
-      "startLine": 484,
+      "startLine": 541,
       "crap": 3
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/supersede-ops.js",
-      "method": "<anon closeSupersededTickets/(id,note,createdStory)#0>",
-      "startLine": 497,
+      "method": "<anon logSupersedeReport/(id)#0>",
+      "startLine": 554,
       "crap": 1,
       "anonymous": true
     },
@@ -16930,32 +17063,32 @@
     {
       "path": ".agents/scripts/lib/orchestration/single-story-close/phases/base-sync.js",
       "method": "runBaseSyncPhase",
-      "startLine": 45,
-      "crap": 4.000201240142378
+      "startLine": 46,
+      "crap": 4.000175582990398
     },
     {
       "path": ".agents/scripts/lib/orchestration/single-story-close/phases/base-sync.js",
       "method": "<anon runBaseSyncPhase/(tag,msg)#0>",
-      "startLine": 64,
+      "startLine": 66,
       "crap": 1,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/orchestration/single-story-close/phases/base-sync.js",
       "method": "handleSyncFailure",
-      "startLine": 103,
-      "crap": 1.000013497462477
+      "startLine": 107,
+      "crap": 1
     },
     {
       "path": ".agents/scripts/lib/orchestration/single-story-close/phases/base-sync.js",
       "method": "buildSyncFailureCommentBody",
-      "startLine": 153,
-      "crap": 5
+      "startLine": 168,
+      "crap": 6
     },
     {
       "path": ".agents/scripts/lib/orchestration/single-story-close/phases/base-sync.js",
       "method": "<anon buildSyncFailureCommentBody/(f)#0>",
-      "startLine": 165,
+      "startLine": 181,
       "crap": 1,
       "anonymous": true
     },
@@ -23392,41 +23525,41 @@
     {
       "path": ".agents/scripts/plan-run-epilogue.js",
       "method": "main",
-      "startLine": 40,
-      "crap": 6
+      "startLine": 42,
+      "crap": 7
     },
     {
       "path": ".agents/scripts/plan-run-epilogue.js",
       "method": "<anon main/(a,b)#0>",
-      "startLine": 70,
-      "crap": 1,
-      "anonymous": true
-    },
-    {
-      "path": ".agents/scripts/plan-run-epilogue.js",
-      "method": "<anon warnOnUnresolvedBase/(r)#0>",
-      "startLine": 71,
-      "crap": 2,
-      "anonymous": true
-    },
-    {
-      "path": ".agents/scripts/plan-run-epilogue.js",
-      "method": "<anon warnOnEmptyRollup/(r)#0>",
-      "startLine": 73,
+      "startLine": 82,
       "crap": 1,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/plan-run-epilogue.js",
       "method": "warnOnUnresolvedBase",
-      "startLine": 104,
+      "startLine": 113,
       "crap": 2
     },
     {
       "path": ".agents/scripts/plan-run-epilogue.js",
+      "method": "<anon warnOnUnresolvedBase/(r)#0>",
+      "startLine": 115,
+      "crap": 1,
+      "anonymous": true
+    },
+    {
+      "path": ".agents/scripts/plan-run-epilogue.js",
       "method": "warnOnEmptyRollup",
-      "startLine": 138,
+      "startLine": 147,
       "crap": 2
+    },
+    {
+      "path": ".agents/scripts/plan-run-epilogue.js",
+      "method": "<anon warnOnEmptyRollup/(r)#0>",
+      "startLine": 149,
+      "crap": 1,
+      "anonymous": true
     },
     {
       "path": ".agents/scripts/pr-watch-with-update.js",
