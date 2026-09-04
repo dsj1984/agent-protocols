@@ -3,7 +3,7 @@ description:
   Convert findings produced by the audit-* workflows into actionable
   GitHub Stories. Reads temp/audits/audit-*-results.md, groups findings
   cross-audit, deduplicates against existing Issues by fingerprint, and
-  either chains into /plan --seed-file or opens standalone Stories.
+  either chains into /mandrel-plan --seed-file or opens standalone Stories.
 ---
 
 # /audit-to-stories [audit-file-or-glob]
@@ -111,8 +111,8 @@ Ask:
 
 > How would you like these `<M>` Stories created?
 >
-> - **Single plan via `/plan`** **[Recommended]** — chains into
->   `/plan --seed-file <emitted.md>` so the standard Story authoring
+> - **Single plan via `/mandrel-plan`** **[Recommended]** — chains into
+>   `/mandrel-plan --seed-file <emitted.md>` so the standard Story authoring
 >   handles the seed. Prefer one Story; split only under the
 >   default-single policy.
 > - **Individual standalone Stories** — opens one GitHub Issue per
@@ -122,7 +122,7 @@ Ask:
 
 ## Phase 5a — Single-plan path
 
-Build the `/plan` seed from the filtered plan envelope:
+Build the `/mandrel-plan` seed from the filtered plan envelope:
 
 ```bash
 node .agents/scripts/audit-to-stories.js --emit-plan-seed \
@@ -132,16 +132,16 @@ node .agents/scripts/audit-to-stories.js --emit-plan-seed \
 
 The seed renders the canonical one-pager sections — Problem Statement,
 Recommended Direction, Key Assumptions (with links to every source
-report), MVP Scope (the M proposed Stories), Key Files (so `/plan`'s
+report), MVP Scope (the M proposed Stories), Key Files (so `/mandrel-plan`'s
 authoring step has concrete anchors), Not Doing.
 
 Chain into the existing planning entrypoint:
 
 ```text
-/plan --seed-file <path-to-seed>
+/mandrel-plan --seed-file <path-to-seed>
 ```
 
-(`/plan --seed "$(cat <path>)"` also works for small seeds). `/plan`
+(`/mandrel-plan --seed "$(cat <path>)"` also works for small seeds). `/mandrel-plan`
 then runs its author → persist path, as documented in its workflow.
 
 **Dedup provenance is carried mechanically — do not hand-copy it.** The seed's
@@ -210,9 +210,9 @@ every Story that has a resolvable blocker with a canonical
 GitHub `blocked_by` relations. An edge whose target was never opened (deduped,
 ledger-suppressed) drops rather than becoming a `blocked by #undefined`.
 
-**Do not skip this.** `/deliver` has no other source for this cohort's order:
+**Do not skip this.** `/mandrel-deliver` has no other source for this cohort's order:
 its footprint guard ignores the shared provenance footers, so an unwired cohort
-is genuinely unordered and `/deliver` will co-dispatch Stories the edges say
+is genuinely unordered and `/mandrel-deliver` will co-dispatch Stories the edges say
 must follow one another.
 
 ## Phase 6 — Idempotency (folded into Phase 1 scan)
@@ -288,7 +288,7 @@ summarising the run:
   · <L> skipped (re-occurring)"`.
 
 When the single-plan path ran, link the Story (or plan-run) the chained
-`/plan` opened. When the Standalone-Stories path ran, list every Issue URL.
+`/mandrel-plan` opened. When the Standalone-Stories path ran, list every Issue URL.
 
 ## Constraints
 
@@ -345,7 +345,7 @@ scheduler owns the cadence; this workflow owns the routing.
 
 ## See also
 
-- [`/plan`](plan.md) — the planning pipeline `/audit-to-stories`
+- [`/mandrel-plan`](mandrel-plan.md) — the planning pipeline `/audit-to-stories`
   chains into for Story creation.
 - [`lib/findings/route-finding.js`](../scripts/lib/findings/route-finding.js) —
   the shared fingerprint/dedup/route helper this workflow and `qa-explore`

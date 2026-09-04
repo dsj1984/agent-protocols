@@ -23,7 +23,7 @@ export const DEFAULT_DECOMPOSER = Object.freeze({
  * the GitHub API with concurrent label writes, while still allowing a
  * small ready-set fan-out. Operators who want strictly sequential delivery
  * should set `delivery.deliverRunner.concurrencyCap: 1`. Raising the cap
- * reduces wall-clock time where dependencies allow. See `deliver.md` and
+ * reduces wall-clock time where dependencies allow. See `mandrel-deliver.md` and
  * `agentrc-reference.json` `delivery.deliverRunner.concurrencyCap`.
  *
  * Story #4545 removed the sibling `verifyConcurrencyCap`: the
@@ -46,7 +46,7 @@ const DEFAULT_DELIVER_RUNNER = Object.freeze({
 });
 
 /**
- * Default auto-fix loop ceilings for /deliver code-review. Operators
+ * Default auto-fix loop ceilings for /mandrel-deliver code-review. Operators
  * override via `delivery.codeReview.*` in `.agentrc.json` (Story #2611,
  * Epic #2586; `autoFixSeverity` default `'medium'` per Story #4399).
  */

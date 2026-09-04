@@ -3,11 +3,11 @@
  * remote-verifier.js — deterministic "is there a live, pushable remote?"
  * evidence for the delivery entry seams. Issue #4483.
  *
- * `/deliver` could silently shortcut the entire orchestration — building
+ * `/mandrel-deliver` could silently shortcut the entire orchestration — building
  * the delivery inline and committing to local `main` without pushing —
  * when the driving agent *perceived* the environment had no live GitHub
  * remote. The judgment was vibes, not fact. This module gives the entry
- * seams (`single-story-init.js` for v2 `/deliver`) a verified
+ * seams (`single-story-init.js` for v2 `/mandrel-deliver`) a verified
  * probe result to record in their envelopes so the workflow can branch on
  * `remoteVerified: true|false` deterministically: use the remote, or
  * transition to `agent::blocked` quoting the probe output — never a

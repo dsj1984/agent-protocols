@@ -31,7 +31,7 @@ workflow states only the `/qa-explore`-specific phases (Plan / Capture) plus a
 Constraints delta.
 
 > **When to run**: ad-hoc agent-driven exploration of a freshly delivered Story
-> or Feature, a regression sweep over a risky surface before `/deliver`, or a
+> or Feature, a regression sweep over a risky surface before `/mandrel-deliver`, or a
 > structured agent-driven bug-hunt captured into a triageable ledger.
 >
 > **Skills**: `core/qa-coverage-mapping`, `stack/qa/qa-explore-driving`
@@ -198,14 +198,14 @@ For each observation the agent makes while driving:
 Route the captured ledger through the shared classify → route → disposition →
 promote procedure in [`helpers/qa-core.md`](helpers/qa-core.md), with the
 operator deciding each `file` / `defer` / `dismiss` and every write
-operator-gated. `file` findings are promoted through `/plan` (never a raw
+operator-gated. `file` findings are promoted through `/mandrel-plan` (never a raw
 Issue); `defer` carries an item forward as backlog; `dismiss` marks it
 non-actionable.
 
 After triage, write the updated dispositions back to the ledger (still under
 `temp/qa/`), and summarize: items captured, the driving method used, classes,
 routes (`new`/`update-existing`/`duplicate`/`regression-of-closed`), the
-Stories (`/plan --seed-file`) promoted, and the deferred rolling backlog a
+Stories (`/mandrel-plan --seed-file`) promoted, and the deferred rolling backlog a
 resumed session will pick up.
 
 ---
@@ -238,11 +238,11 @@ the `/qa-explore`-specific deltas are:
 
 ## See also
 
-- [`/plan`](plan.md) — the planning pipeline Triage chains into for a
+- [`/mandrel-plan`](mandrel-plan.md) — the planning pipeline Triage chains into for a
   `file`-dispositioned finding. The plan→deliver hard stop is preserved.
 - [`/qa-assist`](qa-assist.md) — the human-led sibling that enriches a single
-  operator observation and triages through the same `/plan` handoff.
+  operator observation and triages through the same `/mandrel-plan` handoff.
 - [`/audit-to-stories`](audit-to-stories.md) — the precedent for the
-  findings → `/plan` handoff and the shared fingerprint-footer dedup contract.
+  findings → `/mandrel-plan` handoff and the shared fingerprint-footer dedup contract.
 - [`helpers/qa-core.md`](helpers/qa-core.md) — the shared contract/session/
   redaction/QaLedgerItem/triage/HITL core.

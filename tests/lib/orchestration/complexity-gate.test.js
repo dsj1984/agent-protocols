@@ -10,7 +10,7 @@
 //                                     only with a recorded reason (AC-2);
 //   - `deriveStoryShape`            — the deterministic shape backstop over
 //                                     the authored Story (AC-3, AC-6);
-//   - `resolveStoryDispatchMode`    — `/deliver`'s body-derived dispatch
+//   - `resolveStoryDispatchMode`    — `/mandrel-deliver`'s body-derived dispatch
 //                                     decision; the `route::lite` label is a
 //                                     hint, never the control signal
 //                                     (AC-4, AC-5).
@@ -342,7 +342,7 @@ describe('effort, not artifact count (Story #4764 AC-1)', () => {
     assert.equal(derived.route, 'full');
     assert.match(
       derived.reasons[0],
-      /design decisions \/plan exists to resolve/,
+      /design decisions \/mandrel-plan exists to resolve/,
     );
   });
 });
@@ -652,7 +652,7 @@ describe('resolveStoryDispatchMode — run topology (Story #4736)', () => {
  * `inline` names the router's OWN session (deliver-digest § 1). The shape path
  * used to return it for any lite-shaped body in a multi-Story run, inheriting
  * none of the topology guard the one-Story rule states for itself. Measured
- * twice on 2026-07-29 — `/deliver 4824 4825` and `/deliver 4828 4829 4830` —
+ * twice on 2026-07-29 — `/mandrel-deliver 4824 4825` and `/mandrel-deliver 4828 4829 4830` —
  * every Story came back `inline` while `stories-wave-tick.js` reported the
  * whole set ready under a concurrency cap of five. A router following both
  * literally runs two or three engines over one session and one checkout. Both
@@ -757,7 +757,7 @@ describe('resolveStoryDispatchMode — inline is one session, so one Story (#482
 });
 
 // The lite path forks no delivery code: a lite-shaped Story is an ordinary
-// `type::story` ticket that `/deliver` picks up and `single-story-close.js`
+// `type::story` ticket that `/mandrel-deliver` picks up and `single-story-close.js`
 // PRs to `main` and gates unchanged. Driving a lite-shaped Story through the
 // SAME persist engine (injected provider) and asserting a real, bypass-free
 // Story ticket comes out is the honest evidence the non-negotiables hold.

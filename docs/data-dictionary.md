@@ -157,9 +157,9 @@ call site.
 
 | Type                        | Writer                                                                 | Purpose                                                                  |
 | --------------------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------------ |
-| `story-plan-state`          | `lib/orchestration/plan-persist/run-plan-persist.js`                    | Per-Story persist checkpoint, upserted on every Story `/plan` creates.   |
+| `story-plan-state`          | `lib/orchestration/plan-persist/run-plan-persist.js`                    | Per-Story persist checkpoint, upserted on every Story `/mandrel-plan` creates.   |
 | `plan-summary`              | `lib/orchestration/plan-persist/run-plan-persist.js`                    | Risk/routing receipts + `depends_on` order table; primary Story only.    |
-| `superseded-by`             | `lib/orchestration/plan-persist/supersede-ops.js`                       | Names the Story claiming a `/plan --tickets` source issue, posted immediately before closing it `not_planned`. The marker is what makes a re-run non-double-commenting. |
+| `superseded-by`             | `lib/orchestration/plan-persist/supersede-ops.js`                       | Names the Story claiming a `/mandrel-plan --tickets` source issue, posted immediately before closing it `not_planned`. The marker is what makes a re-run non-double-commenting. |
 | `story-init`                | `single-story-init.js`                                                  | Initial Story metadata snapshot (incl. `dependenciesInstalled`).         |
 | `verification-results`      | `lib/orchestration/code-review.js` (`runCodeReview`)                    | Unified review + lens findings on the Story; critical findings block close. Read by the feedback-loop graduators and the auto-merge integration gate. |
 | `notification`              | `notify.js`; `lib/orchestration/single-story-close/phases/code-review.js` | Operator-facing severity-tiered notification.                          |
@@ -309,7 +309,7 @@ tree at `temp/run-<id>/validation-evidence.json` (run-scoped) or
 `temp/standalone/stories/story-<storyId>/validation-evidence.json`).
 Callers must thread both the scope id and the owning run id through the
 wrapper. The wrapper at `evidence-gate.js` is the only writer;
-close-validation, code-review, and `/deliver` Story close are the
+close-validation, code-review, and `/mandrel-deliver` Story close are the
 readers. `--no-evidence` on any wrapper invocation forces a re-run
 and overwrites the record on success.
 

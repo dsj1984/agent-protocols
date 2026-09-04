@@ -162,7 +162,7 @@ function makeFakeProvider({
 // through `transitionTicketState` → ColumnSync, which reads and WRITES
 // `<tempRoot>/cache/project-meta.json`; a relative tempRoot anchors to the MAIN
 // checkout, so with no config the board-sync case below wrote its `owner/1`
-// fixture ids (`PROJ`/`FIELD`) into the cache real `/deliver` runs consume. An
+// fixture ids (`PROJ`/`FIELD`) into the cache real `/mandrel-deliver` runs consume. An
 // ABSOLUTE tempRoot is used verbatim (`temp-paths.js#anchorTempRoot`), so this
 // can never reach the shared file.
 let tempRoot;
@@ -719,7 +719,7 @@ describe('runSingleStoryClose orchestration', () => {
   it('fails loudly for a Story closed as not_planned rather than claiming it landed', async (t) => {
     // `state: 'closed'` covers both "merged, footer closed it" and
     // "superseded, nothing ever merged". Reporting the latter as `landed`
-    // told /deliver the work was on main — and would satisfy any dependent
+    // told /mandrel-deliver the work was on main — and would satisfy any dependent
     // Story waiting on it.
     const gh = makeFakeGh(() => {
       throw new Error('gh must not be invoked when noop');

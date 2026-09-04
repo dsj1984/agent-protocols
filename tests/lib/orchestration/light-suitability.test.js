@@ -6,15 +6,15 @@
 // path proportional rather than a planning bypass, plus the thin-entry-point
 // contract that it reuses the shared engine scripts.
 //
-// Story #4760 folded it into `/deliver` as a routed prompt path (and a second
-// caller, `/plan` Gate #1); the gate logic below is untouched by that move.
+// Story #4760 folded it into `/mandrel-deliver` as a routed prompt path (and a second
+// caller, `/mandrel-plan` Gate #1); the gate logic below is untouched by that move.
 //
 //   - AC-1: the light path lands through the unchanged single-story-close
 //           engine (buildNextCommands references it, no parallel close impl);
 //   - AC-2: the suitability gate judges the predicted footprint via the shared
 //           shape machinery plus a ledgered model verdict with a recorded
 //           reason (deriveLightSuitability / resolveLedgeredVerdict);
-//   - AC-3: over-scope STOPS and asks; under --yes it fails closed to /plan
+//   - AC-3: over-scope STOPS and asks; under --yes it fails closed to /mandrel-plan
 //           (resolveLightGateOutcome);
 //   - AC-4: a diff-derived backstop blocks over-ceiling actual diffs
 //           (checkLightDiffBackstop / runDiffBackstop);
@@ -22,7 +22,7 @@
 //           prompt and footprint (buildReceiptStoryTicket / createLightReceipt);
 //   - AC-6: --amends is shape-checked identically (small → light, heavy → plan);
 //   - AC-7: (amended by Story #4760) the light path does NOT project a command
-//           — it moved under helpers/ so `/deliver` is the one delivery door;
+//           — it moved under helpers/ so `/mandrel-deliver` is the one delivery door;
 //   - AC-8: the light entry contains no parallel init/close implementation.
 //
 // Story #4764 re-anchors the suitability gate on effort and risk — distinct
@@ -288,7 +288,7 @@ describe('resolveLightGateOutcome — over-scope STOPS and asks (AC-3)', () => {
     assert.deepEqual(o.options, ['escalate-plan', 'proceed-light']);
   });
 
-  test('over-scope under --yes fails closed to /plan (never proceeds light)', () => {
+  test('over-scope under --yes fails closed to /mandrel-plan (never proceeds light)', () => {
     const o = resolveLightGateOutcome({
       suitability: { suitable: false, reasons: ['over ceiling'] },
       yes: true,
@@ -610,7 +610,7 @@ describe('runLightGate — end-to-end gate over the entry inputs (AC-3, AC-6)', 
     assert.equal(gate.action, 'ask-operator');
   });
 
-  test('--amends: a HEAVY amendment escalates to /plan under --yes', () => {
+  test('--amends: a HEAVY amendment escalates to /mandrel-plan under --yes', () => {
     const gate = runLightGate({
       prompt: 'amend: overhaul auth and add a migration',
       creates: ['src/auth/new.js'],
@@ -676,7 +676,7 @@ const rowsOf = (...triples) =>
 const backstop = async (args) =>
   (
     await resolveBackstopOutcome({
-      handleBlockedFn: async () => '/plan x',
+      handleBlockedFn: async () => '/mandrel-plan x',
       // Never shell out to git from a unit test — the preservation push has
       // its own coverage below.
       preserveFn: () => ({
@@ -842,7 +842,7 @@ async function driveGate(values) {
 }
 
 describe('escalate-plan emits a terminal envelope and exits non-zero (AC-1)', () => {
-  test('the envelope is schema-valid, escalated, and names the /plan next command', async () => {
+  test('the envelope is schema-valid, escalated, and names the /mandrel-plan next command', async () => {
     const { code, terminals, gateEnvelopes } = await driveGate({
       ...OVER_SCOPE,
       yes: true,
@@ -854,7 +854,7 @@ describe('escalate-plan emits a terminal envelope and exits non-zero (AC-1)', ()
     assert.equal(env.kind, 'story-deliver-terminal');
     assert.equal(env.status, 'escalated');
     assert.equal(env.phase, 'suitability-gate');
-    assert.match(env.nextCommand, /^\/plan "/);
+    assert.match(env.nextCommand, /^\/mandrel-plan "/);
     assert.match(env.nextCommand, /reporting pipeline/);
 
     // Non-zero: a caller must not be able to read escalation as success.
@@ -870,7 +870,7 @@ describe('escalate-plan emits a terminal envelope and exits non-zero (AC-1)', ()
     const { terminals } = await driveGate({ ...OVER_SCOPE, yes: true });
     const reasons = terminals[0].escalation.reasons.join(' ');
     assert.match(reasons, /maxDeployables/);
-    assert.match(reasons, /--yes on over-scope fails closed to \/plan/);
+    assert.match(reasons, /--yes on over-scope fails closed to \/mandrel-plan/);
   });
 });
 
@@ -980,7 +980,7 @@ describe('the workflow states escalation is terminal (AC-3)', () => {
   // document SAYS, and a plain `assert.match` would silently also be pinning
   // where the 80-column wrap happens to fall.
   // Story #4760 moved this from a top-level workflow to a helper: the prompt
-  // path has two callers (/deliver and /plan Gate #1) and no longer projects a
+  // path has two callers (/mandrel-deliver and /mandrel-plan Gate #1) and no longer projects a
   // command of its own. The escalation claims below are unchanged.
   const doc = readDoc(
     path.join(REPO_ROOT, '.agents', 'workflows', 'helpers', 'deliver-light.md'),
@@ -995,15 +995,18 @@ describe('the workflow states escalation is terminal (AC-3)', () => {
     assertDocMentions(doc, /status.{0,4}:.{0,4}"?escalated/i);
   });
 
-  test('forbids invoking /plan in the same session', () => {
+  test('forbids invoking /mandrel-plan in the same session', () => {
     // `?` around the code span: this pins what the doc SAYS, not whether
-    // /plan happens to be code-formatted at that call site.
+    // /mandrel-plan happens to be code-formatted at that call site.
     assertDocMentions(
       doc,
-      /Invoking `?\/plan`? in this same session is forbidden/i,
-      'in-session /plan must be forbidden in so many words',
+      /Invoking `?\/mandrel-plan`? in this same session is forbidden/i,
+      'in-session /mandrel-plan must be forbidden in so many words',
     );
-    assertDocMentions(doc, /`?\/plan`? runs in a \*\*fresh\*\* session/i);
+    assertDocMentions(
+      doc,
+      /`?\/mandrel-plan`? runs in a \*\*fresh\*\* session/i,
+    );
   });
 
   test('records the empirical reason so the rule reads as load-bearing', () => {
@@ -1019,7 +1022,7 @@ describe('the workflow states escalation is terminal (AC-3)', () => {
     );
     assertDocMentions(
       doc,
-      /fresh `?\/plan`? session on the identical seed authored \*\*four\*\*/i,
+      /fresh `?\/mandrel-plan`? session on the identical seed authored \*\*four\*\*/i,
       'the finding is only load-bearing next to the fresh-session comparison',
     );
     assertDocMentions(doc, /under-decompos/i);
@@ -1077,7 +1080,7 @@ describe('the workflow scopes by effort, not artifact count (Story #4764)', () =
 // ---------------------------------------------------------------------------
 // This assertion was inverted, not deleted. #4740 shipped `/deliver-light` as
 // its own command and pinned that it projected; #4760 folded the prompt path
-// into `/deliver` precisely so an operator never has to pre-judge which door
+// into `/mandrel-deliver` precisely so an operator never has to pre-judge which door
 // to use, and a surviving `/deliver-light` command would restore that choice.
 //
 // Projection is also the whole retirement mechanism: `helpers/` is skipped by
@@ -1117,7 +1120,7 @@ describe('the light path does not project a command (AC-7, Story #4760)', () => 
         'a second delivery door that no workflow backs',
     );
     assert.ok(
-      existsSync(path.join(dest, 'deliver.md')),
+      existsSync(path.join(dest, 'mandrel-deliver.md')),
       'the one delivery door must still project',
     );
   });
@@ -1600,7 +1603,7 @@ describe('the workflow tells the agent how to act on the answer (AC-8)', () => {
 // ---------------------------------------------------------------------------
 
 describe('a blocked backstop recycles the receipt Story (Story #4856)', () => {
-  test('the recycle command hands the receipt to /plan tickets mode', async () => {
+  test('the recycle command hands the receipt to /mandrel-plan tickets mode', async () => {
     // Tickets mode already rewrites a ticket into planned Stories and closes it
     // as superseded — so the receipt becomes the plan's INPUT rather than an
     // open issue with no successor.
@@ -1612,7 +1615,7 @@ describe('a blocked backstop recycles the receipt Story (Story #4856)', () => {
       },
       emitFn: async () => true,
     });
-    assert.equal(next, '/plan 4741');
+    assert.equal(next, '/mandrel-plan 4741');
   });
 
   test('the CLI emits the recycle nextCommand on a blocked backstop', () => {
@@ -1650,7 +1653,7 @@ describe('a blocked backstop recycles the receipt Story (Story #4856)', () => {
     assert.equal(res.status, 3);
     const envelope = JSON.parse(res.stdout.trim().split('\n').pop());
     assert.equal(envelope.blocked, true);
-    assert.equal(envelope.nextCommand, '/plan 999999');
+    assert.equal(envelope.nextCommand, '/mandrel-plan 999999');
     // The refusal signal exists — this test would pass vacuously against a
     // child that emitted nothing at all.
     assert.equal(
@@ -1687,7 +1690,7 @@ describe('a blocked backstop recycles the receipt Story (Story #4856)', () => {
     assert.equal(r.nextCommand, undefined);
   });
 
-  test('the workflow routes the receipt through /plan rather than orphaning it', () => {
+  test('the workflow routes the receipt through /mandrel-plan rather than orphaning it', () => {
     const doc = readDoc(
       path.join(
         REPO_ROOT,
@@ -1706,7 +1709,7 @@ describe('a blocked backstop recycles the receipt Story (Story #4856)', () => {
       assertDocMentions(
         doc,
         pattern,
-        'step 4 must route a blocked backstop through /plan tickets mode rather than leaving the receipt open',
+        'step 4 must route a blocked backstop through /mandrel-plan tickets mode rather than leaving the receipt open',
       );
     }
   });
@@ -1729,7 +1732,7 @@ describe('light-path rejections are telemetered (Story #4856)', () => {
         return true;
       },
     });
-    assert.equal(next, '/plan 4741');
+    assert.equal(next, '/mandrel-plan 4741');
     assert.equal(seen.length, 1);
     assert.equal(seen[0].category, 'light-scope-rejected');
     assert.equal(seen[0].tool, 'deliver-light');
@@ -1747,7 +1750,7 @@ describe('light-path rejections are telemetered (Story #4856)', () => {
         throw new Error('signals unwritable');
       },
     });
-    assert.equal(next, '/plan 4741');
+    assert.equal(next, '/mandrel-plan 4741');
   });
 
   test('an ask-operator gate hands the refusal to the recorder', async () => {
@@ -1865,7 +1868,7 @@ describe('the prediction gate names the un-waivable class up front (AC-1, AC-2)'
       s.reasons.every((r) => typeof r === 'string' && r.trim() !== ''),
       'every objection is prose the gate already prints',
     );
-    assert.match(s.reasons.join(' '), /take this to \/plan now/);
+    assert.match(s.reasons.join(' '), /take this to \/mandrel-plan now/);
   });
 
   test('a clean footprint reports no un-waivable rule at all', () => {
@@ -1925,7 +1928,7 @@ describe('an override cannot waive a footprint that also trips a risk rule (AC-1
     assert.equal(o.applied, false);
     assert.equal(o.record, null);
     assert.match(o.note, /un-waivable "sensitive-path"/);
-    assert.match(o.note, /Escalate to \/plan/);
+    assert.match(o.note, /Escalate to \/mandrel-plan/);
   });
 
   test('the gate still asks, and the operator learns the answer cannot help', () => {
@@ -1987,7 +1990,7 @@ describe('a refused light run leaves its work recoverable (AC-3)', () => {
       injectedRules: RULES,
       computeFn: () => ({ files: ['a.js', 'b.js'] }),
       readRowsFn: () => rowsOf([2000, 500, 'a.js'], [10, 2, 'b.js']),
-      handleBlockedFn: async () => '/plan 4741',
+      handleBlockedFn: async () => '/mandrel-plan 4741',
       preserveFn: ({ storyId }) => ({
         preserved: true,
         branch: `story-${storyId}`,

@@ -1,6 +1,6 @@
 /**
  * tests/bootstrap/workflow-invocation-surface.test.js — the operator-facing
- * invocation surface of `/plan` and `/deliver` (Story #4760).
+ * invocation surface of `/mandrel-plan` and `/mandrel-deliver` (Story #4760).
  *
  * ## What this pins
  *
@@ -37,8 +37,8 @@ const REPO_ROOT = path.resolve(__dirname, '..', '..');
 
 const rel = (p) => path.join(REPO_ROOT, p);
 
-const DELIVER = rel('.agents/workflows/deliver.md');
-const PLAN = rel('.agents/workflows/plan.md');
+const DELIVER = rel('.agents/workflows/mandrel-deliver.md');
+const PLAN = rel('.agents/workflows/mandrel-plan.md');
 const LIGHT = rel('.agents/workflows/helpers/deliver-light.md');
 const DELIVER_REF = rel('.agents/workflows/helpers/deliver-reference.md');
 const PLAN_REF = rel('.agents/workflows/helpers/plan-reference.md');
@@ -68,7 +68,7 @@ describe('one delivery door (Story #4760)', () => {
     );
   });
 
-  it('documents all three /deliver input shapes and the mixed-input refusal', () => {
+  it('documents all three /mandrel-deliver input shapes and the mixed-input refusal', () => {
     const md = readDoc(DELIVER);
     assertDocMentions(
       md,
@@ -88,14 +88,14 @@ describe('one delivery door (Story #4760)', () => {
     assertDocMentions(
       md,
       /helpers\/deliver-light\.md/,
-      '/deliver must route the prompt shape into the shared helper',
+      '/mandrel-deliver must route the prompt shape into the shared helper',
     );
   });
 
-  it('keeps escalation terminal — /deliver must never rescue an over-scope prompt by planning', () => {
+  it('keeps escalation terminal — /mandrel-deliver must never rescue an over-scope prompt by planning', () => {
     assertDocMentions(
       readDoc(DELIVER),
-      /never invoke `\/plan` in this session/i,
+      /never invoke `\/mandrel-plan` in this session/i,
       'the in-session-planning guard is the mandrel-bench 2.13.0 finding; it must ' +
         'survive the fold into one command',
     );
@@ -194,7 +194,7 @@ describe('derived invocation intent (Story #4760)', () => {
   });
 });
 
-describe('the /plan ↔ light asymmetry (Story #4760)', () => {
+describe('the /mandrel-plan ↔ light asymmetry (Story #4760)', () => {
   it('states the guard rule that explains why the two directions differ', () => {
     const md = readDoc(LIGHT);
     // Asserted in halves: the rule sits in a blockquote, and `doc-assert`
@@ -209,7 +209,7 @@ describe('the /plan ↔ light asymmetry (Story #4760)', () => {
     assertDocMentions(
       md,
       /direction whose guard is mechanical need not\./,
-      'the permissive half of the rule is what licenses the in-session /plan → light route',
+      'the permissive half of the rule is what licenses the in-session /mandrel-plan → light route',
     );
     assertDocMentions(
       md,
@@ -218,15 +218,15 @@ describe('the /plan ↔ light asymmetry (Story #4760)', () => {
     );
   });
 
-  it('keeps light → /plan escalation on a fresh session', () => {
+  it('keeps light → /mandrel-plan escalation on a fresh session', () => {
     assertDocMentions(
       readDoc(LIGHT),
-      /Invoking `\/plan` in this same session is forbidden/,
+      /Invoking `\/mandrel-plan` in this same session is forbidden/,
       'the empirical under-decomposition finding must survive the move',
     );
   });
 
-  it('routes /plan → light in-session, and bounces back in-session too', () => {
+  it('routes /mandrel-plan → light in-session, and bounces back in-session too', () => {
     assertDocMentions(
       readDoc(PLAN),
       /route \*\*in this session\*\* into/,
@@ -234,7 +234,7 @@ describe('the /plan ↔ light asymmetry (Story #4760)', () => {
     );
     assertDocMentions(
       readDoc(LIGHT),
-      /return to \[`\.\.\/plan\.md`\]\(\.\.\/plan\.md\) step 2 \(Author\) in the same\s*session/,
+      /return to \[`\.\.\/mandrel-plan\.md`\]\(\.\.\/mandrel-plan\.md\) step 2 \(Author\) in the same\s*session/,
       'an ask-operator verdict must resume planning without re-paying for the interrogation',
     );
   });

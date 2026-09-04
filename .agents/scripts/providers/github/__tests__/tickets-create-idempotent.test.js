@@ -59,7 +59,7 @@ function makeGateway({ failFirstPost = true } = {}) {
   return { gateway, posts, server };
 }
 
-/** The caller's lookup: exactly what `/plan` persist's resume path does. */
+/** The caller's lookup: exactly what `/mandrel-plan` persist's resume path does. */
 function findByMarker(server, marker) {
   return async () =>
     server.issues.find((issue) => issue.body.includes(marker)) ?? null;

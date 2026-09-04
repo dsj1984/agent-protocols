@@ -1,8 +1,8 @@
 /**
  * plan-critics-evaluate.js — shared critic-dispatch evaluation for the
- * collapsed /plan flow (#4496 fix 6).
+ * collapsed /mandrel-plan flow (#4496 fix 6).
  *
- * One consumer: the `plan-critics.js` CLI, which `/plan` runs between its
+ * One consumer: the `plan-critics.js` CLI, which `/mandrel-plan` runs between its
  * Author and Persist steps. The CLI loads the draft artifacts, calls this
  * module, prints the verdict as JSON, and records every skip on the
  * plan-metrics ledger; the workflow dispatches a fresh-context critic

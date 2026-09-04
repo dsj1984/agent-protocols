@@ -1,5 +1,5 @@
 /**
- * decomposer-context.js — system-prompt builder for the `/plan` authoring
+ * decomposer-context.js — system-prompt builder for the `/mandrel-plan` authoring
  * pass (Story #2466; v2 keeps the prompt helper, drops the Epic-fetch
  * decomposition envelope).
  *

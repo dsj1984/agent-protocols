@@ -1,5 +1,5 @@
 /**
- * AC-3 (Story #4626): the recommended `/plan --seed-file` path keeps dedup.
+ * AC-3 (Story #4626): the recommended `/mandrel-plan --seed-file` path keeps dedup.
  *
  * The plan seed emitted by `buildPlanSeedMarkdown` MUST carry each finding
  * group's `audit-fingerprints` footer so a Story authored from the seed

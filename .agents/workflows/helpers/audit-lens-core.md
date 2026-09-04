@@ -30,7 +30,7 @@ constraint for that lens only.
 Each lens carries its own `{{changedFiles}}` fence — the substitution anchor
 consumed by `.agents/scripts/lib/audit-suite/` — and reads it as follows:
 
-- When this lens is invoked from `/deliver` close lenses (or a plan-run audit),
+- When this lens is invoked from `/mandrel-deliver` close lenses (or a plan-run audit),
   the fence is populated with the Story (or plan-run) change-set file list.
   **Restrict analysis to those files** (and their direct dependencies when the
   lens explicitly calls for cross-file reasoning).

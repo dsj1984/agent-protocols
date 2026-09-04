@@ -3,7 +3,7 @@
  *
  * Story #1155 (Epic #1142, 5.40.0) — extracted the helper-driven
  * `epic-code-review` invocation into a callable module so the
- * `/deliver` runner can run Phase D without spawning a child
+ * `/mandrel-deliver` runner can run Phase D without spawning a child
  * process or routing through an LLM-driven helper.
  *
  * Story #2831 (Epic #2815, Pluggable Code Review) — refactored to load
@@ -32,11 +32,11 @@
  *     `code-review` and `audit-results` findings contracts into this one
  *     `verification-results` marker.
  *   - Treats severity.critical > 0 as a halting blocker — the merged
- *     `/deliver` runner consults `halted` and refuses to advance
+ *     `/mandrel-deliver` runner consults `halted` and refuses to advance
  *     to Phase E (retro) when set.
  *
  * Halting on critical findings is the in-process replacement for the
- * helper's "operator must remediate before /deliver" gate.
+ * helper's "operator must remediate before /mandrel-deliver" gate.
  */
 
 import { hasSurvivingCritical } from '../audit-suite/findings.js';
@@ -129,7 +129,7 @@ function resolveScopeEnvelope(opts, config) {
 }
 
 /**
- * In-process wrapper that the `/deliver` runner and the
+ * In-process wrapper that the `/mandrel-deliver` runner and the
  * `/single-story-deliver` close path consume.
  *
  * Story #2252 — emits `code-review.start` immediately on entry and

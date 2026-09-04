@@ -38,7 +38,7 @@ dependency trip-wires live in the appendix, not here.
    `audit-clean-code`, 2026-06-04 — 23 agents, ~2.47M tokens, 49/51 findings
    kept). Do not batch-convert.
 3. **Multi-Story plan-authoring quality spike** — aspirational, and doubly
-   rare under the default-single split policy: when `/plan` legitimately
+   rare under the default-single split policy: when `/mandrel-plan` legitimately
    authors N>1 Stories, a parallel-draft + adversarial-consolidation pass
    could improve seam quality. Hold to the same measured-delta discipline as
    the audit gate.

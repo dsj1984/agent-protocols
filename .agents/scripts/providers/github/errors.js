@@ -156,7 +156,7 @@ export function classifyGithubError(err) {
 // Read-path callers (paginateRest, getTicket, getNativeSubIssues, …) all
 // absorb the same jittered exponential backoff on transient GitHub errors
 // through this one primitive, instead of bubbling a one-shot
-// 502/429/ECONNRESET that kills a longer pipeline (e.g. the /deliver
+// 502/429/ECONNRESET that kills a longer pipeline (e.g. the /mandrel-deliver
 // Phase E retro). The network consumers repointed here
 // (branch-protection, labels, projects-v2-graphql) call with no opts, so
 // they adopt these defaults; their retry *classes* (the network blips) are

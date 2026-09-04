@@ -11,7 +11,7 @@
  *
  * Scope: 'story-close', 'retro'. The check runs at every
  * preflight surface that has the opportunity to invoke Story init —
- * primarily `/deliver`'s init step — and surfaces as a retro audit
+ * primarily `/mandrel-deliver`'s init step — and surfaces as a retro audit
  * signal if the failure mode resurfaces during a sprint.
  *
  * The check is `refuse-and-print`. Auto-rewriting an orchestration call

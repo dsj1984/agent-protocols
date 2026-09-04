@@ -164,7 +164,7 @@ describe('workflow-invoked scripts are self-describing', () => {
       "deliver-story.md must point the reader at each script's own --help",
     );
 
-    const plan = readDoc(path.join(WORKFLOWS_DIR, 'plan.md'));
+    const plan = readDoc(path.join(WORKFLOWS_DIR, 'mandrel-plan.md'));
     for (const flag of [
       '--chain-on-clean',
       '--no-close-superseded',

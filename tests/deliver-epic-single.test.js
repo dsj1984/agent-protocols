@@ -1,5 +1,5 @@
 /**
- * Router contract guards for the unified `/deliver` workflow prose.
+ * Router contract guards for the unified `/mandrel-deliver` workflow prose.
  *
  * Story #4540 retired the `plan-run::<id>` label and the `--run` branch, so
  * the sequencing test and the envelope block here were re-pointed at
@@ -20,7 +20,12 @@ import { assertDocMentions, assertDocOmits } from './helpers/doc-assert.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, '..');
-const DELIVER_MD = path.join(REPO_ROOT, '.agents', 'workflows', 'deliver.md');
+const DELIVER_MD = path.join(
+  REPO_ROOT,
+  '.agents',
+  'workflows',
+  'mandrel-deliver.md',
+);
 const DELIVER_STORY_MD = path.join(
   REPO_ROOT,
   '.agents',
@@ -29,7 +34,7 @@ const DELIVER_STORY_MD = path.join(
   'deliver-story.md',
 );
 
-describe('unified /deliver router', () => {
+describe('unified /mandrel-deliver router', () => {
   it('routes every Story through helpers/deliver-story.md', () => {
     const md = readFileSync(DELIVER_MD, 'utf8');
     assert.match(
@@ -123,7 +128,7 @@ describe('unified /deliver router', () => {
   });
 });
 
-describe('/deliver takes only Story ids (Story #4540)', () => {
+describe('/mandrel-deliver takes only Story ids (Story #4540)', () => {
   it('documents no --run, --dep, or hand-built DAG', () => {
     const md = readFileSync(DELIVER_MD, 'utf8');
     // The retirement note may name them; the invocation surface may not.

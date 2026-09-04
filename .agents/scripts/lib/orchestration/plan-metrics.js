@@ -1,7 +1,7 @@
 /**
  * plan-metrics.js — append-only plan-invocation ledger (Epic #4474, PR1).
  *
- * The `/plan` collapse (#4474) is measured, not asserted: before any pipeline
+ * The `/mandrel-plan` collapse (#4474) is measured, not asserted: before any pipeline
  * phase is removed, every plan CLI invocation stamps an entry/exit record so
  * the current 12-phase baseline is captured on disk. Each record is one
  * newline-terminated JSON line appended to

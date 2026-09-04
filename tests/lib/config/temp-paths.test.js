@@ -624,7 +624,7 @@ describe('storyTerminalEnvelopePath — the persisted terminal envelope (#4816)'
 
   it('anchors to the MAIN checkout, not the caller cwd', () => {
     // The load-bearing property: the close runs inside `.worktrees/story-<id>/`
-    // while the /deliver host reads from the main checkout. An un-anchored
+    // while the /mandrel-deliver host reads from the main checkout. An un-anchored
     // relative root would file the envelope where the router never looks.
     const resolved = storyTerminalEnvelopePath(4816, {
       project: { paths: { tempRoot: 'temp' } },

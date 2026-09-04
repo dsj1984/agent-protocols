@@ -152,7 +152,7 @@ test('contract: mixed open+closed store prefers the open match', async () => {
 const auditFinding = {
   title: 'Unbounded recursion in dispatch planner',
   dimension: 'maintainability',
-  primaryFile: '.agents/scripts/lib/dispatch/plan.js',
+  primaryFile: '.agents/scripts/lib/dispatch/mandrel-plan.js',
   severity: 'high',
   labels: ['audit:clean-code'],
 };

@@ -2,7 +2,7 @@
  * lib/orchestration/resolve-stories.js — resolve a set of Story ids into the
  * `{ stories, dag, done }` envelope the delivery scheduler consumes.
  *
- * This is the ONE resolution step for `/deliver`. It generalizes the
+ * This is the ONE resolution step for `/mandrel-deliver`. It generalizes the
  * envelope shaping proven by the retired `resolve-plan-run.js` and fixes the
  * two defects that shipped with it:
  *
@@ -77,7 +77,7 @@ export function toStoryRecord(issue, requestedId) {
   if (!labels.includes(TYPE_LABELS.STORY)) {
     throw new Error(
       `[resolve-stories] Issue #${id} is not a Story (labels: ${labels.join(', ') || 'none'}). ` +
-        `/deliver accepts ${TYPE_LABELS.STORY} tickets only — close it or re-plan it as a v2 Story.`,
+        `/mandrel-deliver accepts ${TYPE_LABELS.STORY} tickets only — close it or re-plan it as a v2 Story.`,
     );
   }
   const body = String(issue?.body ?? '');
@@ -351,7 +351,7 @@ export function buildStoriesEnvelope({
   return {
     kind: 'stories',
     // `dispatchMode` (Story #4722, #4736, #4829): the resolver reports the
-    // per-Story execution mode so `/deliver` reads one field — `inline` (run
+    // per-Story execution mode so `/mandrel-deliver` reads one field — `inline` (run
     // deliver-story in the router's own session: no story-worker /
     // acceptance-critic sub-agent boots) or `subagent` (the conservative
     // default). Model-side fan-out only; close gates are untouched.
@@ -385,7 +385,7 @@ export function buildStoriesEnvelope({
 /**
  * Parse and validate the `--ids` list, expanding any `A-B` dash range.
  *
- * A contiguous span is how an operator names a plan run — `/deliver 4922 -
+ * A contiguous span is how an operator names a plan run — `/mandrel-deliver 4922 -
  * 4926` — so the range is expanded here rather than transcribed by the host.
  * `stories-wave-tick.js --stories` reads through this same function, which is
  * what keeps the sequencing set identical to the resolved one.

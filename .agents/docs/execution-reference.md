@@ -73,9 +73,9 @@ and schema mechanics are in [§ Friction telemetry](#friction-telemetry) above.
 
 Mandrel does **not** enforce live LLM spend from response metadata. It bounds
 two things, both **fixed framework constants** rather than operator knobs, and
-both **fail closed**: the assembled `/plan` context envelope, and plan-time
+both **fail closed**: the assembled `/mandrel-plan` context envelope, and plan-time
 Story sizing. Your host runtime (editor / CLI) owns session quota and hard
-stops. Consult this section when reasoning about why `/plan` refused an
+stops. Consult this section when reasoning about why `/mandrel-plan` refused an
 over-ceiling envelope or an over-budget Story count.
 
 > **There is no configurable context budget.** `planning.context.maxBytes` /
@@ -90,7 +90,7 @@ over-ceiling envelope or an over-budget Story count.
 > and was deleted in Story #5005; only its `estimateTokens` helper survived,
 > re-homed in `lib/orchestration/spec-spill.js`.
 
-### Planner-context envelope (`/plan`)
+### Planner-context envelope (`/mandrel-plan`)
 
 - **`PLAN_CONTEXT_ENVELOPE_BYTE_CEILING`** (`lib/orchestration/plan-context.js`):
   256 KB (≈64K tokens at the ≈4-chars/token estimate) on the serialized

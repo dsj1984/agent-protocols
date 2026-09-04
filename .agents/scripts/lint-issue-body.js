@@ -10,8 +10,8 @@
  * human files a ticket whose body `parse()` rejects (or which lacks the
  * binding `goal` / `acceptance` / `verify` sections), the lint surfaces a
  * **comment** on the issue rather than failing silently — the supported
- * human entry points (`/plan` from an existing Epic ID, the qa-assist →
- * `/plan` handoff) depend on a parseable body.
+ * human entry points (`/mandrel-plan` from an existing Epic ID, the qa-assist →
+ * `/mandrel-plan` handoff) depend on a parseable body.
  *
  * ## Design
  *
@@ -157,7 +157,7 @@ export function renderConformanceComment(verdict) {
     '### ⚠️ Ticket body does not round-trip through the Mandrel parser',
     '',
     'Agents build ticket bodies from a canonical schema that this body does ' +
-      'not match, so the supported human entry points (e.g. `/plan` from an ' +
+      'not match, so the supported human entry points (e.g. `/mandrel-plan` from an ' +
       'existing Epic ID) will reject it. Please fix the following:',
     '',
     ...verdict.problems.map((p) => `- ${p}`),

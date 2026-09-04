@@ -2,9 +2,9 @@
 /* node:coverage ignore file */
 
 /**
- * plan-context.js — step 1 of the collapsed `/plan` pipeline.
+ * plan-context.js — step 1 of the collapsed `/mandrel-plan` pipeline.
  *
- * Emits one stdout-pure JSON envelope for the `/plan` authoring middle.
+ * Emits one stdout-pure JSON envelope for the `/mandrel-plan` authoring middle.
  *
  * Two operator modes (exactly one is required):
  *
@@ -25,7 +25,7 @@
  *
  * Flags:
  *   --out <path>     Write the envelope to <path> (parent dirs created).
- *                    `/plan` points this at `<plan-dir>/plan-context.json`,
+ *                    `/mandrel-plan` points this at `<plan-dir>/plan-context.json`,
  *                    which is where `plan-persist.js` auto-discovers the
  *                    `--tickets` source ids from (Story #4554). Without a
  *                    captured envelope persist cannot know a `--tickets` run
@@ -348,7 +348,7 @@ runAsCli(import.meta.url, main, {
     invocation:
       'node .agents/scripts/plan-context.js (--seed "<text>" | --seed-file <path> | --tickets <ids> | --amends <id>) [--out <path>] [--pretty]',
     summary:
-      'Build the /plan authoring-context envelope on stdout. Exactly one entry form must be supplied.',
+      'Build the /mandrel-plan authoring-context envelope on stdout. Exactly one entry form must be supplied.',
     flags: [
       ['--seed "<text>"', 'Inline seed prose.'],
       ['--seed-file <path>', 'Seed document to read.'],

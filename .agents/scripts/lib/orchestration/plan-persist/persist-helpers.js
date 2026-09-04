@@ -1,5 +1,5 @@
 /**
- * persist-helpers.js — pure helper surface for the flat Story `/plan` persist.
+ * persist-helpers.js — pure helper surface for the flat Story `/mandrel-plan` persist.
  *
  * Exports:
  *   - `resolveBaseBranchRef(config)` — the one place the persist gates learn

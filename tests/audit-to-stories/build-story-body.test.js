@@ -186,7 +186,7 @@ test('buildStoryBody resolves group edges to a blocked by #N footer (AC-6)', () 
   });
 
   assert.ok(built.body.includes('blocked by #4199'));
-  // The footer is the canonical serializer's own, so /deliver's resolver reads
+  // The footer is the canonical serializer's own, so /mandrel-deliver's resolver reads
   // this Story's ordering from exactly where it reads every other Story's.
   const parsed = parseStoryBody(built.body).body;
   assert.deepEqual(parsed.depends_on, ['#4199']);

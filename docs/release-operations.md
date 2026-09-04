@@ -274,7 +274,7 @@ a minor bump, so two things follow and both are intended:
 
 v2.0.0 was cut by landing the Story-collapse work with an explicit
 `BREAKING CHANGE` changelog section and version files already at `2.0.0`.
-Story #4540 then added the cap, after a `feat!:` retiring the `/deliver
+Story #4540 then added the cap, after a `feat!:` retiring the `/mandrel-deliver
 --run` flag proposed 3.0.0.
 
 #### The major only moves when the operator says so

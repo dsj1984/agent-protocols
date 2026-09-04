@@ -5,7 +5,7 @@
  * ## Why
  *
  * The workflow-doc tests assert that a shipped `.md` says a thing — for
- * example that `deliver.md` matches "derived level", any run of characters,
+ * example that `mandrel-deliver.md` matches "derived level", any run of characters,
  * then "review depth".
  *
  * That reads as a claim about **content**, but it is silently a claim about

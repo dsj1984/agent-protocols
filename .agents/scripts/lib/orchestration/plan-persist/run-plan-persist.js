@@ -1,5 +1,5 @@
 /**
- * run-plan-persist.js — flat Story persist for the v2 `/plan` collapse
+ * run-plan-persist.js — flat Story persist for the v2 `/mandrel-plan` collapse
  * (Stage 3 — `docs/roadmap.md`).
  *
  * Ordered, fail-closed pipeline:
@@ -293,7 +293,7 @@ async function renderRunScopedPlanMetricsLine({
  *      from the seed.
  *
  * The resolved route decides whether the created Stories carry the
- * {@link LITE_ROUTE_LABEL} **hint** (never the control signal — `/deliver`
+ * {@link LITE_ROUTE_LABEL} **hint** (never the control signal — `/mandrel-deliver`
  * re-derives the route from the Story body's shape) and the `route` block
  * ledgered on their `story-plan-state` checkpoint, including the authored
  * verdict, its recorded reason, and the per-Story shape evidence. A refused
@@ -531,7 +531,7 @@ async function enforceReachability(reachability, config) {
  * concurrency, but the `await` on that whole fan-out is what keeps the
  * Story #4541 invariant intact: *every* checkpoint is on its ticket before the
  * first `agent::ready` flip is issued, so `ready` still means "fully
- * persisted" and a `/deliver` that picks a Story up cannot read a null
+ * persisted" and a `/mandrel-deliver` that picks a Story up cannot read a null
  * checkpoint. Concurrency inside the phase is safe; overlapping the phases is
  * the race this ordering exists to close.
  *
@@ -611,7 +611,7 @@ function logEffectiveRoute(route, isLiteRoute) {
     Logger.info(
       `[plan-persist] ceremony-lite route upheld by the shape backstop: ` +
         `created Stories carry the ${LITE_ROUTE_LABEL} hint ` +
-        `(recorded reason: ${route.authored.reason}). /deliver re-derives ` +
+        `(recorded reason: ${route.authored.reason}). /mandrel-deliver re-derives ` +
         'the route from each Story body — the label is never the control signal.',
     );
     return;
@@ -644,10 +644,10 @@ function logPersistEpilogue({ created, primary, planRunLabel }) {
       `; primary #${primary.id} is agent::ready.`,
   );
   Logger.info(
-    `[plan-persist] Deliver with: /deliver ${created.map((s2) => s2.id).join(' ')}`,
+    `[plan-persist] Deliver with: /mandrel-deliver ${created.map((s2) => s2.id).join(' ')}`,
   );
   // Metadata only — a GitHub filter for the cohort this run authored, never
-  // a delivery-resolution input (/deliver stays ids-only, Story #4540).
+  // a delivery-resolution input (/mandrel-deliver stays ids-only, Story #4540).
   Logger.info(
     `[plan-persist] Cohort grouping label: ${planRunLabel} — filter with ` +
       `label:${planRunLabel}`,

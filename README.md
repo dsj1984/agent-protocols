@@ -30,26 +30,26 @@ provisions both as part of a cold start (`git init` → `gh repo create --push`
 The canonical cold-start path is one command, then one slash command:
 
 ```bash
-npx mandrel init        # install mandrel → sync → prompt → bootstrap → onboarding tail → /plan handoff
+npx mandrel init        # install mandrel → sync → prompt → bootstrap → onboarding tail → /mandrel-plan handoff
 ```
 
 ```text
 # then, inside Claude Code (commands load from .claude/commands/):
-/plan --seed "…"   # interrogate → author one Story (default) → persist
-/deliver <id>      # story-<id> → PR → main
+/mandrel-plan --seed "…"   # interrogate → author one Story (default) → persist
+/mandrel-deliver <id>      # story-<id> → PR → main
 ```
 
 `npx mandrel init` installs `mandrel` (when `./.agents/` is absent),
 materializes it via `mandrel sync`, then asks whether to **configure now**
 (option 1 → runs `bootstrap.js`, then the onboarding tail: stack detection,
-docs scaffolding offer, `mandrel doctor` readiness gate, and a `/plan`
+docs scaffolding offer, `mandrel doctor` readiness gate, and a `/mandrel-plan`
 handoff) or stop at **just the files** (option 2 → re-run `mandrel init`
 any time to configure). Pass `--assume-yes` for a non-interactive run that
 proceeds straight to configure (and forwards the flag to bootstrap). When
 `./.agents/` is already present (you ran `npm install mandrel` first), `init`
 skips the install/sync and goes straight to the prompt. Once `mandrel init`
-completes, you land at the `/plan` handoff — run `/plan --seed "<idea>"` to
-author your first Story, then deliver it with `/deliver <storyId>`
+completes, you land at the `/mandrel-plan` handoff — run `/mandrel-plan --seed "<idea>"` to
+author your first Story, then deliver it with `/mandrel-deliver <storyId>`
 (`story-<id>` → PR → `main`).
 
 ### Manual equivalent
@@ -164,7 +164,7 @@ npx mandrel doctor                      # verify the install
 Mandrel's effectiveness is measured by a separate companion repo,
 **[mandrel-bench](https://github.com/dsj1984/mandrel-bench)** — a *consumer* of
 the published `mandrel` package. It pins a specific framework version,
-materializes it via `mandrel sync`, and drives Mandrel's own `/plan`→`/deliver`
+materializes it via `mandrel sync`, and drives Mandrel's own `/mandrel-plan`→`/mandrel-deliver`
 pipeline (plus a bare-model control) over a scenario corpus. Each run is scored
 across five dimensions — Quality, Planning fidelity, and Autonomy (what the
 scaffolding *buys*) versus Efficiency and Overhead ratio (what it *costs*) —

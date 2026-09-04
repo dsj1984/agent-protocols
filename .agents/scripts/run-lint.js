@@ -84,7 +84,7 @@ const tasks = [
   nodeGate('lifecycle-lint', '.agents/scripts/check-lifecycle-lint.js'),
   // Workflow prose surface (Epic #4474 PR5). No workflow may instruct calling
   // an exported library function that has no CLI entrypoint — the measured
-  // shim-writing failure mode the /plan collapse killed. See
+  // shim-writing failure mode the /mandrel-plan collapse killed. See
   // check-workflow-cli-lint.js for the paragraph-level heuristic.
   nodeGate('workflow-cli-lint', '.agents/scripts/check-workflow-cli-lint.js'),
   // Label-vocabulary citations in `.agents/docs/SDLC.md` and

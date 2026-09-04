@@ -13,7 +13,7 @@ The **single source of truth** for getting outstanding working-tree changes
 out the door when they do not belong to a planned Story (typo fixes, doc
 tweaks, dependency bumps, operator housekeeping, benchmark result commits
 from mandrel-bench's `/benchmark` Step 4). It is the ad-hoc counterpart to
-the heavyweight `/deliver` pipeline: one command that **detects the git
+the heavyweight `/mandrel-deliver` pipeline: one command that **detects the git
 setup** and escalates to the correct terminal step. Flags pin any level
 explicitly; the interactive choice prompt fires **only** when the detected
 state is genuinely ambiguous, so the common path stays non-interactive and
@@ -133,7 +133,7 @@ directly, honoring these contracts:
 Stop at the resolved level and print a one-block summary naming the branch,
 subject, and (pr level) PR URL + auto-merge state.
 
-Do **not** poll CI — that is the `/deliver` Phase 7 job and is overkill for
+Do **not** poll CI — that is the `/mandrel-deliver` Phase 7 job and is overkill for
 ad-hoc changes. The local feature branch left behind at the pr level is
 reaped by the next run's Boot sweep — see
 [`.agents/rules/git-conventions.md` § Local checkout hygiene](../rules/git-conventions.md).
@@ -151,14 +151,14 @@ reaped by the next run's Boot sweep — see
   does not rewrite history.
 - **Always** prefer `--auto --squash --delete-branch` at the pr level unless
   the operator opts out, so `main`'s history stays uniform across the
-  `/git-deliver` and `/deliver` surfaces.
+  `/git-deliver` and `/mandrel-deliver` surfaces.
 
 ---
 
 ## ⚠️ Parallel Story Execution
 
 Do **not** use this workflow from inside a parallel story-execution context
-(`/deliver #<storyId>`, `/deliver` wave dispatch). `git add -A` sweeps any
+(`/mandrel-deliver #<storyId>`, `/mandrel-deliver` wave dispatch). `git add -A` sweeps any
 untracked files in the working tree, which in a shared working directory may
 belong to another agent. In those contexts stage explicit paths only and
 confirm `git branch --show-current` reports the expected `story-<id>` branch

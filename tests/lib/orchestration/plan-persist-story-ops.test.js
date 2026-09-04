@@ -531,7 +531,7 @@ describe('createStoryIssues — native blocked_by mirroring (Story #4544)', () =
   it('completes the persist when the dependencies API rejects, and reports the failure', async () => {
     // Non-fatal is the right call here — and only because the ordering has a
     // second home. A dropped edge is cosmetic: the `blocked by #N` footer is
-    // already in the created body, and that is what /deliver's resolver reads.
+    // already in the created body, and that is what /mandrel-deliver's resolver reads.
     const provider = makeMirrorProvider({ postShouldFail: true });
     const { created, dependencyEdges } = await createStoryIssues({
       provider,
@@ -1202,5 +1202,85 @@ describe('the dependent path re-carries the provenance (Story #4935/#5056)', () 
         `Story "${title}" POSTed a body with no semantic-key footer`,
       );
     }
+  });
+});
+
+describe('createStoryIssues — the createIssue retry probe (Story #5112)', () => {
+  // The probe handed to `provider.createIssue` as `findExisting` is the
+  // content-keyed lookup that lets a retry after a lost response adopt the
+  // issue attempt 1 already filed, instead of creating a twin. It was shipped
+  // with no coverage at all, which is what put it at the top of the CRAP
+  // rollup; these cases exercise every arm the caller can reach.
+
+  /** Run one create and hand back the probe plus the body that was POSTed. */
+  async function captureProbe(provider) {
+    let probe = null;
+    let postedBody = null;
+    const spy = {
+      ...provider,
+      createIssue: async (payload) => {
+        probe = payload.findExisting;
+        postedBody = payload.body;
+        return { id: 700, url: 'https://example/700' };
+      },
+    };
+    const { stories } = assemblePlanStories([storyTicket('probe')]);
+    await createStoryIssues({ provider: spy, stories });
+    return { probe, postedBody };
+  }
+
+  it('adopts an open Story whose body carries the same plan fingerprint', async () => {
+    // Round 1 gives us a body the fingerprint marker is really embedded in —
+    // asserting against a hand-built body would test the fixture, not the probe.
+    const { postedBody } = await captureProbe({});
+    const twin = { id: 701, body: postedBody };
+    // The twin must stay hidden from the resume index that runs BEFORE the
+    // create — otherwise the run adopts there and never reaches the probe.
+    let listed = 0;
+    const { probe } = await captureProbe({
+      listIssuesByLabel: async () =>
+        listed++ === 0 ? [] : [{ id: 699, body: 'unrelated' }, twin],
+    });
+    assert.deepEqual(await probe(), twin);
+  });
+
+  it('returns null when no open Story carries the fingerprint', async () => {
+    const { probe } = await captureProbe({
+      listIssuesByLabel: async () => [{ id: 699, body: 'unrelated' }],
+    });
+    assert.equal(await probe(), null);
+  });
+
+  it('returns null when the provider has no listing surface', async () => {
+    const { probe } = await captureProbe({});
+    assert.equal(await probe(), null);
+  });
+
+  it('returns null when the listing throws — best-effort, never fatal', async () => {
+    const { probe } = await captureProbe({
+      listIssuesByLabel: async () => {
+        throw new Error('rate limited');
+      },
+    });
+    assert.equal(await probe(), null);
+  });
+
+  it('returns null when the listing yields a non-array', async () => {
+    const { probe } = await captureProbe({
+      listIssuesByLabel: async () => null,
+    });
+    assert.equal(await probe(), null);
+  });
+
+  it('scopes the listing to open type::story issues', async () => {
+    let args = null;
+    const { probe } = await captureProbe({
+      listIssuesByLabel: async (a) => {
+        args = a;
+        return [];
+      },
+    });
+    await probe();
+    assert.deepEqual(args, { state: 'open', labels: TYPE_LABELS.STORY });
   });
 });

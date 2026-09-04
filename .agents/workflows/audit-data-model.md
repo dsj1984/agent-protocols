@@ -27,7 +27,7 @@ than empty findings. The applicability probe (`hasPersistenceLayer` in
 [`lib/audit-suite/selector.js`](../scripts/lib/audit-suite/selector.js), gated
 by `target: "data-model"` in
 [`schemas/audit-rules.json`](../schemas/audit-rules.json)) makes this decision
-automatically in `/deliver` and plan-run modes; in a manual invocation you MUST
+automatically in `/mandrel-deliver` and plan-run modes; in a manual invocation you MUST
 make the same determination yourself before reading anything else.
 
 ## Scope

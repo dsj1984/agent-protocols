@@ -1,8 +1,8 @@
 /**
- * plan-critics-workflow.test.js — the /plan critic contract, both halves.
+ * plan-critics-workflow.test.js — the /mandrel-plan critic contract, both halves.
  *
  * Structural half: the deleted `helpers/plan-epic.md` workflow used to host
- * the planning critics; Stage 3 collapsed `/plan` to one `plan.md` path and
+ * the planning critics; Stage 3 collapsed `/mandrel-plan` to one `mandrel-plan.md` path and
  * removed that fork. These assertions keep the old helper surface from
  * reappearing through stale prose.
  *
@@ -38,7 +38,7 @@ const planSource = readWorkflow();
 
 function readWorkflow() {
   return fs.readFileSync(
-    path.join(REPO_ROOT, '.agents', 'workflows', 'plan.md'),
+    path.join(REPO_ROOT, '.agents', 'workflows', 'mandrel-plan.md'),
     'utf8',
   );
 }
@@ -67,7 +67,7 @@ function slicingTableFor(stories) {
   ].join('\n');
 }
 
-describe('/plan critic workflow — retired helper surface stays gone', () => {
+describe('/mandrel-plan critic workflow — retired helper surface stays gone', () => {
   it('uses plan.md as the sole planning workflow source', () => {
     assertDocMentions(
       planSource,
@@ -98,7 +98,7 @@ describe('/plan critic workflow — retired helper surface stays gone', () => {
   });
 });
 
-describe('/plan critic workflow — the live pre-persist critic step (#4592)', () => {
+describe('/mandrel-plan critic workflow — the live pre-persist critic step (#4592)', () => {
   it('runs the plan-critics.js CLI as a real workflow step', () => {
     assert.match(planSource, /node \.agents\/scripts\/plan-critics\.js/);
   });
@@ -248,7 +248,7 @@ describe('story-author prompt — codified text-hygiene conventions (#4599)', ()
   });
 });
 
-describe('/plan critic workflow — persist no longer evaluates critics', () => {
+describe('/mandrel-plan critic workflow — persist no longer evaluates critics', () => {
   const persistSource = fs.readFileSync(
     path.join(
       REPO_ROOT,

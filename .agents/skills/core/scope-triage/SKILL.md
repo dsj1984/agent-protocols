@@ -1,8 +1,8 @@
 ---
 name: scope-triage
 description:
-  Optional split-advisory for `/plan`. Under v2 there is no epic|story routing
-  verdict — `/plan` always authors Stories. Use this skill only when judging
+  Optional split-advisory for `/mandrel-plan`. Under v2 there is no epic|story routing
+  verdict — `/mandrel-plan` always authors Stories. Use this skill only when judging
   whether a draft should stay one Story or legitimately split (near-zero
   overlap or an architectural seam).
 ---
@@ -11,7 +11,7 @@ description:
 
 ## Policy Capsule
 
-- There is **no** `epic | story | borderline` routing verdict in v2. `/plan`
+- There is **no** `epic | story | borderline` routing verdict in v2. `/mandrel-plan`
   is a single path that emits **one Story by default**.
 - This skill is an optional **split advisory**: should the author keep one
   Story, or does the seed clear the default-single split policy?

@@ -1,13 +1,13 @@
 ---
 description: >-
   Perform a comprehensive code review of a Story change set against main
-  before `/deliver` opens or merges the Story PR
+  before `/mandrel-deliver` opens or merges the Story PR
 ---
 
 # Code Review (helper)
 
 > **Helper module.** Not a slash command. Invoked automatically from
-> `/deliver` via `single-story-close.js`. To run a review directly, invoke
+> `/mandrel-deliver` via `single-story-close.js`. To run a review directly, invoke
 > the parent workflow — operators do not call this helper by hand.
 
 This helper performs a comprehensive code review of a change set before it
@@ -36,7 +36,7 @@ child.
 
 ## Argument contract
 
-The caller passes the following arguments (`/deliver` passes
+The caller passes the following arguments (`/mandrel-deliver` passes
 `scope: story`):
 
 | Argument    | Type                                  | Required | Meaning                                                                                          |
@@ -61,7 +61,7 @@ It is an **input-only** signal: it changes *how thorough* the review is, never
 the findings envelope (`{ status, severity, posted, report, halted,
 blockerReason }`) nor the posted `verification-results` structured-comment body. An
 absent or malformed `depth` is treated as `standard`, so a Story that skipped
-`/plan` still gets a passing review with no new failure mode.
+`/mandrel-plan` still gets a passing review with no new failure mode.
 
 How each tier changes the review protocol:
 

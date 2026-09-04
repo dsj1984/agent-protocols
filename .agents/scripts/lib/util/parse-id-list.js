@@ -2,7 +2,7 @@
  * parse-id-list — expand a Story-id list that may contain dash ranges.
  *
  * Operators name a contiguous span of Stories the way they read one — as a
- * range: `/deliver 4922 - 4926`. Enumerating it by hand is the kind of
+ * range: `/mandrel-deliver 4922 - 4926`. Enumerating it by hand is the kind of
  * transcription step that silently drops or invents an id, so the range is a
  * first-class shape of every delivery id list rather than something the host
  * expands from prose.

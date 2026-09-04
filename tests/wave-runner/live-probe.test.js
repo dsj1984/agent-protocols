@@ -1,7 +1,7 @@
 /**
  * tests/wave-runner/live-probe.test.js — Stories #4594, #4601.
  *
- * Probe mode exists to delete hand-maintained accounting from the `/deliver`
+ * Probe mode exists to delete hand-maintained accounting from the `/mandrel-deliver`
  * beat: the host LLM used to re-seed `--done` and count `--in-flight` by
  * following prose, and every one of those transcriptions was a chance to
  * silently wedge a run or double-dispatch a Story.
@@ -383,7 +383,7 @@ describe('runProbedStoriesWaveTick — the flag-free beat', () => {
   it('exits 4 and names the Story when one carries agent::blocked', async () => {
     // Before Story #4601 this was exit 0 / ready: [] / wedged: null forever:
     // blocked is neither done nor ready nor in-flight, and detectWedge drops a
-    // Story with no unmet blockers. /deliver read that as "waiting" and polled
+    // Story with no unmet blockers. /mandrel-deliver read that as "waiting" and polled
     // a state no beat could ever change.
     const { envelope, exitCode } = await tick({
       101: issue(101, { labels: ['agent::blocked'] }),

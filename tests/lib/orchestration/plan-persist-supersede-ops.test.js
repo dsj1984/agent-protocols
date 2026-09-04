@@ -1,5 +1,5 @@
 /**
- * Unit tests for the `/plan --tickets` supersede close phase (Story #4535).
+ * Unit tests for the `/mandrel-plan --tickets` supersede close phase (Story #4535).
  */
 
 import assert from 'node:assert/strict';
@@ -265,7 +265,7 @@ describe('buildSupersedeCommentBody', () => {
       /\*\*Superseded by #4530\*\* — \*feat\(plan\): close superseded\*/,
     );
     assert.match(body, /`type::story`, `agent::ready`/);
-    assert.match(body, /Planned via `\/plan --tickets 4525,4526`/);
+    assert.match(body, /Planned via `\/mandrel-plan --tickets 4525,4526`/);
     assert.match(
       body,
       /preserved as the historical record; #4530 carries the delivery contract/,

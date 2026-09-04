@@ -1,5 +1,5 @@
 ---
-description: Human-led QA assist loop — set up, then ride a rolling multi-observation intake session. The operator reports observations in any order; the agent enriches each (repro + root-cause file:line + coverage verdict for bugs; analysis + options + recommendation for enhancements), asks clarifying questions only when ambiguous, and appends a redacted ledger item — recording, never planning — to a persistent, resumable session under temp/qa/. Only when the operator says they are done does it review the full ledger and hand off to /plan.
+description: Human-led QA assist loop — set up, then ride a rolling multi-observation intake session. The operator reports observations in any order; the agent enriches each (repro + root-cause file:line + coverage verdict for bugs; analysis + options + recommendation for enhancements), asks clarifying questions only when ambiguous, and appends a redacted ledger item — recording, never planning — to a persistent, resumable session under temp/qa/. Only when the operator says they are done does it review the full ledger and hand off to /mandrel-plan.
 ---
 
 # /qa-assist
@@ -21,7 +21,7 @@ high-quality, triage-ready ledger. The session has four movements:
    a final review of the **entire** ledger and asks any last clarifying
    questions.
 4. **Triage & Plan** (Phase 4) — only then does it route the full ledger through
-   [`/plan`](plan.md) to generate Stories.
+   [`/mandrel-plan`](mandrel-plan.md) to generate Stories.
 
 Unlike [`/qa-explore`](qa-explore.md) (where the *agent* drives open-ended
 exploration of a named surface), `/qa-assist` is **human-led**: the human owns
@@ -89,12 +89,12 @@ rolling loop stays fluid:
   to **ask clarifying questions when the observation is ambiguous**. After each
   append it **echoes the recorded item** for correction, then **loops back** for
   the next observation. It does **not** triage, route, file tickets, or invoke
-  `/plan` during intake.
+  `/mandrel-plan` during intake.
 - **Two things always require explicit operator confirmation** (the HITL write
   gate in [`helpers/qa-core.md`](helpers/qa-core.md)). First, the session-level
   transition into **Phase 4 — Triage & Plan** — the operator must say they are
   done. Second, **every write that leaves the local ledger** — filing a ticket,
-  invoking `/plan`, or mutating a label. Present the artifact, ask, and wait.
+  invoking `/mandrel-plan`, or mutating a label. Present the artifact, ask, and wait.
 
 In short: appending to the rolling ledger is the natural product of intake and
 needs no gate beyond the echo-back; **planning and anything that leaves the
@@ -198,7 +198,7 @@ every decision to the shared helpers; never re-derive them in prose.
 ## Phase 3 — Record (per observation), then loop
 
 Goal: persist the enriched finding to the rolling ledger and **return to
-intake**. **No triage, routing, ticket-filing, or `/plan` happens here** — that
+intake**. **No triage, routing, ticket-filing, or `/mandrel-plan` happens here** — that
 is Phase 4, and only after the operator says they are done.
 
 1. **Append a `QaLedgerItem`** to the ledger (shape per
@@ -232,17 +232,17 @@ its transition is **explicitly operator-gated**.
 2. **Triage the ledger** through the shared classify → route → disposition →
    promote procedure in [`helpers/qa-core.md`](helpers/qa-core.md): dedup/route
    each `file` finding against open + closed Issues, then promote the
-   `file`-dispositioned findings through `promoteFindings` → `/plan` (never a raw
+   `file`-dispositioned findings through `promoteFindings` → `/mandrel-plan` (never a raw
    Issue), stamping each cluster's `fingerprintFooter(sha)` into the seed.
    `defer` carries an item forward as backlog; `dismiss` marks it non-actionable.
 3. **Gate:** the move into this phase, and every write inside it (seed write,
-   `/plan` invocation, ticket-filing, label mutation), is **operator-gated** —
+   `/mandrel-plan` invocation, ticket-filing, label mutation), is **operator-gated** —
    confirm each one. The plan→deliver hard stop is preserved; redaction has
    already run, so nothing unredacted reaches disk or GitHub.
 
 After planning, summarize: the findings recorded, the route/promotion decisions
 (`new`/`update-existing`/`duplicate`/`regression-of-closed`), whether each
-cluster became a Story via `/plan --seed-file`, and any `defer` backlog a
+cluster became a Story via `/mandrel-plan --seed-file`, and any `defer` backlog a
 resumed session will pick up.
 
 ---
@@ -259,7 +259,7 @@ the `/qa-assist`-specific deltas are:
   records each. **Never invent an observation**; ask clarifying questions only
   when one is ambiguous, batched across the dump.
 - **Record during intake; plan only on "done".** Phases 1–3 enrich, append, and
-  loop — never triage, route, file, or invoke `/plan`. All of that is Phase 4,
+  loop — never triage, route, file, or invoke `/mandrel-plan`. All of that is Phase 4,
   entered only on explicit operator confirmation that testing is done.
 - **Light intake gate, firm boundary gate.** Intake → Enrich → Record is fluid
   (echo-back, no ceremony); the move into Phase 4 and every write that leaves the
@@ -275,11 +275,11 @@ the `/qa-assist`-specific deltas are:
 
 ## See also
 
-- [`/plan`](plan.md) — the planning pipeline `/qa-assist` chains into in Phase 4.
+- [`/mandrel-plan`](mandrel-plan.md) — the planning pipeline `/qa-assist` chains into in Phase 4.
   The plan→deliver hard stop is preserved across the handoff.
 - [`/qa-explore`](qa-explore.md) — the agent-led sibling that drives a named
-  surface and triages through the same `/plan` handoff.
+  surface and triages through the same `/mandrel-plan` handoff.
 - [`/audit-to-stories`](audit-to-stories.md) — the precedent for the
-  findings → `/plan` handoff and the shared fingerprint-footer dedup contract.
+  findings → `/mandrel-plan` handoff and the shared fingerprint-footer dedup contract.
 - [`helpers/qa-core.md`](helpers/qa-core.md) — the shared contract/session/
   redaction/QaLedgerItem/triage/HITL core.

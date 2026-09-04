@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 
 /**
- * plan-critics.js — the /plan critic-dispatch verdict CLI (Story #4592).
+ * plan-critics.js — the /mandrel-plan critic-dispatch verdict CLI (Story #4592).
  *
- * `/plan` step 2.5 (between Author and Persist) runs this against the draft
+ * `/mandrel-plan` step 2.5 (between Author and Persist) runs this against the draft
  * `stories.json`. It evaluates the consolidation + pre-mortem dispatch
  * conditions and prints the verdict as JSON on stdout so the workflow can
  * act on it — dispatching a fresh-context critic sub-agent and folding its

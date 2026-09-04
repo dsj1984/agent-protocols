@@ -84,7 +84,7 @@ async function emitTerminal({ terminal, result, config }) {
  * issue as `completed` (the `Closes #<id>` footer firing on merge — the work
  * IS on the base branch) or as `not_planned` (superseded by a re-plan,
  * abandoned — nothing ever merged). Reporting the second as `landed` told
- * `/deliver` that work had reached `main` when no PR ever merged, which would
+ * `/mandrel-deliver` that work had reached `main` when no PR ever merged, which would
  * also satisfy any dependent Story waiting on it. Fail loudly instead: being
  * handed an abandoned Story is an input error only the operator can resolve.
  *
@@ -283,7 +283,7 @@ async function openAndReviewPr({
     });
     throw new Error(
       `[single-story-close] Story-scope review reported ${criticalCount} critical blocker(s) on PR ${prUrl}. ` +
-        'Auto-merge was not enabled. Remediate the findings posted to the PR and re-run `/deliver`. ' +
+        'Auto-merge was not enabled. Remediate the findings posted to the PR and re-run `/mandrel-deliver`. ' +
         'If you have reviewed a finding and judged it wrong, re-run with ' +
         '`--override-review-block "<reason>"` rather than merging by hand.',
     );

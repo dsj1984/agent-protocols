@@ -12,7 +12,7 @@
  * Section-scoped writes are the load-bearing contract (extending the
  * single-writer discipline #4303 established for the body trailer):
  *
- *   - The `/plan` persist path upserts the `techSpec` and `acceptanceTable`
+ *   - The `/mandrel-plan` persist path upserts the `techSpec` and `acceptanceTable`
  *     regions.
  *   - The close-time acceptance reconciler
  *     (`acceptance-spec-reconciler.js`) reads and rewrites the

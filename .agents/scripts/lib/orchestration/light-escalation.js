@@ -7,9 +7,9 @@
  * {@link module:lib/orchestration/light-suitability}:
  *
  *   1. **Recycling the receipt.** A blocked diff backstop used to tell the
- *      operator to "escalate to `/plan`", which authored a brand-new Story and
+ *      operator to "escalate to `/mandrel-plan`", which authored a brand-new Story and
  *      left the receipt open with no successor — orphaning its branch, its
- *      worktree, and a finished implementation. Naming the receipt as `/plan`'s
+ *      worktree, and a finished implementation. Naming the receipt as `/mandrel-plan`'s
  *      *input* recycles it instead: tickets mode already fetches a ticket,
  *      rewrites it into properly-planned Stories, and closes the source as
  *      superseded.
@@ -45,13 +45,13 @@ import {
 } from '../observability/runtime-friction.js';
 
 /**
- * The `/plan` invocation that owns a Story the light path could not land.
+ * The `/mandrel-plan` invocation that owns a Story the light path could not land.
  *
  * @param {number} storyId
  * @returns {string}
  */
 function buildRecycleCommand(storyId) {
-  return `/plan ${storyId}`;
+  return `/mandrel-plan ${storyId}`;
 }
 
 /**
@@ -106,7 +106,7 @@ export async function recordGateRefusal({
 
 /**
  * Handle a blocked diff backstop: record the refusal as friction and return the
- * `/plan` invocation that recycles the receipt.
+ * `/mandrel-plan` invocation that recycles the receipt.
  *
  * Lives here rather than in the CLI so the shell stays a shell — the backstop
  * mode's job is to branch and print, not to decide what a refusal means.
@@ -152,7 +152,7 @@ export async function handleBlockedBackstop({
  * recoverable (Story #4875).
  *
  * A blocked backstop refuses the *land*, not the *work*: the implementation is
- * complete and the recycle command hands the receipt to `/plan`, which will
+ * complete and the recycle command hands the receipt to `/mandrel-plan`, which will
  * want it. Before this, that work existed only as a local `story-<id>` branch
  * with no remote ref — an untracked branch is exactly what the routine merged-
  * branch sweeps and worktree reaping treat as disposable, so the only copy of a

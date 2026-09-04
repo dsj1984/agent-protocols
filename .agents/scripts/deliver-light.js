@@ -5,7 +5,7 @@
  *
  * A **thin entry point, not a second delivery engine.** It runs the
  * suitability gate, authors a minimal receipt `type::story`, and then hands off
- * to the SAME engine scripts `/deliver` uses:
+ * to the SAME engine scripts `/mandrel-deliver` uses:
  *
  *   suitability gate  →  inline receipt Story  →  single-story-init.js
  *     →  (agent implements + self-evals)  →  diff backstop
@@ -38,9 +38,9 @@
  * envelope with status `escalated` and **ends the session**. Before that it was
  * an ordinary gate envelope plus exit 2 — a warning a caller could walk past,
  * and one mandrel-bench 2.13.0 light-arm run did exactly that: it read the
- * escalation, invoked `/plan` in the same session, and delivered. In-session
+ * escalation, invoked `/mandrel-plan` in the same session, and delivered. In-session
  * planning under-decomposed (ONE Story against the scenario's 3-5 contract,
- * where a fresh `/plan` session on the identical seed authored four), so
+ * where a fresh `/mandrel-plan` session on the identical seed authored four), so
  * escalation silently produced the outcome the guard exists to prevent.
  * {@link module:lib/orchestration/story-deliver-terminal.buildEscalationTerminal}
  * carries the guarantees the schema then enforces.
@@ -88,7 +88,7 @@ Usage:
   deliver-light.js --backstop --story <id>
 
 The thin /deliver-light entry point: suitability gate → inline receipt Story →
-the same single-story-init.js / single-story-close.js engine /deliver uses.
+the same single-story-init.js / single-story-close.js engine /mandrel-deliver uses.
 
 The gate judges EFFORT and RISK, not artifact counts: N instances of one
 mechanical edit is one kind at N sites. It rejects only clearly-epic work; the
@@ -102,9 +102,9 @@ Gate options:
   --kinds <csv>      Distinct KINDS of change (default: one per assumption, so
                      N same-shaped edits count once).
   --magnitude <m>    Coarse effort bucket: trivial | moderate | substantial
-                     (default moderate; substantial routes to /plan).
+                     (default moderate; substantial routes to /mandrel-plan).
   --uncertainty <u>  determined (the request fixes the shape) | needs-design
-                     (default determined; needs-design routes to /plan).
+                     (default determined; needs-design routes to /mandrel-plan).
   --route <r>        Ledgered model verdict route: lite | full.
   --reason <text>    Recorded reason for a lite verdict (required for lite).
   --amends <#id>     Mark this as an amendment of an existing issue.
@@ -125,7 +125,7 @@ Backstop options:
                      change's IMPLEMENTATION half by magnitude (changed lines +
                      file sprawl); test/doc/baseline companions are exempt from
                      the counts but still matched for sensitive paths. A block
-                     emits a nextCommand recycling the receipt through /plan.
+                     emits a nextCommand recycling the receipt through /mandrel-plan.
   --story <id>       Story issue number whose story-<id> branch to diff.
 
   --pretty           Pretty-print the JSON envelope.
@@ -280,7 +280,7 @@ export async function createLightReceipt({
 }
 
 /**
- * The engine hand-off — the SAME scripts `/deliver` uses. Named here as
+ * The engine hand-off — the SAME scripts `/mandrel-deliver` uses. Named here as
  * commands, never reimplemented: this is the whole of deliver-light's
  * relationship to worktree/branch/lease/PR/merge mechanics.
  *
@@ -397,7 +397,7 @@ export async function runGateMode(values, deps = {}) {
   if (values.yes === true && hasOperatorOverride(values)) {
     process.stderr.write(HELP);
     throw new Error(
-      '[deliver-light] --operator-proceed-light is attended-only and cannot be combined with --yes: an unattended run has no operator whose answer this is, and over-scope must fail closed to /plan',
+      '[deliver-light] --operator-proceed-light is attended-only and cannot be combined with --yes: an unattended run has no operator whose answer this is, and over-scope must fail closed to /mandrel-plan',
     );
   }
 
@@ -423,7 +423,7 @@ export async function runGateMode(values, deps = {}) {
     });
     emitTerminalFn(envelope);
     Logger.warn(
-      `[deliver-light] ESCALATED to /plan — this session ENDS here; run ${envelope.nextCommand} in a FRESH session: ${gate.outcome.reasons.join('; ')}`,
+      `[deliver-light] ESCALATED to /mandrel-plan — this session ENDS here; run ${envelope.nextCommand} in a FRESH session: ${gate.outcome.reasons.join('; ')}`,
     );
     return exitCodeForTerminal(envelope);
   }

@@ -1,6 +1,6 @@
 /**
  * prior-feedback-fetcher.js — gh-CLI-backed fetcher for open meta feedback
- * issues that feed the `/plan` Phase 0 planner context.
+ * issues that feed the `/mandrel-plan` Phase 0 planner context.
  *
  * Story #2554 / Epic #2547. Tech Spec #2550 specifies that the fetcher MUST
  * return open issues carrying the `meta::framework-gap` and
@@ -17,8 +17,8 @@
  * `recurringDefectClasses[]` array derived from the `friction::<class>`
  * labels the retro routed-proposals composer stamps onto the meta issues it
  * proposes. That closes the retro→planner loop: a recurring defect class
- * caught by review/deliver is filed as a `meta::*` + `friction::<class>`
- * issue, and the next `/plan` Phase 0 surfaces the class (with a recurrence
+ * caught by review/mandrel-deliver is filed as a `meta::*` + `friction::<class>`
+ * issue, and the next `/mandrel-plan` Phase 0 surfaces the class (with a recurrence
  * count across the open feedback issues) to the decompose-author guidance so
  * the planning floor ratchets up. The derivation is no-op-safe: issues with
  * no `friction::*` label contribute nothing and the array is empty.
@@ -297,7 +297,7 @@ export async function fetchPriorFeedback({
 
   // Story #4135 (Epic #4131, F11) — close the retro→planner loop: derive the
   // recurring defect classes from the `friction::<class>` labels carried by
-  // the deduped feedback issues, so the next /plan Phase 0 surfaces them to
+  // the deduped feedback issues, so the next /mandrel-plan Phase 0 surfaces them to
   // the decompose-author guidance. No-op-safe when no issue carries a
   // `friction::*` label (empty array, no behavioural change).
   envelope.recurringDefectClasses = extractRecurringDefectClasses([

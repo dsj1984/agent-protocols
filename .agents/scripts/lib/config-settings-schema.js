@@ -432,7 +432,7 @@ const GITHUB_SCHEMA = {
 };
 
 // ---------------------------------------------------------------------------
-// planning.* — inputs to /plan
+// planning.* — inputs to /mandrel-plan
 // ---------------------------------------------------------------------------
 
 // Story #4541: `planning.context.{maxBytes, summaryMode}` was retired. The
@@ -456,7 +456,7 @@ const GITHUB_SCHEMA = {
 const PLANNING_SCHEMA = {
   type: 'object',
   description:
-    'Inputs to `/plan`: risk escalation heuristics, ceremony-lite routing, and the cross-Story conflict-finding severity gates.',
+    'Inputs to `/mandrel-plan`: risk escalation heuristics, ceremony-lite routing, and the cross-Story conflict-finding severity gates.',
   properties: {
     riskHeuristics: {
       ...LIST_OR_EXTENDER_OF_STRINGS,
@@ -591,7 +591,7 @@ const PLANNING_SCHEMA = {
 };
 
 // ---------------------------------------------------------------------------
-// delivery.* — /deliver + story-deliver consume. The full block of
+// delivery.* — /mandrel-deliver + story-deliver consume. The full block of
 // per-key sub-schemas lives in `config-settings-schema-delivery.js` (refs
 // #3457); DELIVERY_SCHEMA is imported above and referenced unchanged below.
 // ---------------------------------------------------------------------------

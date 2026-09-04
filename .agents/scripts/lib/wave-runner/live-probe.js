@@ -7,7 +7,7 @@
  * in-flight count, and it decides. Until now the only adapter was the
  * flag-driven one (`stories-wave-tick.js --dag/--done/--in-flight`), which
  * pushed the *gathering* of those inputs onto the caller — in practice onto
- * the host LLM following `/deliver`'s prose, re-seeding `--done` and counting
+ * the host LLM following `/mandrel-deliver`'s prose, re-seeding `--done` and counting
  * `--in-flight` by hand every beat. That is hand-maintained accounting on the
  * one correctness-critical path where a mistake silently wedges a run (a
  * dropped foreign blocker) or double-dispatches a Story (a miscounted slot).
@@ -47,7 +47,7 @@
  * The graph resolution is **not** reimplemented here — it reuses
  * `resolve-stories.js`'s machinery wholesale (body `depends_on` ∪ native
  * `blocked_by` edges, foreign-blocker resolution, `files[]` footprints), so
- * the probe and `/deliver`'s step-1 resolution cannot disagree about what
+ * the probe and `/mandrel-deliver`'s step-1 resolution cannot disagree about what
  * depends on what.
  *
  * @module lib/wave-runner/live-probe
@@ -127,7 +127,7 @@ function deriveInFlightIds(storyRecords, dispatched = []) {
  * in-flight, so `detectWedge` dropped it (its "undone work with no unmet
  * blockers would have been dispatched" invariant is precisely what probe mode
  * broke) and the beat reported exit 0 / `ready: []` / `wedged: null` forever.
- * `/deliver` reads that as "waiting", so the `agent::blocked` HITL pause — the
+ * `/mandrel-deliver` reads that as "waiting", so the `agent::blocked` HITL pause — the
  * one runtime gate in the protocol — was never surfaced to the operator.
  *
  * @param {Array<{id?: number, number?: number, labels?: string[], state?: string}>} storyRecords
@@ -193,7 +193,7 @@ function deriveForeignHeld(storyRecords, self, warn) {
  * Resolve the provider + repo coordinates the probe reads through.
  *
  * Shares `resolve-stories.js`'s provider seam, so probe mode authenticates and
- * targets exactly the same repo `/deliver`'s resolution step does. Tests
+ * targets exactly the same repo `/mandrel-deliver`'s resolution step does. Tests
  * inject a stub provider instead of calling this.
  *
  * @param {object} [deps]

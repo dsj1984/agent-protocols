@@ -21,7 +21,7 @@ import { BODY_FORMAT_LINTS } from '../story-body/body-format-lints.js';
  *
  * **Single source of the prompt body (Story #4162).** This module is the sole
  * carrier of the full decomposer system-prompt body, delivered to the host
- * LLM in the `systemPrompts.decompose` field of the `/plan` context envelope
+ * LLM in the `systemPrompts.decompose` field of the `/mandrel-plan` context envelope
  * (via `lib/orchestration/planning/decomposer-context.js`), so no second
  * verbatim copy can drift.
  */

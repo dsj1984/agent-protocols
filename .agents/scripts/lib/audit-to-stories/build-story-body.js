@@ -292,7 +292,7 @@ export function buildStoryBody({ group, edges = [], issueByGroupKey = null }) {
   };
 
   // The `---` / `blocked by #N` footer is the canonical serializer's own, so
-  // the body round-trips through `parse()` and `/deliver`'s resolver reads the
+  // the body round-trips through `parse()` and `/mandrel-deliver`'s resolver reads the
   // ordering from the same place it reads every other Story's.
   const canonicalSections = serialize(storyBody, {
     includeFooter: storyBody.depends_on.length > 0,

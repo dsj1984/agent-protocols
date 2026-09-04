@@ -349,7 +349,7 @@ test('ticketing.js', async (t) => {
       // would otherwise silently drop every fire. Both intermediate
       // tickets are tagged `type::story` rather than the retired Epic type because
       // `cascadeCompletion` deliberately *skips* auto-close on Epics
-      // (their close path is `/deliver`, not the cascade).
+      // (their close path is `/mandrel-deliver`, not the cascade).
       mock.tickets[1].labels = ['agent::executing', 'type::story'];
       mock.tickets[2].labels = ['agent::executing', 'type::story'];
       mock.tickets[3].labels = ['agent::done'];

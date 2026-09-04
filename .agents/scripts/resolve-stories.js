@@ -2,9 +2,9 @@
 
 /**
  * resolve-stories.js — resolve a list of Story ids into the
- * `{ stories, dag, done }` envelope `/deliver` sequences from.
+ * `{ stories, dag, done }` envelope `/mandrel-deliver` sequences from.
  *
- * This is the ONE resolution step for multi-Story delivery. `/deliver` takes
+ * This is the ONE resolution step for multi-Story delivery. `/mandrel-deliver` takes
  * only Story ids; the graph is discovered here, from live state, rather than
  * hand-transcribed by the host or implied by a batch label.
  *
@@ -63,7 +63,7 @@ const HELP = `\
 Usage:
   resolve-stories.js --ids <n,n,...> [--pretty] [--no-native]
 
-Resolve Story ids into the { stories, dag, done } envelope /deliver sequences
+Resolve Story ids into the { stories, dag, done } envelope /mandrel-deliver sequences
 from. Dependencies are discovered from live state: body edges union native
 blocked_by edges, with every blocker (in-set or foreign) resolved against its
 real issue state.

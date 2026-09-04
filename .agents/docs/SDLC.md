@@ -11,7 +11,7 @@ An Epic may still exist as an **optional untyped human umbrella issue**
 `.github/ISSUE_TEMPLATE/story.yml`), but **delivery and planning
 orchestration are Story-only**: there is no Epic wave loop, no
 `epic/<id>` integration branch, no `epic.yaml` reconciler, and any ticket
-that still carries an `Epic: #N` footer is **refused** by `/deliver`
+that still carries an `Epic: #N` footer is **refused** by `/mandrel-deliver`
 (close it or re-plan it as a v2 Story).
 
 The framework is **Claude Code-first**: `.claude/`, hooks, skills, and
@@ -26,25 +26,25 @@ ADR 20260512-coupling-stance in [`../docs/decisions.md`](../../docs/decisions.md
 
 From zero to shipped:
 
-1. **Plan the work.** Run [`/plan`](../workflows/plan.md) in your agentic IDE.
+1. **Plan the work.** Run [`/mandrel-plan`](../workflows/mandrel-plan.md) in your agentic IDE.
    The framework authors **one Story by default** (folded Tech Spec in
    `## Spec`), splitting into N>1 only under the default-single split policy.
-   Three operator modes are the **only** accepted entries — `/plan --seed
-   "<text>"` (ideate from chat text), `/plan --seed-file <path>` (author from
+   Three operator modes are the **only** accepted entries — `/mandrel-plan --seed
+   "<text>"` (ideate from chat text), `/mandrel-plan --seed-file <path>` (author from
    on-disk notes / a plan seed — the [`/audit-to-stories`](../workflows/audit-to-stories.md)
-   handoff via `--emit-plan-seed`), and `/plan --tickets 123[,456…]` (analyze
-   existing issue(s), preferring an N=1 rewrite). `/plan` is a **single path**
+   handoff via `--emit-plan-seed`), and `/mandrel-plan --tickets 123[,456…]` (analyze
+   existing issue(s), preferring an N=1 rewrite). `/mandrel-plan` is a **single path**
    — interrogate → author → persist, bracketed by two HITL gates and a single
    critic gate — with no Epic/Story router, scope-triage verdict, or
    `deliveryShape`. Duplicate search targets open **Stories**, never Epics. The
-   step-by-step lives in [`plan.md`](../workflows/plan.md).
+   step-by-step lives in [`mandrel-plan.md`](../workflows/mandrel-plan.md).
 
-2. **Deliver the Story.** Run [`/deliver <storyId>`](../workflows/deliver.md)
-   (or `/deliver <a> <b> …` for several). `/deliver` takes only Story ids and
+2. **Deliver the Story.** Run [`/mandrel-deliver <storyId>`](../workflows/mandrel-deliver.md)
+   (or `/mandrel-deliver <a> <b> …` for several). `/mandrel-deliver` takes only Story ids and
    resolves their dependency graph from live state — body edges union native
    GitHub `blocked_by` edges, every blocker checked against its real issue
    state, so a Story whose blocker landed in an earlier plan run is simply
-   ready. `/deliver` owns input resolution and dispatch order — the declared
+   ready. `/mandrel-deliver` owns input resolution and dispatch order — the declared
    `depends_on` edges plus a delivery-time file-overlap guard that withholds
    two Stories whose footprints would race the same path (see
    [`architecture.md` § Scheduler safety mechanics](../../docs/architecture.md));
@@ -52,14 +52,14 @@ From zero to shipped:
    [`helpers/deliver-story`](../workflows/helpers/deliver-story.md) —
    init → implement → acceptance self-eval → ceremony → close → CI watch →
    confirm-merge — which owns its own per-step detail. For a multi-Story run,
-   `/deliver` sequences ready Stories by `depends_on` — plus that footprint
+   `/mandrel-deliver` sequences ready Stories by `depends_on` — plus that footprint
    guard — and runs the per-run epilogue (audit roster · follow-up roll-up ·
    sibling coherence) once after the last Story lands.
 
 That is the whole happy path. Everything below is **detail** — branching
 conventions, HITL escalation, audit lenses — that you only need when the
 default flow requires adjustment. It intentionally **links** to
-[`plan.md`](../workflows/plan.md) and [`deliver.md`](../workflows/deliver.md)
+[`mandrel-plan.md`](../workflows/mandrel-plan.md) and [`mandrel-deliver.md`](../workflows/mandrel-deliver.md)
 rather than re-documenting the ceremony they own.
 
 ## Core Principles
@@ -79,7 +79,7 @@ rather than re-documenting the ceremony they own.
   `story-<id>` branch. Each Story reaches `main` through its own PR
   (squash + required checks); there is **no** `epic/<id>` integration
   branch and **no** `--no-ff` wave merge.
-- **One delivery engine.** `/deliver` resolves and sequences a Story set;
+- **One delivery engine.** `/mandrel-deliver` resolves and sequences a Story set;
   `helpers/deliver-story` executes each Story identically (trivial or
   large). Story sub-agents run inside the operator's Claude session via
   the Agent tool — worktree filesystem isolation is preserved; only the
@@ -133,12 +133,12 @@ graph LR
 
     subgraph Phase0 ["Phase 0: Bootstrap"]
         direction TB
-        Z["👤 npx mandrel init<br/>(install → sync → bootstrap.js → onboarding tail → /plan handoff)"]:::manual
+        Z["👤 npx mandrel init<br/>(install → sync → bootstrap.js → onboarding tail → /mandrel-plan handoff)"]:::manual
     end
 
     subgraph Phase1 ["Phase 1: Plan"]
         direction TB
-        A["👤 /plan --seed | --seed-file | --tickets"]:::manual
+        A["👤 /mandrel-plan --seed | --seed-file | --tickets"]:::manual
         B["🤖 interrogate → author → persist"]:::agentic
         A --> B
         B -.-> B_Art["📄 type::story issue(s)<br/>(+ depends_on edges)"]:::artifact
@@ -146,7 +146,7 @@ graph LR
 
     subgraph Phase2 ["Phase 2: Deliver"]
         direction TB
-        E["👤 /deliver &lt;storyId&gt; [&lt;storyId&gt;…]"]:::manual
+        E["👤 /mandrel-deliver &lt;storyId&gt; [&lt;storyId&gt;…]"]:::manual
         F["🤖 deliver-story: story-&lt;id&gt; from main<br/>implement → self-eval → ceremony → close"]:::agentic
         G["🤖 close-validation → code-review → open PR"]:::agentic
         E --> F --> G
@@ -192,14 +192,14 @@ branch-protection entries are preserved; missing ones are added.
 
 ## Phase 1: Planning
 
-Planning is owned end-to-end by [`/plan`](../workflows/plan.md). Rather than
+Planning is owned end-to-end by [`/mandrel-plan`](../workflows/mandrel-plan.md). Rather than
 re-document the ceremony here, this section states the contract the rest of
 the SDLC depends on:
 
 - **Entry is text or tickets, never Epic.** The only accepted invocations
   are `--seed`, `--seed-file`, and `--tickets`. There is no `--idea`, no
-  `--one-pager`, no `--from-notes`, and no positional `/plan <epicId>`.
-- **One Story by default.** `/plan` authors a single `type::story` issue
+  `--one-pager`, no `--from-notes`, and no positional `/mandrel-plan <epicId>`.
+- **One Story by default.** `/mandrel-plan` authors a single `type::story` issue
   whose body carries a folded `## Spec` (inline only — never spilled to
   `docs/`) plus top-level `acceptance[]` / `verify[]`. It splits into N>1
   siblings (ordered by `depends_on` edges) **only**
@@ -213,7 +213,7 @@ the SDLC depends on:
   `assertAcceptancePartition` so every acceptance criterion belongs to
   exactly one Story.
 - **Handoff.** Persist creates the Story issue(s) at `agent::ready` and
-  names the delivery command: `/deliver <storyId> [<storyId> ...]`.
+  names the delivery command: `/mandrel-deliver <storyId> [<storyId> ...]`.
 
 Optional split advisory notes come from
 [`core/scope-triage`](../skills/core/scope-triage/SKILL.md); there is no
@@ -223,13 +223,13 @@ behind them.
 Audit findings enter planning through
 [`/audit-to-stories`](../workflows/audit-to-stories.md), which groups and
 deduplicates findings and hands off via `--emit-plan-seed` →
-`/plan --seed-file <path>`.
+`/mandrel-plan --seed-file <path>`.
 
 ---
 
 ## Phase 2: Delivery
 
-Delivery is owned end-to-end by [`/deliver`](../workflows/deliver.md), which
+Delivery is owned end-to-end by [`/mandrel-deliver`](../workflows/mandrel-deliver.md), which
 delegates every Story to
 [`helpers/deliver-story`](../workflows/helpers/deliver-story.md). This
 section states the contract; the per-Story step detail (init, implement,
@@ -241,11 +241,11 @@ self-eval, ceremony, close, CI watch, confirm-merge, cleanup) lives in the
 
 | Mode | Entry point | When to use |
 | --- | --- | --- |
-| **Single Story** | `/deliver <storyId>` | Deliver one Story end-to-end; ends with a PR open to `main`. |
-| **Story set** | `/deliver <storyId> [<storyId>…]` | Deliver multiple Stories in `depends_on` order (default concurrency **3**), resolved from live state so edges may point at Stories from earlier plan runs; a delivery-time file-overlap guard additionally withholds two Stories whose footprints would race the same path (`delivery.deliverRunner.footprintGuard`). Each lands through its own PR, and the per-run epilogue runs after the set lands. |
-| **Story worker (internal)** | *helper* `helpers/deliver-story <storyId>` | Per-Story engine invoked internally by `/deliver`; not an operator slash command. |
+| **Single Story** | `/mandrel-deliver <storyId>` | Deliver one Story end-to-end; ends with a PR open to `main`. |
+| **Story set** | `/mandrel-deliver <storyId> [<storyId>…]` | Deliver multiple Stories in `depends_on` order (default concurrency **3**), resolved from live state so edges may point at Stories from earlier plan runs; a delivery-time file-overlap guard additionally withholds two Stories whose footprints would race the same path (`delivery.deliverRunner.footprintGuard`). Each lands through its own PR, and the per-run epilogue runs after the set lands. |
+| **Story worker (internal)** | *helper* `helpers/deliver-story <storyId>` | Per-Story engine invoked internally by `/mandrel-deliver`; not an operator slash command. |
 
-The single operator-facing entry point is `/deliver`. It performs no
+The single operator-facing entry point is `/mandrel-deliver`. It performs no
 git/label mutations itself — `deliver-story` owns every script invocation
 per Story. Any ticket that is not `type::story`, or that still carries an
 `Epic: #N` reference, is a hard error naming the ID and the fix (close or
@@ -269,7 +269,7 @@ own planning risk. Hard gates (lint / test / format / coverage / CRAP /
 maintainability) always run at close — risk never disables them; it only
 tunes acceptance-critic mode, review depth, and audit-lens selection. The
 full profile × scope matrix lives in
-[`deliver.md` § Ceremony](../workflows/deliver.md).
+[`mandrel-deliver.md` § Ceremony](../workflows/mandrel-deliver.md).
 
 ### State sync
 
@@ -321,7 +321,7 @@ resolution.
 ## HITL (Human-in-the-Loop) model
 
 On the happy path there is exactly **one** mandatory operator touchpoint
-after `/deliver` fires (blocker resolution). PR merge is autonomous via
+after `/mandrel-deliver` fires (blocker resolution). PR merge is autonomous via
 armed auto-merge; the operator becomes a second touchpoint only by
 exception.
 
@@ -411,7 +411,7 @@ pass — the tiers below *are* the audit machinery.
 | --- | --- | --- | --- |
 | Tier 1 — write-time | During Story implementation | Footprint-matched **local**-lens authoring checklists threaded into the Story prompt (`checklistPath`) | advisory |
 | Tier 2 — Story-scope | `single-story-close.js` (maker-blind subprocess) | Local-tier lens roster over the Story diff (`selectLocalLenses`) + review pillars, posted as `verification-results` | blocking on 🔴 |
-| Tier 3 — run closeout | `/deliver` per-run epilogue (`plan-run-epilogue.js`, N>1 only) | Cumulative + global lenses (`selectAudits`) over the combined landed tip | blocking |
+| Tier 3 — run closeout | `/mandrel-deliver` per-run epilogue (`plan-run-epilogue.js`, N>1 only) | Cumulative + global lenses (`selectAudits`) over the combined landed tip | blocking |
 
 - **`local`** lenses (decidable from a single Story's diff) are verified at
   Tiers 1–2 and are **not** re-run at run closeout.
@@ -452,7 +452,7 @@ baseline edits. The runbooks (bootstrap, refresh, floor policy) are owned by
 The standalone `/audit-<dimension>` workflows write
 `audit-<dimension>-results.md` under `temp/audits/`;
 [`/audit-to-stories`](../workflows/audit-to-stories.md) groups and deduplicates
-those findings and hands off to `/plan --seed-file` (or opens standalone
+those findings and hands off to `/mandrel-plan --seed-file` (or opens standalone
 Stories), closing the loop back into planning.
 
 ---
@@ -560,9 +560,9 @@ Editing the main checkout's `.agentrc.json` only affects **the next**
 
 ### `Epic: #N` refusal
 
-`/deliver` refuses any ticket that still carries an `Epic: #N` footer or is
+`/mandrel-deliver` refuses any ticket that still carries an `Epic: #N` footer or is
 not `type::story`. This is expected — v2 has no Epic delivery path. Close
-the ticket or re-plan the work as a v2 Story via `/plan --tickets <id>`.
+the ticket or re-plan the work as a v2 Story via `/mandrel-plan --tickets <id>`.
 
 ---
 
@@ -570,13 +570,13 @@ the ticket or re-plan the work as a v2 Story via `/plan --tickets <id>`.
 
 | Command | Purpose |
 | --- | --- |
-| `npx mandrel init` | Cold-start — install `mandrel` (if absent), `mandrel sync`, `bootstrap.js` (provisions repo + Projects V2 board, labels, branch protection), then the onboarding tail (stack detection, docs scaffolding, doctor gate, `/plan` handoff). |
-| `/plan --seed "<text>"` | Plan from chat text — interrogate → author **one Story by default** → persist `type::story`. |
-| `/plan --seed-file <path>` | Plan from on-disk notes / a plan seed (the `/audit-to-stories` handoff). |
-| `/plan --tickets <ids>` | Analyze existing issue(s) into proper Stories (prefer an N=1 rewrite). |
-| `/deliver <storyId>` | Deliver one Story via `helpers/deliver-story` — `story-<id>` → PR → `main`. |
-| `/deliver <storyId> [<storyId>…]` | Deliver multiple Stories in `depends_on` order (resolved from live state), then run the per-run epilogue. |
-| *helper* `helpers/deliver-story` | Per-Story engine invoked by `/deliver`; not an operator slash command. See [`deliver-story.md`](../workflows/helpers/deliver-story.md). |
-| `/audit-to-stories` | Convert audit findings into a plan seed / Stories → `/plan --seed-file`. |
+| `npx mandrel init` | Cold-start — install `mandrel` (if absent), `mandrel sync`, `bootstrap.js` (provisions repo + Projects V2 board, labels, branch protection), then the onboarding tail (stack detection, docs scaffolding, doctor gate, `/mandrel-plan` handoff). |
+| `/mandrel-plan --seed "<text>"` | Plan from chat text — interrogate → author **one Story by default** → persist `type::story`. |
+| `/mandrel-plan --seed-file <path>` | Plan from on-disk notes / a plan seed (the `/audit-to-stories` handoff). |
+| `/mandrel-plan --tickets <ids>` | Analyze existing issue(s) into proper Stories (prefer an N=1 rewrite). |
+| `/mandrel-deliver <storyId>` | Deliver one Story via `helpers/deliver-story` — `story-<id>` → PR → `main`. |
+| `/mandrel-deliver <storyId> [<storyId>…]` | Deliver multiple Stories in `depends_on` order (resolved from live state), then run the per-run epilogue. |
+| *helper* `helpers/deliver-story` | Per-Story engine invoked by `/mandrel-deliver`; not an operator slash command. See [`deliver-story.md`](../workflows/helpers/deliver-story.md). |
+| `/audit-to-stories` | Convert audit findings into a plan seed / Stories → `/mandrel-plan --seed-file`. |
 | `/qa-explore` · `/qa-assist` · `/qa-run` | Agent-led / human-led exploratory QA and the automated Gherkin harness. |
 | `/git-deliver` | Ad-hoc delivery of working-tree changes — detects the git setup and escalates to commit, commit + push, or commit + push + PR (auto-merge armed). |

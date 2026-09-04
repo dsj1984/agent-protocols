@@ -8,7 +8,7 @@
  * doc content. This mirrors the Story #4324 delivery-children cutover and
  * reuses the very same shared generator (`ensureDocsDigest` in
  * `docs-digest.js`) and file convention
- * (`<tempRoot>/epic-<epicId>/docs-digest.md`) the `/deliver` story
+ * (`<tempRoot>/epic-<epicId>/docs-digest.md`) the `/mandrel-deliver` story
  * sub-agents already consume.
  *
  * Three things are asserted here:
@@ -202,7 +202,7 @@ describe('buildAuthoringContext — digest-first docsContext (Story #4433)', () 
     );
   });
 
-  it('reuses the same per-Epic file the /deliver story sub-agents consume', async () => {
+  it('reuses the same per-Epic file the /mandrel-deliver story sub-agents consume', async () => {
     // This is the same relative-path convention epic-deliver-prepare.js
     // uses for the delivery-children digest
     // (`<tempRoot>/epic-<epicId>/docs-digest.md`) — planning and delivery

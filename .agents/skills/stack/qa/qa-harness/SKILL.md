@@ -170,7 +170,7 @@ Record each `F#` finding as a `QaLedgerItem` on the shared session ledger under
 `temp/qa/`, then route the ledger through the shared classify → route →
 disposition → promote core — both stated once in
 [`qa-core.md`](../../../../workflows/helpers/qa-core.md). The harness **MUST
-NOT** create tickets autonomously: findings are promoted through `/plan` only
+NOT** create tickets autonomously: findings are promoted through `/mandrel-plan` only
 after the operator confirms each disposition at the HITL write gate. That gate
 is the safety boundary against spurious filing.
 

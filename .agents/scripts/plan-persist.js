@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * plan-persist.js — flat Story GitHub-write surface for v2 `/plan`
+ * plan-persist.js — flat Story GitHub-write surface for v2 `/mandrel-plan`
  * (Stage 3 — `docs/roadmap.md`).
  *
  * Given the author-written planning artifacts (`stories.json`, optional shared
@@ -201,7 +201,7 @@ async function loadArtifacts(paths) {
  *
  * Exported for tests: this is the join where the envelope-derived source ids
  * meet the persist engine, so a regression here silently un-wires
- * `/plan --tickets` superseding (Story #4554).
+ * `/mandrel-plan --tickets` superseding (Story #4554).
  *
  * @param {object} values Parsed `parseArgs` values.
  * @param {ReturnType<typeof resolveInputPaths>} paths

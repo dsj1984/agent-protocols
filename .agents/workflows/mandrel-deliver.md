@@ -5,7 +5,7 @@ description:
   deliver-story engine — story-<id> → PR → main.
 ---
 
-# /deliver
+# /mandrel-deliver
 
 > **Lean spine.** Happy path + gate list. Sequencing, dispatch mechanics,
 > intent phrases, ceremony and the epilogue live in on-demand
@@ -16,7 +16,7 @@ description:
 
 ## Role
 
-One delivery door. `/deliver` owns input resolution, sequencing and the
+One delivery door. `/mandrel-deliver` owns input resolution, sequencing and the
 close-and-land tail; Stories are implemented via
 [`helpers/deliver-story.md`](helpers/deliver-story.md).
 
@@ -32,11 +32,11 @@ you read:
 
 | Invocation | Shape | Behavior |
 | --- | --- | --- |
-| `/deliver` | bare | List the open `agent::ready` Stories and ask which to deliver. Deliver nothing until answered. |
-| `/deliver 4712` | ids | One Story via `helpers/deliver-story.md`, **inline in this session** — no `story-worker` spawn. |
-| `/deliver 4712 4713 …` | ids | Resolve the set, sequence by the discovered graph via `stories-wave-tick.js`, dispatch sub-agents. |
-| `/deliver 4712 - 4716` | ids | A **range** — every id in the inclusive span. |
-| `/deliver add a --json flag to doctor` | prompt | Unplanned work: gate, author a receipt Story, land it — [`helpers/deliver-light.md`](helpers/deliver-light.md). |
+| `/mandrel-deliver` | bare | List the open `agent::ready` Stories and ask which to deliver. Deliver nothing until answered. |
+| `/mandrel-deliver 4712` | ids | One Story via `helpers/deliver-story.md`, **inline in this session** — no `story-worker` spawn. |
+| `/mandrel-deliver 4712 4713 …` | ids | Resolve the set, sequence by the discovered graph via `stories-wave-tick.js`, dispatch sub-agents. |
+| `/mandrel-deliver 4712 - 4716` | ids | A **range** — every id in the inclusive span. |
+| `/mandrel-deliver add a --json flag to doctor` | prompt | Unplanned work: gate, author a receipt Story, land it — [`helpers/deliver-light.md`](helpers/deliver-light.md). |
 
 **The discriminator is lexical and total.** An argument matching `^#?\d+$` is an
 id, and `^#?\d+\s*[-–—]\s*#?\d+$` an inclusive **range** — pass one on as a
@@ -92,14 +92,10 @@ it to an operator or add it to an attended run.
    - **0** — dispatch each `ready` id (already capped and overlap-free); an
      empty `ready` with work in flight means "waiting", so keep looping;
      `epilogueDue: true` means every Story is done — step 4.
-   - **2** — `cycleError`: the graph is self-referential; fix `depends_on`, do
-     not retry. **3** — `wedged`: nothing dispatchable, nothing in flight, the
-     undone Stories and their unmet blockers named; land a blocker or add it to
-     `--ids`. **4** — `blocked`: a Story carries `agent::blocked` with
-     `blockedReason`, the protocol's HITL pause
-     ([`instructions.md` § 1.J](../instructions.md)) — **stop the loop and
-     surface it; do not poll**, resuming once the operator unblocks it. Blocked
-     outranks a wedge, not a cycle.
+   - **2 / 3 / 4** — `cycleError` / `wedged` / `blocked`: stop the loop and
+     route per reference § Sequencing edge cases. **4** is the protocol's HITL
+     pause ([`instructions.md` § 1.J](../instructions.md)) — surface it and
+     wait for the operator; never poll.
 
 4. **Close each hand-off** (§ Closing what the workers hand back), then, with
    every Story landed, run the **per-run epilogue (N>1)**:
@@ -143,13 +139,13 @@ it): reference § Ceremony.
 - **Land or block — never a silent local build** (digest § 2). Attended delivers
   default to close-and-land (`delivery.routing.closeAndLand: true`); rest at
   `agent::closing` only when a human owns it.
-- **`/deliver` never plans.** Planned tickets come from [`/plan`](plan.md), and
-  an over-scope prompt **escalates and ends** — never invoke `/plan` in this
+- **`/mandrel-deliver` never plans.** Planned tickets come from [`/mandrel-plan`](mandrel-plan.md), and
+  an over-scope prompt **escalates and ends** — never invoke `/mandrel-plan` in this
   session to rescue it ([`helpers/deliver-light.md`](helpers/deliver-light.md)
   § Escalation is terminal).
 
 ## See also
 
-[`/plan`](plan.md), [`helpers/deliver-story.md`](helpers/deliver-story.md) (the
+[`/mandrel-plan`](mandrel-plan.md), [`helpers/deliver-story.md`](helpers/deliver-story.md) (the
 engine), [`helpers/deliver-light.md`](helpers/deliver-light.md) (the unplanned
-prompt path, shared with `/plan` Gate #1).
+prompt path, shared with `/mandrel-plan` Gate #1).

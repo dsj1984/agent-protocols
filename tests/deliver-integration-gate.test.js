@@ -2,7 +2,7 @@
  * tests/deliver-integration-gate.test.js
  *
  * Epic #4131 (F1/F4 / AC-1, AC-5) — after the Stage 4 delivery collapse, the
- * navigability journey-suite contract lives in the unified `/deliver` per-Story
+ * navigability journey-suite contract lives in the unified `/mandrel-deliver` per-Story
  * ceremony and configuration docs, not the deleted `deliver-epic.md` Phase 6.5
  * helper. This spec pins that documentation surface without reading retired
  * workflow files.
@@ -28,7 +28,7 @@ const WORKFLOW_PATH = path.join(
   REPO_ROOT,
   '.agents',
   'workflows',
-  'deliver.md',
+  'mandrel-deliver.md',
 );
 const CONFIG_DOC_PATH = path.join(
   REPO_ROOT,
@@ -40,7 +40,7 @@ const CONFIG_DOC_PATH = path.join(
 const source = readFileSync(WORKFLOW_PATH, 'utf8');
 const configDoc = readFileSync(CONFIG_DOC_PATH, 'utf8');
 
-describe('/deliver navigability journey-suite contract (Epic #4131 F1/F4)', () => {
+describe('/mandrel-deliver navigability journey-suite contract (Epic #4131 F1/F4)', () => {
   it('keeps navigability journey-suite config tied to the per-Story ceremony', () => {
     assertDocMentions(
       configDoc,
@@ -54,16 +54,16 @@ describe('/deliver navigability journey-suite contract (Epic #4131 F1/F4)', () =
     );
   });
 
-  it('documents the per-Story derived-level ceremony in /deliver', () => {
+  it('documents the per-Story derived-level ceremony in /mandrel-deliver', () => {
     assertDocMentions(
       source,
       /derived level.*review depth/i,
-      '/deliver must name the derived-level ceremony it actually runs',
+      '/mandrel-deliver must name the derived-level ceremony it actually runs',
     );
     assertDocMentions(
       source,
       /ceremony-routing\.js/,
-      '/deliver must name the routing mechanism for the ceremony',
+      '/mandrel-deliver must name the routing mechanism for the ceremony',
     );
   });
 
@@ -74,7 +74,7 @@ describe('/deliver navigability journey-suite contract (Epic #4131 F1/F4)', () =
     assertDocOmits(
       source,
       /resolveAuditLenses|audit-lens-routing/,
-      '/deliver must not advertise the deleted risk-routed audit-lens router',
+      '/mandrel-deliver must not advertise the deleted risk-routed audit-lens router',
     );
     assertDocOmits(
       source,

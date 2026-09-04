@@ -13,7 +13,7 @@
  *     stdout when --json is set).
  *
  *   --emit-plan-seed --plan <plan.json> --out <path>
- *     Read the plan envelope from disk, render the `/plan --seed`
+ *     Read the plan envelope from disk, render the `/mandrel-plan --seed`
  *     seed markdown, persist to --out.
  *
  *   --emit-stories --plan <plan.json>
@@ -844,7 +844,7 @@ runAsCli(import.meta.url, main, {
     flags: [
       ['--scan', 'Print the grouped, deduplicated plan as JSON.'],
       ['--auto', 'Run the full scan → file pipeline and print the summary.'],
-      ['--emit-plan-seed', 'Emit a /plan --seed-file document.'],
+      ['--emit-plan-seed', 'Emit a /mandrel-plan --seed-file document.'],
       ['--emit-stories', 'Emit the Story drafts as JSON.'],
       [
         '--wire-edges',

@@ -85,7 +85,7 @@ describe('helpers/deliver-digest.md — the one bundled deliver read (AC-5)', ()
 
   it('is reachable from both deliver spines', () => {
     for (const spine of [
-      path.join(WORKFLOWS, 'deliver.md'),
+      path.join(WORKFLOWS, 'mandrel-deliver.md'),
       path.join(WORKFLOWS, 'helpers', 'deliver-story.md'),
     ]) {
       assert.ok(

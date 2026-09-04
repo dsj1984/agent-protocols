@@ -1,5 +1,5 @@
 /**
- * bdd-scenario-scanner.js — Gherkin scenario index for /plan Phase 7.
+ * bdd-scenario-scanner.js — Gherkin scenario index for /mandrel-plan Phase 7.
  *
  * Story #2637 (sibling to #2636's file-assumption gate; the #2634 and #2635
  * planner-grounding siblings were retired in Story #4811). The Acceptance
@@ -8,7 +8,7 @@
  * alone — it never inspects the consumer project's existing `.feature`
  * files. Planned ACs frequently duplicate scenarios that already exist or
  * re-specify behaviour the codebase already proves; the duplication is
- * only discovered (at best) during `/deliver` or (at worst) after
+ * only discovered (at best) during `/mandrel-deliver` or (at worst) after
  * a redundant PR ships.
  *
  * `scanBddScenarios` walks every configured feature root, parses each
@@ -21,7 +21,7 @@
  * have a matching scenario.
  *
  * Determinism is load-bearing: the matcher is keyword-based, not
- * embedding-based, so re-running `/plan` against the same
+ * embedding-based, so re-running `/mandrel-plan` against the same
  * acceptance spec produces the same disposition annotations.
  */
 

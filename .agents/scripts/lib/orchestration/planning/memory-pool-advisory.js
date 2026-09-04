@@ -1,5 +1,5 @@
 /**
- * memory-pool-advisory.js — the `/plan` Phase 0 memory-hygiene advisory.
+ * memory-pool-advisory.js — the `/mandrel-plan` Phase 0 memory-hygiene advisory.
  *
  * Replaces the retired memory-freshness pre-flight (Story #2557 / #4414) in
  * the same slot, fixing both of that design's defects:
@@ -10,7 +10,7 @@
  *      replaced by `-` — so the old path never resolved in any consumer and
  *      the scan was a silent no-op everywhere.
  *   2. **A named consumer.** The retired scanner emitted a per-entry staleness
- *      verdict nothing read. This emits one advisory the `/plan` spine
+ *      verdict nothing read. This emits one advisory the `/mandrel-plan` spine
  *      surfaces at Gate #1, recommending `/memory-consolidate`.
  *
  * It also drops the semantic that made the old scanner unfixable: it renders
@@ -131,7 +131,7 @@ function countEntries({ poolDir, fsImpl }) {
  * Build the `memoryPoolAdvisory` envelope field.
  *
  * Advisory only — it carries **no routing authority**, mirroring
- * `deliverLightSuggestion`. The `/plan` spine surfaces `recommend` at Gate #1;
+ * `deliverLightSuggestion`. The `/mandrel-plan` spine surfaces `recommend` at Gate #1;
  * nothing auto-runs, and nothing here mutates the operator's memory store.
  *
  * @param {object} [opts]

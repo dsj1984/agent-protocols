@@ -14,6 +14,7 @@ import {
   RETIRED_COMMANDS,
   runCheck,
   SLASH_ALLOWLIST,
+  SUPERSEDED_COMMAND_SPELLINGS,
 } from '../.agents/scripts/check-doc-links.js';
 import { makeTempDir } from '../.agents/scripts/lib/test-temp.js';
 
@@ -33,14 +34,14 @@ function makeFakeRepo() {
   fs.mkdirSync(path.join(root, 'docs', 'archive'), { recursive: true });
   fs.mkdirSync(path.join(root, '.agents'), { recursive: true });
   fs.mkdirSync(path.join(root, '.agents', 'workflows'), { recursive: true });
-  // Seed two workflow files so /plan and /deliver resolve.
+  // Seed two workflow files so /mandrel-plan and /mandrel-deliver resolve.
   fs.writeFileSync(
-    path.join(root, '.agents', 'workflows', 'plan.md'),
-    '# plan\n',
+    path.join(root, '.agents', 'workflows', 'mandrel-plan.md'),
+    '# mandrel-plan\n',
   );
   fs.writeFileSync(
-    path.join(root, '.agents', 'workflows', 'deliver.md'),
-    '# deliver\n',
+    path.join(root, '.agents', 'workflows', 'mandrel-deliver.md'),
+    '# mandrel-deliver\n',
   );
   return root;
 }
@@ -60,7 +61,7 @@ test('runCheck (a) passing fixture: clean tree exits 0 with zero violations', ()
     root,
     'docs/intro.md',
     '# Intro\n\n' +
-      'See [the spec](spec.md) and run [/plan](../.agents/workflows/plan.md).\n\n' +
+      'See [the spec](spec.md) and run [/mandrel-plan](../.agents/workflows/mandrel-plan.md).\n\n' +
       'Visit https://example.com/issues/1 for context, store scratch in /temp/.\n\n' +
       'Jump to [later](#later).\n\n' +
       '## later\n',
@@ -133,6 +134,51 @@ test('runCheck: unknown slash command surfaces a violation when no allowlist hit
   assert.match(v.message, /not-a-real-command/);
 });
 
+test('runCheck: the decisions log may name a superseded command spelling (#5126)', () => {
+  const root = makeFakeRepo();
+  write(
+    root,
+    'docs/decisions.md',
+    '# Decisions\n\nADR: Story-only ticket model; one /plan, one /deliver.\n',
+  );
+  const result = runCheck({ repoRoot: root, scanRoots: ['docs', '.agents'] });
+  assert.equal(
+    result.exitCode,
+    0,
+    `unexpected violations: ${JSON.stringify(result.violations)}`,
+  );
+});
+
+test('runCheck: the carve-out is scoped — the same spelling elsewhere still fails', () => {
+  const root = makeFakeRepo();
+  write(root, 'docs/intro.md', '# Intro\n\nRun /plan to start.\n');
+  const result = runCheck({ repoRoot: root, scanRoots: ['docs', '.agents'] });
+  assert.equal(result.exitCode, 1);
+  const v = result.violations.find((x) => x.kind === 'unknown-command');
+  assert.ok(v);
+  assert.equal(v.file, 'docs/intro.md');
+  assert.match(v.message, /\/plan/);
+});
+
+test('runCheck: the carve-out does not excuse a typo in the decisions log', () => {
+  const root = makeFakeRepo();
+  write(root, 'docs/decisions.md', '# Decisions\n\nRun /mandrl-plan now.\n');
+  const result = runCheck({ repoRoot: root, scanRoots: ['docs', '.agents'] });
+  assert.equal(result.exitCode, 1);
+  assert.ok(result.violations.some((x) => x.kind === 'unknown-command'));
+});
+
+test('static constants: the superseded-spelling carve-out is scoped to the decisions log', () => {
+  assert.deepEqual(
+    [...SUPERSEDED_COMMAND_SPELLINGS.keys()],
+    ['docs/decisions.md'],
+  );
+  assert.ok(SUPERSEDED_COMMAND_SPELLINGS.get('docs/decisions.md').has('plan'));
+  assert.ok(
+    SUPERSEDED_COMMAND_SPELLINGS.get('docs/decisions.md').has('deliver'),
+  );
+});
+
 test('runCheck: namespaced /loops:<name> resolves to workflows/loops/<name>.md', () => {
   const root = makeFakeRepo();
   fs.mkdirSync(path.join(root, '.agents', 'workflows', 'loops'), {
@@ -168,10 +214,10 @@ test('runCheck: namespaced /loops:<name> with no unit surfaces a violation', () 
 
 test('extractSlashTokens: captures the namespaced loops:<name> form whole', () => {
   const tokens = extractSlashTokens(
-    maskCodeRegions('see /loops:watch-ci and /plan\n'),
+    maskCodeRegions('see /loops:watch-ci and /mandrel-plan\n'),
   );
   const names = tokens.map((t) => t.token);
-  assert.deepEqual(names, ['loops:watch-ci', 'plan']);
+  assert.deepEqual(names, ['loops:watch-ci', 'mandrel-plan']);
 });
 
 test('runCheck: tokens inside fenced code blocks are ignored', () => {
@@ -325,8 +371,8 @@ test('payload-boundary: links that stay inside .agents/ are clean', () => {
   const root = makeFakeRepo();
   const abs = write(
     root,
-    '.agents/workflows/deliver.md',
-    '# deliver\n\nSee [plan](plan.md).\n',
+    '.agents/workflows/mandrel-deliver.md',
+    '# deliver\n\nSee [plan](mandrel-plan.md).\n',
   );
   const v = checkFile(abs, root);
   assert.deepEqual(v, []);
@@ -357,11 +403,11 @@ test('escapesPayload: unit contract for source scoping and the allowlist', () =>
 test('runCheck: a consumer-shaped tree (only .agents/) scans clean', () => {
   const root = makeTempDir('check-doc-links-consumer-');
   fs.mkdirSync(path.join(root, '.agents', 'workflows'), { recursive: true });
-  write(root, '.agents/workflows/plan.md', '# plan\n');
+  write(root, '.agents/workflows/mandrel-plan.md', '# plan\n');
   write(
     root,
-    '.agents/workflows/deliver.md',
-    '# deliver\n\nRun [/plan](plan.md); see the harness docs at\n' +
+    '.agents/workflows/mandrel-deliver.md',
+    '# deliver\n\nRun [/mandrel-plan](mandrel-plan.md); see the harness docs at\n' +
       '[update](https://github.com/dsj1984/mandrel/blob/main/lib/cli/update.js).\n',
   );
   const result = runCheck({ repoRoot: root, scanRoots: ['.agents'] });

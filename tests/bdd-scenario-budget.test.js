@@ -5,7 +5,7 @@ import { capBddScenarios } from '../.agents/scripts/lib/bdd-scenario-budget.js';
 
 /**
  * Story #4977 — `bddScenarios` grew to 118 KB on a consumer with a mature
- * Gherkin corpus, consuming nearly the entire `/plan` context-envelope
+ * Gherkin corpus, consuming nearly the entire `/mandrel-plan` context-envelope
  * ceiling on its own and blocking `/audit-to-stories`' single-plan path
  * entirely. `capBddScenarios` truncates the scan to a fixed byte budget,
  * deterministically and with the drop reported rather than silent.
@@ -68,7 +68,7 @@ describe('capBddScenarios — envelope byte budget', () => {
     });
   });
 
-  it('keeps the capped output a small fraction of the /plan envelope ceiling', async () => {
+  it('keeps the capped output a small fraction of the /mandrel-plan envelope ceiling', async () => {
     // Story #4977: the cap must leave the envelope's other fixed-floor
     // fields (docsContext, systemPrompts) their historical headroom rather
     // than merely resetting the countdown at a new, still-dominant size.

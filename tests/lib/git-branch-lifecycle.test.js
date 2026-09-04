@@ -182,7 +182,7 @@ describe('checkoutStoryBranch', () => {
 
 /**
  * Story #4780 — `seedStoryBranchRef` scored CRAP 123.8, the worst method in
- * the repo: the single-homed story-branch seed switch that every `/deliver`
+ * the repo: the single-homed story-branch seed switch that every `/mandrel-deliver`
  * run goes through had no test at all.
  *
  * Its git seams are supplied through the function's own parameters — plain

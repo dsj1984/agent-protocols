@@ -613,7 +613,7 @@ describe('wireEdges', () => {
 
   it('fails loudly when the provider cannot rewrite a body', async () => {
     // Without updateTicket the footers never land, and the native mirroring
-    // alone would leave /deliver's body-parsing resolver blind to the order.
+    // alone would leave /mandrel-deliver's body-parsing resolver blind to the order.
     await assert.rejects(
       () =>
         wireEdges(

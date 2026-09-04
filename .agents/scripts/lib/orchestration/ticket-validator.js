@@ -421,7 +421,7 @@ function renderMissLine({ slug, path }) {
  * The returned tickets array carries two extra non-array properties:
  *   - `findings` — structured sizing findings (hard + soft) keyed by the
  *     three-layer sizing model. The bounded re-decomposition loop in
- *     `/plan` reads `findings.filter(f => f.severity === 'hard')` to decide
+ *     `/mandrel-plan` reads `findings.filter(f => f.severity === 'hard')` to decide
  *     whether to re-prompt.
  *   - `errors`   — human-readable strings, one per hard finding. Non-empty
  *     `errors[]` is the AC-visible "block normalization" signal; the legacy

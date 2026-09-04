@@ -29,11 +29,11 @@
  *      3 below does the real enforcement against ground truth.
  *   2. **Over-scope stops, never silently proceeds ({@link
  *      resolveLightGateOutcome}).** An over-ceiling prompt does **not**
- *      hard-fail — it STOPS and asks the operator to escalate to `/plan` or
+ *      hard-fail — it STOPS and asks the operator to escalate to `/mandrel-plan` or
  *      proceed light. Both answers are executable: `proceed-light` is recorded
  *      through {@link resolveOperatorOverride}, which waives a *size
  *      prediction* only, never a risk rule, and only with a human present.
- *      Under `--yes` (unattended) it fails closed to recommending `/plan`.
+ *      Under `--yes` (unattended) it fails closed to recommending `/mandrel-plan`.
  *   3. **Diff-derived backstop ({@link checkLightDiffBackstop}).** After
  *      implementation the **actual** change set is re-checked with
  *      {@link module:lib/orchestration/review-depth.deriveChangeLevel} plus the
@@ -41,7 +41,7 @@
  *      the diff is the real scope signal — and an over-ceiling diff is blocked
  *      rather than landed silently. Story #4856 moved this from a `maxFiles: 4`
  *      cardinality ceiling to changed lines over implementation files, and made
- *      a block **recycle** its receipt Story through `/plan` tickets mode
+ *      a block **recycle** its receipt Story through `/mandrel-plan` tickets mode
  *      instead of orphaning it.
  *   4. **Minimal receipt Story ({@link buildReceiptStoryTicket}).** A
  *      `type::story` ticket is authored inline so `refs #`, history, telemetry,
@@ -131,7 +131,7 @@ function deriveUnwaivableRisk(decision) {
         `class(es) ${classes.join(', ')} — this is risk, not size, so no ` +
         `re-slicing, shrinking, or operator override satisfies it and the ` +
         `diff backstop would refuse the same footprint after the work is ` +
-        `finished; take this to /plan now`,
+        `finished; take this to /mandrel-plan now`,
     };
   }
   if (shape?.migrationSpan === true) {
@@ -142,7 +142,7 @@ function deriveUnwaivableRisk(decision) {
       reason:
         `un-waivable: the predicted footprint pairs a migration with its ` +
         `consumers — this is risk, not size, so no re-slicing or operator ` +
-        `override satisfies it; take this to /plan now`,
+        `override satisfies it; take this to /mandrel-plan now`,
     };
   }
   return { present: false, code: null, classes: [], reason: null };
@@ -237,7 +237,7 @@ export function resolveLedgeredVerdict({ route, reason } = {}) {
       route: 'full',
       reason: recordedReason || null,
       recorded: recordedReason !== '',
-      note: 'model verdict is not lite — standard /plan route',
+      note: 'model verdict is not lite — standard /mandrel-plan route',
     };
   }
   if (recordedReason === '') {
@@ -261,7 +261,7 @@ export function resolveLedgeredVerdict({ route, reason } = {}) {
  * light path. The deterministic effort/risk derivation and the ledgered model
  * verdict must **both** agree on `lite`; anything else — clearly-epic work, a
  * sensitive-path footprint, an unledgered verdict — resolves to `full` (the
- * conservative default that routes the operator to `/plan`).
+ * conservative default that routes the operator to `/mandrel-plan`).
  *
  * The predicted axes are declared by the caller: `predictedKinds` (the distinct
  * kinds of change; absent, each entry's `assumption` is its kind, so N
@@ -394,7 +394,7 @@ export function resolveOperatorOverride({
   }
   if (yes === true) {
     return refuse(
-      'operator override refused — it is attended-only, and --yes means nobody is at the keyboard; over-scope still fails closed to /plan',
+      'operator override refused — it is attended-only, and --yes means nobody is at the keyboard; over-scope still fails closed to /mandrel-plan',
     );
   }
 
@@ -412,7 +412,7 @@ export function resolveOperatorOverride({
             ? ` (${unwaivable.classes.join(', ')})`
             : ''
         }; waiving the size prediction cannot make this land light, and the ` +
-        `diff backstop would refuse the finished work. Escalate to /plan.`,
+        `diff backstop would refuse the finished work. Escalate to /mandrel-plan.`,
     );
   }
   if (!OVERRIDABLE_SHAPE_CODES.includes(code)) {
@@ -441,7 +441,7 @@ export function resolveOperatorOverride({
  * Resolve what the light gate does with a suitability decision (Story #4740
  * AC-3). Over-scope never hard-fails: it STOPS and asks the operator to choose,
  * unless the run is unattended (`--yes`), where it fails closed to recommending
- * `/plan` rather than silently proceeding light.
+ * `/mandrel-plan` rather than silently proceeding light.
  *
  *   - suitable          → `proceed-light`
  *   - over-scope + attended (`yes:false`)  → `ask-operator` (escalate | proceed)
@@ -498,7 +498,7 @@ export function resolveLightGateOutcome({
       action: 'escalate-plan',
       reasons: [
         ...reasons,
-        '--yes on over-scope fails closed to /plan (never silently proceeds light)',
+        '--yes on over-scope fails closed to /mandrel-plan (never silently proceeds light)',
       ],
     };
   }
@@ -519,7 +519,7 @@ export function resolveLightGateOutcome({
     options: ['escalate-plan', 'proceed-light'],
     reasons: [
       ...reasons,
-      'predicted scope exceeds the light ceilings — STOP and ask the operator to escalate to /plan or proceed light',
+      'predicted scope exceeds the light ceilings — STOP and ask the operator to escalate to /mandrel-plan or proceed light',
     ],
   };
 }
@@ -587,7 +587,7 @@ export function checkLightDiffBackstop({
       magnitude: null,
       ceilings: resolved,
       reasons: [
-        'actual change set is unknown or empty — cannot verify the diff is light; escalate to /plan',
+        'actual change set is unknown or empty — cannot verify the diff is light; escalate to /mandrel-plan',
       ],
     };
   }
@@ -646,12 +646,12 @@ function normalizeMagnitude(magnitude) {
 function describeSensitivity({ level, classes }) {
   if (classes.length > 0) {
     return [
-      `diff intersects sensitive-path class(es) ${classes.join(', ')} — escalate to /plan (do not land light)`,
+      `diff intersects sensitive-path class(es) ${classes.join(', ')} — escalate to /mandrel-plan (do not land light)`,
     ];
   }
   if (level !== 'low') {
     return [
-      'sensitive-path classification unavailable — cannot verify the diff is non-sensitive; escalate to /plan',
+      'sensitive-path classification unavailable — cannot verify the diff is non-sensitive; escalate to /mandrel-plan',
     ];
   }
   return [];
@@ -667,18 +667,18 @@ function describeSensitivity({ level, classes }) {
 function describeMagnitude(measured, ceilings) {
   if (measured === null) {
     return [
-      'change magnitude could not be measured (unreadable or unparseable numstat) — cannot verify the diff is light; escalate to /plan',
+      'change magnitude could not be measured (unreadable or unparseable numstat) — cannot verify the diff is light; escalate to /mandrel-plan',
     ];
   }
   const reasons = [];
   if (measured.implLines > ceilings.maxImplLines) {
     reasons.push(
-      `diff changes ${measured.implLines} implementation line(s) (> maxImplLines ${ceilings.maxImplLines}) — escalate to /plan (do not land light)`,
+      `diff changes ${measured.implLines} implementation line(s) (> maxImplLines ${ceilings.maxImplLines}) — escalate to /mandrel-plan (do not land light)`,
     );
   }
   if (measured.implFiles > ceilings.maxImplFiles) {
     reasons.push(
-      `diff spans ${measured.implFiles} implementation file(s) (> maxImplFiles ${ceilings.maxImplFiles}) — escalate to /plan (do not land light)`,
+      `diff spans ${measured.implFiles} implementation file(s) (> maxImplFiles ${ceilings.maxImplFiles}) — escalate to /mandrel-plan (do not land light)`,
     );
   }
   return reasons;
@@ -832,7 +832,7 @@ export function buildReceiptStoryTicket({
       goal: `${text}${amendNote}`,
       spec:
         `Delivered via /deliver-light as a validated single-session change — ` +
-        `the /plan session is removed for genuinely small work while every ` +
+        `the /mandrel-plan session is removed for genuinely small work while every ` +
         `single-story-close gate runs byte-identical.${amendNote}` +
         `${overrideNote} ` +
         `Operator prompt: ${text}`,

@@ -17,7 +17,7 @@
  * edges**. Both halves are written:
  *
  *   1. The **body footer** (`---` / `blocked by #N`) — canonical, parsed by
- *      `/deliver`'s resolver, and the fallback when the dependencies API is
+ *      `/mandrel-deliver`'s resolver, and the fallback when the dependencies API is
  *      unavailable.
  *   2. The **native `blocked_by` relation** — visible in the GitHub UI,
  *      readable without parsing markdown, and settable by an operator later.

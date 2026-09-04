@@ -47,7 +47,7 @@ export const TERMINAL_ENVELOPE_KIND = 'story-deliver-terminal';
  * `pending` is **3**, not 0 and not 1. Zero would tell a headless caller the
  * Story landed when it did not; one would conflate a resumable slow-CI wait
  * with a hard block and send the operator to diagnose branch protection that
- * is working fine. A distinct code is what lets `/deliver` resume without
+ * is working fine. A distinct code is what lets `/mandrel-deliver` resume without
  * classifying.
  */
 export const TERMINAL_EXIT_CODES = Object.freeze({
@@ -61,7 +61,7 @@ export const TERMINAL_EXIT_CODES = Object.freeze({
    * terminal, not a new one, so giving it a fresh code would fork a vocabulary
    * callers already branch on. It stays distinct from `landed` (nothing was
    * delivered) and from `blocked`/`failed` (nothing is wrong — the work simply
-   * belongs to `/plan`).
+   * belongs to `/mandrel-plan`).
    */
   escalated: 2,
 });
@@ -74,12 +74,12 @@ export const TERMINAL_STATUSES = Object.freeze([
   'escalated',
 ]);
 
-/** Cap on the prompt echoed into an escalation's `/plan` next command. */
+/** Cap on the prompt echoed into an escalation's `/mandrel-plan` next command. */
 const PLAN_PROMPT_MAX = 200;
 
 /**
  * Render an operator prompt safe to sit inside the double quotes of the
- * `/plan "<prompt>"` next command: collapse newlines (a next command is one
+ * `/mandrel-plan "<prompt>"` next command: collapse newlines (a next command is one
  * line by contract), escape backslashes and double quotes so the quoting
  * cannot be broken out of, and cap the length so a long prompt does not turn
  * the envelope into a transcript. Total — a non-string yields the empty
@@ -133,7 +133,7 @@ export const NEXT_COMMANDS = Object.freeze({
   recover: (storyId) =>
     `node .agents/scripts/deliver-recover.js --story ${storyId}`,
   /**
-   * Hand over-scope work to `/plan` — the next command of an `escalated`
+   * Hand over-scope work to `/mandrel-plan` — the next command of an `escalated`
    * terminal (Story #4746).
    *
    * The only entry here that is a slash command rather than a script, and
@@ -143,7 +143,7 @@ export const NEXT_COMMANDS = Object.freeze({
    * the workflow's escalation section for why running it in the escalating
    * session is forbidden.
    */
-  escalateToPlan: (prompt) => `/plan "${quoteForPlan(prompt)}"`,
+  escalateToPlan: (prompt) => `/mandrel-plan "${quoteForPlan(prompt)}"`,
 });
 
 /**
@@ -260,15 +260,15 @@ export function buildTerminalEnvelope({
  * `/deliver-light`'s suitability gate already decided correctly when it
  * overrode a `lite` self-verdict on shape; what it lacked was an outcome a
  * session could not walk past. A mandrel-bench 2.13.0 light-arm run did
- * exactly that — it read the gate's `escalate-plan`, then invoked `/plan`
+ * exactly that — it read the gate's `escalate-plan`, then invoked `/mandrel-plan`
  * in the same session and delivered. The continuation was not harmless:
  * planning inside a session already framed as small work authored ONE Story
- * against the scenario's 3-5 contract, where a fresh `/plan` session on the
+ * against the scenario's 3-5 contract, where a fresh `/mandrel-plan` session on the
  * identical seed authored four. Escalation silently produced the very
  * under-decomposition the guard exists to prevent.
  *
  * So the outcome is a validated envelope with its own exit code, naming the
- * `/plan` command that owns the work, and asserting per artifact that nothing
+ * `/mandrel-plan` command that owns the work, and asserting per artifact that nothing
  * was started. Every guarantee here is enforced by the schema rather than by
  * prose: `storyId` must be null, `escalation.created.*` are pinned `false`.
  *
@@ -288,10 +288,10 @@ export function buildEscalationTerminal({
 }) {
   const quoted = quoteForPlan(prompt);
   if (quoted === '') {
-    // An escalation whose next command is `/plan ""` hands the operator
+    // An escalation whose next command is `/mandrel-plan ""` hands the operator
     // nothing — the same walk-past-able non-outcome in envelope clothing.
     throw new TypeError(
-      'buildEscalationTerminal: a non-empty prompt is required — the escalated terminal exists to name the /plan invocation that owns the work',
+      'buildEscalationTerminal: a non-empty prompt is required — the escalated terminal exists to name the /mandrel-plan invocation that owns the work',
     );
   }
   const recorded = (Array.isArray(reasons) ? reasons : []).filter(
@@ -305,7 +305,9 @@ export function buildEscalationTerminal({
       reasons:
         recorded.length > 0
           ? recorded
-          : ['predicted scope exceeds the light ceilings — escalate to /plan'],
+          : [
+              'predicted scope exceeds the light ceilings — escalate to /mandrel-plan',
+            ],
       // Not computed from anything: the escalation path returns before the
       // receipt/init call sites, so these are the assertion that it did.
       created: { receiptStory: false, storyBranch: false, worktree: false },

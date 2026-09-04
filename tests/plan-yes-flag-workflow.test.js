@@ -1,12 +1,12 @@
 /**
- * `/plan --yes` headless / non-interactive flag contract after the v2 Stage 3
+ * `/mandrel-plan --yes` headless / non-interactive flag contract after the v2 Stage 3
  * planning-fork cutover.
  *
- * `/plan` is workflow prose interpreted by the host LLM, so this spec is a
+ * `/mandrel-plan` is workflow prose interpreted by the host LLM, so this spec is a
  * structural assertion over the single authored workflow source. It pins the
  * useful `--yes` semantics that survived the fork removal:
  *
- *   - `/plan` is one 3-step path, not an Epic/Story router.
+ *   - `/mandrel-plan` is one 3-step path, not an Epic/Story router.
  *   - `--yes` auto-proceeds gate #1 (interrogate confirmation).
  *   - `--yes` auto-proceeds gate #2 (the --force-review pre-persist review).
  *   - `--yes` does not relax deterministic validation gates.
@@ -26,7 +26,10 @@ const __dirname = path.dirname(__filename);
 const REPO_ROOT = path.resolve(__dirname, '..');
 const WORKFLOWS = path.join(REPO_ROOT, '.agents', 'workflows');
 
-const planSource = readFileSync(path.join(WORKFLOWS, 'plan.md'), 'utf8');
+const planSource = readFileSync(
+  path.join(WORKFLOWS, 'mandrel-plan.md'),
+  'utf8',
+);
 
 function section(headingPattern) {
   return (
@@ -36,7 +39,7 @@ function section(headingPattern) {
   );
 }
 
-describe('/plan --yes headless flag — single plan.md path', () => {
+describe('/mandrel-plan --yes headless flag — single plan.md path', () => {
   // Story #4760 removed plan.md's flag table: the operator-facing surface is
   // now derived from what they typed, and the flags belong to the self-
   // describing CLIs. `--yes` survives that removal deliberately — it is not an
@@ -63,7 +66,7 @@ describe('/plan --yes headless flag — single plan.md path', () => {
     );
   });
 
-  it('states that /plan is a single path and no longer routes by scope verdict', () => {
+  it('states that /mandrel-plan is a single path and no longer routes by scope verdict', () => {
     assertDocMentions(
       planSource,
       /Single planning path/i,
@@ -88,7 +91,7 @@ describe('/plan --yes headless flag — single plan.md path', () => {
   });
 });
 
-describe('/plan --yes headless flag — gate #1', () => {
+describe('/mandrel-plan --yes headless flag — gate #1', () => {
   const interrogate = section('### 1\\. Interrogate');
 
   it('anchors gate #1 at the interrogate confirmation STOP', () => {
@@ -165,7 +168,7 @@ describe('/plan --yes headless flag — gate #1', () => {
   });
 });
 
-describe('/plan --yes headless flag — gate #2', () => {
+describe('/mandrel-plan --yes headless flag — gate #2', () => {
   const persist = section('### 3\\. Persist');
 
   it('anchors gate #2 at the --force-review pre-persist review', () => {
@@ -199,7 +202,7 @@ describe('/plan --yes headless flag — gate #2', () => {
   });
 });
 
-describe('/plan --yes headless flag — v2 Stage 3 cutover guards', () => {
+describe('/mandrel-plan --yes headless flag — v2 Stage 3 cutover guards', () => {
   it('keeps --yes scoped to HITL waits; deterministic gates still fail closed', () => {
     assertDocMentions(
       planSource,

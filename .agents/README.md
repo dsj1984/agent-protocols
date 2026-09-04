@@ -4,10 +4,10 @@ An opinionated workflow framework for AI coding assistants built on
 Story-centric GitHub orchestration. Planning, execution, and state all live natively in GitHub Issues, Labels, and Projects V2.
 
 This is the consumer README inside the distributed `.agents/` bundle. It explains what each part of the bundle is for and captures the cross-directory authoring conventions. The process narrative for
-`/plan` and `/deliver` stays in [`docs/SDLC.md`](docs/SDLC.md).
+`/mandrel-plan` and `/mandrel-deliver` stays in [`docs/SDLC.md`](docs/SDLC.md).
 
 The framework payload (`.agents/`) is consumed by host repos. It ships inside the [`mandrel`](https://www.npmjs.com/package/mandrel)
-npm package and is materialized into a consumer's `./.agents/` directory by `mandrel sync`. It carries a system prompt, a baseline rule pack, a two-tier skill library, a slash-command workflow set, and the orchestration engine that runs Story-centric plans on GitHub (`/plan` → Stories, `/deliver` → `story-*` → `main`).
+npm package and is materialized into a consumer's `./.agents/` directory by `mandrel sync`. It carries a system prompt, a baseline rule pack, a two-tier skill library, a slash-command workflow set, and the orchestration engine that runs Story-centric plans on GitHub (`/mandrel-plan` → Stories, `/mandrel-deliver` → `story-*` → `main`).
 
 The framework version is the version of the installed [`mandrel`](https://www.npmjs.com/package/mandrel) npm package — run `npm ls mandrel` (or read `package.json`), not a
 count here.
@@ -44,7 +44,7 @@ unattended.
 
 After it completes, `mandrel init` runs the onboarding tail automatically —
 stack detection, docs scaffolding offer, a `mandrel doctor` readiness gate,
-and a printed `/plan` handoff — so you land at planning in one command.
+and a printed `/mandrel-plan` handoff — so you land at planning in one command.
 
 ### Manual Install
 
@@ -273,10 +273,10 @@ For non-interactive (CI) installs, pass `--owner`, `--repo`, and
 After bootstrap, every Mandrel command is generated into a flat
 `.claude/commands/` tree by `npm run sync:commands` (kept current at install
 time and on every `mandrel sync`/`update`) and loads as a bare `/<command>`
-slash command — e.g. `/plan`, `/deliver`, `/audit-security`. The commands load
+slash command — e.g. `/mandrel-plan`, `/mandrel-deliver`, `/audit-security`. The commands load
 in every Claude Code environment. The [SDLC guide](docs/SDLC.md) walks end-to-end planning and
-delivery; Stories pair [`/plan`](workflows/plan.md) (idea → drafted Story Issue)
-with [`/deliver`](workflows/deliver.md) (Story Issue → merged
+delivery; Stories pair [`/mandrel-plan`](workflows/mandrel-plan.md) (idea → drafted Story Issue)
+with [`/mandrel-deliver`](workflows/mandrel-deliver.md) (Story Issue → merged
 PR).
 
 ---
@@ -319,12 +319,12 @@ in `runtime-deps.json`.
 
 ## Ticket Hierarchy
 
-Orchestration and planning are **Story-only** (`type::story`) — `/plan`
+Orchestration and planning are **Story-only** (`type::story`) — `/mandrel-plan`
 persists Stories with inline `acceptance[]` / `verify[]` and a folded
-`## Spec`; `/deliver` runs `helpers/deliver-story` on `story-<id>` → PR →
+`## Spec`; `/mandrel-deliver` runs `helpers/deliver-story` on `story-<id>` → PR →
 `main`. There is no `type::epic` / `type::task` label, Epic issue form, or
 `epic/<id>` integration branch; a ticket carrying an `Epic: #N` footer is
-refused by `/deliver`. The execution-model contract is owned by
+refused by `/mandrel-deliver`. The execution-model contract is owned by
 [`instructions.md` § 5.B](instructions.md) and [`docs/SDLC.md`](docs/SDLC.md).
 
 ---
@@ -334,7 +334,7 @@ refused by `/deliver`. The execution-model contract is owned by
 | Path | Purpose |
 | ---- | ------- |
 | [`instructions.md`](instructions.md) | Primary system prompt loaded by the host AI tool. |
-| [`docs/SDLC.md`](docs/SDLC.md) | Operator process for `/plan` and `/deliver`. |
+| [`docs/SDLC.md`](docs/SDLC.md) | Operator process for `/mandrel-plan` and `/mandrel-deliver`. |
 | [`starter-agentrc.json`](starter-agentrc.json) | Bootstrap delta-seed copied to the consumer repo root as `.agentrc.json`. |
 | [`agentrc-reference.json`](docs/agentrc-reference.json) | Exhaustive editor reference enumerating every schema key with its framework default. |
 | [`agents/`](agents/) | Optional role-scoped spawn boot contexts (`delivery.routing.roleScopedAgents`). |
@@ -535,7 +535,7 @@ sessions, `gh auth login` is sufficient.
 ## Self-Healing Checks
 
 `scripts/lib/checks/` is the discovery-based registry of named checks
-consumed by preflight guards (`/deliver`, `single-story-close`, `npm test`),
+consumed by preflight guards (`/mandrel-deliver`, `single-story-close`, `npm test`),
 the `diagnose.js` ad-hoc viewer, and the retro surface. Use one check per
 file. The runner (`index.js`) loads checks at process start and filters by
 scope at each call site.
@@ -636,7 +636,7 @@ Schema conventions:
 
 ## Code review providers (pluggable chain)
 
-`runCodeReview()` (invoked from `helpers/deliver-story` and `/deliver`'s
+`runCodeReview()` (invoked from `helpers/deliver-story` and `/mandrel-deliver`'s
 risk-routed ceremony) loads its review backend through a pluggable registry
 configured via `delivery.codeReview.providers` — an array of entries iterated
 in declaration order. The chain-entry field semantics (`name`, `scopes`,
@@ -666,7 +666,7 @@ documented once in
 ## Multi-developer coordination
 
 Two operators can drive the same repository at once — for example, two
-`/deliver <storyId>` runs from separate clones. The framework keeps those
+`/mandrel-deliver <storyId>` runs from separate clones. The framework keeps those
 runs from clobbering one another with **two distinct coordination layers**.
 They solve different problems and must not be confused:
 
@@ -712,14 +712,14 @@ yanks the claim back from whoever legitimately took over.
 
 **Where it's wired:**
 
-- **`/deliver`** runs each Story through `helpers/deliver-story`, which
+- **`/mandrel-deliver`** runs each Story through `helpers/deliver-story`, which
   acquires the lease on the **Story** ticket at init and releases it at close
   ([`single-story-lease-guard.js`](scripts/lib/orchestration/single-story-lease-guard.js)).
   A live foreign claim refuses the run; pass `--steal` to override. The Story
   path requires `github.operatorHandle` to be set — without an operator identity
   the lease has no owner to record.
-- **`/plan`** does not take a planning lease on an Epic ticket. Planning is a
-  short authoring ceremony over Stories; concurrent `/plan` runs coordinate
+- **`/mandrel-plan`** does not take a planning lease on an Epic ticket. Planning is a
+  short authoring ceremony over Stories; concurrent `/mandrel-plan` runs coordinate
   via ordinary GitHub issue creation, not an Epic lease guard.
 
 ---

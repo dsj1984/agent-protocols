@@ -15,7 +15,7 @@ export const AGENT_LABELS = {
   // the Story PR is opened against `main`. It flips to
   // `agent::done` only after the close pipeline confirms the PR merge
   // landed; if the close is killed mid-flight, the Story remains at
-  // `agent::closing` so `/deliver` can pick up at the
+  // `agent::closing` so `/mandrel-deliver` can pick up at the
   // post-merge phase rather than re-running preflight. The label is the
   // distinguishing signal between "hung close" and "finished work".
   CLOSING: 'agent::closing',
@@ -101,7 +101,7 @@ export const ACCEPTANCE_NA = ACCEPTANCE_LABELS.N_A;
  * loop). `meta::framework-gap` is applied to issues that surface a defect or
  * missing capability in the framework itself; `meta::consumer-improvement`
  * is applied to issues that surface improvements to a consumer project
- * (workflow tweaks, ergonomic asks, doc polish). The `/plan` Phase 0
+ * (workflow tweaks, ergonomic asks, doc polish). The `/mandrel-plan` Phase 0
  * fetcher (see `lib/feedback-loop/prior-feedback-fetcher.js`) reads open
  * issues carrying either label and surfaces them to the planner so retro
  * signals are routed into durable substrates rather than lost in chat.

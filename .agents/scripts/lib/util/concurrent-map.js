@@ -16,7 +16,7 @@
 /**
  * The one bound every independent-write fan-out over the GitHub API uses
  * (Story #4952 raised those loops off serial; Story #4961 made this the single
- * owner of the number they share). Imported by the `/plan` context gathers,
+ * owner of the number they share). Imported by the `/mandrel-plan` context gathers,
  * the persist checkpoint fan-out, the `agent::ready` flips and the supersede
  * close loop, so re-tuning the policy is one edit rather than six.
  *

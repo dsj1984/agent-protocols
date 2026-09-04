@@ -1,7 +1,7 @@
 /**
  * story-ops.js — flat Story creation for v2 plan-persist (Stage 3).
  *
- * Under the Story collapse (`docs/roadmap.md` § Stage 3), `/plan` persists
+ * Under the Story collapse (`docs/roadmap.md` § Stage 3), `/mandrel-plan` persists
  * zero-or-more Story issues directly — no Epic parent, no reconciler tree,
  * no `deliveryShape` mode matrix. Default is **one Story**; N>1 is gated by
  * the Stage-1 split-policy validator (`assertAcceptancePartition`).
@@ -44,7 +44,7 @@ import {
  *
  * Reintroduced (Story #4692) after Story #4540 retired it: #4540 was right
  * that batch identity is the wrong axis for *ordering delivery across runs*
- * (`/deliver` takes ids and resolves the graph from live state — that stays),
+ * (`/mandrel-deliver` takes ids and resolves the graph from live state — that stays),
  * but it is the correct axis for *grouping the Stories one plan run created*
  * so a cohort is filterable and traceable in the GitHub UI. The label is
  * metadata only; nothing in persist or delivery reads it as a
@@ -57,7 +57,7 @@ const PLAN_RUN_LABEL_COLOR = '#C5DEF5';
 
 /**
  * Stable color for the `route::lite` ceremony-route hint (Story #4707;
- * hint-only since Story #4722 — `/deliver` re-derives the route from the
+ * hint-only since Story #4722 — `/mandrel-deliver` re-derives the route from the
  * Story body's shape).
  */
 const LITE_ROUTE_LABEL_COLOR = '#D4C5F9';
@@ -475,7 +475,7 @@ function assembleOnePlanStory(ticket, opts) {
   const serialized = serializeStoryBody({ ...folded, depends_on });
   // Carry audit dedup provenance into the persisted body (Story #4877). The
   // audit sweep's Single-plan path stamps the `audit-fingerprints` /
-  // `audit-semantic-keys` footers into the seed it hands `/plan`; without this
+  // `audit-semantic-keys` footers into the seed it hands `/mandrel-plan`; without this
   // the persisted Story carries no provenance and the next sweep re-files work
   // it already planned. Mechanical on purpose — the authoring agent is not
   // asked to notice HTML comments in a one-pager. A non-audit seed carries no
@@ -529,7 +529,7 @@ function assertSharedSpecAllowed(tickets, sharedSpec) {
  * @param {object} [opts]
  * @param {string|null} [opts.sharedSpec]
  * @param {string[]} [opts.planAcceptance]
- * @param {number[]} [opts.sourceTicketIds] Ids passed to `/plan --tickets`.
+ * @param {number[]} [opts.sourceTicketIds] Ids passed to `/mandrel-plan --tickets`.
  * @returns {{ stories: Array<{ slug: string, title: string, body: string, acceptance: string[], depends_on: string[], supersedes: Array<{ id: number, note: string|null }> }> }}
  */
 export function assemblePlanStories(tickets, opts = {}) {
@@ -756,14 +756,14 @@ function renderStoryBodyForCreate(story, idBySlug) {
  *
  * Ordering is authored as slugs and, until now, survived persist only as
  * `blocked by #N` prose in the body footer. That footer stays — it is what
- * `/deliver`'s resolver falls back on — but a native edge is the durable,
+ * `/mandrel-deliver`'s resolver falls back on — but a native edge is the durable,
  * machine-readable form: visible in the GitHub UI, readable without parsing
  * markdown, and settable by an operator later for cross-run order.
  *
  * **Non-fatal by design, and deliberately asymmetric with the read path.** A
  * missing native edge is cosmetic here: `renderStoryBodyForCreate` has already
  * written the footer, so ordering is not lost when the dependencies API says
- * no. `/deliver`'s *read* of these edges is a real dispatch gate, which is why
+ * no. `/mandrel-deliver`'s *read* of these edges is a real dispatch gate, which is why
  * that side fails loud. Persist reports the failure and completes.
  *
  * Two shape hazards this crossing has to get right, both silent if missed:
@@ -839,7 +839,7 @@ async function mirrorNativeDependencyEdges({ provider, stories, idBySlug }) {
  *
  * **Non-fatal by design**, matching the native-blocked_by mirroring posture:
  * neither label is load-bearing for correctness (grouping is cosmetic, and
- * the route label is a human-visible hint only — `/deliver` re-derives the
+ * the route label is a human-visible hint only — `/mandrel-deliver` re-derives the
  * route from the Story body's shape, Story #4722), so it is never a reason
  * to fail persist. On an ensure
  * failure (throw, or the label reported `missing` by the post-loop
@@ -920,7 +920,7 @@ async function ensurePersistLabel({
  * create — no relabel call is needed on the resume path, and the cohort is
  * never split across two labels. The label is ensured to exist before the
  * first POST, **non-fatally**: grouping is cosmetic and never fails the run
- * (see `ensureCohortLabel`). `/deliver` never reads it — delivery stays
+ * (see `ensureCohortLabel`). `/mandrel-deliver` never reads it — delivery stays
  * ids-only over live state (Story #4540's actual point).
  *
  * **The create loop stays serial and dependency-ordered** — deliberately, and
@@ -940,7 +940,7 @@ async function ensurePersistLabel({
  * effective complexity route to `lite` (the planner's recorded verdict,
  * upheld by the shape backstop), it passes the label via `opts.routeLabel`
  * and every created Story carries it — a **human-visible hint only**, never
- * the control signal: `/deliver` re-derives the route from each Story body's
+ * the control signal: `/mandrel-deliver` re-derives the route from each Story body's
  * own shape (`resolveStoryDispatchMode`), so a lost or failed label write
  * cannot misroute delivery. A full-routed plan passes nothing and its
  * Stories carry **no** route label. Like the cohort label, the ensure is
@@ -1000,8 +1000,8 @@ export async function createStoryIssues({ provider, stories, opts = {} }) {
     label: cohortLabel,
     color: PLAN_RUN_LABEL_COLOR,
     description:
-      'Groups the Stories one /plan persist run authored (metadata ' +
-      'only — /deliver stays ids-only).',
+      'Groups the Stories one /mandrel-plan persist run authored (metadata ' +
+      'only — /mandrel-deliver stays ids-only).',
     role: 'cohort',
   });
   const applyRouteLabel =
@@ -1011,7 +1011,7 @@ export async function createStoryIssues({ provider, stories, opts = {} }) {
       label: routeLabel,
       color: LITE_ROUTE_LABEL_COLOR,
       description:
-        'Ceremony-lite hint (human-visible only): /deliver re-derives the ' +
+        'Ceremony-lite hint (human-visible only): /mandrel-deliver re-derives the ' +
         'route from the Story body shape; every close gate runs unchanged.',
       role: 'route-marker',
     }));
@@ -1101,9 +1101,9 @@ export async function createStoryIssues({ provider, stories, opts = {} }) {
  *
  * This is what makes `agent::ready` *mean* "fully persisted": by the time it
  * lands, the Story's `story-plan-state` checkpoint is already on the ticket, so
- * a `/deliver` that picks it up cannot read a null checkpoint.
+ * a `/mandrel-deliver` that picks it up cannot read a null checkpoint.
  *
- * Fails closed: an un-flipped Story is invisible to `/deliver`, which is the
+ * Fails closed: an un-flipped Story is invisible to `/mandrel-deliver`, which is the
  * safe direction — the operator is told exactly which ids need the label.
  *
  * **Collect failures, never fast-fail** (preserved verbatim under the
@@ -1159,7 +1159,7 @@ export async function markStoriesReady({ provider, created }) {
       `[plan-persist] ${failed.length} Story(ies) were created with their ` +
         'checkpoints but could not be flipped to agent::ready:\n' +
         `${failed.map((f) => `  - ${f}`).join('\n')}\n` +
-        'They are invisible to /deliver until the label lands. Re-run persist ' +
+        'They are invisible to /mandrel-deliver until the label lands. Re-run persist ' +
         '(it resumes rather than duplicating) or add the label by hand.',
     );
   }

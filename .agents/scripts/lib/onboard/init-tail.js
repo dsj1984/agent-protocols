@@ -7,7 +7,7 @@
  *
  *   Phase 1 — Offer to scaffold missing docsContextFiles (scaffold-docs.js).
  *   Phase 2 — Run `mandrel doctor` as a readiness gate.
- *   Phase 3 — Print the /plan handoff next-step text.
+ *   Phase 3 — Print the /mandrel-plan handoff next-step text.
  *
  * The whole tail is idempotent: re-running after an already-onboarded project
  * re-checks and re-offers scaffolding without duplicating stubs (the scaffolder
@@ -31,13 +31,13 @@ import { STUB_MARKER, scaffoldDocs } from './scaffold-docs.js';
 // ---------------------------------------------------------------------------
 
 /**
- * Text printed at the end of the init tail to hand the operator off to /plan.
+ * Text printed at the end of the init tail to hand the operator off to /mandrel-plan.
  *
  * @type {string}
  */
 export const PLAN_HANDOFF_TEXT =
   '\n✅  Mandrel is ready. Start your first project:\n\n' +
-  '    /plan --seed "<one-line description of what you want to build>"\n';
+  '    /mandrel-plan --seed "<one-line description of what you want to build>"\n';
 
 // ---------------------------------------------------------------------------
 // Internal helpers
@@ -200,7 +200,7 @@ export async function runInitTail({
     return { scaffoldResult, doctorStatus, ok: false };
   }
 
-  // --- Phase 3: Handoff to /plan -------------------------------------------
+  // --- Phase 3: Handoff to /mandrel-plan -------------------------------------------
   stdout(PLAN_HANDOFF_TEXT);
   return { scaffoldResult, doctorStatus, ok: true };
 }

@@ -26,7 +26,7 @@ the agent never invents those decisions in prose.
 
 > **When to run**: during sprint testing to exercise a targeted slice of the
 > acceptance suite (a feature, a tag expression, or a domain), for regression
-> passes before `/deliver`, or on demand while debugging a Story's
+> passes before `/mandrel-deliver`, or on demand while debugging a Story's
 > user-visible behavior in a live browser.
 >
 > **Skills**: `stack/qa/gherkin-authoring`, `stack/qa/playwright-bdd`

@@ -89,7 +89,7 @@ export function branchExistsViaTrackingRef(branch, cwd) {
 /**
  * Pure: classify how a `story-<id>` branch should be seeded from the (local,
  * remote) ref-presence matrix. This is the single source of truth for
- * `single-story-init.js#decideStoryBranchSeed` (v2 `/deliver` path).
+ * `single-story-init.js#decideStoryBranchSeed` (v2 `/mandrel-deliver` path).
  *
  * The init path previously re-implemented the same `local → no-op, remote →
  * fetch, else create` decision tree; it now delegates here so the branching
@@ -122,7 +122,7 @@ export function classifyBranchSeed({ localHas, remoteHas }) {
  * The two callers differ in exactly two behavioural axes, both of which are
  * parameters here — no other conditional branching is introduced:
  *   - **`baseRef`** — the ref to branch from on `create` (`main` for v2
- *     `/deliver`; pre-v2 Epic close used the Epic branch).
+ *     `/mandrel-deliver`; pre-v2 Epic close used the Epic branch).
  *   - **`swallowCreateRace`** — when `true`, a `git branch` that exits
  *     non-zero with an "already exists" stderr is treated as reuse rather
  *     than a fatal error (pre-v2 concurrent wave dispatch). When `false`, any create failure

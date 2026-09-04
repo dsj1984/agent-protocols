@@ -55,8 +55,8 @@ top-level keys are validation errors.
 | ------------- | -------- | ---------------------------------------------------------------------------------- |
 | `project`     | **Yes**  | Project-local paths, base branch, validation commands, and context-hydration files. |
 | `github`      | No       | Ticketing provider config: owner/repo, branch protection, merge methods, notifications. |
-| `planning`    | No       | `/plan` tuning: conflict advisories, complexity routing, navigability gate. (Story sizing ceilings and the planner-context cap are code-absolute — not agentrc.) |
-| `delivery`    | No       | `/deliver` tuning: quality gates, worktree isolation, runners, CI watch, code-review providers. |
+| `planning`    | No       | `/mandrel-plan` tuning: conflict advisories, complexity routing, navigability gate. (Story sizing ceilings and the planner-context cap are code-absolute — not agentrc.) |
+| `delivery`    | No       | `/mandrel-deliver` tuning: quality gates, worktree isolation, runners, CI watch, code-review providers. |
 | `qa`          | No       | Agent-driven QA harness contract: feature root, fixtures, environments, personas. |
 | `$schema`     | No       | JSON Schema pointer for editor tooling.                                            |
 
@@ -118,7 +118,7 @@ GitHub provider identity plus the remote stance the bootstrap enforces. `owner`,
 
 ### `planning` (optional)
 
-Inputs to `/plan`: risk escalation heuristics, ceremony-lite routing, and the cross-Story conflict-finding severity gates.
+Inputs to `/mandrel-plan`: risk escalation heuristics, ceremony-lite routing, and the cross-Story conflict-finding severity gates.
 
 | Key | Required | Type | Default | Description |
 | --- | --- | --- | --- | --- |
@@ -138,7 +138,7 @@ Inputs to `/plan`: risk escalation heuristics, ceremony-lite routing, and the cr
 
 ### `delivery` (optional)
 
-Everything `/deliver` and `single-story-close` consume: execution timeouts, worktree isolation, runner concurrency, docs freshness, signals, quality gates, merge/CI watch, review ceremony, and the feedback loop.
+Everything `/mandrel-deliver` and `single-story-close` consume: execution timeouts, worktree isolation, runner concurrency, docs freshness, signals, quality gates, merge/CI watch, review ceremony, and the feedback loop.
 
 | Key | Required | Type | Default | Description |
 | --- | --- | --- | --- | --- |
@@ -154,8 +154,8 @@ Everything `/deliver` and `single-story-close` consume: execution timeouts, work
 | `tempRetention.classes.validationEvidence` | No | `boolean` | `true` | Per-Story validation-evidence.json, lifecycle.ndjson, and manifest.md under the standalone and per-run story trees. |
 | `tempRetention.classes.auditResults` | No | `boolean` | `true` | <tempRoot>/audits/ — audit lens reports. |
 | `tempRetention.classes.planDirs` | No | `boolean` | `true` | <tempRoot>/plan-<slug>/ — abandoned plan authoring dirs. Age-floored only; the current run is always excluded. |
-| `deliverRunner` | No | `object` | — | Bounded-concurrency knob for the /deliver fan-out. |
-| `deliverRunner.concurrencyCap` | No | `integer` | `3` | Maximum ready Stories dispatched by /deliver at once. Default 3. Moderate by design — keeps host-quota consumption predictable while allowing a small ready-set fan-out. Set 1 for strictly sequential delivery; raise further on hosts with adequate parallel-agent quota. See deliver.md for the sequencing model and throughput tradeoff. |
+| `deliverRunner` | No | `object` | — | Bounded-concurrency knob for the /mandrel-deliver fan-out. |
+| `deliverRunner.concurrencyCap` | No | `integer` | `3` | Maximum ready Stories dispatched by /mandrel-deliver at once. Default 3. Moderate by design — keeps host-quota consumption predictable while allowing a small ready-set fan-out. Set 1 for strictly sequential delivery; raise further on hosts with adequate parallel-agent quota. See deliver.md for the sequencing model and throughput tradeoff. |
 | `deliverRunner.footprintGuard` | No | `"enforce"` \| `"advisory"` | `"enforce"` | How a file-footprint collision affects dispatch. 'enforce' (default, and the behaviour to keep unless you have a reason) withholds a Story whose footprint races a peer admitted this beat or one still in flight — the guard encodes delivery-time-only knowledge (open implementation windows, foreign leases, ground that moved since planning) that no depends_on edge can carry. 'advisory' still DETECTS every collision and reports each would-be withhold in the tick envelope, but lets dispatch follow the declared depends_on edges alone — a deliberate throughput trade for a run whose ordering is fully declared. See stories-wave-tick.js and helpers/deliver-reference.md. |
 | `worktreeIsolation` | No | `object` | — | Per-Story git worktree provisioning. Each Story is implemented in its own checkout so concurrent siblings never share a working tree. |
 | `worktreeIsolation.enabled` | No | `boolean` | `true` | When true, `single-story-init.js` materializes a worktree per Story. False implements every Story in the main checkout, which is only safe for strictly serial delivery. |
@@ -284,22 +284,22 @@ Everything `/deliver` and `single-story-close` consume: execution timeouts, work
 | `quality.baselineEpsilon.bundle-size` | No | `number` | `1024` | — |
 | `quality.baselineEpsilon.duplication` | No | `number` | `0.5` | — |
 | `quality.requireBaselines` | No | `boolean` | `false` | Story #4495. Fail-closed baseline-enforcement policy for the unified check-baselines close-validation gate. When false (default), a consumer that enables baseline gates (crap/maintainability/…) but has not committed the corresponding baseline artifacts under baselines/ gets a clean skip-with-reason instead of a deterministic first-try close failure. Set true to keep the gate registered so an absent baseline artifact fails close-validation with a preflight hint naming the fix (the fail-closed posture). |
-| `quality.navigability` | No | `object` | — | Navigability lens + journey-suite config (Epic #4131, F2/F3/F1/F4). Read by audit-suite/selector.js (route globs) and /deliver's per-Story ceremony (journey suite). Opt-in: absent or empty routeGlobs degrades to a silent no-op. |
+| `quality.navigability` | No | `object` | — | Navigability lens + journey-suite config (Epic #4131, F2/F3/F1/F4). Read by audit-suite/selector.js (route globs) and /mandrel-deliver's per-Story ceremony (journey suite). Opt-in: absent or empty routeGlobs degrades to a silent no-op. |
 | `quality.navigability.routeGlobs` | No | `array<string>` | `[]` | Glob patterns (pages/**, app/**/route.ts) marking paths that add a user-facing route — the route-tree SSOT the navigability lens enumerates and the route-added routing predicate matches against. |
 | `quality.navigability.navRegistry` | No | `array<string>` | `[]` | Tokens identifying the nav-registry SSOT the navigability lens checks every route resolves a nav door against. |
-| `quality.navigability.journeySuite` | No | `string` | — | Path or command for the per-persona journey suite /deliver's per-Story ceremony runs. |
+| `quality.navigability.journeySuite` | No | `string` | — | Path or command for the per-persona journey suite /mandrel-deliver's per-Story ceremony runs. |
 | `mergeWatch` | No | `object` | — | Knobs consumed by the close-and-land merge wait (Story #4543; defaults in `lib/orchestration/merge-poll.js`). `mode` (Story #4698) selects the close-time merge posture. `intervalSeconds` is the poll cadence between `gh pr view` probes after the arm. `maxWaitSeconds` bounds ONE invocation of the merge wait and its expiry returns a resumable `pending` terminal with no label mutation; `maxBudgetSeconds` bounds the CUMULATIVE wait across resumes (anchored at the PR's createdAt, so a resume does not restart the clock) and exhausting it is the genuine give-up that classifies and blocks. `updateAttempts` caps the bounded update of a behind-the-base PR. |
 | `mergeWatch.mode` | No | `"sync"` \| `"async"` | — | Close-time merge-wait posture (Story #4698). `sync` (default) keeps the in-close foreground merge wait unchanged. `async` caps the per-invocation wait to a short ~60s probe window — long enough to catch an instant merge and, via the head-anchored required-check predicate, an instantly-red required check — then returns the resumable `pending` terminal (exit 3) with a `nextCommand`. Opt in when slow CI makes the foreground wait routinely expire: the worker launches `nextCommand` in the background instead of burning the host tool slot polling. `maxBudgetSeconds` (the cumulative give-up) is unchanged. |
 | `mergeWatch.intervalSeconds` | No | `integer` | `30` | Seconds between merge-wait polls. Default 30. |
 | `mergeWatch.maxWaitSeconds` | No | `integer` | — | Per-invocation merge-wait bound (seconds). Default 300 (5 minutes) — chosen to fit inside a single host tool invocation (~10 min ceiling) alongside the close gates that precede the wait. Expiry yields `pending` (exit 3), never a block. Headless callers with no host ceiling raise this to land in one block. |
 | `mergeWatch.maxBudgetSeconds` | No | `integer` | `3600` | Cumulative wall-clock budget (seconds) across merge-wait resumes, anchored at the PR's createdAt. Default 3600 (60 minutes). Exhausting this classifies the block and transitions the Story to agent::blocked. |
 | `mergeWatch.updateAttempts` | No | `integer` | — | Maximum times the merge wait will bring a behind-the-base PR up to date before giving up on the branch. Default 3. Set 0 to disable the update. |
-| `codeReview` | No | `object` | — | Review-provider chain plus bounded-retry knobs for the /deliver code-review ceremony. |
+| `codeReview` | No | `object` | — | Review-provider chain plus bounded-retry knobs for the /mandrel-deliver code-review ceremony. |
 | `codeReview.providers[]` | No | `array<object>` | `[{"name":"native"},{"name":"security-review","scopes":["story"],"optional":true},{"name":"ultrareview","scopes":["story"],"manualPrompt":true,"when":{"label":"risk::high"}}]` | Review-provider chain (Story #2871). When unset or empty, defaults to [{ name: "native" }]. The orchestrator iterates inline entries in declaration order and merges their Finding[] before posting one structured comment; manual-prompt entries (e.g. ultrareview) contribute a trailing 'Manual review suggestions' section. Selecting an adapter whose probe fails hard-fails at factory construction unless declared `optional: true` in the chain. Each item has: name, scopes, optional, manualPrompt, when. |
 | `codeReview.providerConfig` | No | `object` | — | Optional escape hatch for adapter-specific configuration. No documented keys in Epic #2815; reserved so future adapters can be configured without another schema migration. |
-| `codeReview.maxFixAttempts` | No | `integer` | `3` | Maximum auto-fix retry attempts per finding in /deliver Phase 5 (code-review). 0 disables auto-fix. Default 3. |
+| `codeReview.maxFixAttempts` | No | `integer` | `3` | Maximum auto-fix retry attempts per finding in /mandrel-deliver Phase 5 (code-review). 0 disables auto-fix. Default 3. |
 | `codeReview.maxFixScopeFiles` | No | `integer` | `5` | Maximum file count a single auto-fix may modify before escalating to agent::blocked. Default 5. |
-| `codeReview.autoFixSeverity` | No | `"high"` \| `"medium"` | `"medium"` | Severity threshold for on-branch remediation in /deliver Phase 5 (code-review). `medium` (default) routes 🔴/🟠/🟡 findings into the host-LLM focused-fix routing (Mediums batched per lens: one commit per lens, a single validation + rescan at the end) while 🟢 suggestions still graduate to follow-up issues; `high` reproduces the pre-4399 Critical/High-only routing. Hard cutover — no back-compat flag. |
+| `codeReview.autoFixSeverity` | No | `"high"` \| `"medium"` | `"medium"` | Severity threshold for on-branch remediation in /mandrel-deliver Phase 5 (code-review). `medium` (default) routes 🔴/🟠/🟡 findings into the host-LLM focused-fix routing (Mediums batched per lens: one commit per lens, a single validation + rescan at the end) while 🟢 suggestions still graduate to follow-up issues; `high` reproduces the pre-4399 Critical/High-only routing. Hard cutover — no back-compat flag. |
 | `review` | No | `object` | — | Close-scope review tuning (Story #4699). Governs the Story-scope local-lens pass that runs inside the close subprocess; the maker-blind code-review pass and all hard gates are unaffected. |
 | `review.lensDiffFloor` | No | `integer` | — | Changed-line floor for the close-scope lens walk (Story #4699). A diff strictly below this many changed lines (additions + deletions) with zero sensitive-path hits skips lens materialization and records the skip in the findings-yield ledger. Default 40; 0 disables the skip. Hard gates and the maker-blind code-review pass are unaffected. |
 | `refactorStage` | No | `object` | — | Opt-in, config-gated post-green refactor checkpoint wired into story-deliver (Story #3430, Epic #3418). Strictly additive and default-OFF: when disabled, story-deliver behaves exactly as before. Advisory only — never changes existing close-validation gate semantics. |
@@ -414,7 +414,7 @@ A config still carrying the retired key is a hard validation failure; the
   proxy in both directions (a detailed prompt can describe trivial work, a
   terse one complex work), so `maxSeedWords` was **removed** in the hard
   cutover (a config still setting it is rejected as an additional property).
-  Routing is now staged on the objective shape of the work: `/plan`'s context
+  Routing is now staged on the objective shape of the work: `/mandrel-plan`'s context
   envelope emits advisory `complexitySignals` (enumerated-artifact count,
   risk-heuristic hits, repo state of predicted paths, sensitive-path classes)
   with **no routing authority**; the planner authors the trivial-vs-standard
@@ -423,7 +423,7 @@ A config still carrying the retired key is a hard validation failure; the
   lite claim against each authored Story's own shape (`changes[]` count,
   acceptance count, creates-vs-refactors mix, sensitive-path classes — the
   framework constants `STORY_SHAPE_CEILINGS`) and **fails closed to `full`**
-  when the shape exceeds the ceilings; and `/deliver` re-derives the route
+  when the shape exceeds the ceilings; and `/mandrel-deliver` re-derives the route
   from the fetched Story body via the same shape function at dispatch. The
   `route::lite` label is a human-visible hint only — a lost label cannot
   misroute delivery. A lite-shaped Story executes inline (no story-worker or
@@ -515,7 +515,7 @@ number of keys.
 
 | File                              | Audience                            | Role                                                                                                                                |
 | --------------------------------- | ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| `.agentrc.json` (repo root)       | The framework dogfooding itself     | Live config used when running `/plan` and `/deliver` against this repo. Exercises the framework end-to-end on its own source tree. |
+| `.agentrc.json` (repo root)       | The framework dogfooding itself     | Live config used when running `/mandrel-plan` and `/mandrel-deliver` against this repo. Exercises the framework end-to-end on its own source tree. |
 | `.agents/starter-agentrc.json`    | Downstream consumer repos           | Bootstrap delta-seed a consumer copies via `cp .agents/starter-agentrc.json .agentrc.json`. Minimum schema-required keys only.      |
 | `.agents/docs/agentrc-reference.json`       | Operators and reviewers             | Exhaustive editor reference enumerating every schema key with its framework default. Not a copy target.                             |
 
@@ -637,8 +637,8 @@ under one identity. So each contributor sets their own in `.agentrc.local.json`:
 carries only the non-personal placeholder `@[USERNAME]` (so CI and fresh clones
 validate without naming a real person). The placeholder is **not** a usable
 identity: [`normalizeOperatorHandle`](../scripts/lib/orchestration/ticket-lease.js)
-resolves `@[USERNAME]` to `null`, and the lease guards (`/plan`,
-`/deliver`, `/deliver`) **fail closed** — they throw with a
+resolves `@[USERNAME]` to `null`, and the lease guards (`/mandrel-plan`,
+`/mandrel-deliver`, `/mandrel-deliver`) **fail closed** — they throw with a
 "set your own handle in `.agentrc.local.json`" message rather than running an
 ownerless, unguarded workflow. Your local overlay replaces the placeholder with
 your real handle, and the guards proceed. By contrast, `github.owner` / `repo`

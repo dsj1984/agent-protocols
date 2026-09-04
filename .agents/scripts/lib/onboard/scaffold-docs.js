@@ -25,7 +25,7 @@ const AGENT_ROOT = path.resolve(__dirname, '../../..');
 const DOCS_TEMPLATE_DIR = path.join(AGENT_ROOT, 'templates', 'docs');
 
 /**
- * Deterministic marker written into every scaffolded stub. The `/plan`
+ * Deterministic marker written into every scaffolded stub. The `/mandrel-plan`
  * first-run preflight (and any tooling that wants to detect unedited stubs)
  * keys off this exact string — do not change it without a hard cutover.
  *
@@ -59,7 +59,7 @@ function genericStub(fileName) {
 /**
  * Read the dedicated template body for a docsContextFile, or fall back to the
  * generic stub when no template ships for that name. Either path prepends the
- * {@link STUB_MARKER} so the `/plan` first-run preflight can detect un-edited
+ * {@link STUB_MARKER} so the `/mandrel-plan` first-run preflight can detect un-edited
  * stubs regardless of whether a dedicated template was used.
  *
  * @param {string} fileName

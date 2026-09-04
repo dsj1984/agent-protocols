@@ -1,7 +1,7 @@
 /**
  * lib/story-adjacency.js — the single story-level adjacency builder.
  *
- * Both pre-v2 Epic wave wrappers and the v2 `/deliver` ready-set path bottom out in the shared
+ * Both pre-v2 Epic wave wrappers and the v2 `/mandrel-deliver` ready-set path bottom out in the shared
  * `lib/Graph.js` kernel (`detectCycle` / `assignLayers` / `computeWaves`),
  * but each historically re-implemented the step that turns a list of Story
  * records into the `Map<storyId, number[]>` adjacency the kernel consumes.
@@ -43,7 +43,7 @@ import { parseBlockedBy } from './dependency-parser.js';
  *   DAG nodes).
  * @param {object} [opts]
  * @param {boolean} [opts.dropForeign=false] When `false` (the v2 default,
- *   matching the `/deliver` path — `stories-wave-tick.js` and the
+ *   matching the `/mandrel-deliver` path — `stories-wave-tick.js` and the
  *   `planReadySet` core), the operator-DAG contract is preserved: a
  *   dependency on an id absent from the input is treated as not-yet-done
  *   and withholds the dependent until it completes. When `true` (the

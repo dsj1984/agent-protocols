@@ -1,7 +1,7 @@
 /**
  * tests/scripts/resolve-stories.test.js — Story #4540.
  *
- * `/deliver` takes only Story ids; this resolver discovers the graph from
+ * `/mandrel-deliver` takes only Story ids; this resolver discovers the graph from
  * live state. Three of these tests pin defects a pre-mortem caught before
  * implementation — each would have shipped as a silent wedge or an
  * immediate crash:
@@ -653,7 +653,7 @@ describe('buildStoriesEnvelope — per-Story dispatchMode (Story #4722)', () => 
 });
 
 /**
- * Story #4736 — the resolver is where `/deliver` reads the dispatch decision,
+ * Story #4736 — the resolver is where `/mandrel-deliver` reads the dispatch decision,
  * so this is where the run-topology rule has to be true end to end: a
  * one-Story `--ids` list yields `inline`, and adding a sibling puts the shape
  * axis back in charge.
@@ -710,7 +710,7 @@ describe('buildStoriesEnvelope — single-Story runs dispatch inline (Story #473
  * Story #4829 — the resolver's dispatch modes and the wave tick's ready set
  * are two answers to one run, and they must not contradict each other.
  *
- * Measured twice on 2026-07-29 (`/deliver 4824 4825`, `/deliver 4828 4829
+ * Measured twice on 2026-07-29 (`/mandrel-deliver 4824 4825`, `/mandrel-deliver 4828 4829
  * 4830`): every Story resolved `inline` while the tick reported the whole set
  * ready under a cap of five. `inline` means the router's own session, so that
  * pair of answers instructs one session to run two — then three — engines over

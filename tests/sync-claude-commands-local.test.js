@@ -201,8 +201,10 @@ test('AC2: local command survives a second sync run (prune-exempt)', () => {
 // ---------------------------------------------------------------------------
 
 test('AC3: payload command wins when local has same basename; shadowed warning emitted', () => {
-  const payloadContent = '# /deliver\n\nThis is the PAYLOAD deliver command.\n';
-  const localContent = '# /deliver\n\nThis is the LOCAL deliver command.\n';
+  const payloadContent =
+    '# /mandrel-deliver\n\nThis is the PAYLOAD deliver command.\n';
+  const localContent =
+    '# /mandrel-deliver\n\nThis is the LOCAL deliver command.\n';
 
   const run = runSyncIsolated({
     payloadFiles: { 'deliver.md': payloadContent },
@@ -303,7 +305,7 @@ test('AC5: SYNC_CLAUDE_COMMANDS_SRC override still works; no local/ = no extra c
   // and the behaviour is identical to the pre-#4243 single-source mode.
   const run = runSyncIsolated({
     payloadFiles: {
-      'plan.md': '# /plan\n\nPayload-only command.\n',
+      'plan.md': '# /mandrel-plan\n\nPayload-only command.\n',
     },
     // No localFiles — no .agents/local/workflows/ created
   });
@@ -338,8 +340,8 @@ test('AC5: SYNC_CLAUDE_COMMANDS_SRC override still works; no local/ = no extra c
 test('local and payload commands coexist without interfering', () => {
   const run = runSyncIsolated({
     payloadFiles: {
-      'deliver.md': '# /deliver\n\nPayload deliver.\n',
-      'plan.md': '# /plan\n\nPayload plan.\n',
+      'deliver.md': '# /mandrel-deliver\n\nPayload deliver.\n',
+      'plan.md': '# /mandrel-plan\n\nPayload plan.\n',
     },
     localFiles: {
       'benchmark.md': '# /benchmark\n\nLocal benchmark.\n',

@@ -1,21 +1,21 @@
 ---
 description:
-  On-demand reference appendix for /deliver — the sequencing edge cases,
+  On-demand reference appendix for /mandrel-deliver — the sequencing edge cases,
   role-scoped dispatch mechanics, lite-route inline execution, checklist
   threading, and the per-run epilogue. Read it when the matching lever is in
   play; the lean spine in deliver.md links here.
 ---
 
-# /deliver — reference appendix (on-demand)
+# /mandrel-deliver — reference appendix (on-demand)
 
-Reference-only detail split out of [`deliver.md`](../deliver.md) so the
+Reference-only detail split out of [`mandrel-deliver.md`](../mandrel-deliver.md) so the
 always-resident spine stays lean. Nothing here is a new MUST —
 it is the mechanics an operator consults when the matching lever is engaged.
 
 ## Ranges (`4922 - 4926`) {#ranges}
 
 A contiguous span is how an operator reads a plan run, so the dash range is a
-first-class id shape rather than prose to interpret — `/deliver 4922 - 4926`
+first-class id shape rather than prose to interpret — `/mandrel-deliver 4922 - 4926`
 means exactly the five ids in it.
 
 **Pass the span through; never expand it by hand.** Every id-list flag on the
@@ -48,6 +48,14 @@ and GitHub's native `blocked_by` edges, resolving each blocker against its real
 issue state rather than against anything you hand it. That is why there is no
 batch label to pass and why a blocker that landed in an unrelated run is simply
 seen as done.
+
+**The non-zero exit codes.** **2** — `cycleError`: the graph is
+self-referential; fix `depends_on`, do not retry. **3** — `wedged`: nothing
+dispatchable and nothing in flight, with the undone Stories and their unmet
+blockers named; land a blocker or add it to `--ids`. **4** — `blocked`: a Story
+carries `agent::blocked` with `blockedReason`, the protocol's HITL pause
+([`instructions.md` § 1.J](../../instructions.md)). Blocked outranks a wedge,
+but not a cycle.
 
 **Resuming an exit-4 `blocked`.** Read the friction comment with
 `gh issue view <id> --comments`, and resume only once the operator has
@@ -184,7 +192,7 @@ exposes agent dispatch, spawn each ready Story as its own
 `CLAUDE.md` @-closure) carrying the load-bearing delivery MUSTs standalone. The
 sub-agent executes [`deliver-story.md`](deliver-story.md) Steps 0–2.5
 (init → implement → acceptance self-eval → **push**) and stops there; **you**
-own Step 3, serialized — see `/deliver` § Closing what the workers hand back.
+own Step 3, serialized — see `/mandrel-deliver` § Closing what the workers hand back.
 Thread into its prompt: `storyId`; `docsDigestPath` (the per-run docs digest, null when
 `project.docsContextFiles` is unset); `checklistPath` (the footprint-matched
 write-time audit checklist, produced at dispatch, below); and the
@@ -225,7 +233,7 @@ terminal envelope are identical either way — only the isolation differs.
 
 ## Intent phrases (what replaced the flag table)
 
-`/deliver` has no operator-facing flags. The scripts still take every flag they
+`/mandrel-deliver` has no operator-facing flags. The scripts still take every flag they
 always did — the workflow fills them in from what the operator said, the same
 derive-then-announce contract `/git-deliver` uses for its terminal level.
 
@@ -252,7 +260,7 @@ Two rules keep this honest:
 operator expresses; it is a runner asserting *nobody is at the keyboard*, and
 it changes fail-closed behavior (it is what turns the unplanned path's
 over-scope stop into an `escalated` terminal envelope, and what auto-proceeds
-`/plan`'s gates). Cron, `/loop`, and headless dispatch set it. An attended run
+`/mandrel-plan`'s gates). Cron, `/loop`, and headless dispatch set it. An attended run
 never does, however the operator phrases their impatience.
 
 ## Operator-merge implies no-wait

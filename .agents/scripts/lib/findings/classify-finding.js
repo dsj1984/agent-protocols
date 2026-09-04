@@ -51,7 +51,7 @@ export const FINDING_CLASSES = Object.freeze([
 /**
  * Class → label-set routing table. Each class maps to exactly one label set.
  * `tooling-dx` is the framework-gap path: it carries `meta::framework-gap` so
- * the `/plan` Phase 0 feedback fetcher surfaces it to the planner.
+ * the `/mandrel-plan` Phase 0 feedback fetcher surfaces it to the planner.
  */
 const CLASS_TO_LABELS = Object.freeze({
   'product-bug': [FOCUS_LABELS.PRODUCT],

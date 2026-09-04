@@ -1,5 +1,5 @@
 /**
- * plan-phase-cleanup.js — Post-phase temp-file cleanup for `/plan`.
+ * plan-phase-cleanup.js — Post-phase temp-file cleanup for `/mandrel-plan`.
  *
  * The spec and decompose phases write several run-scoped temp files under
  * the per-run tree (`temp/run-<id>/planner-context.json`,

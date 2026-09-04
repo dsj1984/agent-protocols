@@ -425,7 +425,7 @@ describe('runPlanPersist — flat Story ops', () => {
 
   it('creates Stories WITHOUT agent::ready and flips them only after the checkpoints land', async () => {
     // Story #4541: issues used to be born agent::ready in the creating POST
-    // while story-plan-state was upserted afterwards, so a /deliver that picked
+    // while story-plan-state was upserted afterwards, so a /mandrel-deliver that picked
     // a Story up inside that window read a null checkpoint.
     // Ready must mean fully persisted.
     //
@@ -527,7 +527,7 @@ describe('runPlanPersist — flat Story ops', () => {
     for (const issue of provider.issues.values()) {
       assert.ok(
         !issue.labels.includes(AGENT_LABELS.READY),
-        'a stranded Story must not be picked up by /deliver',
+        'a stranded Story must not be picked up by /mandrel-deliver',
       );
     }
 
@@ -836,7 +836,7 @@ describe('runPlanPersist — flat Story ops', () => {
 
   it('applies exactly one shared plan-run cohort label to N>1 Stories (Story #4692)', async () => {
     // The label groups the Stories one persist run authored — metadata only,
-    // for filtering/traceability. It is NOT a delivery input: /deliver takes
+    // for filtering/traceability. It is NOT a delivery input: /mandrel-deliver takes
     // ids and resolves the graph from live state, and ordering lives in the
     // blocked-by footers.
     const provider = fakeProvider();

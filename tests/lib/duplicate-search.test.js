@@ -1,6 +1,6 @@
 /**
  * tests/lib/duplicate-search.test.js — unit tests for the cross-Story
- * duplicate detector used by `/plan`.
+ * duplicate detector used by `/mandrel-plan`.
  *
  * Covers:
  *  - overlap scoring (Jaccard) returns expected ordering and respects
