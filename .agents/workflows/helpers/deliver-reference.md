@@ -57,10 +57,6 @@ carries `agent::blocked` with `blockedReason`, the protocol's HITL pause
 ([`instructions.md` § 1.J](../../instructions.md)). Blocked outranks a wedge,
 but not a cycle.
 
-**`--concurrency` is operator-only.** Do not pass it unless the operator asked
-for a per-run cap: an explicit value wins over config, so a literal defeats a
-`.agentrc.local.json` override.
-
 **Resuming an exit-4 `blocked`.** Read the friction comment with
 `gh issue view <id> --comments`, and resume only once the operator has
 unblocked it:

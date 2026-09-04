@@ -20,7 +20,12 @@ import { assertDocMentions, assertDocOmits } from './helpers/doc-assert.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, '..');
-const DELIVER_MD = path.join(REPO_ROOT, '.agents', 'workflows', 'deliver.md');
+const DELIVER_MD = path.join(
+  REPO_ROOT,
+  '.agents',
+  'workflows',
+  'mandrel-deliver.md',
+);
 const DELIVER_STORY_MD = path.join(
   REPO_ROOT,
   '.agents',

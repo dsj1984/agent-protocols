@@ -41,7 +41,7 @@ const REPO_ROOT = path.resolve(__dirname, '..');
 const WORKFLOWS = path.join(REPO_ROOT, '.agents', 'workflows');
 
 const PROTOTYPE = path.join(WORKFLOWS, 'prototype.md');
-const PLAN = path.join(WORKFLOWS, 'plan.md');
+const PLAN = path.join(WORKFLOWS, 'mandrel-plan.md');
 const PLAN_REF = path.join(WORKFLOWS, 'helpers', 'plan-reference.md');
 const WORKFLOW_INDEX = path.join(REPO_ROOT, '.agents', 'docs', 'workflows.md');
 

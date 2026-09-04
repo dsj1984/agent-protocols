@@ -38,7 +38,7 @@ const planSource = readWorkflow();
 
 function readWorkflow() {
   return fs.readFileSync(
-    path.join(REPO_ROOT, '.agents', 'workflows', 'plan.md'),
+    path.join(REPO_ROOT, '.agents', 'workflows', 'mandrel-plan.md'),
     'utf8',
   );
 }

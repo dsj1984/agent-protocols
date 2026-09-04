@@ -75,7 +75,7 @@ superseded — open it before citing it.
 | [`20260828-5077f`](#adr-20260828-5077f-dependency-ordering-has-two-channels--declared-edges-and-the-delivery-time-footprint-guard) | Two ordering channels — declared edges + footprint guard | `.agents/scripts/stories-wave-tick.js` | Accepted |
 | [`20260806-lifecycle-bus-retired`](#adr-20260806-lifecycle-bus-retired-delete-the-lifecycle-bus-the-close-path-owns-its-side-effects-directly) | Delete the lifecycle bus; the close path owns its side effects directly | `.agents/scripts/lib/orchestration/lifecycle/emit-ledger-event.js` | Accepted |
 | [`20260802-4938-schema-compilers`](#adr-20260802-4938-schema-compilers-a-schema-is-compiled-by-code-or-declares-in-file-why-not) | A schema is compiled by code, or declares in-file why not | `.agents/scripts/check-schema-references.js` | Accepted |
-| [`20260726-v2-story-collapse`](#adr-20260726-v2-story-collapse-story-only-ticket-model-one-plan-one-deliver-one-engine) | Story-only ticket model; one /plan, one /deliver, one engine | `.agents/workflows/deliver.md` | Accepted |
+| [`20260726-v2-story-collapse`](#adr-20260726-v2-story-collapse-story-only-ticket-model-one-plan-one-deliver-one-engine) | Story-only ticket model; one /plan, one /deliver, one engine | `.agents/workflows/mandrel-deliver.md` | Accepted |
 | [`20260624-loop-units-division-of-labor`](#adr-20260624-loop-units-division-of-labor-mandrel-owns-content--oracle--contract-the-host-owns-cadence--iteration) | mandrel owns content + oracle + contract; the host owns cadence +… | `.agents/scripts/sync-claude-commands.js` | Accepted |
 | [`20260610-planning-determinism-dispositions`](#adr-20260610-planning-determinism-dispositions-per-layer-dispositions-for-the-deterministic-planning-proxies) | Per-layer dispositions for the deterministic planning proxies | `.agents/scripts/lib/orchestration/ticket-validator.js` | Accepted in part |
 | [`20260607-3706`](#adr-20260607-3706-drain-pending-cleanup-demoted-to-a-helper) | `drain-pending-cleanup` demoted to a helper | `.agents/scripts/drain-pending-cleanup.js` | Accepted |
@@ -233,7 +233,7 @@ anything compiling this?", never "is what compiles it faithful to it?".
 
 **Status:** Accepted
 **Date:** 2026-07-26
-**Surface:** `.agents/workflows/deliver.md`
+**Surface:** `.agents/workflows/mandrel-deliver.md`
 **Released:** `mandrel-v2.0.0` (2026-07-15) and the v2.x line since
 **Supersedes:**
 [`20260611-two-tier-hierarchy`](#adr-20260611-two-tier-hierarchy-remove-the-feature-tier-epic--story-superseded),

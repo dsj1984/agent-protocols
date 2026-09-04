@@ -26,7 +26,10 @@ const __dirname = path.dirname(__filename);
 const REPO_ROOT = path.resolve(__dirname, '..');
 const WORKFLOWS = path.join(REPO_ROOT, '.agents', 'workflows');
 
-const planSource = readFileSync(path.join(WORKFLOWS, 'plan.md'), 'utf8');
+const planSource = readFileSync(
+  path.join(WORKFLOWS, 'mandrel-plan.md'),
+  'utf8',
+);
 
 function section(headingPattern) {
   return (

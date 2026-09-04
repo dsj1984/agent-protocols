@@ -30,7 +30,7 @@ const SAMPLE_WORKFLOW = path.join(
   REPO_ROOT,
   '.agents',
   'workflows',
-  'deliver.md',
+  'mandrel-deliver.md',
 );
 
 describe('renderWorkflowsDoc', () => {

@@ -80,8 +80,9 @@ it to an operator or add it to an attended run.
      --dispatched <every id you have dispatched so far>
    ```
 
-   **Do not add `--concurrency` unless the operator asked for a per-run cap**
-   (reference § Sequencing edge cases).
+   **Do not add `--concurrency` unless the operator explicitly asked for a
+   per-run cap** — an explicit value wins over config, so a literal defeats a
+   `.agentrc.local.json` override.
 
    Each beat re-probes live state to derive done / in-flight itself; you never
    compute them. `--dispatched` is the one thing you must supply — the

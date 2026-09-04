@@ -391,6 +391,20 @@ export function extractSlashTokens(masked) {
 
 // --- Per-file check --------------------------------------------------------
 
+/**
+ * The slash tokens `relFile` may name without resolving to a workflow: the
+ * global allowlist, plus any superseded spelling this particular file is
+ * allowed to quote.
+ *
+ * @param {string} relFile Repo-relative path of the file being checked.
+ * @returns {Set<string>} Tokens to skip, stored without the leading slash.
+ */
+function slashAllowlistFor(relFile) {
+  const superseded = SUPERSEDED_COMMAND_SPELLINGS.get(relFile);
+  if (!superseded) return SLASH_ALLOWLIST;
+  return new Set([...SLASH_ALLOWLIST, ...superseded]);
+}
+
 export function checkFile(absPath, repoRoot) {
   const violations = [];
   const source = fs.readFileSync(absPath, 'utf8');
@@ -472,10 +486,10 @@ export function checkFile(absPath, repoRoot) {
   //    workflow file OR to a helpers/ module (helpers are not projected into
   //    the `.claude/commands/` tree but are still legitimate named workflows
   //    that parent workflows invoke by prose reference).
+  const slashAllowlist = slashAllowlistFor(relFile);
   for (const { token, line } of slashTokens) {
     if (RETIRED_COMMANDS.has(token)) continue;
-    if (SLASH_ALLOWLIST.has(token)) continue;
-    if (SUPERSEDED_COMMAND_SPELLINGS.get(relFile)?.has(token)) continue;
+    if (slashAllowlist.has(token)) continue;
     // Namespaced loop commands (`/loops:<name>`, Story #4289) resolve to a
     // loop unit under `.agents/workflows/loops/<name>.md`. Split on the `:`
     // and resolve the namespaced path rather than a flat `loops:<name>.md`.

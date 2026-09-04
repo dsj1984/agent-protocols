@@ -121,7 +121,7 @@ describe('duplicate-search', () => {
       // so Gate #1 triage reported "no candidates" on every real seed while
       // looking healthy (Story #4541).
       const seed = [
-        'Make /mandrel-plan persist honest and resumable.',
+        'Make /plan persist honest and resumable.',
         'A transient GitHub failure during story creation strands live',
         'agent::ready Stories that a re-run duplicates, and ready is applied',
         'before the checkpoint that ceremony routing depends on exists.',
@@ -273,7 +273,7 @@ describe('duplicate-search', () => {
     // exist" is what made Gate #1 triage look healthy while never actually
     // looking. An empty search is evidence about the query, not the backlog.
     const MULTI_SENTENCE_SEED = [
-      'Make /mandrel-plan persist resumable and align its gates with the authoring',
+      'Make /plan persist resumable and align its gates with the authoring',
       'contract. A transient GitHub failure during story creation strands',
       'live Stories that a re-run duplicates. Detect duplicate webhook',
       'payloads via fingerprint hashing before creating anything.',

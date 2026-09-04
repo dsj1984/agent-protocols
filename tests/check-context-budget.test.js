@@ -592,8 +592,8 @@ test('--update records the workflow tier and the per-entry-point reachable closu
   assert.deepEqual(
     baseline.tiers.workflow.files.map((f) => f.path),
     [
-      '.agents/workflows/mandrel-deliver.md',
       '.agents/workflows/helpers/digest.md',
+      '.agents/workflows/mandrel-deliver.md',
     ],
   );
   // Reachable is recorded alongside the gated tiers, never inside them.

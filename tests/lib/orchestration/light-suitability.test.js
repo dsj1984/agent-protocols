@@ -1120,7 +1120,7 @@ describe('the light path does not project a command (AC-7, Story #4760)', () => 
         'a second delivery door that no workflow backs',
     );
     assert.ok(
-      existsSync(path.join(dest, 'deliver.md')),
+      existsSync(path.join(dest, 'mandrel-deliver.md')),
       'the one delivery door must still project',
     );
   });

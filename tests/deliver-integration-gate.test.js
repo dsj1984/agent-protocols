@@ -28,7 +28,7 @@ const WORKFLOW_PATH = path.join(
   REPO_ROOT,
   '.agents',
   'workflows',
-  'deliver.md',
+  'mandrel-deliver.md',
 );
 const CONFIG_DOC_PATH = path.join(
   REPO_ROOT,
