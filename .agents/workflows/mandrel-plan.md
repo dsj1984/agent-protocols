@@ -67,23 +67,23 @@ persist — shape-validated, failing closed to `full`
 
 **Triage each unknown by resolver** ([detail](helpers/plan-reference.md)): an
 **AFK** unknown (research settles it) is resolved before authoring, never
-assumed; a **HITL** unknown (an operator call) goes to Gate #1 as "needs your
-decision". Under `--yes` do not ask free-form operator questions — AFK unknowns
-are still researched; only HITL unknowns land in Key Assumptions, each marked a
-decision-made-by-default.
+assumed; a **HITL** unknown (an operator call) goes to Gate #1. Under `--yes`
+ask nothing free-form — AFK unknowns are still researched; HITL ones land in
+Key Assumptions as decisions-made-by-default.
 
 **Gate #1** — STOP to confirm the sharpened plan intent and any
 duplicate-candidate review. Under `--yes`, auto-proceed.
 
-On a truthy `memoryPoolAdvisory.recommend`, name [`/memory-consolidate`](memory-consolidate.md)
-as an operator option, quoting its `reasons[]` — advisory, never invoked here.
+On a truthy `memoryPoolAdvisory.recommend`, name
+[`/memory-consolidate`](memory-consolidate.md) quoting its `reasons[]` —
+advisory, never invoked here.
 
 On a truthy `deliverLightSuggestion.suggested`, offer — advisory, never an
-automatic reroute — to deliver the seed instead; on confirm, route **in this
+automatic reroute — to deliver the seed instead; on confirm route **in this
 session** into [`helpers/deliver-light.md`](helpers/deliver-light.md), its gate
-filled from this envelope. A truthy `complexitySignals.uiSurface` marks a
-UI-touching plan: name [`/prototype`](prototype.md) as an operator option,
-never invoke it here. [Both offers](helpers/plan-reference.md).
+filled from this envelope. A truthy `complexitySignals.uiSurface` names
+[`/prototype`](prototype.md) as an operator option, never invoked here.
+[Both offers](helpers/plan-reference.md).
 
 ### 2. Author
 
@@ -93,15 +93,14 @@ persist parses either, serializes canonical markdown and syncs top-level
 `acceptance[]` / `verify[]` into it — never dual-author those lists.
 
 **Grounding = your reads + Phase 8.** Nothing inventories the repo: read each
-file you cite; persist's file-assumption gate hard-errors on any
-`{path, assumption}` absent from the tree. Entry fields:
-[reference](helpers/plan-reference.md).
+file you cite; persist hard-errors on any `{path, assumption}` absent from the
+tree. Entry fields: [reference](helpers/plan-reference.md).
 
 Artifacts under `temp/plan-<slug>/`: `stories.json` (**length 1 by default**;
 over-budget Specs fail closed — split or tighten, never under `docs/`); optional
-`techspec.md` (**N===1 only** — folded into `## Spec`); optional
-`acceptance-manifest.json` (N>1 partition — `--plan-acceptance`). For N=1 use
-the envelope `systemPrompts.story`; split only under the policy above.
+`techspec.md` (**N===1 only**, folded into `## Spec`) and
+`acceptance-manifest.json` (N>1 — `--plan-acceptance`). N=1 uses the envelope
+`systemPrompts.story`.
 
 **Tickets mode:** every Story authors a top-level `supersedes[]`; persist
 refuses a partial map ([shape](helpers/plan-reference.md)).
@@ -115,22 +114,25 @@ node .agents/scripts/plan-critics.js \
 ```
 
 Run **before** persist — the last point a finding folds into a re-author.
-It exits 0 on **any** verdict (verdicts route work, they do not gate) and exits
-**1** only on a usage/IO error — no critic ran, no skip ledgered: **do not
-proceed to Persist**, fix and re-run.
+Exit 0 on **any** verdict (verdicts route work, they do not gate); exit **1**
+means no critic ran — **do not proceed to Persist**, fix and re-run.
 
 - **Both `dispatch: false`** — proceed to Persist (each skip is ledgered).
 - **Either `dispatch: true`** — dispatch **one fresh-context, maker-blind
   sub-agent per firing critic** (hand it only the draft artifacts, never the
   authoring transcript), fold findings into Gate #2 or a re-author round, re-run
-  this step. Pre-mortem triggers (incl. the external-dependency probe), the
-  advisory-only `textHygiene.findings[]` lints and dispatch shape:
-  [reference § Critic dispatch detail](helpers/plan-reference.md).
+  this step. Triggers, the advisory-only `textHygiene.findings[]` lints and
+  dispatch shape: [reference](helpers/plan-reference.md).
 
 ### 3. Persist
 
 **Gate #2** — STOP for approval before persist **only** when the operator asked
 to review (`--force-review`). Under `--yes`, auto-proceed.
+
+**Gate #3 (N>2 only)** — offer a **container Epic**; on a yes add
+`--epic-title` / `--epic-goal` below. A pure container carries nothing a child
+does not ([shape](helpers/plan-reference.md)). Never below 3 Stories, never
+without a yes (`--yes` skips it); `/audit-to-stories` seeds it as its default.
 
 Run persist with `--dry-run` **first** — same command, writes suppressed;
 every gate runs before the first `createIssue`
@@ -142,14 +144,16 @@ node .agents/scripts/plan-persist.js \
   --plan-dir temp/plan-<slug> \
   [--plan-acceptance temp/plan-<slug>/acceptance-manifest.json] \
   [--tech-spec temp/plan-<slug>/techspec.md] \
-  [--source-tickets 123,456]
+  [--source-tickets 123,456] \
+  [--epic-title "<name>" --epic-goal "<one paragraph>"]
 ```
 
 At lite shape, `--chain-on-clean` folds a clean dry-run into the real persist;
 a full plan keeps its review trip.
 
 Persist creates `type::story` issue(s), a **metadata-only** `plan-run::<id>`
-label, and `blocked by #<id>` footers for N>1 `depends_on` edges.
+label, `blocked by #<id>` footers for N>1 `depends_on` edges, and — on a
+confirmed Gate #3 — one `type::epic` container linking every created Story.
 `agent::ready` is the **terminal** flip after receipts land; stdout is pure
 JSON. Tickets mode also comments on and closes each source id
 ([detail](helpers/plan-reference.md)).
@@ -160,6 +164,8 @@ JSON. Tickets mode also comments on and closes each source id
   never off its own authored Stories, which land via [`/mandrel-deliver`](mandrel-deliver.md).
 - Duplicate search targets open Stories (`type::story`), not Epics; and
   deterministic gates still fail closed under `--yes`.
+- A container Epic is never a work item, and Story bodies never gain an
+  `Epic: #N` footer: linkage is parent→child only.
 
 ## See also
 

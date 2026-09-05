@@ -414,6 +414,34 @@ That is the whole point of running it first: a dry run that comes back clean
 has already paid for every deterministic refusal, so the real persist has
 nothing left to discover except network failure.
 
+## The container Epic (Gate #3, N>2)
+
+Above two Stories, `/mandrel-plan` offers to group them under one `type::epic`
+container. Confirmed, persist opens it **after** the Stories — its body embeds
+their issue numbers and its sub-issue edges need their database ids — and
+links every created Story both ways it can: a `- [ ] #N` body checklist and a
+native GitHub sub-issue edge. Both are written because each survives what the
+other does not; the delivery-side reader unions them.
+
+What the Epic must never carry: an `agent::*` label (that absence keeps it out
+of the bare `/mandrel-deliver` ready list and outside the `type::story`-scoped
+body lint), a `## Spec`, an `acceptance[]` / `verify[]`, or any path, finding
+or rationale a child does not already hold. It is a container; unique content
+here is content no delivering agent reads.
+
+What the **Stories** never gain is an `Epic: #N` footer. Linkage is
+parent→child only, which is exactly why every existing refusal of that footer
+still stands and each Story stays independently deliverable (ADR
+`20260905-5139`).
+
+Degradation is deliberate: an unensurable `type::epic` label skips the Epic
+entirely (an unlabelled container is not a container), while a failed
+sub-issue edge only warns — the checklist still lists every child. Either way
+the Stories are untouched and deliver by id. A resumed persist adopts an
+existing Epic carrying the same fingerprint, which is keyed on the title **and
+the exact child set**, so a run grouping different Stories never adopts the
+wrong container.
+
 ## Ready means fully persisted
 
 `agent::ready` is the **terminal** step, not part of the creating POST.

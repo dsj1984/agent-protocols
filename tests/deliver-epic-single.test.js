@@ -45,11 +45,33 @@ describe('unified /mandrel-deliver router', () => {
     assert.doesNotMatch(md, /deliver-epic-single\.md|deliver-epic\.md/);
   });
 
-  it('hard-errors on Epic-attached or non-Story tickets', () => {
+  it('hard-errors on Epic-attached or wrong-typed tickets', () => {
     const md = readFileSync(DELIVER_MD, 'utf8');
-    assertDocMentions(md, /not `type::story`/, 'must name the refused type');
+    // Story #5139 widened the accepted type set to {story, epic} — an Epic id
+    // expands to its children. The refusals it did NOT relax are the two
+    // asserted here: a ticket of any other type, and the v1 `Epic: #N` footer,
+    // which stays refused because container linkage runs parent→child only.
+    assertDocMentions(
+      md,
+      /neither `type::story` nor `type::epic`/,
+      'must name the accepted type set it refuses outside of',
+    );
     assertDocMentions(md, /Epic: #N/, 'must name the v1 footer it refuses');
     assertDocMentions(md, /hard error/, 'refusal must be a hard error');
+  });
+
+  it('documents the container-Epic expansion as an input shape', () => {
+    const md = readFileSync(DELIVER_MD, 'utf8');
+    assertDocMentions(
+      md,
+      /`type::epic`/,
+      'the Inputs table must carry the Epic-id shape',
+    );
+    assertDocMentions(
+      md,
+      /open.{0,40}child Stories|child Stories/i,
+      'must say an Epic resolves to its OPEN children',
+    );
   });
 
   it('the Story helper documents the direct PR-to-main branch model', () => {

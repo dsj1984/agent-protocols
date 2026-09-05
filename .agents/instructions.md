@@ -147,9 +147,9 @@ sizing) **fail closed** naming what to trim:
   spawn only when the work justifies replicating context. One objective
   per subagent; depth compounds the cost (every nested level re-pays).
 - **Anti-Laziness / No Dead Code.** NEVER use placeholder comments like
-  `// ... existing code ...`; every edit must leave complete, runnable
-  code. Remove unused imports, commented-out code, and dead branches
-  before finalizing.
+  `// ... existing code ...`; every edit must leave complete, runnable code.
+  Remove unused imports, commented-out code, and dead branches before
+  finalizing.
 - **Verification.** Include explicit verification steps in every plan.
 
 ---
@@ -157,28 +157,29 @@ sizing) **fail closed** naming what to trim:
 ## 5. Git & Story Protocol (Strict Standards)
 
 [`rules/git-conventions.md`](rules/git-conventions.md) is the canonical
-reference: `story-<storyId>` branches seeded by `single-story-init.js`,
-every Story reaching `main` via its own PR
-(`helpers/deliver-story` / `single-story-close.js`).
+reference for branch shapes and commit subjects, and is always loaded —
+this section does not restate it.
 
 ### A. Status Tracking & Commit Standards
 
 State mutations are GitHub labels (`agent::ready`, `agent::executing`,
 `agent::done`) via
 `node .agents/scripts/update-ticket-state.js --ticket [ID] --state [STATUS]`.
-Do NOT manually update issue descriptions or status fields unless
-prompted.
+Do NOT manually update issue descriptions or status fields unless prompted.
 
-### B. Ticket hierarchy (Story-only)
+### B. Ticket hierarchy
 
-The v2 ticket model is Story-only: `acceptance[]` / `verify[]` live
+The Story is the only executable ticket: `acceptance[]` / `verify[]`
 inline plus the folded Tech Spec in `## Spec` (over-budget Specs fail
-closed — split or tighten; never write Specs under `docs/`). Optional
-`depends_on` edges order rare multi-Story runs, resolved by `/mandrel-deliver`
-from live state; the `plan-run::<id>` label is filter metadata only.
-Commit subjects reference the Story via `(refs #<storyId>)`. There is no
-`type::epic` / `type::task` label; `/mandrel-deliver` refuses tickets carrying an
-`Epic: #N` footer.
+closed — split or tighten; never under `docs/`). Optional `depends_on`
+edges order rare multi-Story runs, resolved by `/mandrel-deliver` from
+live state; `plan-run::<id>` is filter metadata. Commit subjects
+reference the Story via `(refs #<storyId>)`. There is no `type::task`.
+
+`type::epic` is a container only (goal + child checklist, no `agent::*`,
+never delivered): `/mandrel-plan` offers one above 2 Stories and
+`/mandrel-deliver <epicId>` expands it. Linkage is parent→child only, so
+an `Epic: #N` footer is still refused.
 
 ---
 

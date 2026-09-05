@@ -21,9 +21,9 @@ close-and-land tail; Stories are implemented via
 [`helpers/deliver-story.md`](helpers/deliver-story.md).
 
 The dependency graph is **discovered, not declared** — `resolve-stories.js`
-reads it from live state, so you can deliver Stories **across plan runs and
-over time**. `plan-run::<id>` is filter metadata, never a resolution input;
-`route::lite` a body-derived hint only.
+reads it from live state, so you can deliver Stories **across plan runs and over
+time**. `plan-run::<id>` is filter metadata, never a resolution input;
+`route::lite` a body-derived hint.
 
 ## Inputs
 
@@ -36,25 +36,28 @@ you read:
 | `/mandrel-deliver 4712` | ids | One Story via `helpers/deliver-story.md`, **inline in this session** — no `story-worker` spawn. |
 | `/mandrel-deliver 4712 4713 …` | ids | Resolve the set, sequence by the discovered graph via `stories-wave-tick.js`, dispatch sub-agents. |
 | `/mandrel-deliver 4712 - 4716` | ids | A **range** — every id in the inclusive span. |
+| `/mandrel-deliver 4700` (a `type::epic`) | ids | The Epic's **open** child Stories, as if you had typed them. Mixes with Story ids. |
 | `/mandrel-deliver add a --json flag to doctor` | prompt | Unplanned work: gate, author a receipt Story, land it — [`helpers/deliver-light.md`](helpers/deliver-light.md). |
 
 **The discriminator is lexical and total.** An argument matching `^#?\d+$` is an
 id, and `^#?\d+\s*[-–—]\s*#?\d+$` an inclusive **range** — pass one on as a
-single unspaced token, never hand-expanded (reference § Ranges). Either shape
+single unspaced token, never hand-expanded (reference). Either shape
 means ids; anything else means a prompt. A **mixed** invocation (ids *and*
-prose) is a **hard error** — refuse it and ask which was meant. A ticket not
-`type::story`, or carrying an `Epic: #N` footer, is a hard error too.
+prose) is a **hard error** — refuse it and ask which was meant. A ticket that
+is neither `type::story` nor `type::epic`, or that carries an `Epic: #N`
+footer, is a hard error too (container Epics link parent→child only, so that
+footer stays refused).
 
 ## Saying what you want
 
-No flags to remember: state intent — *"…but I'll merge it myself"*, *"…one at
-a time"* — and announce what you read. Phrasings and the flags they fill in:
+No flags to remember: state intent — *"…but I'll merge it myself"*, *"…one at a
+time"* — and announce what you read. Phrasings and the flags they fill in:
 reference § Intent phrases.
 
 `--yes` is **runner-set, never operator-typed**: cron, `/loop` and headless
 dispatch set it to mean *nobody is at the keyboard*, which fails the unplanned
-path's over-scope stop closed to an envelope instead of a question. Never offer
-it to an operator or add it to an attended run.
+path's over-scope stop closed to an envelope instead of a question. Never add it
+to an attended run.
 
 ## Procedure
 
@@ -66,9 +69,11 @@ it to an operator or add it to an attended run.
    `node .agents/scripts/resolve-stories.js --ids <id,id,...>`. It validates the
    set and shows what will run: read `stories[]`, `dag[]` and `done[]` to
    present the order in step 2, but do **not** thread them into step 3 — the
-   tick re-resolves the graph every beat. It hard-errors (exit 1) on an id that
-   is not a Story, carries an `Epic: #N` footer, or whose edges cannot be
-   read — a missing gate would co-dispatch against an unlanded blocker.
+   tick re-resolves the graph every beat. An Epic id expands to its open
+   children first — **announce it** ("#4700 → 3 open Stories"). It hard-errors
+   (exit 1) on an id that is neither a Story nor an Epic, on an `Epic: #N`
+   footer, on an Epic with no open children, or on edges it cannot read — a
+   missing gate would co-dispatch against an unlanded blocker.
 
 2. **Confirm (N>1).** Present the order; wait unless `--yes`.
 
@@ -87,62 +92,62 @@ it to an operator or add it to an attended run.
    Each beat re-probes live state to derive done / in-flight itself; you never
    compute them. `--dispatched` is the one thing you must supply — the
    append-only list of every id you spawned this run. Cross-run de-confliction
-   via the assignee lease is automatic (reference §§ Sequencing edge cases,
-   Dispatch mechanics). Branch on the exit code:
+   via the assignee lease is automatic (reference). Branch on the exit code:
    - **0** — dispatch each `ready` id (already capped and overlap-free); an
      empty `ready` with work in flight means "waiting", so keep looping;
      `epilogueDue: true` means every Story is done — step 4.
    - **2 / 3 / 4** — `cycleError` / `wedged` / `blocked`: stop the loop and
-     route per reference § Sequencing edge cases. **4** is the protocol's HITL
-     pause ([`instructions.md` § 1.J](../instructions.md)) — surface it and
-     wait for the operator; never poll.
+     route per reference. **4** is the protocol's HITL pause
+     ([`instructions.md` § 1.J](../instructions.md)) — surface it and wait for
+     the operator; never poll.
 
 4. **Close each hand-off** (§ Closing what the workers hand back), then, with
    every Story landed, run the **per-run epilogue (N>1)**:
-   `node .agents/scripts/plan-run-epilogue.js --stories 101,102`. N=1 skips it
-   ([reference § Per-run epilogue](helpers/deliver-reference.md)).
+   `node .agents/scripts/plan-run-epilogue.js --stories 101,102`, which also
+   closes a container Epic whose children all landed. N=1 skips it
+   ([reference](helpers/deliver-reference.md)).
 
 5. **Correct what the change invalidated.** If a memory you recalled this
-   session is now wrong — a trap this landed, a budget it moved — fix that
-   entry now, while both the old belief and the new fact are in context, and
-   say so when you report. No memory substrate → skip silently. Sweeping the
-   whole pool is [`/memory-consolidate`](memory-consolidate.md), not this step.
+   session is now wrong — a trap this landed, a budget it moved — fix that entry
+   now, while both the old belief and the new fact are in context, and say so
+   when you report. No memory substrate → skip silently. Sweeping the whole pool
+   is [`/memory-consolidate`](memory-consolidate.md), not this step.
 
 ## Closing what the workers hand back {#tail}
 
 **The tail is the orchestrator's, not the worker's.** A dispatched
 `story-worker` stops at a pushed branch and returns a hand-off; **you** run
 [`helpers/deliver-story.md`](helpers/deliver-story.md) Step 3
-(`single-story-close.js`) for it, foreground, and relay the envelope.
+(`single-story-close.js`) for it, foreground, and relay its envelope.
 
-**Serialize the tail.** Implementation runs in parallel; closing does not. Close
-one Story at a time — closes contend on the base branch, the merge queue and
-the checkout. A worker handing back mid-close waits its turn.
+**Serialize the tail.** Implementation runs in parallel; closing does not —
+closes contend on the base branch, the merge queue and the checkout. A worker
+handing back mid-close waits its turn.
 
-**A worker returning no terminal envelope is the expected shape**, not a failure
-to answer with a re-dispatch: only close mints one. Close the pushed branch, or
+**A worker returning no terminal envelope is expected**, not a failure to
+answer with a re-dispatch: only close mints one. Close the pushed branch, or
 probe read-only with `node .agents/scripts/deliver-recover.js --story <storyId>`
-and resume the worker or close it names.
+and resume what it names.
 
 **Reading the outcome.** Each close ends the Story in one schema-validated
 envelope — `landed` | `pending` | `blocked` | `failed`; statuses, exits and
-fields are digest § 5. `pending` is **not** a failure — `nextCommand` resumes
-it; run that, do not re-dispatch.
+fields are digest § 5. `pending` is **not** a failure — run its `nextCommand`,
+do not re-dispatch.
 
 **Branch model (authoritative).** `story-<id>` → PR → `main` (squash +
 required checks), per digest § 2; dependent Stories land sequentially. Ceremony
-depth (profiles + derived level via `ceremony-routing.js`, review depth reading
-it): reference § Ceremony.
+depth: reference § Ceremony.
 
 ## Constraints
 
 - **Land or block — never a silent local build** (digest § 2). Attended delivers
   default to close-and-land (`delivery.routing.closeAndLand: true`); rest at
   `agent::closing` only when a human owns it.
-- **`/mandrel-deliver` never plans.** Planned tickets come from [`/mandrel-plan`](mandrel-plan.md), and
-  an over-scope prompt **escalates and ends** — never invoke `/mandrel-plan` in this
-  session to rescue it ([`helpers/deliver-light.md`](helpers/deliver-light.md)
-  § Escalation is terminal).
+- **`/mandrel-deliver` never plans.** Planned tickets come from
+  [`/mandrel-plan`](mandrel-plan.md), and an over-scope prompt **escalates and
+  ends** — never invoke `/mandrel-plan` in this session to rescue it
+  ([`helpers/deliver-light.md`](helpers/deliver-light.md) § Escalation is
+  terminal).
 
 ## See also
 
