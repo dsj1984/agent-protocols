@@ -240,6 +240,73 @@ function checkLocalManifest(localFresh, localOutPath) {
 }
 
 /**
+ * Build the local zone's manifest plan for this invocation: its output path,
+ * and a fresh manifest when the consumer has authored any local skill (null
+ * otherwise, which is the signal to reap a stale artifact).
+ *
+ * Split out of `run` so the payload path and the local path each read as one
+ * step there rather than interleaving.
+ *
+ * @param {string} root
+ * @param {Date} now
+ * @returns {{ localFresh: object | null, localOutPath: string }}
+ */
+function buildLocalPlan(root, now) {
+  const localOutPath = resolveLocalOutPath(root);
+  const localFresh =
+    collectLocalSkillFiles(root).length > 0
+      ? buildManifest(root, {
+          nowIso: now.toISOString(),
+          collect: collectLocalSkillFiles,
+        })
+      : null;
+  return { localFresh, localOutPath };
+}
+
+/**
+ * Render the freshness line's entry counts, naming the local zone only when
+ * one exists.
+ *
+ * @param {object} fresh
+ * @param {object | null} localFresh
+ * @returns {string}
+ */
+function describeCounts(fresh, localFresh) {
+  const base = `${fresh.skills.length} entries`;
+  return localFresh === null
+    ? base
+    : `${base}, ${localFresh.skills.length} local`;
+}
+
+/**
+ * `--check` mode: compare both manifests against fresh generator output and
+ * report the first drift found, payload first.
+ *
+ * Lives outside `run` so the entry point reads as "resolve inputs, then check
+ * or write" — and so the check path's branches are not charged to a function
+ * that also owns argument resolution.
+ *
+ * @param {{ outPath: string, fresh: object, localOutPath: string, localFresh: object | null }} plan
+ * @returns {{ status: number, output: string }}
+ */
+function checkBothManifests({ outPath, fresh, localOutPath, localFresh }) {
+  const { manifest: disk, reason } = readManifest(outPath);
+  if (disk === null) {
+    return { status: 1, output: `${INDEX_FILENAME} drift detected: ${reason}` };
+  }
+  const drift =
+    diffManifests(disk, fresh, INDEX_FILENAME) ??
+    checkLocalManifest(localFresh, localOutPath);
+  if (drift !== null) {
+    return { status: 1, output: drift };
+  }
+  Logger.info(
+    `${INDEX_FILENAME} is fresh (${describeCounts(fresh, localFresh)})`,
+  );
+  return { status: 0, output: '' };
+}
+
+/**
  * Pure entry point used by tests. Returns `{ status, output }` where
  * `output` is a stdout string to print (may be empty) and `status` is
  * the exit code.
@@ -259,41 +326,10 @@ export function run({ argv = [], now = new Date(), repoRoot } = {}) {
     : (repoRoot ?? defaultRepoRoot());
   const outPath = resolveOutPath(root, parsed.out);
   const fresh = buildManifest(root, { nowIso: now.toISOString() });
-
-  // The local zone's manifest is built from its own collector, so the
-  // payload manifest above stays payload-only whatever a consumer authors.
-  const localFiles = collectLocalSkillFiles(root);
-  const localOutPath = resolveLocalOutPath(root);
-  const localFresh =
-    localFiles.length > 0
-      ? buildManifest(root, {
-          nowIso: now.toISOString(),
-          collect: collectLocalSkillFiles,
-        })
-      : null;
+  const { localFresh, localOutPath } = buildLocalPlan(root, now);
 
   if (parsed.check) {
-    const { manifest: disk, reason } = readManifest(outPath);
-    if (disk === null) {
-      return {
-        status: 1,
-        output: `${INDEX_FILENAME} drift detected: ${reason}`,
-      };
-    }
-    const diff = diffManifests(disk, fresh, INDEX_FILENAME);
-    if (diff !== null) {
-      return { status: 1, output: diff };
-    }
-    const localDiff = checkLocalManifest(localFresh, localOutPath);
-    if (localDiff !== null) {
-      return { status: 1, output: localDiff };
-    }
-    Logger.info(
-      `skills.index.json is fresh (${fresh.skills.length} entries${
-        localFresh ? `, ${localFresh.skills.length} local` : ''
-      })`,
-    );
-    return { status: 0, output: '' };
+    return checkBothManifests({ outPath, fresh, localOutPath, localFresh });
   }
 
   writeManifest(fresh, outPath, root);
