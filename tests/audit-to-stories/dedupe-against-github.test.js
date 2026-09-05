@@ -1,5 +1,8 @@
 import assert from 'node:assert/strict';
+import path from 'node:path';
+import process from 'node:process';
 import { test } from 'node:test';
+import { __testing } from '../../.agents/scripts/audit-to-stories.js';
 import { classifyGroupsAgainstGitHub } from '../../.agents/scripts/lib/audit-to-stories/dedupe-against-github.js';
 import {
   fingerprintAuditFinding,
@@ -196,4 +199,95 @@ test('classifyGroupsAgainstGitHub degrades when the fingerprint lookup fails und
     'rate limit still exhausted after cooldown',
   );
   assert.equal(degraded.length, 1);
+});
+
+// ---------------------------------------------------------------------------
+// Story #5143 — the adapter `loadProvider` builds now also carries the live
+// provider's write ports, so `--wire-edges` can reach them. The dedup module
+// still consumes only the two search ports, and the fixture seam is still the
+// whole adapter rather than a provider to widen.
+// ---------------------------------------------------------------------------
+
+const { loadProvider, loadProviderOrNull } = __testing;
+
+/** A fixture provider with a dedup port and no write ports (Story #4678). */
+const SEARCH_ONLY_FIXTURE = path.resolve(
+  import.meta.dirname,
+  '../../.agents/scripts/lib/audit-to-stories/__tests__/fixtures/failing-subset-provider.js',
+);
+
+/** Run `fn` with the fixture-provider seam pointed at `fixturePath`. */
+async function withFixtureProvider(fixturePath, fn) {
+  const previous = process.env.AUDIT_TO_STORIES_PROVIDER_FIXTURE;
+  process.env.AUDIT_TO_STORIES_PROVIDER_FIXTURE = fixturePath;
+  try {
+    return await fn();
+  } finally {
+    if (previous === undefined)
+      delete process.env.AUDIT_TO_STORIES_PROVIDER_FIXTURE;
+    else process.env.AUDIT_TO_STORIES_PROVIDER_FIXTURE = previous;
+  }
+}
+
+test('the dedup path consumes only the adapter search ports, widened or not (AC-2, Story #5143)', async () => {
+  const searched = [];
+  const adapter = await loadProvider({
+    resolveConfigImpl: () => ({ github: { owner: 'o', repo: 'r' } }),
+    createProviderImpl: () => ({
+      async searchIssues({ query }) {
+        searched.push(query);
+        return [{ number: 42, state: 'OPEN', body: footerFor(FINDING_A) }];
+      },
+      // The write ports the wire step needs — invisible to the dedup module.
+      updateTicket: async () => {},
+      getTicket: async () => ({}),
+      getDependencyWriteContext: () => ({}),
+    }),
+  });
+  assert.deepEqual(
+    Object.keys(adapter).sort(),
+    [
+      'findIssuesByFingerprint',
+      'getDependencyWriteContext',
+      'getTicket',
+      'searchCandidates',
+      'updateTicket',
+    ],
+    'the adapter carries both halves',
+  );
+
+  // Hand the classifier ONLY the two search ports: the dedup contract must not
+  // have grown a dependency on anything the widening added.
+  const { classifications } = await classifyGroupsAgainstGitHub({
+    groups: [fakeGroup([FINDING_A])],
+    provider: { findIssuesByFingerprint: adapter.findIssuesByFingerprint },
+    searchCandidates: adapter.searchCandidates,
+  });
+  assert.equal(classifications[0].action, 'skip-open');
+  assert.equal(classifications[0].matchedIssues[0].number, 42);
+  assert.ok(
+    searched.includes(shaOf(FINDING_A)),
+    'the fingerprint port still queries the provider by sha',
+  );
+});
+
+test('the fixture-provider path is still returned verbatim (AC-2, Story #5143)', async () => {
+  const fixture = await import(SEARCH_ONLY_FIXTURE);
+  const loaded = await withFixtureProvider(SEARCH_ONLY_FIXTURE, () =>
+    loadProvider({
+      resolveConfigImpl: () => {
+        throw new Error('the fixture short-circuits before any config read');
+      },
+    }),
+  );
+  assert.equal(loaded, fixture.default, 'the fixture object itself, unwrapped');
+  assert.equal(typeof loaded.updateTicket, 'undefined');
+});
+
+test('loadProviderOrNull keeps the dedup path soft-failing on a typed refusal (Story #5143)', async () => {
+  // The scan degrades to a create-only plan and warns; it never aborts.
+  assert.equal(
+    await loadProviderOrNull({ resolveConfigImpl: () => ({ github: {} }) }),
+    null,
+  );
 });
