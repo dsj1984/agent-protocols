@@ -1,12 +1,12 @@
 {
   "$schema": ".agents/schemas/baselines/coverage.schema.json",
   "kernelVersion": "1.0.0",
-  "generatedAt": "2026-09-03T02:33:03.108Z",
+  "generatedAt": "2026-09-05T01:05:30.495Z",
   "rollup": {
     "*": {
       "lines": 95.97,
-      "branches": 86.88,
-      "functions": 87.99
+      "branches": 86.89,
+      "functions": 87.98
     }
   },
   "rows": [
@@ -222,8 +222,8 @@
     },
     {
       "path": ".agents/scripts/generate-skills-index.js",
-      "lines": 89.18,
-      "branches": 64.1,
+      "lines": 92.7,
+      "branches": 85.42,
       "functions": 100
     },
     {
@@ -2454,8 +2454,8 @@
     },
     {
       "path": ".agents/scripts/lib/qa/resolve-qa-contract.js",
-      "lines": 98.47,
-      "branches": 95,
+      "lines": 98.68,
+      "branches": 94.12,
       "functions": 100
     },
     {
@@ -2561,9 +2561,15 @@
       "functions": 100
     },
     {
+      "path": ".agents/scripts/lib/skills/skills-index.js",
+      "lines": 76.79,
+      "branches": 40.91,
+      "functions": 85.71
+    },
+    {
       "path": ".agents/scripts/lib/skills/walk-skill-files.js",
-      "lines": 96.43,
-      "branches": 78.57,
+      "lines": 98.89,
+      "branches": 92.86,
       "functions": 100
     },
     {
@@ -3186,9 +3192,9 @@
     },
     {
       "path": ".agents/scripts/validate-skills.js",
-      "lines": 76.26,
-      "branches": 44.74,
-      "functions": 92.31
+      "lines": 88.3,
+      "branches": 61.76,
+      "functions": 91.67
     },
     {
       "path": "bin/mandrel.js",
