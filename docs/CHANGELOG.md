@@ -15,6 +15,18 @@ All notable changes to this project will be documented in this file.
 -->
 <!-- markdownlint-disable-file MD004 MD012 MD037 -->
 
+## [2.39.0](https://github.com/dsj1984/mandrel/compare/mandrel-v2.38.0...mandrel-v2.39.0) (2026-09-05)
+
+
+### Added
+
+* qa: make the `signInSeam` `{ skill }` arm authorable via a consumer-writable `.agents/local/skills/` root, and declarable-absent ([#5135](https://github.com/dsj1984/mandrel/issues/5135)) ([#5136](https://github.com/dsj1984/mandrel/issues/5136)) ([4a7c89e](https://github.com/dsj1984/mandrel/commit/4a7c89e55b83c20637c518950e3cdee5620a4442))
+
+
+### Fixed
+
+* quality-preview --staged: re-base the staged scope to MERGE_HEAD so a base-sync merge commit is not scored for the base branch's work ([#5131](https://github.com/dsj1984/mandrel/issues/5131)) ([#5132](https://github.com/dsj1984/mandrel/issues/5132)) ([d6fccc1](https://github.com/dsj1984/mandrel/commit/d6fccc15738fe22965ff8e9c819a55fe69b39815))
+
 ## [2.38.0](https://github.com/dsj1984/mandrel/compare/mandrel-v2.37.0...mandrel-v2.38.0) (2026-09-04)
 
 
