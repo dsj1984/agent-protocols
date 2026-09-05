@@ -26,11 +26,25 @@
  * harness invocation — by exact name or by raw-URL origin match against each
  * environment's `baseUrl` — and throws loudly (naming the known environments)
  * on an unknown name or unmatched URL.
+ *
+ * It also **resolves the selected environment's `signInSeam`** (Story #5135).
+ * A `{ skill }` seam naming an id that resolves to no readable `SKILL.md`
+ * under either skills root used to fail silently: the contract validated, the
+ * seam was returned unread, and the dangling pointer only surfaced much later
+ * when a sweep reached its sign-in step — after the harness had already
+ * driven a browser. Resolution now happens here, at config-resolution time,
+ * so the failure lands where the operator can fix `.agentrc.json`. A seam
+ * that is absent entirely is a legitimate, declarable state (the workflows
+ * drive the unauthenticated surface and record the gap), not an error.
  */
 
 import Ajv from 'ajv';
-
 import { QA_SCHEMA } from '../config-settings-schema.js';
+import { PROJECT_ROOT } from '../project-root.js';
+import {
+  resolveSkillFile,
+  SKILL_SEARCH_ROOTS,
+} from '../skills/walk-skill-files.js';
 
 /**
  * The harness-required fields. The AJV `QA_SCHEMA` keeps these optional so
@@ -243,6 +257,40 @@ function toOrigin(value) {
 }
 
 /**
+ * Normalize and verify one environment's `signInSeam`.
+ *
+ * An absent seam normalizes to `null` — a declarable state, not an error.
+ * A `{ skill }` seam is resolved against both skills roots and throws when
+ * it resolves under neither, so a dangling pointer is caught here rather
+ * than mid-sweep. The resolved `SKILL.md` path is attached as
+ * `skillPath` so the harness reads the file the check actually found.
+ *
+ * @param {object | undefined} seam
+ * @param {string} envName Environment name, for the error message.
+ * @param {{ repoRoot?: string }} options
+ * @returns {object | null}
+ */
+function resolveSignInSeam(seam, envName, options) {
+  if (seam == null) return null;
+  if (typeof seam.skill !== 'string') return seam;
+
+  const repoRoot = options.repoRoot ?? PROJECT_ROOT;
+  const found = resolveSkillFile(repoRoot, seam.skill);
+  if (found === null) {
+    throw new Error(
+      `qa: environment \`${envName}\` declares signInSeam.skill ` +
+        `\`${seam.skill}\`, which resolves to no readable SKILL.md. ` +
+        `Searched ${SKILL_SEARCH_ROOTS.map((r) => `\`${r}/<skill>/SKILL.md\``).join(' and ')}. ` +
+        'Author the skill under the consumer-writable `.agents/local/skills/` ' +
+        'zone (it is never pruned by `mandrel sync` and never flagged as ' +
+        'payload drift), correct the id, or omit `signInSeam` entirely if ' +
+        'this target genuinely has no sign-in seam.',
+    );
+  }
+  return { ...seam, skillPath: found.path };
+}
+
+/**
  * Resolve a single QA environment for one harness invocation.
  *
  * `target` selects which of the contract's `environments` to run against:
@@ -262,13 +310,17 @@ function toOrigin(value) {
  * Fails **loudly**: an unknown name or an unmatched URL throws an error that
  * names the known environments so the operator can correct the invocation.
  *
- * @param {{ environments: Record<string, { baseUrl: string, signInSeam: object, allowWrites?: boolean }>, defaultEnvironment: string }} contract
+ * @param {{ environments: Record<string, { baseUrl: string, signInSeam?: object, allowWrites?: boolean }>, defaultEnvironment: string }} contract
  *   A contract returned by `resolveQaContract`.
  * @param {string} [target] Environment name or raw URL. Omit for the default.
- * @returns {{ name: string, baseUrl: string, signInSeam: object, allowWrites: boolean }}
- * @throws {Error} on an unknown name or unmatched URL.
+ * @param {{ repoRoot?: string }} [options] `repoRoot` roots skill-seam
+ *   resolution; defaults to the project root. Injected by tests.
+ * @returns {{ name: string, baseUrl: string, signInSeam: object | null, allowWrites: boolean }}
+ *   `signInSeam` is `null` when the environment declares none.
+ * @throws {Error} on an unknown name, an unmatched URL, or a `{ skill }` seam
+ *   that resolves under no skills root.
  */
-export function resolveQaEnvironment(contract, target) {
+export function resolveQaEnvironment(contract, target, options = {}) {
   const environments = contract?.environments;
   if (
     environments == null ||
@@ -320,7 +372,7 @@ export function resolveQaEnvironment(contract, target) {
   return {
     name: resolvedName,
     baseUrl: env.baseUrl,
-    signInSeam: env.signInSeam,
+    signInSeam: resolveSignInSeam(env.signInSeam, resolvedName, options),
     allowWrites,
   };
 }

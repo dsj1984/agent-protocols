@@ -775,7 +775,16 @@ time by `resolveQaContract`. Copy the reference shape from
   "qa": {
     "featureRoot": "tests/features",                 // root the selector resolves .feature files against
     "fixturesManifest": "tests/fixtures/personas.json", // persona → seed-data manifest
-    "signInSeam": { "urlTemplate": "/dev/sign-in-as/{persona}" }, // dev seam (see step 3)
+    "environments": {                                // one entry per deployment target
+      "local": {
+        "baseUrl": "http://localhost:3000",
+        "signInSeam": { "urlTemplate": "/dev/sign-in-as/{persona}" } // dev seam (see step 3)
+      },
+      "staging": {
+        "baseUrl": "https://staging.example.test",
+        "allowWrites": false                         // no signInSeam — an honestly seamless target
+      }
+    },
     "personas": ["admin", "member"],                 // name-only array — the honest shape for a url-template seam
     "consoleAllowlist": ["[HMR]"],                   // optional benign-noise filter (default [])
     "designTokens": "src/styles/tokens.css"          // optional visual-check pointer (default null)
@@ -783,8 +792,9 @@ time by `resolveQaContract`. Copy the reference shape from
 }
 ```
 
-`featureRoot`, `fixturesManifest`, `signInSeam`, and `personas` are mandatory;
-omitting any one makes the resolver throw a field-named error.
+`featureRoot`, `fixturesManifest`, `environments`, and `personas` are mandatory;
+omitting any one makes the resolver throw a field-named error. Within an
+environment only `baseUrl` is required — `signInSeam` is optional (see step 3).
 `consoleAllowlist` and `designTokens` default to `[]` and `null`.
 
 `personas` accepts **two shapes** (the resolver normalizes both to one
@@ -800,12 +810,15 @@ canonical internal map keyed by persona name):
   (or credential) seam where that material is genuinely consulted:
 
   ```jsonc
-  "signInSeam": { "skill": "stack/qa/sign-in" },
+  "signInSeam": { "skill": "stack/qa/acme-sso" }, // a skill YOU author (see step 3)
   "personas": {
     "admin": { "credentialRef": "QA_ADMIN_CREDENTIAL" }, // stored-credential reference, never an inline secret
-    "member": { "signInSkill": "stack/qa/sign-in-member" } // or a per-persona sign-in skill
+    "member": { "signInSkill": "stack/qa/acme-sso-member" } // or a per-persona sign-in skill
   }
   ```
+
+  Both skill ids above are **illustrative names for skills you write** — the
+  framework ships no sign-in skill. Step 3 says where they go.
 
 ### 2. Author the fixtures manifest
 
@@ -824,9 +837,33 @@ credentials are never entered. Expose one of two shapes:
 - **`{ urlTemplate }`** — a dev sign-in route where `{persona}` is substituted
   (e.g. `/dev/sign-in-as/{persona}` → `/dev/sign-in-as/admin`); gate it to
   non-production builds. Pair with the name-only `personas` array.
-- **`{ skill }`** — when sign-in is multi-step or non-URL, point at a consumer
-  skill whose `SKILL.md` the harness reads. Pair with the object-map
-  `personas` form (per step 1).
+- **`{ skill }`** — when sign-in is multi-step or non-URL, name a skill by its
+  tier-relative id (e.g. `stack/qa/acme-sso`) whose `SKILL.md` the harness
+  reads. Pair with the object-map `personas` form (per step 1).
+- **Omit it entirely** — the honest shape for a target with no sign-in seam at
+  all, such as a deployed build whose dev bypass is tree-shaken out. The
+  workflows then drive the unauthenticated surface and record the gap rather
+  than fabricating a session.
+
+**Where a `{ skill }` seam resolves.** The id is looked up under
+`.agents/skills/` (the package payload) and then `.agents/local/skills/` —
+the consumer-writable zone. Author your own sign-in skill in the local zone:
+
+```text
+.agents/local/skills/stack/qa/acme-sso/SKILL.md   →  id: stack/qa/acme-sso
+```
+
+`.agents/local/` is never copied into by `mandrel sync`, never pruned, and
+never reported as payload drift by `mandrel doctor`, so a skill you write
+there survives every upgrade. It is held to the same bar as a shipped skill —
+`validate-skills.js` checks its frontmatter and Policy Capsule, and
+`generate-skills-index.js` writes it into its own
+`.agents/local/skills/skills.index.json` (never into the shipped manifest,
+which must stay byte-identical to the package payload).
+
+A seam naming an id that resolves under neither root is rejected by
+`resolveQaEnvironment` when the contract is resolved — not silently carried
+until a sweep reaches its sign-in step.
 
 Once these three `qa.*` keys are in place, `/qa-explore <surface>`, `/qa-assist`,
 and `/qa-run <selector>` all resolve the contract and operate against the bound

@@ -27,6 +27,11 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { run as runGenerator } from '../../.agents/scripts/generate-skills-index.js';
+import {
+  collectLocalSkillFiles,
+  collectSkillFiles,
+  resolveSkillFile,
+} from '../../.agents/scripts/lib/skills/walk-skill-files.js';
 import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -214,6 +219,198 @@ describe('generate-skills-index.js — format stability (Story #4546)', () => {
       'generator output diverges from the committed manifest — if the ' +
         'skills corpus did not change, this is format drift: the ' +
         'generator is no longer emitting Biome-formatted JSON',
+    );
+  });
+});
+
+describe('local skills zone — second resolution root (Story #5135)', () => {
+  /**
+   * Add a consumer-authored skill under `.agents/local/skills/` in a staged
+   * tree, reusing the same well-formed fixture body as the payload skills so
+   * the only variable under test is which root it sits in.
+   *
+   * @param {string} root staged repo root
+   * @param {string} skillId tier-relative id, e.g. `stack/qa/acme-sso`
+   */
+  function stageLocalSkill(root, skillId) {
+    const dir = path.join(
+      root,
+      '.agents',
+      'local',
+      'skills',
+      ...skillId.split('/'),
+    );
+    fs.mkdirSync(dir, { recursive: true });
+    const body = fs.readFileSync(
+      path.join(FIXTURE_SRC, 'well-formed-stack.md'),
+      'utf8',
+    );
+    // Frontmatter `name` must match the parent directory name.
+    fs.writeFileSync(
+      path.join(dir, 'SKILL.md'),
+      body.replace(/^name: .*$/m, `name: ${path.basename(skillId)}`),
+    );
+  }
+
+  it('collects local skills alongside payload skills, payload-wins on a collision', () => {
+    const root = stageFixtureRoot(tmpParent);
+    stageLocalSkill(root, 'stack/qa/acme-sso');
+    // Same id as the staged payload skill — must not displace it.
+    stageLocalSkill(root, 'stack/backend/stack-skill');
+
+    const rel = (f) => path.relative(root, f).split(path.sep).join('/');
+    const payload = collectSkillFiles(root).map(rel);
+    const local = collectLocalSkillFiles(root).map(rel);
+
+    // Each root enumerates only its own files — the property the shipped
+    // manifest's payload-only guarantee rests on.
+    assert.ok(
+      payload.includes('.agents/skills/stack/backend/stack-skill/SKILL.md'),
+    );
+    assert.ok(
+      !payload.some((f) => f.includes('/local/')),
+      'payload root is payload-only',
+    );
+    assert.deepEqual(local.sort(), [
+      '.agents/local/skills/stack/backend/stack-skill/SKILL.md',
+      '.agents/local/skills/stack/qa/acme-sso/SKILL.md',
+    ]);
+
+    // Lookup unifies the two, payload-wins on a collision.
+    assert.equal(
+      rel(resolveSkillFile(root, 'stack/backend/stack-skill').path),
+      '.agents/skills/stack/backend/stack-skill/SKILL.md',
+    );
+    assert.equal(
+      rel(resolveSkillFile(root, 'stack/qa/acme-sso').path),
+      '.agents/local/skills/stack/qa/acme-sso/SKILL.md',
+    );
+    assert.equal(resolveSkillFile(root, 'stack/qa/absent'), null);
+  });
+
+  it('keeps the shipped manifest payload-only and writes local skills to their own index', () => {
+    // Load-bearing: `.agents/skills/skills.index.json` is a committed payload
+    // file that `mandrel doctor` / `mandrel sync-agents` compare against the
+    // installed package. Folding local skills into it would make every
+    // consumer who authors one look like payload drift, and those commands
+    // would refuse.
+    const root = stageFixtureRoot(tmpParent);
+    const shippedIndex = path.join(
+      root,
+      '.agents',
+      'skills',
+      'skills.index.json',
+    );
+    const localIndex = path.join(
+      root,
+      '.agents',
+      'local',
+      'skills',
+      'skills.index.json',
+    );
+
+    assert.equal(runGenerator({ argv: ['--root', root] }).status, 0);
+    const before = JSON.parse(fs.readFileSync(shippedIndex, 'utf8'));
+    assert.equal(
+      fs.existsSync(localIndex),
+      false,
+      'no local skills, no local index',
+    );
+
+    stageLocalSkill(root, 'stack/qa/acme-sso');
+    assert.equal(runGenerator({ argv: ['--root', root] }).status, 0);
+    const after = JSON.parse(fs.readFileSync(shippedIndex, 'utf8'));
+
+    // Identical modulo the volatile `generatedAt` — the field `--check`
+    // itself ignores.
+    assert.deepEqual(after.skills, before.skills);
+    assert.ok(
+      !after.skills.some((s) => s.path.includes('/local/')),
+      'no local skill leaked into the shipped manifest',
+    );
+
+    const local = JSON.parse(fs.readFileSync(localIndex, 'utf8'));
+    assert.deepEqual(
+      local.skills.map((s) => s.path),
+      ['.agents/local/skills/stack/qa/acme-sso/SKILL.md'],
+    );
+  });
+
+  it('--check stays green on a committed shipped manifest when a local skill exists', () => {
+    const root = stageFixtureRoot(tmpParent);
+    assert.equal(runGenerator({ argv: ['--root', root] }).status, 0);
+    const committed = fs.readFileSync(
+      path.join(root, '.agents', 'skills', 'skills.index.json'),
+      'utf8',
+    );
+
+    stageLocalSkill(root, 'stack/qa/acme-sso');
+    assert.equal(runGenerator({ argv: ['--root', root] }).status, 0);
+    // The shipped manifest is regenerated but must still match what was
+    // committed, modulo `generatedAt`.
+    assert.equal(runGenerator({ argv: ['--check', '--root', root] }).status, 0);
+    const a = JSON.parse(committed);
+    const b = JSON.parse(
+      fs.readFileSync(
+        path.join(root, '.agents', 'skills', 'skills.index.json'),
+        'utf8',
+      ),
+    );
+    assert.deepEqual(b.skills, a.skills);
+  });
+
+  it('reaps the local index when the last local skill is removed', () => {
+    const root = stageFixtureRoot(tmpParent);
+    stageLocalSkill(root, 'stack/qa/acme-sso');
+    assert.equal(runGenerator({ argv: ['--root', root] }).status, 0);
+    const localIndex = path.join(
+      root,
+      '.agents',
+      'local',
+      'skills',
+      'skills.index.json',
+    );
+    assert.equal(fs.existsSync(localIndex), true);
+
+    fs.rmSync(path.join(root, '.agents', 'local', 'skills', 'stack'), {
+      recursive: true,
+    });
+    // A stale index would otherwise keep advertising a skill that is gone.
+    assert.equal(runGenerator({ argv: ['--check', '--root', root] }).status, 1);
+    assert.equal(runGenerator({ argv: ['--root', root] }).status, 0);
+    assert.equal(fs.existsSync(localIndex), false);
+  });
+
+  it('holds a consumer-authored skill to the same validation bar as a shipped one', () => {
+    const root = stageFixtureRoot(tmpParent);
+    stageLocalSkill(root, 'stack/qa/acme-sso');
+    assert.equal(runGenerator({ argv: ['--root', root] }).status, 0);
+    assert.equal(runCli(VALIDATOR_CLI, ['--root', root]).status, 0);
+
+    // Break the capsule in the LOCAL skill only.
+    const skillPath = path.join(
+      root,
+      '.agents',
+      'local',
+      'skills',
+      'stack',
+      'qa',
+      'acme-sso',
+      'SKILL.md',
+    );
+    const kept = [];
+    let bullets = 0;
+    for (const line of fs.readFileSync(skillPath, 'utf8').split('\n')) {
+      if (line.startsWith('- ') && ++bullets > 2) continue;
+      kept.push(line);
+    }
+    fs.writeFileSync(skillPath, kept.join('\n'));
+
+    const broken = runCli(VALIDATOR_CLI, ['--root', root]);
+    assert.equal(broken.status, 1);
+    assert.match(
+      broken.stdout,
+      /local[/\\]skills[/\\]stack[/\\]qa[/\\]acme-sso/,
     );
   });
 });
