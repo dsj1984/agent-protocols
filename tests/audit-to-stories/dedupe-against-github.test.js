@@ -291,3 +291,40 @@ test('loadProviderOrNull keeps the dedup path soft-failing on a typed refusal (S
     null,
   );
 });
+
+test('loadProvider refuses a provider with no searchIssues port, by reason (Story #5143)', async () => {
+  // The adapter cannot be built without the dedup read port, and the refusal
+  // must stay typed: `wireEdges` maps `reason` onto the precondition it names,
+  // so an untyped throw here would surface as the generic hint again.
+  await assert.rejects(
+    loadProvider({
+      resolveConfigImpl: () => ({ github: { owner: 'o', repo: 'r' } }),
+      createProviderImpl: () => ({ updateTicket: async () => {} }),
+    }),
+    (err) => {
+      assert.equal(err.name, 'ProviderUnavailableError');
+      assert.equal(err.reason, 'no-search-port');
+      assert.match(err.message, /searchIssues/);
+      return true;
+    },
+  );
+});
+
+test('loadProvider reports a throwing config resolve as no-config (Story #5143)', async () => {
+  // A malformed .agentrc.json fails the resolve rather than returning a config
+  // with no owner/repo. Both spellings of "there is no usable config" have to
+  // reach the operator as the same named precondition.
+  await assert.rejects(
+    loadProvider({
+      resolveConfigImpl: () => {
+        throw new Error('unexpected token in .agentrc.json');
+      },
+    }),
+    (err) => {
+      assert.equal(err.name, 'ProviderUnavailableError');
+      assert.equal(err.reason, 'no-config');
+      assert.match(err.message, /resolving the project config failed/);
+      return true;
+    },
+  );
+});
