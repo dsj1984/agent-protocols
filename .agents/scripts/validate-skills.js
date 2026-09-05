@@ -1,11 +1,16 @@
 #!/usr/bin/env node
 // .agents/scripts/validate-skills.js
 //
-// Walk `.agents/skills/{core,stack}/**/SKILL.md` via the shared parser
+// Walk `SKILL.md` under both skills roots — the package payload
+// (`.agents/skills/{core,stack}/`) and the consumer-writable local zone
+// (`.agents/local/skills/{core,stack}/`, Story #5135) — via the shared parser
 // helper, validate each frontmatter block against
 // `.agents/schemas/skill.schema.json`, enforce Policy Capsule presence
-// (5–12 bullets), and verify membership in `.agents/skills/skills.index.json`
-// when that manifest exists. All findings are batched into a single
+// (5–12 bullets), and verify membership in each root's own manifest when it
+// exists. A consumer-authored skill is held to exactly the same bar as a
+// shipped one; the roots are validated separately because each carries its
+// own index (the shipped manifest is a payload file and must stay
+// payload-only — see generate-skills-index.js). All findings are batched into a single
 // human-readable report; the process exits non-zero when any finding is
 // surfaced.
 //
@@ -30,7 +35,17 @@ import { parseStandardCliArgs } from './lib/cli/standard-args.js';
 import { runAsCli } from './lib/cli-utils.js';
 import { Logger } from './lib/Logger.js';
 import { parseSkill } from './lib/skills/parse-skill.js';
-import { collectSkillFiles } from './lib/skills/walk-skill-files.js';
+import {
+  auditIndex,
+  indexPathFor,
+  readIndexPaths,
+} from './lib/skills/skills-index.js';
+import {
+  collectLocalSkillFiles,
+  collectSkillFiles,
+  LOCAL_SKILLS_SEGMENTS,
+  PAYLOAD_SKILLS_SEGMENTS,
+} from './lib/skills/walk-skill-files.js';
 
 const MIN_CAPSULE_BULLETS = 5;
 const MAX_CAPSULE_BULLETS = 12;
@@ -118,56 +133,11 @@ function buildManifestValidator(repoRoot) {
 }
 
 /**
- * Read the on-disk skills.index.json manifest, returning `{ exists, paths,
- * manifest }` where `paths` is the Set of `entry.path` values when the file
- * is present and parseable, or null otherwise.
+ * Read one root's manifest into the `{ exists, paths, manifest, indexPath }`
+ * shape the findings pass consumes.
  */
-function readIndex(repoRoot) {
-  const indexPath = path.join(
-    repoRoot,
-    '.agents',
-    'skills',
-    'skills.index.json',
-  );
-  if (!fs.existsSync(indexPath)) {
-    return { exists: false, paths: null, manifest: null, indexPath };
-  }
-  try {
-    const manifest = JSON.parse(fs.readFileSync(indexPath, 'utf8'));
-    const paths = new Set(
-      Array.isArray(manifest.skills)
-        ? manifest.skills
-            .map((s) => s.path)
-            .filter((p) => typeof p === 'string')
-        : [],
-    );
-    return { exists: true, paths, manifest, indexPath };
-  } catch (err) {
-    return {
-      exists: true,
-      paths: null,
-      manifest: null,
-      indexPath,
-      parseError: err.message,
-    };
-  }
-}
-
-/**
- * Validate a parsed manifest against skills-index.schema.json. Returns
- * finding strings tagged with the `manifest-schema` pillar.
- */
-function validateManifestSchema(manifest, indexRelPath, validateManifest) {
-  const findings = [];
-  if (!validateManifest(manifest)) {
-    for (const err of validateManifest.errors ?? []) {
-      const where = err.instancePath || '(root)';
-      findings.push(
-        `${indexRelPath}: manifest-schema: schema violation at ${where}: ${err.message}`,
-      );
-    }
-  }
-  return findings;
+function readIndex(repoRoot, rootSegments = PAYLOAD_SKILLS_SEGMENTS) {
+  return readIndexPaths(indexPathFor(repoRoot, rootSegments));
 }
 
 /**
@@ -216,6 +186,7 @@ function rel(absPath, repoRoot) {
 /**
  * Pure entry point used by tests. Returns `{ status, output, findings }`.
  */
+
 export function run({ argv = [], repoRoot } = {}) {
   const parsed = parseArgs(argv);
   if (parsed.help) {
@@ -234,24 +205,40 @@ export function run({ argv = [], repoRoot } = {}) {
   const indexRel = rel(indexInfo.indexPath, root);
 
   const findings = [];
-  if (!indexInfo.exists) {
-    findings.push(
-      `index missing: ${indexRel} not found — run 'node .agents/scripts/generate-skills-index.js'`,
-    );
-  } else if (indexInfo.paths === null) {
-    findings.push(`index unparseable: ${indexRel} — ${indexInfo.parseError}`);
-  } else if (indexInfo.manifest !== null) {
-    findings.push(
-      ...validateManifestSchema(indexInfo.manifest, indexRel, validateManifest),
-    );
-  }
+  findings.push(
+    ...auditIndex(indexInfo, indexRel, validateManifest, { required: true }),
+  );
 
-  const skillFiles = collectSkillFiles(root);
+  const payloadFiles = collectSkillFiles(root);
   const indexPaths =
     indexInfo.exists && indexInfo.paths !== null ? indexInfo.paths : null;
-  for (const file of skillFiles) {
+  for (const file of payloadFiles) {
     findings.push(...validateOne(file, root, validateFrontmatter, indexPaths));
   }
+
+  // The local zone is optional: a repo with no consumer-authored skills has
+  // no local root and no local index, and that is a clean run, not a finding.
+  const localFiles = collectLocalSkillFiles(root);
+  if (localFiles.length > 0) {
+    const localIndexInfo = readIndex(root, LOCAL_SKILLS_SEGMENTS);
+    const localIndexRel = rel(localIndexInfo.indexPath, root);
+    findings.push(
+      ...auditIndex(localIndexInfo, localIndexRel, validateManifest, {
+        required: true,
+      }),
+    );
+    const localIndexPaths =
+      localIndexInfo.exists && localIndexInfo.paths !== null
+        ? localIndexInfo.paths
+        : null;
+    for (const file of localFiles) {
+      findings.push(
+        ...validateOne(file, root, validateFrontmatter, localIndexPaths),
+      );
+    }
+  }
+
+  const skillFiles = [...payloadFiles, ...localFiles];
 
   if (findings.length === 0) {
     Logger.info(`validate-skills: ${skillFiles.length} skill(s) passed`);

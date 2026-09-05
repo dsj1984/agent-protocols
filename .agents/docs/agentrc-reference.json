@@ -363,9 +363,6 @@
       },
       "staging": {
         "baseUrl": "https://staging.example.test",
-        "signInSeam": {
-          "skill": "stack/qa/sign-in"
-        },
         "allowWrites": false
       }
     },
@@ -374,7 +371,7 @@
         "credentialRef": "QA_ADMIN_CREDENTIAL"
       },
       "member": {
-        "signInSkill": "stack/qa/sign-in-member"
+        "credentialRef": "QA_MEMBER_CREDENTIAL"
       }
     },
     "gherkinLint": {

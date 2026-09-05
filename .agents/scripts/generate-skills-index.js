@@ -8,6 +8,15 @@
 // generator output (ignoring the volatile `generatedAt` field) and exits
 // non-zero with a diff-style message if they diverge.
 //
+// Two indexes, never one (Story #5135). The shipped manifest above is a
+// committed payload file that `mandrel doctor` / `mandrel sync-agents`
+// compare byte-for-byte against the installed package, so consumer-authored
+// skills under the `.agents/local/skills/` zone MUST NOT be folded into it —
+// a merged index would read as payload drift in every consumer that authored
+// a skill, and those commands would refuse. Local skills are therefore
+// indexed into their own `.agents/local/skills/skills.index.json`, inside
+// the zone sync never prunes and drift never walks.
+//
 // CLI surface:
 //
 //   node generate-skills-index.js [--check] [--root <dir>] [--out <file>]
@@ -38,7 +47,18 @@ import { runAsCli } from './lib/cli-utils.js';
 import { formatGeneratedJson } from './lib/format-generated-json.js';
 import { Logger } from './lib/Logger.js';
 import { parseSkill } from './lib/skills/parse-skill.js';
-import { collectSkillFiles } from './lib/skills/walk-skill-files.js';
+import {
+  diffManifests,
+  INDEX_FILENAME,
+  indexPathFor,
+  readManifest,
+} from './lib/skills/skills-index.js';
+import {
+  collectLocalSkillFiles,
+  collectSkillFiles,
+  LOCAL_SKILLS_SEGMENTS,
+  PAYLOAD_SKILLS_SEGMENTS,
+} from './lib/skills/walk-skill-files.js';
 
 const GENERATOR_ID = 'generate-skills-index.js@1';
 
@@ -103,8 +123,8 @@ function projectEntry(parsed) {
  * Build the manifest object (without `generatedAt`) by walking the tree
  * and projecting each parsed SKILL.md into an index entry.
  */
-export function buildManifestBody(repoRoot) {
-  const skillFiles = collectSkillFiles(repoRoot);
+export function buildManifestBody(repoRoot, collect = collectSkillFiles) {
+  const skillFiles = collect(repoRoot);
   const skills = skillFiles.map((absPath) =>
     projectEntry(parseSkill(absPath, { repoRoot })),
   );
@@ -118,8 +138,8 @@ export function buildManifestBody(repoRoot) {
  * Build the full manifest with `generatedAt`. `nowIso` is injected so
  * tests can pin the timestamp deterministically.
  */
-export function buildManifest(repoRoot, { nowIso } = {}) {
-  const body = buildManifestBody(repoRoot);
+export function buildManifest(repoRoot, { nowIso, collect } = {}) {
+  const body = buildManifestBody(repoRoot, collect);
   return {
     generatedAt: nowIso ?? new Date().toISOString(),
     generator: body.generator,
@@ -143,66 +163,147 @@ export function serializeManifest(manifest) {
 }
 
 /**
- * Read the on-disk manifest as a parsed object, or null when missing /
- * unparseable. The --check pipeline distinguishes "missing" (drift) from
- * "unparseable" (drift) via the returned `reason` channel.
- */
-function readOnDiskManifest(outPath) {
-  if (!fs.existsSync(outPath)) {
-    return { manifest: null, reason: 'missing' };
-  }
-  let src;
-  try {
-    src = fs.readFileSync(outPath, 'utf8');
-  } catch (err) {
-    return { manifest: null, reason: `read-error: ${err.message}` };
-  }
-  try {
-    return { manifest: JSON.parse(src), reason: null };
-  } catch (err) {
-    return { manifest: null, reason: `parse-error: ${err.message}` };
-  }
-}
-
-/**
- * Compare two manifests ignoring `generatedAt`. Returns null when they
- * match, or a short diff-style message when they diverge.
- */
-function diffManifestsIgnoringTimestamp(diskManifest, freshManifest) {
-  if (diskManifest === null) {
-    return 'on-disk manifest is missing or unreadable';
-  }
-  const a = { ...diskManifest };
-  const b = { ...freshManifest };
-  delete a.generatedAt;
-  delete b.generatedAt;
-  const sa = JSON.stringify(a);
-  const sb = JSON.stringify(b);
-  if (sa === sb) return null;
-  // Surface a structural summary rather than a full JSON dump.
-  const diskCount = Array.isArray(diskManifest.skills)
-    ? diskManifest.skills.length
-    : 'n/a';
-  const freshCount = Array.isArray(freshManifest.skills)
-    ? freshManifest.skills.length
-    : 'n/a';
-  const summary = [
-    'skills.index.json drift detected:',
-    `  on-disk entries:  ${diskCount}`,
-    `  generated entries: ${freshCount}`,
-    "  run 'node .agents/scripts/generate-skills-index.js' to refresh",
-  ].join('\n');
-  return summary;
-}
-
-/**
  * Resolve the manifest output path given (root, optional explicit
  * override).
  */
 function resolveOutPath(root, override) {
   return override
     ? path.resolve(override)
-    : path.join(root, '.agents', 'skills', 'skills.index.json');
+    : indexPathFor(root, PAYLOAD_SKILLS_SEGMENTS);
+}
+
+/**
+ * Resolve the local-zone manifest path. Deliberately NOT overridable by
+ * `--out`: that flag redirects the payload manifest (tests stage fixture
+ * trees with it), and letting it also move the local manifest would let one
+ * invocation write both indexes to the same file.
+ */
+function resolveLocalOutPath(root) {
+  return indexPathFor(root, LOCAL_SKILLS_SEGMENTS);
+}
+
+/**
+ * Write one manifest through the project formatter so a regeneration on a
+ * clean tree leaves no format drift behind.
+ */
+function writeManifest(manifest, outPath, root) {
+  const serialized = serializeManifest(manifest);
+  const opts = { cwd: root, filename: INDEX_FILENAME };
+  fs.mkdirSync(path.dirname(outPath), { recursive: true });
+  fs.writeFileSync(
+    outPath,
+    formatGeneratedJson(serialized, opts) ?? serialized,
+  );
+}
+
+/**
+ * Write (or reap) the local-zone manifest. A consumer who deletes their last
+ * local skill would otherwise be left with a stale index reporting skills
+ * that no longer exist, so an emptied zone removes the artifact rather than
+ * leaving it behind.
+ */
+function writeLocalManifest(localFresh, localOutPath, root) {
+  const rel = path.relative(root, localOutPath).split(path.sep).join('/');
+  if (localFresh === null) {
+    if (fs.existsSync(localOutPath)) {
+      fs.rmSync(localOutPath);
+      Logger.info(`removed ${rel} (no local skills remain)`);
+    }
+    return;
+  }
+  writeManifest(localFresh, localOutPath, root);
+  Logger.info(`wrote ${rel} (${localFresh.skills.length} entries)`);
+}
+
+/**
+ * Compare the local-zone manifest against fresh generator output. Returns
+ * null when in sync (including the common case of no local skills and no
+ * artifact), or a diff-style message.
+ */
+function checkLocalManifest(localFresh, localOutPath) {
+  const exists = fs.existsSync(localOutPath);
+  if (localFresh === null) {
+    return exists
+      ? 'local skills.index.json drift detected: the local skills zone is ' +
+          'empty but .agents/local/skills/skills.index.json still exists — ' +
+          "run 'node .agents/scripts/generate-skills-index.js' to reap it"
+      : null;
+  }
+  if (!exists) {
+    return (
+      'local skills.index.json drift detected: missing — run ' +
+      "'node .agents/scripts/generate-skills-index.js' to write it"
+    );
+  }
+  const { manifest: disk } = readManifest(localOutPath);
+  return diffManifests(disk, localFresh, 'local skills.index.json');
+}
+
+/**
+ * Build the local zone's manifest plan for this invocation: its output path,
+ * and a fresh manifest when the consumer has authored any local skill (null
+ * otherwise, which is the signal to reap a stale artifact).
+ *
+ * Split out of `run` so the payload path and the local path each read as one
+ * step there rather than interleaving.
+ *
+ * @param {string} root
+ * @param {Date} now
+ * @returns {{ localFresh: object | null, localOutPath: string }}
+ */
+function buildLocalPlan(root, now) {
+  const localOutPath = resolveLocalOutPath(root);
+  const localFresh =
+    collectLocalSkillFiles(root).length > 0
+      ? buildManifest(root, {
+          nowIso: now.toISOString(),
+          collect: collectLocalSkillFiles,
+        })
+      : null;
+  return { localFresh, localOutPath };
+}
+
+/**
+ * Render the freshness line's entry counts, naming the local zone only when
+ * one exists.
+ *
+ * @param {object} fresh
+ * @param {object | null} localFresh
+ * @returns {string}
+ */
+function describeCounts(fresh, localFresh) {
+  const base = `${fresh.skills.length} entries`;
+  return localFresh === null
+    ? base
+    : `${base}, ${localFresh.skills.length} local`;
+}
+
+/**
+ * `--check` mode: compare both manifests against fresh generator output and
+ * report the first drift found, payload first.
+ *
+ * Lives outside `run` so the entry point reads as "resolve inputs, then check
+ * or write" — and so the check path's branches are not charged to a function
+ * that also owns argument resolution.
+ *
+ * @param {{ outPath: string, fresh: object, localOutPath: string, localFresh: object | null }} plan
+ * @returns {{ status: number, output: string }}
+ */
+function checkBothManifests({ outPath, fresh, localOutPath, localFresh }) {
+  const { manifest: disk, reason } = readManifest(outPath);
+  if (disk === null) {
+    return { status: 1, output: `${INDEX_FILENAME} drift detected: ${reason}` };
+  }
+  const drift =
+    diffManifests(disk, fresh, INDEX_FILENAME) ??
+    checkLocalManifest(localFresh, localOutPath);
+  if (drift !== null) {
+    return { status: 1, output: drift };
+  }
+  Logger.info(
+    `${INDEX_FILENAME} is fresh (${describeCounts(fresh, localFresh)})`,
+  );
+  return { status: 0, output: '' };
 }
 
 /**
@@ -225,35 +326,17 @@ export function run({ argv = [], now = new Date(), repoRoot } = {}) {
     : (repoRoot ?? defaultRepoRoot());
   const outPath = resolveOutPath(root, parsed.out);
   const fresh = buildManifest(root, { nowIso: now.toISOString() });
+  const { localFresh, localOutPath } = buildLocalPlan(root, now);
 
   if (parsed.check) {
-    const { manifest: disk, reason } = readOnDiskManifest(outPath);
-    if (disk === null) {
-      return {
-        status: 1,
-        output: `skills.index.json drift detected: ${reason}`,
-      };
-    }
-    const diff = diffManifestsIgnoringTimestamp(disk, fresh);
-    if (diff === null) {
-      Logger.info(
-        `skills.index.json is fresh (${fresh.skills.length} entries)`,
-      );
-      return { status: 0, output: '' };
-    }
-    return { status: 1, output: diff };
+    return checkBothManifests({ outPath, fresh, localOutPath, localFresh });
   }
 
-  const serialized = serializeManifest(fresh);
-  const opts = { cwd: root, filename: 'skills.index.json' };
-  fs.mkdirSync(path.dirname(outPath), { recursive: true });
-  fs.writeFileSync(
-    outPath,
-    formatGeneratedJson(serialized, opts) ?? serialized,
-  );
+  writeManifest(fresh, outPath, root);
   Logger.info(
     `wrote ${path.relative(root, outPath).split(path.sep).join('/')} (${fresh.skills.length} entries)`,
   );
+  writeLocalManifest(localFresh, localOutPath, root);
   return { status: 0, output: '' };
 }
 

@@ -1508,7 +1508,8 @@ scopes the sweep to a concrete, deterministic scenario set:
    re-running the same selector scopes the identical set and evidence stays
    diffable.
 3. **Sign in** once per persona via the resolved environment's `signInSeam`
-   (each entry in the `environments` map carries its own seam). Under a
+   (each entry in the `environments` map carries its own optional seam; an
+   environment declaring none is driven unauthenticated). Under a
    `{ urlTemplate }` dev seam no real credentials are entered; under a
    `{ skill }` seam against a deployed environment, real auth uses only
    `credentialRef`-indirected material — secrets are never inlined, echoed, or
@@ -1543,7 +1544,7 @@ in [`.agents/docs/agentrc-reference.json`](../.agents/docs/agentrc-reference.jso
 | ------------------ | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `featureRoot`      | yes      | Filesystem root the selector resolves `.feature` files against.                                                                                               |
 | `fixturesManifest` | yes      | Path to the persona → seed-data manifest loaded before sign-in.                                                                                               |
-| `environments`     | yes      | Map keyed by environment name (`local`, `staging`, `production`, …); each entry is `{ baseUrl, signInSeam, allowWrites? }`. `signInSeam` is the per-environment discriminated union `{ urlTemplate }` (substitute `{persona}` into a dev sign-in URL) **or** `{ skill }` (invoke a named consumer skill for procedural real sign-in). `allowWrites` defaults to `true` only for `local`, `false` otherwise. Selected per invocation via `resolveQaEnvironment` (by name or `baseUrl` origin). |
+| `environments`     | yes      | Map keyed by environment name (`local`, `staging`, `production`, …); each entry is `{ baseUrl, signInSeam?, allowWrites? }` — only `baseUrl` is required. `signInSeam` is the per-environment discriminated union `{ urlTemplate }` (substitute `{persona}` into a dev sign-in URL) **or** `{ skill }` (a tier-relative skill id resolved under `.agents/skills/` then the consumer-writable `.agents/local/skills/` zone, and rejected loudly when it resolves under neither); **omitted** declares a target with no sign-in seam, which the workflows drive unauthenticated. `allowWrites` defaults to `true` only for `local`, `false` otherwise. Selected per invocation via `resolveQaEnvironment` (by name or `baseUrl` origin). |
 | `personas`         | yes      | Either a name-only `string[]` (the honest shape under a `{ urlTemplate }` seam, where the persona name is the sole input) **or** a map of persona name → `{ credentialRef }` / `{ signInSkill }` (per-persona auth material, consulted only under a `{ skill }` or credential seam). Never an inline secret. The resolver normalizes both to one canonical map keyed by persona name. |
 | `consoleAllowlist` | no       | Benign-console substring patterns to suppress (default `[]`). A noise filter, **not** a security control — never expand it to silence a genuine error.        |
 | `designTokens`     | no       | Pointer to the token/style source for visual spot-checks (default `null`). When `null`, the design-token check is skipped entirely.                            |

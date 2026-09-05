@@ -1,11 +1,11 @@
 {
   "$schema": ".agents/schemas/baselines/maintainability.schema.json",
   "kernelVersion": "0.1.0",
-  "generatedAt": "2026-09-04T17:34:12.161Z",
+  "generatedAt": "2026-09-05T01:02:27.127Z",
   "rollup": {
     "*": {
       "min": 76.381,
-      "p50": 98.772,
+      "p50": 98.829,
       "p95": 122.913
     }
   },
@@ -160,7 +160,7 @@
     },
     {
       "path": ".agents/scripts/generate-skills-index.js",
-      "mi": 97.053
+      "mi": 98.844
     },
     {
       "path": ".agents/scripts/generate-workflows-doc.js",
@@ -1612,7 +1612,7 @@
     },
     {
       "path": ".agents/scripts/lib/qa/resolve-qa-contract.js",
-      "mi": 96.59
+      "mi": 97.391
     },
     {
       "path": ".agents/scripts/lib/qa/resolve-selection.js",
@@ -1683,8 +1683,12 @@
       "mi": 87.688
     },
     {
+      "path": ".agents/scripts/lib/skills/skills-index.js",
+      "mi": 102.734
+    },
+    {
       "path": ".agents/scripts/lib/skills/walk-skill-files.js",
-      "mi": 98.558
+      "mi": 102.663
     },
     {
       "path": ".agents/scripts/lib/source-extensions.js",

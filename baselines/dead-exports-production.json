@@ -1,7 +1,7 @@
 {
   "$schema": "https://mandrel.dev/baselines/dead-exports.schema.json",
   "kernelVersion": "6.17.1",
-  "generatedAt": "2026-09-03T02:33:17.631Z",
+  "generatedAt": "2026-09-05T00:55:46.693Z",
   "mode": "production",
   "rows": [
     {
@@ -1987,6 +1987,14 @@
     {
       "file": ".agents/scripts/lib/single-story/story-merged-notify.js",
       "symbol": "*"
+    },
+    {
+      "file": ".agents/scripts/lib/skills/walk-skill-files.js",
+      "symbol": "resolveSkillFile"
+    },
+    {
+      "file": ".agents/scripts/lib/skills/walk-skill-files.js",
+      "symbol": "SKILL_SEARCH_ROOTS"
     },
     {
       "file": ".agents/scripts/lib/temp-retention.js",

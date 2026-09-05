@@ -1,12 +1,23 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
 import { describe, it } from 'node:test';
+import { fileURLToPath } from 'node:url';
 
+import { QA_SCHEMA } from '../.agents/scripts/lib/config-settings-schema.js';
 import {
   QA_CONTRACT_DEFAULTS,
   QA_REQUIRED_FIELDS,
   resolveQaContract,
   resolveQaEnvironment,
 } from '../.agents/scripts/lib/qa/resolve-qa-contract.js';
+import { resolveSkillFile } from '../.agents/scripts/lib/skills/walk-skill-files.js';
+import { makeTempDir } from '../.agents/scripts/lib/test-temp.js';
+
+const REPO_ROOT = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  '..',
+);
 
 /**
  * A minimal well-formed `qa` block carrying every harness-required field,
@@ -33,9 +44,10 @@ const MULTI_ENV = Object.freeze({
       baseUrl: 'http://localhost:3000',
       signInSeam: { urlTemplate: '/dev/sign-in-as/{persona}' },
     },
+    // No `signInSeam`: an honestly seamless deployed target (Story #5135).
+    // The field is optional, and a dangling skill id here would now throw.
     staging: {
       baseUrl: 'https://staging.example.test',
-      signInSeam: { skill: 'stack/qa/sign-in' },
     },
   },
   personas: ['admin'],
@@ -85,7 +97,7 @@ describe('resolveQaContract — present (well-formed, environment-keyed)', () =>
           staging: MULTI_ENV.environments.staging,
           prod: {
             baseUrl: 'https://example.test',
-            signInSeam: { skill: 'stack/qa/sign-in' },
+            signInSeam: { skill: 'stack/qa/acme-sso' },
           },
         },
       },
@@ -225,13 +237,13 @@ describe('resolveQaContract — personas normalization (Story #3306)', () => {
         ...URL_SEAM_BASE,
         personas: {
           admin: { credentialRef: 'QA_ADMIN_CREDENTIAL' },
-          member: { signInSkill: 'stack/qa/sign-in-member' },
+          member: { signInSkill: 'stack/qa/acme-sso-member' },
         },
       },
     });
     assert.deepEqual(out.personas, {
       admin: { credentialRef: 'QA_ADMIN_CREDENTIAL' },
-      member: { signInSkill: 'stack/qa/sign-in-member' },
+      member: { signInSkill: 'stack/qa/acme-sso-member' },
     });
     assert.deepEqual(out.personaNames, ['admin', 'member']);
   });
@@ -312,7 +324,7 @@ describe('resolveQaEnvironment — selection by name / URL / default', () => {
     const env = resolveQaEnvironment(contract, 'staging');
     assert.equal(env.name, 'staging');
     assert.equal(env.baseUrl, 'https://staging.example.test');
-    assert.deepEqual(env.signInSeam, { skill: 'stack/qa/sign-in' });
+    assert.equal(env.signInSeam, null);
   });
 
   it('resolves an environment by raw-URL origin match against baseUrl', () => {
@@ -404,5 +416,161 @@ describe('resolveQaEnvironment — loud failure', () => {
     // name path resolves it without attempting origin matching.
     const env = resolveQaEnvironment(contract, 'local');
     assert.equal(env.name, 'local');
+  });
+});
+
+describe('resolveQaEnvironment — signInSeam resolution (Story #5135)', () => {
+  /**
+   * Stage a repo-shaped tree carrying one skill under the requested root, so
+   * seam resolution is exercised against a real filesystem rather than a stub.
+   *
+   * @param {string[]} rootSegments e.g. ['.agents','local','skills']
+   * @param {string} skillId e.g. 'stack/qa/acme-sso'
+   * @returns {string} the staged repo root
+   */
+  function stageSkill(rootSegments, skillId) {
+    const root = makeTempDir('qa-seam-');
+    const dir = path.join(root, ...rootSegments, ...skillId.split('/'));
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(
+      path.join(dir, 'SKILL.md'),
+      `---\nname: ${path.basename(skillId)}\ndescription: staged\n---\n`,
+    );
+    return root;
+  }
+
+  /** A contract whose single `staging` environment carries `seam`. */
+  function contractWithSeam(seam) {
+    const environments = {
+      staging: {
+        baseUrl: 'https://staging.example.test',
+        ...(seam === undefined ? {} : { signInSeam: seam }),
+      },
+    };
+    return resolveQaContract({ qa: { ...WELL_FORMED, environments } });
+  }
+
+  it('accepts an environment that declares no seam, reporting it as null', () => {
+    // The state the QA workflows already branch on (drive the unauthenticated
+    // surface, record the gap) and that the schema used to forbid outright.
+    const env = resolveQaEnvironment(contractWithSeam(undefined), 'staging');
+    assert.equal(env.signInSeam, null);
+    assert.equal(env.baseUrl, 'https://staging.example.test');
+  });
+
+  it('resolves a { skill } seam authored in the consumer-writable local zone', () => {
+    const repoRoot = stageSkill(
+      ['.agents', 'local', 'skills'],
+      'stack/qa/acme-sso',
+    );
+    const env = resolveQaEnvironment(
+      contractWithSeam({ skill: 'stack/qa/acme-sso' }),
+      'staging',
+      { repoRoot },
+    );
+    assert.equal(env.signInSeam.skill, 'stack/qa/acme-sso');
+    assert.equal(
+      env.signInSeam.skillPath,
+      path.join(
+        repoRoot,
+        '.agents/local/skills/stack/qa/acme-sso/SKILL.md'
+          .split('/')
+          .join(path.sep),
+      ),
+    );
+  });
+
+  it('resolves a { skill } seam naming a payload skill', () => {
+    const repoRoot = stageSkill(['.agents', 'skills'], 'stack/qa/shipped-seam');
+    const env = resolveQaEnvironment(
+      contractWithSeam({ skill: 'stack/qa/shipped-seam' }),
+      'staging',
+      { repoRoot },
+    );
+    assert.match(env.signInSeam.skillPath, /\.agents[/\\]skills[/\\]/);
+  });
+
+  it('throws at resolution time for an unresolvable { skill } seam, naming both roots', () => {
+    // The #5134 defect: an unresolvable seam used to be returned unread and
+    // only surfaced when a sweep reached its sign-in step.
+    const repoRoot = makeTempDir('qa-seam-empty-');
+    assert.throws(
+      () =>
+        resolveQaEnvironment(
+          contractWithSeam({ skill: 'stack/qa/nope' }),
+          'staging',
+          { repoRoot },
+        ),
+      (err) => {
+        assert.match(err.message, /stack\/qa\/nope/);
+        assert.match(err.message, /\.agents\/skills/);
+        assert.match(err.message, /\.agents\/local\/skills/);
+        return true;
+      },
+    );
+  });
+
+  it('rejects a path-traversal skill id rather than resolving outside the roots', () => {
+    const repoRoot = makeTempDir('qa-seam-traversal-');
+    assert.throws(
+      () =>
+        resolveQaEnvironment(
+          contractWithSeam({ skill: '../../etc/passwd' }),
+          'staging',
+          { repoRoot },
+        ),
+      /resolves to no readable SKILL\.md/,
+    );
+  });
+
+  it('leaves a { urlTemplate } seam untouched', () => {
+    const env = resolveQaEnvironment(
+      contractWithSeam({ urlTemplate: '/dev/sign-in-as/{persona}' }),
+      'staging',
+    );
+    assert.deepEqual(env.signInSeam, {
+      urlTemplate: '/dev/sign-in-as/{persona}',
+    });
+  });
+});
+
+describe('shipped schema defaults name no unresolvable skill (Story #5135)', () => {
+  /** Every `skill` / `signInSkill` string reachable in a default value. */
+  function skillIdsIn(value, out = []) {
+    if (value === null || typeof value !== 'object') return out;
+    for (const [key, v] of Object.entries(value)) {
+      if ((key === 'skill' || key === 'signInSkill') && typeof v === 'string') {
+        out.push(v);
+      } else {
+        skillIdsIn(v, out);
+      }
+    }
+    return out;
+  }
+
+  it('bakes no skill id into any qa default', () => {
+    // #5134: the shipped `environments` and `personas` defaults named
+    // `stack/qa/sign-in` and `stack/qa/sign-in-member`, neither of which ships
+    // in any release. A default is copied verbatim by consumers, so the only
+    // safe number of unresolvable ids in one is zero — and since the framework
+    // ships no sign-in skill, that means no skill id at all.
+    const ids = skillIdsIn(QA_SCHEMA);
+    assert.deepEqual(
+      ids,
+      [],
+      `qa schema defaults name skill id(s) the package does not ship: ${ids.join(', ')}`,
+    );
+  });
+
+  it('any skill id that ever appears in a default must resolve', () => {
+    // Guards the invariant directly, so re-adding a resolvable illustrative
+    // id stays legal while re-adding a dangling one does not.
+    for (const id of skillIdsIn(QA_SCHEMA)) {
+      assert.notEqual(
+        resolveSkillFile(REPO_ROOT, id),
+        null,
+        `qa schema default names skill \`${id}\`, which resolves under no skills root`,
+      );
+    }
   });
 });

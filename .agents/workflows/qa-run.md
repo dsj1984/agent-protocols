@@ -106,7 +106,11 @@ browser surface") and stop. Never attempt a headless fallback.
 runs against via
 [`resolveQaEnvironment`](../scripts/lib/qa/resolve-qa-contract.js), yielding
 `{ name, baseUrl, signInSeam, allowWrites }` (`allowWrites` defaults to an
-explicit boolean — `true` only for the conventional `local` environment). When
+explicit boolean — `true` only for the conventional `local` environment;
+`signInSeam` is `null` when the environment declares none). A `{ skill }` seam
+is resolved here too: the resolver throws when the id resolves to no
+`SKILL.md`, so a dangling seam fails before the browser is driven, never
+mid-sweep. When
 `<env>` is supplied, pass it straight through (an exact name wins; a raw URL
 matches by origin). When it is omitted (bare `/qa-run`), **prompt** the
 operator, enumerating every environment as `name → baseUrl` (marking
@@ -152,10 +156,14 @@ resolved environment's discriminated-union seam (anchored on `baseUrl`):
   input; under a `urlTemplate` seam the contract is authored as a plain name
   array and no per-persona auth material is read.
 - **`kind: 'skill'`** — invoke the named consumer sign-in skill (procedural /
-  non-URL sign-in). Real auth uses **only `credentialRef`-indirected material**
-  the skill dereferences; raw passwords, tokens, or API keys are never inlined
-  into the contract, the workflow, or chat, and captured evidence is redacted
-  per [`helpers/qa-core.md`](helpers/qa-core.md) before persistence.
+  non-URL sign-in), reading the `SKILL.md` at the seam's resolved `skillPath`.
+  Real auth uses **only `credentialRef`-indirected material** the skill
+  dereferences; raw passwords, tokens, or API keys are never inlined into the
+  contract, the workflow, or chat, and captured evidence is redacted per
+  [`helpers/qa-core.md`](helpers/qa-core.md) before persistence.
+- **No seam (`signInSeam` absent → `null`)** — a declarable state, not a
+  defect. Drive only the unauthenticated surface and record the gap in the
+  envelope; never fabricate a session or enter real credentials by hand.
 
 **Verification (the envelope's proof).** After sign-in, confirm the
 authenticated state with a `take_snapshot` showing the persona badge (the user

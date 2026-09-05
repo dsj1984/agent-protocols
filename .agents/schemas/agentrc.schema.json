@@ -1921,7 +1921,9 @@
             },
             "advisoryAllowlist": {
               "type": "array",
-              "items": { "type": "string" },
+              "items": {
+                "type": "string"
+              },
               "description": "Story #5096. Check-run names exempt from blockOnAdvisoryFailure — a red run whose name matches exactly never blocks arming. Matching is exact; an unnamed run can never match and always blocks.",
               "default": []
             }
@@ -1985,7 +1987,7 @@
         },
         "environments": {
           "type": "object",
-          "description": "Deployment targets the QA harness can run against (Epic #4326). A map keyed by environment name (e.g. `local`, `staging`), each carrying its own `baseUrl`, its own per-environment sign-in seam (the same url-template/skill union as the top-level seam), and an optional `allowWrites` gate. resolveQaEnvironment selects one environment per invocation by name or by raw-URL origin match against `baseUrl`; `allowWrites` defaults to true only for the `local` environment. Replaces the retired top-level single `signInSeam`.",
+          "description": "Deployment targets the QA harness can run against (Epic #4326). A map keyed by environment name (e.g. `local`, `staging`), each carrying its own `baseUrl`, an optional per-environment sign-in seam, and an optional `allowWrites` gate. `signInSeam` is the union `{ urlTemplate }` (a dev impersonation route) or `{ skill }` (a skill id such as `stack/qa/acme-sso`, resolved against `.agents/skills/` then the consumer-writable `.agents/local/skills/` zone, and rejected loudly by resolveQaEnvironment when it resolves under neither); omit it entirely for a target with no sign-in seam. resolveQaEnvironment selects one environment per invocation by name or by raw-URL origin match against `baseUrl`; `allowWrites` defaults to true only for the `local` environment. Replaces the retired top-level single `signInSeam`.",
           "default": {
             "local": {
               "baseUrl": "http://localhost:3000",
@@ -1995,9 +1997,6 @@
             },
             "staging": {
               "baseUrl": "https://staging.example.test",
-              "signInSeam": {
-                "skill": "stack/qa/sign-in"
-              },
               "allowWrites": false
             }
           },
@@ -2048,7 +2047,7 @@
                 "type": "boolean"
               }
             },
-            "required": ["baseUrl", "signInSeam"],
+            "required": ["baseUrl"],
             "additionalProperties": false
           }
         },
@@ -2059,7 +2058,7 @@
               "credentialRef": "QA_ADMIN_CREDENTIAL"
             },
             "member": {
-              "signInSkill": "stack/qa/sign-in-member"
+              "credentialRef": "QA_MEMBER_CREDENTIAL"
             }
           },
           "oneOf": [
