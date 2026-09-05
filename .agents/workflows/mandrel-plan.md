@@ -7,14 +7,14 @@ description:
 
 # /mandrel-plan
 
-> **Lean spine.** Happy path + gate list; edge-case detail lives on demand in
+> **Lean spine.** Happy path + gate list; edge-case detail is on demand in
 > [`helpers/plan-reference.md`](helpers/plan-reference.md).
 
 ## Inputs
 
 Single planning path — there is no Epic/Story router, no scope-triage
-`epic|story` verdict. **Derive the mode from what the operator typed, announce
-it, act**:
+`epic|story` verdict (Gate #3's container groups, never routes). **Derive the
+mode from what the operator typed, announce it, act**:
 
 | Invocation | Mode | Behavior |
 | --- | --- | --- |
@@ -25,9 +25,9 @@ it, act**:
 | `/mandrel-plan 4712`, already delivered | amends | Amend a shipped Story from a **delta envelope**, not a re-interrogation. |
 
 **Resolving a bare id.** Read live state rather than asking: `agent::done` can
-only be amended, an open unplanned issue can only be planned. **Announce the
-derivation** — "4712 is `agent::done` → amending". Ask **only** for an open
-Story already at `agent::ready`.
+only be amended, an open unplanned issue only planned. **Announce the derivation** —
+"4712 is `agent::done` → amending". Ask **only** for an open Story already at
+`agent::ready`.
 
 ## Saying what you want
 
@@ -36,7 +36,7 @@ No flags to remember — state intent; the workflow fills in the CLI
 
 `--yes` is **runner-set, never operator-typed** — cron, `/loop`, and headless
 dispatch set it to mean *nobody is at the keyboard*, which auto-proceeds the
-gates below (#1 and #2). Never offer it to an operator or an attended run.
+gates below (#1 and #2) and skips #3. Never offer it to an operator.
 
 ## Default-single split policy
 
@@ -62,14 +62,13 @@ and derives source ids from its `sourceTickets[]`; the CLI also writes
 The envelope carries docs context, the story-author prompt, `sourceTickets[]`,
 `duplicates[]` (open **Stories**, never Epics) and advisory `complexitySignals`
 (**no routing authority**). A trivial scope can claim the lite route at
-persist — shape-validated, failing closed to `full`
-([detail](helpers/plan-reference.md)).
+persist — shape-validated, failing closed to `full` ([detail](helpers/plan-reference.md)).
 
 **Triage each unknown by resolver** ([detail](helpers/plan-reference.md)): an
 **AFK** unknown (research settles it) is resolved before authoring, never
-assumed; a **HITL** unknown (an operator call) goes to Gate #1. Under `--yes`
-ask nothing free-form — AFK unknowns are still researched; HITL ones land in
-Key Assumptions as decisions-made-by-default.
+assumed; a **HITL** unknown goes to Gate #1. Under `--yes` do not ask free-form
+operator questions — AFK unknowns are still researched; only HITL unknowns land
+in Key Assumptions, each a decision-made-by-default.
 
 **Gate #1** — STOP to confirm the sharpened plan intent and any
 duplicate-candidate review. Under `--yes`, auto-proceed.
@@ -82,7 +81,7 @@ On a truthy `deliverLightSuggestion.suggested`, offer — advisory, never an
 automatic reroute — to deliver the seed instead; on confirm route **in this
 session** into [`helpers/deliver-light.md`](helpers/deliver-light.md), its gate
 filled from this envelope. A truthy `complexitySignals.uiSurface` names
-[`/prototype`](prototype.md) as an operator option, never invoked here.
+[`/prototype`](prototype.md) as an option; never invoke it here.
 [Both offers](helpers/plan-reference.md).
 
 ### 2. Author
@@ -90,17 +89,17 @@ filled from this envelope. A truthy `complexitySignals.uiSurface` names
 **One-shot authoring.** Start from `stories.template.json`; author
 `stories.json` in one pass. `body` is markdown **or** a structured object;
 persist parses either, serializes canonical markdown and syncs top-level
-`acceptance[]` / `verify[]` into it — never dual-author those lists.
+`acceptance[]` / `verify[]` in — never dual-author those lists.
 
 **Grounding = your reads + Phase 8.** Nothing inventories the repo: read each
-file you cite; persist hard-errors on any `{path, assumption}` absent from the
-tree. Entry fields: [reference](helpers/plan-reference.md).
+file you cite; persist hard-errors on any `{path, assumption}` absent from
+the tree. Fields: [reference](helpers/plan-reference.md).
 
 Artifacts under `temp/plan-<slug>/`: `stories.json` (**length 1 by default**;
 over-budget Specs fail closed — split or tighten, never under `docs/`); optional
 `techspec.md` (**N===1 only**, folded into `## Spec`) and
-`acceptance-manifest.json` (N>1 — `--plan-acceptance`). N=1 uses the envelope
-`systemPrompts.story`.
+`acceptance-manifest.json` (N>1 — `--plan-acceptance`). Use the envelope
+`systemPrompts.story`; split only under the policy above.
 
 **Tickets mode:** every Story authors a top-level `supersedes[]`; persist
 refuses a partial map ([shape](helpers/plan-reference.md)).
@@ -114,15 +113,17 @@ node .agents/scripts/plan-critics.js \
 ```
 
 Run **before** persist — the last point a finding folds into a re-author.
-Exit 0 on **any** verdict (verdicts route work, they do not gate); exit **1**
-means no critic ran — **do not proceed to Persist**, fix and re-run.
+It exits 0 on **any** verdict (verdicts route work, they do not gate) and
+exits **1** only on a usage/IO error — no critic ran: **do not proceed to
+Persist**, fix and re-run.
 
 - **Both `dispatch: false`** — proceed to Persist (each skip is ledgered).
 - **Either `dispatch: true`** — dispatch **one fresh-context, maker-blind
   sub-agent per firing critic** (hand it only the draft artifacts, never the
   authoring transcript), fold findings into Gate #2 or a re-author round, re-run
-  this step. Triggers, the advisory-only `textHygiene.findings[]` lints and
-  dispatch shape: [reference](helpers/plan-reference.md).
+  this step. Pre-mortem triggers (incl. the external-dependency probe), the
+  advisory-only `textHygiene.findings[]` lints and dispatch shape:
+  [reference](helpers/plan-reference.md).
 
 ### 3. Persist
 
@@ -130,13 +131,11 @@ means no critic ran — **do not proceed to Persist**, fix and re-run.
 to review (`--force-review`). Under `--yes`, auto-proceed.
 
 **Gate #3 (N>2 only)** — offer a **container Epic**; on a yes add
-`--epic-title` / `--epic-goal` below. A pure container carries nothing a child
-does not ([shape](helpers/plan-reference.md)). Never below 3 Stories, never
-without a yes (`--yes` skips it); `/audit-to-stories` seeds it as its default.
+`--epic-title` / `--epic-goal` below. It carries nothing a child does not
+([shape](helpers/plan-reference.md)). Never below 3 Stories, never unasked.
 
-Run persist with `--dry-run` **first** — same command, writes suppressed;
-every gate runs before the first `createIssue`
-([the list](helpers/plan-reference.md)):
+Run persist with `--dry-run` **first** — same command, writes suppressed; every
+gate runs before the first `createIssue` ([list](helpers/plan-reference.md)):
 
 ```bash
 node .agents/scripts/plan-persist.js \
@@ -148,24 +147,25 @@ node .agents/scripts/plan-persist.js \
   [--epic-title "<name>" --epic-goal "<one paragraph>"]
 ```
 
-At lite shape, `--chain-on-clean` folds a clean dry-run into the real persist;
+At lite shape `--chain-on-clean` folds a clean dry-run into the real persist;
 a full plan keeps its review trip.
 
 Persist creates `type::story` issue(s), a **metadata-only** `plan-run::<id>`
-label, `blocked by #<id>` footers for N>1 `depends_on` edges, and — on a
-confirmed Gate #3 — one `type::epic` container linking every created Story.
+label, `blocked by #<id>` footers for N>1 `depends_on` edges, and on a confirmed
+Gate #3 a `type::epic` container linking every created Story.
 `agent::ready` is the **terminal** flip after receipts land; stdout is pure
 JSON. Tickets mode also comments on and closes each source id
 ([detail](helpers/plan-reference.md)).
 
 ## Constraints
 
-- `/mandrel-plan` starts delivery **only** through a confirmed Gate #1 light route —
-  never off its own authored Stories, which land via [`/mandrel-deliver`](mandrel-deliver.md).
+- `/mandrel-plan` starts delivery **only** through a confirmed Gate #1 light
+  route — never off its own authored Stories, which land via
+  [`/mandrel-deliver`](mandrel-deliver.md).
 - Duplicate search targets open Stories (`type::story`), not Epics; and
   deterministic gates still fail closed under `--yes`.
-- A container Epic is never a work item, and Story bodies never gain an
-  `Epic: #N` footer: linkage is parent→child only.
+- A container Epic is never a work item, and no Story body gains an `Epic: #N`
+  footer: linkage is parent→child only.
 
 ## See also
 

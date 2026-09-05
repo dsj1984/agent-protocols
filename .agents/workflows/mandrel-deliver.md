@@ -7,8 +7,8 @@ description:
 
 # /mandrel-deliver
 
-> **Lean spine.** Happy path + gate list. Sequencing, dispatch mechanics,
-> intent phrases, ceremony and the epilogue live in on-demand
+> **Lean spine.** Happy path + gate list. Sequencing, dispatch mechanics, intent
+> phrases, ceremony and the epilogue live in on-demand
 > [`helpers/deliver-reference.md`](helpers/deliver-reference.md) ("reference"
 > below); the unplanned path in
 > [`helpers/deliver-light.md`](helpers/deliver-light.md). Every delivery reads
@@ -22,8 +22,7 @@ close-and-land tail; Stories are implemented via
 
 The dependency graph is **discovered, not declared** — `resolve-stories.js`
 reads it from live state, so you can deliver Stories **across plan runs and over
-time**. `plan-run::<id>` is filter metadata, never a resolution input;
-`route::lite` a body-derived hint.
+time**. `plan-run::<id>` is filter metadata, never a resolution input.
 
 ## Inputs
 
@@ -36,7 +35,7 @@ you read:
 | `/mandrel-deliver 4712` | ids | One Story via `helpers/deliver-story.md`, **inline in this session** — no `story-worker` spawn. |
 | `/mandrel-deliver 4712 4713 …` | ids | Resolve the set, sequence by the discovered graph via `stories-wave-tick.js`, dispatch sub-agents. |
 | `/mandrel-deliver 4712 - 4716` | ids | A **range** — every id in the inclusive span. |
-| `/mandrel-deliver 4700` (a `type::epic`) | ids | The Epic's **open** child Stories, as if you had typed them. Mixes with Story ids. |
+| `/mandrel-deliver 4700` (a `type::epic`) | ids | The Epic's **open** child Stories. Mixes with Story ids. |
 | `/mandrel-deliver add a --json flag to doctor` | prompt | Unplanned work: gate, author a receipt Story, land it — [`helpers/deliver-light.md`](helpers/deliver-light.md). |
 
 **The discriminator is lexical and total.** An argument matching `^#?\d+$` is an
@@ -45,8 +44,8 @@ single unspaced token, never hand-expanded (reference). Either shape
 means ids; anything else means a prompt. A **mixed** invocation (ids *and*
 prose) is a **hard error** — refuse it and ask which was meant. A ticket that
 is neither `type::story` nor `type::epic`, or that carries an `Epic: #N`
-footer, is a hard error too (container Epics link parent→child only, so that
-footer stays refused).
+footer, is a hard error too — container Epics link parent→child only, so that
+footer stays refused.
 
 ## Saying what you want
 
@@ -69,11 +68,11 @@ to an attended run.
    `node .agents/scripts/resolve-stories.js --ids <id,id,...>`. It validates the
    set and shows what will run: read `stories[]`, `dag[]` and `done[]` to
    present the order in step 2, but do **not** thread them into step 3 — the
-   tick re-resolves the graph every beat. An Epic id expands to its open
-   children first — **announce it** ("#4700 → 3 open Stories"). It hard-errors
-   (exit 1) on an id that is neither a Story nor an Epic, on an `Epic: #N`
-   footer, on an Epic with no open children, or on edges it cannot read — a
-   missing gate would co-dispatch against an unlanded blocker.
+   tick re-resolves the graph every beat. An Epic id expands to its open child
+   Stories first — **announce it**. It hard-errors (exit 1) on an id that is
+   neither a Story nor an Epic, on an `Epic: #N` footer, on an Epic with no
+   open children, or on edges it cannot read — a missing gate would co-dispatch
+   against an unlanded blocker.
 
 2. **Confirm (N>1).** Present the order; wait unless `--yes`.
 
@@ -92,7 +91,7 @@ to an attended run.
    Each beat re-probes live state to derive done / in-flight itself; you never
    compute them. `--dispatched` is the one thing you must supply — the
    append-only list of every id you spawned this run. Cross-run de-confliction
-   via the assignee lease is automatic (reference). Branch on the exit code:
+   via the assignee lease is automatic. Branch on the exit code:
    - **0** — dispatch each `ready` id (already capped and overlap-free); an
      empty `ready` with work in flight means "waiting", so keep looping;
      `epilogueDue: true` means every Story is done — step 4.
@@ -120,29 +119,29 @@ to an attended run.
 [`helpers/deliver-story.md`](helpers/deliver-story.md) Step 3
 (`single-story-close.js`) for it, foreground, and relay its envelope.
 
-**Serialize the tail.** Implementation runs in parallel; closing does not —
-closes contend on the base branch, the merge queue and the checkout. A worker
-handing back mid-close waits its turn.
+**Serialize the tail.** Implementation runs in parallel; closing does not.
+Close one Story at a time — closes contend on the base branch, the merge queue
+and the checkout. A worker handing back mid-close waits its turn.
 
-**A worker returning no terminal envelope is expected**, not a failure to
-answer with a re-dispatch: only close mints one. Close the pushed branch, or
-probe read-only with `node .agents/scripts/deliver-recover.js --story <storyId>`
-and resume what it names.
+**A worker returning no terminal envelope is expected**, not a failure to answer
+with a re-dispatch: only close mints one. Close the pushed branch, or probe
+read-only with `node .agents/scripts/deliver-recover.js --story <storyId>` and
+resume what it names.
 
 **Reading the outcome.** Each close ends the Story in one schema-validated
 envelope — `landed` | `pending` | `blocked` | `failed`; statuses, exits and
-fields are digest § 5. `pending` is **not** a failure — run its `nextCommand`,
-do not re-dispatch.
+fields are digest § 5. `pending` is **not** a failure — run its `nextCommand`.
 
 **Branch model (authoritative).** `story-<id>` → PR → `main` (squash +
 required checks), per digest § 2; dependent Stories land sequentially. Ceremony
-depth: reference § Ceremony.
+depth (profiles + the derived level via `ceremony-routing.js`, which review
+depth reads): reference § Ceremony.
 
 ## Constraints
 
 - **Land or block — never a silent local build** (digest § 2). Attended delivers
   default to close-and-land (`delivery.routing.closeAndLand: true`); rest at
-  `agent::closing` only when a human owns it.
+  `agent::closing` only when a human owns the merge.
 - **`/mandrel-deliver` never plans.** Planned tickets come from
   [`/mandrel-plan`](mandrel-plan.md), and an over-scope prompt **escalates and
   ends** — never invoke `/mandrel-plan` in this session to rescue it

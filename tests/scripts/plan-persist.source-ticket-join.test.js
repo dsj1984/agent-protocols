@@ -101,3 +101,58 @@ describe('plan-persist CLI join — source ticket ids (Story #4554)', () => {
     assert.equal(opts.closeSuperseded, false);
   });
 });
+
+/**
+ * Story #5139 — the container-Epic flags reach `runPlanPersist` as one
+ * `epic` opt, and a half-specified request is a loud usage error rather than
+ * a silent no-Epic run. The silent form is the dangerous one: the operator
+ * asked for a container and would never learn they did not get one.
+ */
+describe('buildPersistOptions — the container-Epic request', () => {
+  it('is null when neither flag is given', () => {
+    const opts = buildPersistOptions(values(), { planDir: null }, null);
+    assert.equal(opts.epic, null);
+  });
+
+  it('carries both halves through when the pair is given', () => {
+    const opts = buildPersistOptions(
+      values({ 'epic-title': ' Auth work ', 'epic-goal': ' Group it. ' }),
+      { planDir: null },
+      null,
+    );
+    assert.deepEqual(opts.epic, { title: 'Auth work', goal: 'Group it.' });
+  });
+
+  it('throws on a title with no goal', () => {
+    assert.throws(
+      () =>
+        buildPersistOptions(
+          values({ 'epic-title': 'Auth work' }),
+          { planDir: null },
+          null,
+        ),
+      /must be supplied together/,
+    );
+  });
+
+  it('throws on a goal with no title', () => {
+    assert.throws(
+      () =>
+        buildPersistOptions(
+          values({ 'epic-goal': 'Group it.' }),
+          { planDir: null },
+          null,
+        ),
+      /must be supplied together/,
+    );
+  });
+
+  it('treats whitespace-only flags as absent, not as a half request', () => {
+    const opts = buildPersistOptions(
+      values({ 'epic-title': '   ', 'epic-goal': '  ' }),
+      { planDir: null },
+      null,
+    );
+    assert.equal(opts.epic, null);
+  });
+});

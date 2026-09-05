@@ -1143,4 +1143,91 @@ describe('epic-close — the container closes only when its children all landed'
     const step = result.results.find((r) => r.kind === 'epic-close');
     assert.deepEqual(step, { kind: 'epic-close', closed: [], pending: [] });
   });
+
+  it('skips malformed rows: a non-Epic, a bad number, and an empty checklist', async () => {
+    const updates = [];
+    const result = await runPlanRunEpilogue({
+      planRunId: 'run-e',
+      stories: [1, 2],
+      provider: epicProvider({
+        epics: [
+          { number: 92, labels: ['type::story'], body: '- [ ] #1\n' },
+          { number: 'nope', labels: ['type::epic'], body: '- [ ] #1\n' },
+          container(93, []),
+        ],
+        tickets: new Map([child(1, true), child(2, true)]),
+        updates,
+      }),
+      config: { github: { owner: 'o', repo: 'r' } },
+      cwd: process.cwd(),
+    });
+    const step = result.results.find((r) => r.kind === 'epic-close');
+    assert.deepEqual(step.closed, []);
+    assert.deepEqual(step.pending, []);
+    assert.equal(updates.length, 0);
+  });
+
+  it('leaves the Epic open when a child cannot be read', async () => {
+    const updates = [];
+    const provider = epicProvider({
+      epics: [container(94, [1, 2])],
+      tickets: new Map([child(1, true)]),
+      updates,
+    });
+    provider.getTicket = async (id) => {
+      if (Number(id) === 2) throw new Error('403 forbidden');
+      return child(1, true)[1];
+    };
+    const result = await runPlanRunEpilogue({
+      planRunId: 'run-e',
+      stories: [1, 2],
+      provider,
+      config: { github: { owner: 'o', repo: 'r' } },
+      cwd: process.cwd(),
+    });
+    const step = result.results.find((r) => r.kind === 'epic-close');
+    assert.deepEqual(step.pending, [94], 'unknown must never mean "landed"');
+    assert.equal(updates.length, 0);
+  });
+
+  it('reports the Epic pending when the close write fails', async () => {
+    const provider = epicProvider({
+      epics: [container(95, [1, 2])],
+      tickets: new Map([child(1, true), child(2, true)]),
+      updates: [],
+    });
+    provider.updateTicket = async () => {
+      throw new Error('422 unprocessable');
+    };
+    const result = await runPlanRunEpilogue({
+      planRunId: 'run-e',
+      stories: [1, 2],
+      provider,
+      config: { github: { owner: 'o', repo: 'r' } },
+      cwd: process.cwd(),
+    });
+    const step = result.results.find((r) => r.kind === 'epic-close');
+    assert.deepEqual(step.closed, []);
+    assert.deepEqual(step.pending, [95]);
+  });
+
+  it('degrades to a no-op when the Epic listing fails', async () => {
+    const provider = epicProvider({
+      epics: [],
+      tickets: new Map([child(1, true), child(2, true)]),
+      updates: [],
+    });
+    provider.listIssuesByLabel = async () => {
+      throw new Error('search down');
+    };
+    const result = await runPlanRunEpilogue({
+      planRunId: 'run-e',
+      stories: [1, 2],
+      provider,
+      config: { github: { owner: 'o', repo: 'r' } },
+      cwd: process.cwd(),
+    });
+    const step = result.results.find((r) => r.kind === 'epic-close');
+    assert.deepEqual(step, { kind: 'epic-close', closed: [], pending: [] });
+  });
 });

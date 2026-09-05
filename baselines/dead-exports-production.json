@@ -1,7 +1,7 @@
 {
   "$schema": "https://mandrel.dev/baselines/dead-exports.schema.json",
   "kernelVersion": "6.17.1",
-  "generatedAt": "2026-09-05T00:55:46.693Z",
+  "generatedAt": "2026-09-05T23:42:43.196Z",
   "mode": "production",
   "rows": [
     {
@@ -1189,6 +1189,10 @@
       "symbol": "probeTicket"
     },
     {
+      "file": ".agents/scripts/lib/orchestration/epic-container.js",
+      "symbol": "normalizeChildIds"
+    },
+    {
       "file": ".agents/scripts/lib/orchestration/file-assumptions.js",
       "symbol": "FILE_ASSUMPTION_VALUES"
     },
@@ -2307,6 +2311,10 @@
     {
       "file": ".agents/scripts/providers/github/search-budget.js",
       "symbol": "createSearchBudget"
+    },
+    {
+      "file": ".agents/scripts/providers/github/sub-issue-add.js",
+      "symbol": "addSubIssueEdges"
     },
     {
       "file": ".agents/scripts/provision-git-hooks.js",
