@@ -124,6 +124,8 @@ const CLI_OPTIONS = {
   'force-review': { type: 'boolean', default: false },
   'allow-over-budget': { type: 'boolean', default: false },
   'allow-large-fan-out': { type: 'boolean', default: false },
+  'epic-title': { type: 'string' },
+  'epic-goal': { type: 'string' },
 };
 
 const USAGE =
@@ -133,7 +135,8 @@ const USAGE =
   '[--source-tickets <ids>] [--no-close-superseded] ' +
   '[--route-downgrade-reason <text>] ' +
   '[--dry-run] [--chain-on-clean] [--force-review] ' +
-  '[--allow-over-budget] [--allow-large-fan-out]';
+  '[--allow-over-budget] [--allow-large-fan-out] ' +
+  '[--epic-title <text> --epic-goal <text>]';
 
 async function readOptional(filePath, { required }) {
   try {
@@ -197,6 +200,32 @@ async function loadArtifacts(paths) {
 }
 
 /**
+ * Resolve the optional container-Epic request from the CLI flags.
+ *
+ * Both halves are required together: an Epic with a title and no goal is a
+ * container with nothing explaining the grouping, and a goal with no title
+ * cannot be opened at all. Supplying exactly one is a **usage error**, not a
+ * silent no-Epic run — the operator asked for a container and would otherwise
+ * never learn they did not get one.
+ *
+ * @param {object} values Parsed `parseArgs` values.
+ * @returns {{ title: string, goal: string }|null} `null` when no Epic was requested.
+ */
+export function resolveEpicRequest(values) {
+  const title = (values['epic-title'] ?? '').trim();
+  const goal = (values['epic-goal'] ?? '').trim();
+  if (title === '' && goal === '') return null;
+  if (title === '' || goal === '') {
+    throw new Error(
+      '[plan-persist] --epic-title and --epic-goal must be supplied together ' +
+        '(a container Epic needs both a name and a one-paragraph reason it ' +
+        'groups these Stories).',
+    );
+  }
+  return { title, goal };
+}
+
+/**
  * Assemble the `runPlanPersist` opts bag from parsed CLI values.
  *
  * Exported for tests: this is the join where the envelope-derived source ids
@@ -224,6 +253,7 @@ export function buildPersistOptions(values, paths, planContextEnvelope) {
     sourceTicketIds: source.ids,
     sourceTicketOrigin: source.origin,
     routeDowngradeReason: values['route-downgrade-reason'] ?? null,
+    epic: resolveEpicRequest(values),
     // Default-on: `--no-close-superseded` is the explicit escape and always
     // wins over the (default `true`) `--close-superseded`.
     closeSuperseded:
@@ -468,6 +498,14 @@ runAsCli(import.meta.url, main, {
       ],
       ['--allow-over-budget', 'Permit a Spec over the context budget.'],
       ['--allow-large-fan-out', 'Permit a Story count above the fan-out gate.'],
+      [
+        '--epic-title <text>',
+        'Group the persisted Stories under a container Epic with this title (needs --epic-goal).',
+      ],
+      [
+        '--epic-goal <text>',
+        'The container Epic’s one-paragraph goal (needs --epic-title).',
+      ],
     ],
   },
 });
