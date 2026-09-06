@@ -455,6 +455,7 @@ describe('runAuditToStories (sub-command dispatch)', () => {
       dryRun: true,
       useProvider: true,
       ledgerPath: 'l.json',
+      ledgerCommit: undefined,
     });
     assert.deepEqual(JSON.parse(h.persisted[0].text), { mode: 'auto' });
     assert.equal(h.persisted[0].outPath, undefined);
