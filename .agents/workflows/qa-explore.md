@@ -34,7 +34,7 @@ Constraints delta.
 > or Feature, a regression sweep over a risky surface before `/mandrel-deliver`, or a
 > structured agent-driven bug-hunt captured into a triageable ledger.
 >
-> **Skills**: `core/qa-coverage-mapping`, `stack/qa/qa-explore-driving`
+> **Skills**: `stack/qa/qa-harness`
 
 ## Role framing
 
@@ -45,15 +45,16 @@ the surface shows. Apply the QA skills below; there is no separate persona pack.
 ## Driving conventions
 
 Before you drive a surface, read the
-[`stack/qa/qa-explore-driving`](../skills/stack/qa/qa-explore-driving/SKILL.md)
-skill — the **one** conventions reference for the *how* of agent-driven
-exploration (navigation-first driving as the default; static driving as the
-documented interim chosen at Plan time only where no seam resolves;
-authenticated driving through the resolved environment's `signInSeam`; broken
-navigation is a finding, not a workaround). The driving method (drive vs.
-static) is a **Plan-phase decision recorded in the ledger**; do not switch
-methods mid-surface without a new Plan note. Do not restate these conventions
-inline — the skill owns them.
+[`stack/qa/qa-harness`](../skills/stack/qa/qa-harness/SKILL.md)
+skill — the **one** conventions reference for the *how* of agent-driven driving,
+shared with the known-scenario sweep (navigation-first driving as the default;
+static driving as the documented interim chosen at Plan time only where no seam
+resolves; authenticated driving through the resolved environment's
+`signInSeam`; broken navigation is a finding, not a workaround). Its § 5 carries
+the exploratory-mode deltas. The driving method (drive vs. static) is a
+**Plan-phase decision recorded in the ledger**; do not switch methods
+mid-surface without a new Plan note. Do not restate these conventions inline —
+the skill owns them.
 
 ## Slash Command
 
@@ -110,7 +111,7 @@ then the captured ledger), and wait. If the operator does not confirm, hold.
 Goal: agree on **what** will be explored and **how the agent will drive it**
 before touching the surface.
 
-1. Re-read the `stack/qa/qa-explore-driving` skill and resolve the contract and
+1. Re-read the `stack/qa/qa-harness` skill and resolve the contract and
    session (above).
 2. **Resolve the target environment** via
    [`resolveQaEnvironment`](../scripts/lib/qa/resolve-qa-contract.js) — it keys
@@ -149,8 +150,8 @@ Goal: **the agent drives the confirmed surface itself** and records its
 observations. **This phase is strictly read-only.**
 
 > **Read-only invariant.** The agent observes; it never mutates. Per
-> [`stack/qa/qa-explore-driving`](../skills/stack/qa/qa-explore-driving/SKILL.md)
-> § 3 (inviolable per [`security-baseline.md`](../rules/security-baseline.md)),
+> [`stack/qa/qa-harness`](../skills/stack/qa/qa-harness/SKILL.md)
+> § 2 (inviolable per [`security-baseline.md`](../rules/security-baseline.md)),
 > do **not** edit source, run write commands, file or label GitHub issues,
 > change tickets, submit destructive forms, or alter the product under test. The
 > only write Capture performs is **appending ledger lines to
@@ -170,17 +171,16 @@ For each observation the agent makes while driving:
 
 1. **Redact first** (per [`helpers/qa-core.md`](helpers/qa-core.md)) — scrub the
    evidence string through `redactEvidence` before it touches disk.
-2. **Compute the coverage verdict** for the surface the observation points at,
-   via [`coverage-verdict.js`](../scripts/lib/qa/coverage-verdict.js) — the
-   deterministic seam behind the
-   [`core/qa-coverage-mapping`](../skills/core/qa-coverage-mapping/SKILL.md)
-   skill. Read that skill for how to assemble the `surface` input and read the
-   per-tier `{present|absent}` verdict.
-3. **Name the missing test** (if any) from that verdict: take the lowest tier
-   the verdict marks `absent` (unit → contract → acceptance) and write one
-   concrete sentence describing the test that would close it. Every tier
-   `present` means no missing test. Record that sentence as the ledger item's
-   `missingTest` (or `null`).
+2. **Read the coverage tiers** for the surface the observation points at:
+   gather the tests that exercise it and classify each by path per
+   [`testing-standards.md` § The Three Tiers](../rules/testing-standards.md#the-three-tiers)
+   — a `.feature` file is **acceptance**, a path containing `/contract/` or
+   `.contract.test.` is **contract**, and a path containing `.test.` or
+   `__tests__/` is **unit**. A skipped test leaves its tier uncovered.
+3. **Name the missing test** (if any): take the lowest tier with no live test
+   (unit → contract → acceptance) and write one concrete sentence describing
+   the test that would close it. Every tier covered means no missing test.
+   Record that sentence as the ledger item's `missingTest` (or `null`).
 4. **Append a `QaLedgerItem`** to the ledger (shape per
    [`helpers/qa-core.md`](helpers/qa-core.md)): a stable `id`, the redacted
    `evidence`, the `coverage` label (the `surface`, or `unknown`), a tentative
@@ -215,7 +215,7 @@ resumed session will pick up.
 Beyond the shared core ([`helpers/qa-core.md`](helpers/qa-core.md): contract +
 loud failure, session/ledger, redact-first, QaLedgerItem, triage, HITL gate)
 and the driving conventions
-([`stack/qa/qa-explore-driving`](../skills/stack/qa/qa-explore-driving/SKILL.md)),
+([`stack/qa/qa-harness`](../skills/stack/qa/qa-harness/SKILL.md)),
 the `/qa-explore`-specific deltas are:
 
 - **Agent-led, bounded per surface.** The agent drives one named surface per
@@ -231,10 +231,11 @@ the `/qa-explore`-specific deltas are:
   and fall back to static.
 - **Broken navigation is a finding, not a workaround** — never URL-jump around a
   missing affordance, a nav 404, or a guard redirect loop.
-- **Delegate the coverage verdict to the helper.** Tier placement comes from
-  [`coverage-verdict.js`](../scripts/lib/qa/coverage-verdict.js) — deterministic,
-  never re-derived in prose. The missing-test sentence is yours to write from
-  that verdict's lowest `absent` tier.
+- **Read tier placement from the rule, not from prose you invent.** The three
+  path rules in
+  [`testing-standards.md` § The Three Tiers](../rules/testing-standards.md#the-three-tiers)
+  decide which tier a test occupies; the missing-test sentence is yours to write
+  from the lowest uncovered tier.
 
 ## See also
 

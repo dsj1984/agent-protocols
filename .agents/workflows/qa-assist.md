@@ -42,7 +42,8 @@ Constraints delta.
 > triage-ready finding without breaking stride — then, when the testing pass is
 > done, turned into a plan in one batch.
 >
-> **Skills**: `core/qa-coverage-mapping`
+> **Rules**: [`testing-standards.md`](../rules/testing-standards.md)
+> (§ The Three Tiers — the tier-classification rules enrichment applies)
 
 ## Role framing
 
@@ -106,7 +107,8 @@ ledger is hard-gated.**
 
 Goal: become the operator's QA assistant before any observation arrives.
 
-1. Re-read the QA role framing and `core/qa-coverage-mapping` skill.
+1. Re-read the QA role framing and the tier-classification rules in
+   [`testing-standards.md`](../rules/testing-standards.md) (§ The Three Tiers).
 2. **Load codebase context.** Read the files in `project.docsContextFiles`
    (architecture, decisions, patterns) and, when the testing touches UI/routing,
    `docs/style-guide.md` / `docs/web-routes.md`. This is the context you will
@@ -176,17 +178,16 @@ every decision to the shared helpers; never re-derive them in prose.
    `gh issue view <ticketNumber> --json title,body,labels`, and verify each
    surface-map path resolves with `git cat-file -e HEAD:<path>` — flag every
    miss rather than citing a path that does not exist.
-4. **Compute the coverage verdict** for the surface the observation points at,
-   via [`coverage-verdict.js`](../scripts/lib/qa/coverage-verdict.js) — the
-   deterministic seam behind the
-   [`core/qa-coverage-mapping`](../skills/core/qa-coverage-mapping/SKILL.md)
-   skill. Read that skill for how to assemble the `surface` input and read the
-   per-tier `{present|absent}` verdict.
-5. **Name the missing test** (if any) from that verdict: take the lowest tier
-   the verdict marks `absent` (unit → contract → acceptance) and write one
-   concrete sentence describing the test that would close it. Every tier
-   `present` means no missing test. Record that sentence as the ledger item's
-   `missingTest`.
+4. **Read the coverage tiers** for the surface the observation points at:
+   gather the tests that exercise it and classify each by path per
+   [`testing-standards.md` § The Three Tiers](../rules/testing-standards.md#the-three-tiers)
+   — a `.feature` file is **acceptance**, a path containing `/contract/` or
+   `.contract.test.` is **contract**, and a path containing `.test.` or
+   `__tests__/` is **unit**. A skipped test leaves its tier uncovered.
+5. **Name the missing test** (if any): take the lowest tier with no live test
+   (unit → contract → acceptance) and write one concrete sentence describing
+   the test that would close it. Every tier covered means no missing test.
+   Record that sentence as the ledger item's `missingTest`.
 6. **Classify** the finding via
    [`classify-finding.js`](../scripts/lib/findings/classify-finding.js) so the
    tentative `class` resolves to the correct focus/meta label set. The helper
@@ -267,10 +268,12 @@ the `/qa-assist`-specific deltas are:
 - **Persistent, resumable rolling session** — `/qa-assist` defaults to resuming
   the same session and appending; a reused session carries the untriaged backlog
   forward and never overwrites a prior ledger.
-- **Enrichment delegates where a helper exists** — the coverage verdict and
-  the finding classification come from their deterministic helpers, never from
-  prose. Context lookup and the missing-test sentence are the model's own work:
-  they are judgments, not computations, and routing them through a module only
+- **Enrichment delegates where a helper exists** — the finding classification
+  comes from its deterministic helper, never from prose; tier placement comes
+  from the three path rules in
+  [`testing-standards.md`](../rules/testing-standards.md#the-three-tiers).
+  Context lookup and the missing-test sentence are the model's own work: they
+  are judgments, not computations, and routing them through a module only
   bought a round-trip.
 
 ## See also

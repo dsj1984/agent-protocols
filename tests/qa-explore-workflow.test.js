@@ -23,10 +23,10 @@
  *   5. Capture is declared read-only and every phase transition is
  *      operator-gated (HITL).
  *   6. No human-driven flow remains — it points to `/qa-assist` for that.
- *   7. It references the qa-explore-driving skill plus the route-finding,
- *      classify-finding, coverage-verdict, redact-evidence, qa-session, and
+ *   7. It references the merged qa-harness driving skill plus the
+ *      route-finding, classify-finding, redact-evidence, qa-session, and
  *      resolve-qa-contract helpers, the ledger schema, and the
- *      core/qa-coverage-mapping skill by path.
+ *      testing-standards tier rules by path.
  *   8. It writes its ledger under temp/qa/.
  *   9. Plan resolves the target environment via resolveQaEnvironment
  *      (prompting when ambiguous) and records the environment name on the
@@ -297,17 +297,16 @@ describe('qa-explore workflow contract', () => {
     );
   });
 
-  it('references the qa-explore-driving skill, every wired helper, schema, and skill by path', () => {
+  it('references the qa-harness skill, every wired helper, schema, and rule by path', () => {
     const referencedPaths = [
-      '.agents/skills/stack/qa/qa-explore-driving/SKILL.md',
+      '.agents/skills/stack/qa/qa-harness/SKILL.md',
       '.agents/scripts/lib/findings/route-finding.js',
       '.agents/scripts/lib/findings/classify-finding.js',
-      '.agents/scripts/lib/qa/coverage-verdict.js',
       '.agents/scripts/lib/qa/redact-evidence.js',
       '.agents/scripts/lib/qa/qa-session.js',
       '.agents/scripts/lib/qa/resolve-qa-contract.js',
       '.agents/schemas/qa-ledger.schema.json',
-      '.agents/skills/core/qa-coverage-mapping',
+      '.agents/rules/testing-standards.md',
     ];
     for (const ref of referencedPaths) {
       // The workflow links to siblings with `../`-relative paths; assert on the

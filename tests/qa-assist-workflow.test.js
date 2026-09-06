@@ -2,7 +2,7 @@
  * /qa-assist workflow contract (Epic #3798 / Story #3811, f2-qa-assist).
  *
  * The human-led front-end ingests a single operator observation, enriches it
- * (repro + root-cause file:line + coverage verdict), asks clarifying questions
+ * (repro + root-cause file:line + per-tier coverage), asks clarifying questions
  * when the observation is ambiguous, and appends a redacted ledger item to a
  * persistent, resumable rolling session under temp/qa/. This spec is a
  * structural assertion over the authored workflow source — it does not execute
@@ -14,9 +14,9 @@
  *   3. It adopts the `qa-engineer` persona.
  *   4. It is human-led: ingests a human observation and asks clarifying
  *      questions when the observation is ambiguous.
- *   5. It enriches with repro + root-cause (file:line) + a coverage verdict.
+ *   5. It enriches with repro + root-cause (file:line) + per-tier coverage.
  *   6. It defaults to a persistent, resumable rolling session and CONSUMES the
- *      shared core helpers (qa-session, context-hydrator, coverage, classify,
+ *      shared core helpers (qa-session, context-hydrator, classify,
  *      route, promote) rather than reimplementing them.
  *   7. It HITL-gates every phase transition and every write, and runs
  *      redaction before any evidence reaches disk or GitHub.
@@ -123,7 +123,7 @@ describe('qa-assist workflow contract', () => {
     );
   });
 
-  it('enriches with repro, root-cause file:line, and a coverage verdict', () => {
+  it('enriches with repro, root-cause file:line, and per-tier coverage', () => {
     assertDocMentions(source, /repro/i, 'must establish a repro');
     assertDocMentions(source, /root[\s-]cause/i, 'must locate a root cause');
     assertDocMentions(
@@ -133,8 +133,8 @@ describe('qa-assist workflow contract', () => {
     );
     assertDocMentions(
       source,
-      /coverage verdict/i,
-      'must compute a coverage verdict',
+      /coverage tiers/i,
+      'must read the per-tier coverage for the surface',
     );
   });
 
@@ -179,10 +179,10 @@ describe('qa-assist workflow contract', () => {
     );
   });
 
-  it('consumes the shared core helpers by path (qa-session, coverage, classify, route, promote)', () => {
+  it('consumes the shared core helpers by path (qa-session, tiers, classify, route, promote)', () => {
     const referencedPaths = [
       '.agents/scripts/lib/qa/qa-session.js',
-      '.agents/scripts/lib/qa/coverage-verdict.js',
+      '.agents/rules/testing-standards.md',
       '.agents/scripts/lib/qa/redact-evidence.js',
       '.agents/scripts/lib/qa/resolve-qa-contract.js',
       '.agents/scripts/lib/findings/classify-finding.js',

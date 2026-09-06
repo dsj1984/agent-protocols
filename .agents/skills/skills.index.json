@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-06T12:17:12.738Z",
+  "generatedAt": "2026-09-06T12:38:56.365Z",
   "generator": "generate-skills-index.js@1",
   "skills": [
     {
@@ -53,16 +53,6 @@
       "vendor": null
     },
     {
-      "name": "qa-coverage-mapping",
-      "tier": "core",
-      "category": "core",
-      "path": ".agents/skills/core/qa-coverage-mapping/SKILL.md",
-      "description": "Map a quality finding to a per-tier coverage verdict (unit / contract / acceptance) aligned to `.agents/rules/testing-standards.md`. Use when a finding points at a symbol or surface and you need to know which test tiers already cover it and which are missing, so remediation lands the right tier. Delegates the verdict to the deterministic `lib/qa/coverage-verdict.js#coverageVerdict` helper.",
-      "policyCapsuleBullets": 7,
-      "allowedTools": ["Read", "Bash"],
-      "vendor": null
-    },
-    {
       "name": "scope-triage",
       "tier": "core",
       "category": "core",
@@ -98,7 +88,7 @@
       "category": "qa",
       "path": ".agents/skills/stack/qa/playwright-bdd/SKILL.md",
       "description": "Wires Gherkin `.feature` files to Playwright via the `playwright-bdd` library. Use when running BDD scenarios on a Playwright runtime — pairs with the `gherkin-authoring` skill (scenario prose) and the `playwright` skill (browser conventions). Drives execution by tag expression with trace-first debugging and Playwright-native sharding.",
-      "policyCapsuleBullets": 8,
+      "policyCapsuleBullets": 9,
       "allowedTools": null,
       "vendor": "playwright"
     },
@@ -113,22 +103,12 @@
       "vendor": "playwright"
     },
     {
-      "name": "qa-explore-driving",
-      "tier": "stack",
-      "category": "qa",
-      "path": ".agents/skills/stack/qa/qa-explore-driving/SKILL.md",
-      "description": "Conventions for agent-driven exploratory QA driving — how the agent itself drives a surface during `/qa-explore` (agent-led), as opposed to the human-led `/qa-assist`. Use when the agent explores a running app via the browser MCP (navigation-first, the default) — including authenticated deployed surfaces reached through the resolved environment's sign-in seam — or walks a static surface (the documented interim where no seam resolves), under a strictly read-only capture invariant. The exploration procedure lives in `.agents/workflows/qa-explore.md`; this skill is the driving-conventions reference it leans on.",
-      "policyCapsuleBullets": 9,
-      "allowedTools": null,
-      "vendor": null
-    },
-    {
       "name": "qa-harness",
       "tier": "stack",
       "category": "qa",
       "path": ".agents/skills/stack/qa/qa-harness/SKILL.md",
-      "description": "Conventions for the agent-driven QA harness that drives Gherkin scenarios through a real browser. Use when executing `/qa-run` or instrumenting a live surface — covers navigation-first execution, per-surface console and network capture, design-token visual checks, and the framework-generic heuristic cards for turning signal into findings. The harness procedure lives in `.agents/workflows/qa-run.md`; this skill is the conventions reference it leans on.",
-      "policyCapsuleBullets": 7,
+      "description": "Conventions for agent-driven QA driving — the one driving-conventions reference behind both `/qa-run` (the known-scenario sweep through a real browser) and `/qa-explore` (agent-led exploratory driving). Use when instrumenting a live surface — covers navigation-first execution, per-surface console and network capture, design-token visual checks, the `F#` finding shape, per-environment resolution, and static driving as the documented interim. The run procedures live in `.agents/workflows/qa-run.md` and `.agents/workflows/qa-explore.md`; this skill is the conventions reference they lean on.",
+      "policyCapsuleBullets": 11,
       "allowedTools": null,
       "vendor": null
     }

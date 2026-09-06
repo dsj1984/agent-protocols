@@ -1,7 +1,7 @@
 {
   "$schema": "https://mandrel.dev/baselines/dead-exports.schema.json",
   "kernelVersion": "6.17.1",
-  "generatedAt": "2026-09-06T11:48:44.950Z",
+  "generatedAt": "2026-09-06T12:41:00.325Z",
   "mode": "production",
   "rows": [
     {
@@ -1886,10 +1886,6 @@
     },
     {
       "file": ".agents/scripts/lib/qa/console-allowlist.js",
-      "symbol": "*"
-    },
-    {
-      "file": ".agents/scripts/lib/qa/coverage-verdict.js",
       "symbol": "*"
     },
     {
