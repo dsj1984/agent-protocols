@@ -215,6 +215,14 @@ its footprint guard ignores the shared provenance footers, so an unwired cohort
 is genuinely unordered and `/mandrel-deliver` will co-dispatch Stories the edges say
 must follow one another.
 
+**Preconditions.** The pass writes through the configured provider, so it needs
+`github.owner` **and** `github.repo` in `.agentrc.json` plus working `gh` auth
+(`GH_TOKEN`/`gh auth status`) — the same two things Phase 1's dedup needs. When
+either is missing the command refuses and names which one; fix that and re-run
+the exact command above. Do not transcribe the footers by hand: `/mandrel-deliver`
+reads them, but the native `blocked_by` relations only exist if this pass wrote
+them.
+
 ## Phase 6 — Idempotency (folded into Phase 1 scan)
 
 The `--scan` step routes each group's findings through the shared
