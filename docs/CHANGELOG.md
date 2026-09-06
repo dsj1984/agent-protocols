@@ -15,6 +15,24 @@ All notable changes to this project will be documented in this file.
 -->
 <!-- markdownlint-disable-file MD004 MD012 MD037 -->
 
+## [2.42.0](https://github.com/dsj1984/mandrel/compare/mandrel-v2.41.0...mandrel-v2.42.0) (2026-09-06)
+
+
+### Added
+
+* full-suite capture economy: default the coverage-independent skip on, and serialize concurrent captures behind a host lock ([#5173](https://github.com/dsj1984/mandrel/issues/5173)) ([#5178](https://github.com/dsj1984/mandrel/issues/5178)) ([ed79751](https://github.com/dsj1984/mandrel/commit/ed7975199b6e2a3279a5d0d02b50e3068509987f))
+* story-worker digest carries the creditable full-suite invocation, runs it after self-eval, and the critic reuses its stamp ([#5174](https://github.com/dsj1984/mandrel/issues/5174)) ([#5175](https://github.com/dsj1984/mandrel/issues/5175)) ([1e46457](https://github.com/dsj1984/mandrel/commit/1e464574aa6305dcc8f1ff8522015ae0f9a5301a))
+
+
+### Fixed
+
+* scope the baseline refresh acknowledgment to the rows the refresh commit actually refreshed ([#5179](https://github.com/dsj1984/mandrel/issues/5179)) ([#5180](https://github.com/dsj1984/mandrel/issues/5180)) ([e8758b9](https://github.com/dsj1984/mandrel/commit/e8758b909ec19ed55c0678c05f481d515937f978))
+
+
+### Changed
+
+* close fails fast: base-sync before validation, and coverage-independent baseline kinds in the parallel gate phase ([#5172](https://github.com/dsj1984/mandrel/issues/5172)) ([#5177](https://github.com/dsj1984/mandrel/issues/5177)) ([dff33d5](https://github.com/dsj1984/mandrel/commit/dff33d530965ef7da8ee3dd4f1f218d11805273f))
+
 ## [2.41.0](https://github.com/dsj1984/mandrel/compare/mandrel-v2.40.0...mandrel-v2.41.0) (2026-09-06)
 
 
