@@ -48,8 +48,8 @@ finding block, normalises the fields (`Severity` / `Impact` are
 both recognised; `Dimension` / `Category` likewise), and extracts file
 paths mentioned in the body. A `###` heading that carries no severity axis and
 holds `####` blocks is read as a **grouping header**: its `####` children are
-the findings, and the header itself never becomes one. It then stamps each finding with a stable
-sha1 fingerprint via the shared
+the findings, and the header itself never becomes one. It then stamps each
+finding with a stable sha1 fingerprint via the shared
 [`lib/findings/route-finding.js`](../scripts/lib/findings/route-finding.js)
 helper (`fingerprintFinding`) — the single dedup/route implementation
 shared with `qa-explore`. The workflow carries **no** separate inline
@@ -384,8 +384,8 @@ unattended sweep has no operator to read a warning, so a missing or mismatched
 `Severity tally:` line — or a finding whose severity did not resolve — exits
 non-zero having opened no Issue and written no ledger. `--allow-missing-tally`
 is a `--scan` affordance that `--auto` ignores. A red sweep means the report is
-untrustworthy: re-run the lens. The host
-scheduler owns the cadence; this workflow owns the routing.
+untrustworthy: re-run the lens. The host scheduler owns the cadence; this
+workflow owns the routing.
 
 ## See also
 
