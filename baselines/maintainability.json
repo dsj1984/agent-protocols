@@ -1,7 +1,7 @@
 {
   "$schema": ".agents/schemas/baselines/maintainability.schema.json",
   "kernelVersion": "0.1.0",
-  "generatedAt": "2026-09-06T17:49:23.515Z",
+  "generatedAt": "2026-09-06T17:59:26.044Z",
   "rollup": {
     "*": {
       "min": 76.381,
@@ -1100,7 +1100,7 @@
     },
     {
       "path": ".agents/scripts/lib/orchestration/check-baselines/phases/refresh-ack.js",
-      "mi": 93.925
+      "mi": 95.423
     },
     {
       "path": ".agents/scripts/lib/orchestration/check-baselines/phases/report.js",

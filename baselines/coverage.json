@@ -1,7 +1,7 @@
 {
   "$schema": ".agents/schemas/baselines/coverage.schema.json",
   "kernelVersion": "1.0.0",
-  "generatedAt": "2026-09-06T17:52:19.414Z",
+  "generatedAt": "2026-09-06T17:59:26.314Z",
   "rollup": {
     "*": {
       "lines": 96.05,
@@ -1686,8 +1686,8 @@
     },
     {
       "path": ".agents/scripts/lib/orchestration/check-baselines/phases/refresh-ack.js",
-      "lines": 97.82,
-      "branches": 76.32,
+      "lines": 97.81,
+      "branches": 73.61,
       "functions": 100
     },
     {

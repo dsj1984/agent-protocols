@@ -1,14 +1,14 @@
 {
   "$schema": ".agents/schemas/baselines/crap.schema.json",
   "kernelVersion": "0.1.0",
-  "generatedAt": "2026-09-06T17:55:06.287Z",
+  "generatedAt": "2026-09-06T17:59:26.624Z",
   "scoringSemantics": "method-identity-v3",
   "tsTranspilerVersion": "6.0.3",
   "provenanceStamped": true,
   "rollup": {
     "*": {
       "p50": 2,
-      "p95": 9.029518950437318,
+      "p95": 9.021751535698701,
       "max": 29.000120920774684,
       "methodsAbove20": 5
     }
@@ -12899,59 +12899,66 @@
     },
     {
       "path": ".agents/scripts/lib/orchestration/check-baselines/phases/refresh-ack.js",
-      "method": "collectRefreshedRows",
-      "startLine": 129,
-      "crap": 4
+      "method": "classifyAgainstRefresh",
+      "startLine": 145,
+      "crap": 1.001
     },
     {
       "path": ".agents/scripts/lib/orchestration/check-baselines/phases/refresh-ack.js",
-      "method": "acknowledgeableKeys",
-      "startLine": 178,
-      "crap": 9.029518950437318
-    },
-    {
-      "path": ".agents/scripts/lib/orchestration/check-baselines/phases/refresh-ack.js",
-      "method": "<anon acknowledgeableKeys/(r)#0>",
-      "startLine": 223,
-      "crap": 1.0003644314868805,
+      "method": "<anon classifyAgainstRefresh/(r)#0>",
+      "startLine": 158,
+      "crap": 1.001,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/orchestration/check-baselines/phases/refresh-ack.js",
+      "method": "<anon classifyAgainstRefresh/(r)#1>",
+      "startLine": 159,
+      "crap": 1.001,
+      "anonymous": true
+    },
+    {
+      "path": ".agents/scripts/lib/orchestration/check-baselines/phases/refresh-ack.js",
+      "method": "acknowledgeableKeys",
+      "startLine": 188,
+      "crap": 9.007111111111112
+    },
+    {
+      "path": ".agents/scripts/lib/orchestration/check-baselines/phases/refresh-ack.js",
       "method": "partitionRegressions",
-      "startLine": 235,
+      "startLine": 234,
       "crap": 2
     },
     {
       "path": ".agents/scripts/lib/orchestration/check-baselines/phases/refresh-ack.js",
       "method": "logAcknowledgment",
-      "startLine": 245,
+      "startLine": 244,
       "crap": 2
     },
     {
       "path": ".agents/scripts/lib/orchestration/check-baselines/phases/refresh-ack.js",
       "method": "applyRefreshAcknowledgment",
-      "startLine": 281,
+      "startLine": 280,
       "crap": 5
     },
     {
       "path": ".agents/scripts/lib/orchestration/check-baselines/phases/refresh-ack.js",
       "method": "<anon applyRefreshAcknowledgment/()#0>",
-      "startLine": 289,
+      "startLine": 288,
       "crap": 1,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/orchestration/check-baselines/phases/refresh-ack.js",
       "method": "<anon applyRefreshAcknowledgment/(reg)#0>",
-      "startLine": 299,
+      "startLine": 298,
       "crap": 1,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/orchestration/check-baselines/phases/refresh-ack.js",
       "method": "<anon applyRefreshAcknowledgment/(reg)#1>",
-      "startLine": 314,
+      "startLine": 313,
       "crap": 1,
       "anonymous": true
     },
