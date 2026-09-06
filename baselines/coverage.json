@@ -1,11 +1,11 @@
 {
   "$schema": ".agents/schemas/baselines/coverage.schema.json",
   "kernelVersion": "1.0.0",
-  "generatedAt": "2026-09-06T16:03:06.493Z",
+  "generatedAt": "2026-09-06T16:10:50.570Z",
   "rollup": {
     "*": {
       "lines": 96.02,
-      "branches": 86.81,
+      "branches": 86.85,
       "functions": 88.28
     }
   },
@@ -2460,8 +2460,8 @@
     },
     {
       "path": ".agents/scripts/lib/orchestration/verify-credit.js",
-      "lines": 99.03,
-      "branches": 74.36,
+      "lines": 100,
+      "branches": 93.48,
       "functions": 100
     },
     {
