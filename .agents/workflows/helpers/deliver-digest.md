@@ -2,9 +2,9 @@
 description: >-
   The deliver path's one bundled framework read. Carries what
   every Story delivery always needs — dispatch decision, engine invariants,
-  the change-set/ceremony incantation, the acceptance-eval gate, and the
-  terminal envelope contract — so the engine reads one file instead of
-  re-reading the helper/schema set each session.
+  the change-set/ceremony incantation, the acceptance-eval gate, the credited
+  full-suite run, and the terminal envelope contract — so the engine reads one
+  file instead of re-reading the helper/schema set each session.
 ---
 
 # Deliver digest (read once per session)
@@ -27,10 +27,8 @@ rule produces it:
    whatever its shape — sub-agent isolation is load-bearing only against a
    *concurrent* sibling racing the same checkout, and a one-Story run has none.
 2. **Every other run is `subagent`.** A multi-Story run dispatches every Story
-   as a sub-agent however trivial its shape — a lite body does not conjure a
-   second session for a sibling, and the wave tick may hand you the whole set
-   on one beat. Shape still sets ceremony; the `route::lite` label is a
-   human-visible hint, never the control signal.
+   as a sub-agent however trivial its shape. Shape still sets ceremony; the
+   `route::lite` label is a human-visible hint, never the control signal.
 
 `inline` removes model-side fan-out only — no `story-worker` boot, no fresh
 acceptance-critic spawn. **`subagent` and `inline` run the same engine**: same
@@ -112,7 +110,30 @@ an unmerged cluster verdict scores a fraction of the criteria and still reports
 not close**: post a `friction` comment and flip `agent::blocked`.
 Per-round mechanics: [`acceptance-self-eval.md`](acceptance-self-eval.md).
 
-## 5. Terminal envelope — the return contract
+## 5. The one creditable full-suite run
+
+**After the self-eval loop's last fix commit, immediately before the push** —
+the credit is keyed on the tree, so any later commit invalidates it. Redraft
+rounds run scoped tests; only this final run needs credit, and a bare
+`npm test` / `pnpm run test` deposits **none**, so close re-runs the identical
+suite. Shape it by the predicate `close-validation/gates.js` uses for its test
+gate:
+
+```bash
+# CRAP gate on (default) + a `test:coverage` script — writes the stamp the
+# close `coverage-capture` gate reads:
+node <main-repo>/.agents/scripts/coverage-capture.js --cwd <workCwd>
+# otherwise — the record the close `test` gate reads. <workCwd> ABSOLUTE,
+# runner exactly `npm test`: both sides hash {cmd, args, cwd}.
+node <main-repo>/.agents/scripts/evidence-gate.js --standalone \
+  --scope-id <storyId> --gate test --worktree <workCwd> -- npm test
+```
+
+`verify[]` is scoped entries **plus** this one run: an entry that is itself a
+full-suite command is reported credited against the same stamp, never
+respawned.
+
+## 6. Terminal envelope — the return contract
 
 `single-story-close.js` emits exactly one envelope on stdout between
 `--- STORY DELIVER TERMINAL ---` markers, schema-validated against
@@ -139,7 +160,7 @@ reported, never omitted, so a missing gate is never read as a passing one.
 success; a failed gate replays its tail inline. `AGENT_LOG_LEVEL=verbose`
 restores live streaming.
 
-## 6. When to leave this file
+## 7. When to leave this file
 
 - Unclear state / a re-run refusal → `deliver-recover.js --story <id>` (read-only).
 - Lease, sweep, worktree-scope detail → [`deliver-story-reference.md`](deliver-story-reference.md).

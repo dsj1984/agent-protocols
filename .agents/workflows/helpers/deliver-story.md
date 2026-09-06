@@ -40,7 +40,7 @@ that dispatched the work**, never to a spawned worker.
 
 **A worker returning no terminal envelope is expected, not a failure** — only
 Step 3 mints one. Never re-dispatch the Story on it; resume per § Recovery
-(reference § Idempotence and the standing constraints).
+(reference § Idempotence).
 
 ## Step 0 — Initialize (`single-story-init.js`)
 
@@ -73,12 +73,8 @@ One branch, one PR to `main`, commits against the inline `acceptance[]` /
    digest-first; read a caller-provided `checklistPath` first, and walk any
    `## Slicing` rows as **intra-session checkpoints** (reference § Step 1).
 2. Implement and commit on the Story branch, iterating with quick advisory
-   gates (`typecheck`, `lint`, scoped tests) — the full chain runs in Step 3.
-3. Run the full suite once in the worktree **before Step 1a**: repo-invariant
-   guards outside the Story's scoped greps are the failure class that bounces
-   deliveries. Fix and commit first, then run the self-eval loop. Run it **so
-   Step 3 credits it** — a bare `npm test` records nothing, so close re-runs
-   the identical suite (reference § Step 1, "Pre-eval full-suite discipline").
+   gates (`typecheck`, `lint`, scoped tests) — the full chain runs in Step 3,
+   and the **one** creditable full-suite run at Step 2.5.
 
 ### Step 1a — Bounded acceptance self-eval loop (**required**)
 
@@ -94,14 +90,21 @@ Ceremony is `delivery.routing.ceremonyProfile` × the **derived change level**,
 never a planner-authored verdict. **Digest § 3** is the incantation (change set
 once, derive the level, resolve critics with `ceremony-routing.js`); edge cases
 are reference § Step 2. Hard gates always run in Step 3 — the derived level
-never disables them; do **not** pre-run the chain here.
+never disables them; do **not** pre-run the chain here — Step 2.5's credited
+suite run is the sole exception.
 
-### Step 2.5 — Push and hand off (sub-agent dispatch only)
+### Step 2.5 — The creditable full-suite run, then push and hand off
 
-Push `story-<storyId>` to `origin` and confirm the remote ref moved. Return the
-hand-off — Story id, `workCwd`, branch, pushed head SHA, self-eval verdict,
-`verify[]` evidence — then stop. Do not open the PR; do not compose a terminal
-envelope. An inline run skips this.
+Run the full suite **once**, after the self-eval loop's last fix commit and
+immediately **before** the push, in the shape close credits (**digest § 5**):
+the credit is keyed on the tree, so any later commit invalidates it, and a bare
+`npm test` deposits none. Red → fix, commit, re-run. An inline run makes the
+same run before Step 3.
+
+Then (sub-agent dispatch only) push `story-<storyId>` to `origin`, confirm the
+remote ref moved, and return the hand-off — Story id, `workCwd`, branch, pushed
+head SHA, self-eval verdict, `verify[]` evidence — then stop. Do not open the
+PR; do not compose a terminal envelope.
 
 ## Step 3 — Close and land (`single-story-close.js`)
 
@@ -115,7 +118,7 @@ node <main-repo>/.agents/scripts/single-story-close.js --story <storyId> --cwd <
 **The whole delivery tail** — gates, PR, merge wait, `agent::done` flip,
 post-land tail in one process. Never background it, never delegate it to a
 child, and never end your turn while it is still running: "close is running"
-is not a return value. Branch on the envelope's `status` per **digest § 5**
+is not a return value. Branch on the envelope's `status` per **digest § 6**
 (`landed` → Step 7; `pending` → run `nextCommand`; `blocked`/`checks-failed`
 → Step 4; `failed` → diagnose, re-run). Gate output is captured.
 
@@ -126,7 +129,7 @@ Internals, merge-wait budgets, the slow-CI **async** confirm mode, the
 
 Relay the validated envelope close emits between its
 `--- STORY DELIVER TERMINAL ---` markers — never free-form prose, never a
-hand-composed object. Statuses, exits and fields: **digest § 5** (SSOT: the
+hand-composed object. Statuses, exits and fields: **digest § 6** (SSOT: the
 shipped [schema](../../schemas/story-deliver-terminal.schema.json)).
 `pending` is the only sanctioned no-merge ending.
 
@@ -139,15 +142,14 @@ so only a green on a NEW head SHA re-arms it — a re-run is refused; fix at sou
 and push ([`rules/ci-remediation.md`](../../rules/ci-remediation.md)). And a
 `tail.*: false` degrades the report, never the land.
 
-**Watch exit codes** — `pr-watch-with-update.js` exits 0 green, 1 only when a
-required check genuinely failed (or the PR is unreadable), 2 slow-but-not-red:
-still-running, unresolved, **or** `notYetStarted` — no required context attached
-inside `attachWindowMs`. Never route a 2 onto the red path; nothing is broken
-and no digest exists to read.
+**Watch exit codes** — `pr-watch-with-update.js` exits 0 green, 1 on a genuine
+red, 2 slow-but-not-red (still-running, unresolved, or `notYetStarted`). Never
+route a 2 onto the red path: nothing is broken and no digest exists to read.
+Which slow condition, and what to do: reference § Step 4.
 
 **Lost envelope first: read it off disk.** Close persists each to
 `temp/orchestration/story-deliver-terminal-<storyId>.json`; branch on it per
-digest § 5. Otherwise do not guess — probe **read-only** with
+digest § 6. Otherwise do not guess — probe **read-only** with
 `node .agents/scripts/deliver-recover.js --story <storyId>`; it prints the
 **one** next command with its evidence, never a menu. A live close answers
 `close-in-flight`: wait, never re-init underneath it.

@@ -39,8 +39,16 @@ const DIGEST = path.join(WORKFLOWS, 'helpers', 'deliver-digest.md');
 /**
  * Ceiling for the bundle. Comfortably above what the always-needed material
  * costs today and far below the ~5× that re-reading the individual files did.
+ *
+ * Raised from 8 KiB to 9 KiB by Story #5174, which folded the crediting
+ * full-suite invocation (§ 5) into the bundle. That is not the accretion this
+ * ceiling exists to catch: the invocation is material **every** delivery
+ * needs, and leaving it only in `deliver-story-reference.md` meant a
+ * dispatched worker never read it and close paid for the suite twice. The
+ * anti-accretion rule is unchanged — situational material still belongs in
+ * the reference files, not here.
  */
-const DIGEST_BUDGET_BYTES = 8 * 1024;
+const DIGEST_BUDGET_BYTES = 9 * 1024;
 
 const read = (p) => readFileSync(p, 'utf8');
 
@@ -58,6 +66,8 @@ describe('helpers/deliver-digest.md — the one bundled deliver read (AC-5)', ()
       ['the deriveChangeLevel return shape', '{ level, classes }'],
       ['the resolveCeremonyForRisk argument key', 'derivedLevel'],
       ['the acceptance gate invocation', 'acceptance-eval.js'],
+      ['the crediting full-suite invocation', 'coverage-capture.js --cwd'],
+      ['the evidence-gate alternative', 'evidence-gate.js --standalone'],
       ['the terminal envelope marker', '--- STORY DELIVER TERMINAL ---'],
       ['the state-transition command', 'update-ticket-state.js'],
     ];
@@ -98,7 +108,7 @@ describe('helpers/deliver-digest.md — the one bundled deliver read (AC-5)', ()
   it('the spine cites the digest instead of restating the terminal table', () => {
     const spine = read(path.join(WORKFLOWS, 'helpers', 'deliver-story.md'));
     assert.ok(
-      spine.includes('digest § 5'),
+      spine.includes('digest § 6'),
       'deliver-story.md must route Step 3 / Step 7 at the digest, not carry its own copy of the status table',
     );
   });
@@ -230,6 +240,72 @@ describe('deliver-digest § 3 — the ceremony incantation, verified by executio
       mistaken.mode,
       documented.mode,
       'object-for-string must be observably different from the documented call, or § 3 stating the shape guards nothing',
+    );
+  });
+});
+
+describe('deliver-digest § 5 — the one creditable full-suite run (#5174)', () => {
+  const digest = () => read(DIGEST);
+  const spine = () => read(path.join(WORKFLOWS, 'helpers', 'deliver-story.md'));
+
+  it('carries BOTH crediting invocations, not just the one this repo happens to use', () => {
+    // The predicate is per-consumer: a repo with the CRAP gate on and a
+    // `test:coverage` script writes a capture stamp; every other repo records
+    // evidence. A digest carrying only one shape strands the other half of the
+    // corpus on the no-credit path without telling them why.
+    assertDocMentions(
+      digest(),
+      /node <main-repo>\/\.agents\/scripts\/coverage-capture\.js --cwd <workCwd>/,
+      'the digest must carry the coverage-capture crediting invocation verbatim',
+    );
+    assertDocMentions(
+      digest(),
+      /evidence-gate\.js --standalone[\s\S]{0,160}--gate test[\s\S]{0,80}-- npm test/,
+      'the digest must carry the evidence-gate alternative for repos without the capture stamp',
+    );
+  });
+
+  it('names the no-credit shape so a bare suite run is a stated mistake', () => {
+    assertDocMentions(
+      digest(),
+      /bare `npm test` \/ `pnpm run test` deposits \*\*none\*\*/,
+      'the digest must say plainly that a bare npm/pnpm test earns no credit',
+    );
+  });
+
+  it('places the run after the last fix commit and immediately before the push', () => {
+    // The credit is keyed on the tree. Documented anywhere earlier in the
+    // sequence, the stamp describes a tree that is not the one pushed — the
+    // ordering IS the contract, not a stylistic preference.
+    for (const [label, doc] of [
+      ['the digest', digest()],
+      ['the spine', spine()],
+    ]) {
+      assertDocMentions(
+        doc,
+        /last fix commit,? (and )?immediately \*{0,2}before\*{0,2} the push/,
+        `${label} must place the creditable run after the loop's last fix commit and immediately before the push`,
+      );
+    }
+  });
+
+  it('the spine points at the digest rather than restating the invocation', () => {
+    assertDocMentions(
+      spine(),
+      /digest § 5/,
+      'deliver-story.md Step 2.5 must route the invocation at the digest',
+    );
+    assert.ok(
+      !spine().includes('coverage-capture.js'),
+      'the spine must not carry its own copy of the invocation — one home, cited from the other',
+    );
+  });
+
+  it('states the verify[] reuse rule so the suite is not spawned a third time', () => {
+    assertDocMentions(
+      digest(),
+      /full-suite command is reported credited against the same stamp, never respawned/,
+      'the digest must state that a full-suite verify[] entry is credited, not respawned',
     );
   });
 });

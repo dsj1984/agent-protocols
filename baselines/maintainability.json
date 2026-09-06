@@ -1,7 +1,7 @@
 {
   "$schema": ".agents/schemas/baselines/maintainability.schema.json",
   "kernelVersion": "0.1.0",
-  "generatedAt": "2026-09-06T11:42:53.190Z",
+  "generatedAt": "2026-09-06T15:59:16.331Z",
   "rollup": {
     "*": {
       "min": 76.381,
@@ -1613,6 +1613,10 @@
     {
       "path": ".agents/scripts/lib/orchestration/ticketing/transition.js",
       "mi": 99.072
+    },
+    {
+      "path": ".agents/scripts/lib/orchestration/verify-credit.js",
+      "mi": 89.927
     },
     {
       "path": ".agents/scripts/lib/orchestration/verify-tier-repair.js",

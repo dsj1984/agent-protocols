@@ -113,6 +113,18 @@ mid-delivery, and evaluates the actual work product.
      optional advisory pre-flight — a criterion cannot be scored `met` without
      the supporting `verify[]` evidence where a `verify[]` command is relevant
      to it.
+   - **Reuses the credited full-suite run instead of re-paying for it.**
+     Before spawning a `verify[]` entry, classify it with `resolveVerifyCredit`
+     from
+     [`verify-credit.js`](../../scripts/lib/orchestration/verify-credit.js): an
+     entry that is itself a full-suite command (`npm test`, `pnpm run test`,
+     a bare `node --test`) is consulted against the **same stamp close reads**
+     and, when that stamp is fresh, recorded as `pass` with a `detail` naming
+     the credit — **never respawned**. A stale or absent stamp reports
+     `spawn: true` and the command runs for real, so the credit can never
+     manufacture a pass. The gate warns on any such entry: the intended shape
+     is scoped `verify[]` entries **plus** the one credited run
+     ([`deliver-digest.md`](deliver-digest.md) § 5).
    - **Shares `lint` / `typecheck` evidence with close.** When a
      `verify[]` command is **byte-identical** to a close-validation gate — in
      practice only the cheap, command-identical `lint` and `typecheck` gates
