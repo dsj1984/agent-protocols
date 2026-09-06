@@ -124,7 +124,9 @@ describe('report cross-check — mismatched tally', () => {
     const { status, stdout, stderr } = run(cwd, [...SCAN, 'audits/*.md']);
 
     assert.equal(status, 0, '--scan stays a diagnostic pass');
-    assert.match(stderr, /audits\/audit-security-results\.md/);
+    // Separator-agnostic: the CLI prints the report path as the OS spells it,
+    // so Windows emits `audits\\audit-security-results.md`.
+    assert.match(stderr, /audits[\\/]audit-security-results\.md/);
     assert.match(stderr, /Critical 0 \/ High 3 \/ Medium 1 \/ Low 0/);
     assert.match(stderr, /Critical 0 \/ High 1 \/ Medium 0 \/ Low 0/);
 
