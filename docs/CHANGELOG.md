@@ -15,6 +15,20 @@ All notable changes to this project will be documented in this file.
 -->
 <!-- markdownlint-disable-file MD004 MD012 MD037 -->
 
+## [2.41.0](https://github.com/dsj1984/mandrel/compare/mandrel-v2.40.0...mandrel-v2.41.0) (2026-09-06)
+
+
+### Added
+
+* /mandrel-plan adopts an existing open Epic and declares depends_on edges on existing open Stories ([#5155](https://github.com/dsj1984/mandrel/issues/5155)) ([#5156](https://github.com/dsj1984/mandrel/issues/5156)) ([9119f31](https://github.com/dsj1984/mandrel/commit/9119f313146ab08ed676909f9b0a61671c4d6069))
+
+
+### Changed
+
+* **agents:** retire four frontier-known rules/skills, fold two more into rules (refs [#5158](https://github.com/dsj1984/mandrel/issues/5158)) ([#5162](https://github.com/dsj1984/mandrel/issues/5162)) ([065f883](https://github.com/dsj1984/mandrel/commit/065f8839fafcc7064e4ad6d2ea30f2bfebbd5c0c))
+* **qa:** fold qa-explore-driving into qa-harness (refs [#5159](https://github.com/dsj1984/mandrel/issues/5159)) ([#5163](https://github.com/dsj1984/mandrel/issues/5163)) ([2fbc8db](https://github.com/dsj1984/mandrel/commit/2fbc8db5a420450414cfd046bb6418e0c210bf7f))
+* **rules:** trim surviving rules and core skills to their contracts (refs [#5160](https://github.com/dsj1984/mandrel/issues/5160)) ([#5164](https://github.com/dsj1984/mandrel/issues/5164)) ([f0e6a62](https://github.com/dsj1984/mandrel/commit/f0e6a62feaba275377c9cc435f03ea6089008148))
+
 ## [2.40.0](https://github.com/dsj1984/mandrel/compare/mandrel-v2.39.0...mandrel-v2.40.0) (2026-09-06)
 
 
