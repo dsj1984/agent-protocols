@@ -129,7 +129,7 @@ Relay it verbatim; never hand-compose one, never substitute prose.
 
 Required fields: `kind` (`story-deliver-terminal`), `storyId`, `status`,
 `phase`, `elapsedSeconds`, `nextCommand`. `phase` is one of `init`,
-`wrong-tree-guard`, `close-validation`, `base-sync`, `push`, `pull-request`,
+`wrong-tree-guard`, `base-sync`, `close-validation`, `push`, `pull-request`,
 `code-review`, `auto-merge`, `confirm-merge`, `post-land`, `done`. `gates`
 reports every gate as `passed` / `failed` / `skipped` — a skipped gate is
 reported, never omitted, so a missing gate is never read as a passing one.

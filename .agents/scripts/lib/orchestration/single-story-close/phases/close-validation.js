@@ -79,6 +79,10 @@ import { createGateLogSink as defaultCreateGateLogSink } from '../gate-log.js';
  *   runScopedFormatAutofix?: typeof defaultRunScopedFormatAutofix,
  *   createGateLogSink?: typeof defaultCreateGateLogSink,
  * }} args
+ * @returns {Promise<{ gates: Record<string, 'passed'|'skipped'> }>} Per-gate
+ *   outcomes keyed by gate name — the terminal envelope reports the split
+ *   baselines entries from this (Story #5172). A failure throws instead, with
+ *   `err.closeGate` naming the gate that died.
  */
 export async function runCloseValidationPhase({
   cwd,
@@ -144,17 +148,18 @@ export async function runCloseValidationPhase({
   // Story #4736 — one sink for both `log` seams (gate construction and gate
   // execution), so nothing in the chain can route around the artifact.
   const gateLog = createGateLogSink({ storyId, config });
+  const gateList = buildDefaultGates({
+    config,
+    baseBranch,
+    cwd: worktreePath || cwd,
+    log: gateLog.log,
+  });
   let validation;
   try {
     validation = await runCloseValidation({
       cwd,
       worktreePath,
-      gates: buildDefaultGates({
-        config,
-        baseBranch,
-        cwd: worktreePath || cwd,
-        log: gateLog.log,
-      }),
+      gates: gateList,
       log: gateLog.log,
       storyId,
       // Story #4250 — standalone storyId-anchored evidence keyspace. No
@@ -182,10 +187,37 @@ export async function runCloseValidationPhase({
     // The evidence is the point on this path: replay the captured tail inline
     // rather than making the caller open a file to learn why close stopped.
     gateLog.replay();
-    throw new Error(
+    const err = new Error(
       `[single-story-close] Gate failed: ${gate.name} (exit ${status})${gateCwd ? ` in ${gateCwd}` : ''}.` +
         (gate.hint ? ` ${gate.hint}` : ''),
     );
+    // Story #5172 — the phase tracker tags `closePhase`; this tags WHICH gate
+    // inside the phase died, so the failed terminal can name the split
+    // baselines entry rather than reporting a generic validation failure.
+    err.closeGate = gate.name;
+    throw err;
   }
   progress('VALIDATE', `✅ All gates passed. ${gateLog.digest()}`);
+  return { gates: gateOutcomes(gateList, validation) };
+}
+
+/**
+ * Per-gate outcomes for a validation run that passed (Story #5172).
+ *
+ * Every registered gate passed unless the runner reported it skipped — an
+ * evidence short-circuit at unchanged HEAD, or a changed-file scope that
+ * matched nothing. `skipped` is the honest verdict for both: the gate did not
+ * run in THIS invocation, and the terminal schema's own contract is that a
+ * skipped gate is reported as skipped rather than quietly counted as a pass.
+ *
+ * @param {Array<{ name: string }>} gateList The gates this run registered.
+ * @param {{ skipped?: Array<{ gate: { name: string } }> }} validation
+ * @returns {Record<string, 'passed'|'skipped'>}
+ */
+function gateOutcomes(gateList, validation) {
+  const outcomes = {};
+  for (const gate of gateList) outcomes[gate.name] = 'passed';
+  for (const { gate } of validation.skipped ?? [])
+    outcomes[gate.name] = 'skipped';
+  return outcomes;
 }

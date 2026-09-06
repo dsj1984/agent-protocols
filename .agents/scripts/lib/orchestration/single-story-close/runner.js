@@ -1,6 +1,9 @@
 import nodeFs from 'node:fs';
 import path from 'node:path';
-import { buildDefaultGates } from '../../close-validation/gates.js';
+import {
+  BASELINES_GATE_NAMES,
+  buildDefaultGates,
+} from '../../close-validation/gates.js';
 import { runCloseValidation } from '../../close-validation/runner.js';
 import { getCiDelivery } from '../../config/ci.js';
 import { resolveConfig } from '../../config-resolver.js';
@@ -135,12 +138,57 @@ async function alreadyClosedResult(storyId, stateReason = null, config) {
   return { success: true, result, terminal };
 }
 
+/**
+ * Project the baselines entries out of close-validation's per-gate outcomes,
+ * keyed by the gate's own name (Story #5172).
+ *
+ * The envelope's `gates` map used to roll the whole gate chain up into a
+ * single `validation` verdict, which was fine while the baselines gate was
+ * one entry and stopped being fine when it became two: a reader of a failed
+ * close could not tell whether the cheap coverage-independent baselines had
+ * breached or the expensive coverage-consuming ones had. Only registered
+ * entries are reported — a consumer whose config registers just one of the
+ * pair gets just that one, never a phantom key for a gate that never existed.
+ *
+ * @param {Record<string, string>|null|undefined} validationGates
+ * @returns {Record<string, string>}
+ */
+function baselinesEnvelopeGates(validationGates) {
+  const registered = Object.values(BASELINES_GATE_NAMES);
+  const out = {};
+  for (const [name, outcome] of Object.entries(validationGates ?? {})) {
+    if (registered.includes(name)) out[name] = outcome;
+  }
+  return out;
+}
+
 function resolveWorktreePath({ cwd, config, storyId }) {
   const root = config.delivery?.worktreeIsolation?.root ?? '.worktrees';
   const candidate = path.resolve(cwd, root, `story-${storyId}`);
   return nodeFs.existsSync(candidate) ? candidate : null;
 }
 
+/**
+ * The pre-push phases, in the order the pipeline walks them: wrong-tree
+ * guard → base-sync → close-validation.
+ *
+ * Story #5172 put base-sync AHEAD of close-validation, for two reasons that
+ * are really one. The cheap one: a base-sync conflict is a hard block that
+ * costs nothing to detect, so paying for the full gate chain before
+ * discovering it burns the pipeline's most expensive minutes on a tree that
+ * was never going to be pushed. The load-bearing one: with the gates last,
+ * **the validated tree is the pushed tree**. Under the old order the merge
+ * commit base-sync writes landed AFTER validation, so every close pushed a
+ * tree no gate had ever seen.
+ *
+ * `--skip-sync` and `--skip-validation` stay independent — either, both or
+ * neither may be set, and each still elides exactly its own phase.
+ *
+ * @returns {Promise<{ validationGates: Record<string, string>|null }>}
+ *   The per-gate outcomes close-validation observed, or `null` when the phase
+ *   was skipped. Feeds the terminal envelope's `gates` map so the split
+ *   baselines entries are separable there.
+ */
 async function runPrePushPhases({
   cwd,
   worktreePath,
@@ -166,22 +214,6 @@ async function runPrePushPhases({
     progress,
     gitSpawn: injectedGitSpawn,
   });
-  if (!skipValidation) {
-    setPhase('close-validation');
-    await runCloseValidationPhase({
-      cwd,
-      worktreePath,
-      config,
-      baseBranch,
-      storyBranch,
-      storyId,
-      progress,
-      runCloseValidation,
-      buildDefaultGates,
-    });
-  } else {
-    progress('VALIDATE', '⏭ Skipped (--skip-validation).');
-  }
   if (!skipSync) {
     setPhase('base-sync');
     await runBaseSyncPhase({
@@ -198,6 +230,23 @@ async function runPrePushPhases({
   } else {
     progress('SYNC', '⏭ Skipped (--skip-sync).');
   }
+  if (skipValidation) {
+    progress('VALIDATE', '⏭ Skipped (--skip-validation).');
+    return { validationGates: null };
+  }
+  setPhase('close-validation');
+  const validation = await runCloseValidationPhase({
+    cwd,
+    worktreePath,
+    config,
+    baseBranch,
+    storyBranch,
+    storyId,
+    progress,
+    runCloseValidation,
+    buildDefaultGates,
+  });
+  return { validationGates: validation?.gates ?? null };
 }
 
 async function openAndReviewPr({
@@ -743,7 +792,7 @@ async function runClosePipeline({
     config,
     injectedReleaseLease,
   };
-  await releaseLeaseOnBlock(
+  const { validationGates } = await releaseLeaseOnBlock(
     () =>
       runPrePushPhases({
         ...options,
@@ -881,6 +930,9 @@ async function runClosePipeline({
     startedAtMs,
     gates: {
       validation: options.skipValidation ? 'skipped' : 'passed',
+      // Story #5172 — the split baselines entries, named individually so a
+      // reader can tell the two apart. Absent when validation was skipped.
+      ...baselinesEnvelopeGates(validationGates),
       baseSync: options.skipSync ? 'skipped' : 'passed',
       // An overridden blocker reports `overridden`, never
       // `passed`. The review DID fail; a human authorized shipping anyway, and

@@ -21,6 +21,7 @@ import { rmSync } from 'node:fs';
 import path from 'node:path';
 import { describe, it } from 'node:test';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { BASELINES_GATE_NAMES as REAL_BASELINES_GATE_NAMES } from '../.agents/scripts/lib/close-validation/gates.js';
 import { makeTempDir } from '../.agents/scripts/lib/test-temp.js';
 
 const REPO_ROOT = path
@@ -49,7 +50,13 @@ const CLOSE_VALIDATION_RUNNER_URL = pathToFileURL(
 function mockCloseValidation(t, { namedExports }) {
   const { buildDefaultGates, runCloseValidation } = namedExports;
   t.mock.module(CLOSE_VALIDATION_GATES_URL, {
-    namedExports: { buildDefaultGates },
+    namedExports: {
+      // Story #5172 — `single-story-close/runner.js` statically imports the
+      // split baselines gate names alongside the builder, so a mock that
+      // omits them fails to link the module under test.
+      BASELINES_GATE_NAMES: REAL_BASELINES_GATE_NAMES,
+      buildDefaultGates,
+    },
   });
   t.mock.module(CLOSE_VALIDATION_RUNNER_URL, {
     namedExports: { runCloseValidation },

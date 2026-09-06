@@ -25,7 +25,11 @@ import { fileURLToPath } from 'node:url';
 import Ajv from 'ajv/dist/2020.js';
 import addFormats from 'ajv-formats';
 
-import { buildDefaultGates } from '../.agents/scripts/lib/close-validation/gates.js';
+import {
+  BASELINES_GATE_NAMES,
+  buildDefaultGates,
+} from '../.agents/scripts/lib/close-validation/gates.js';
+import { gatesForFailedPhase } from '../.agents/scripts/lib/orchestration/single-story-close/failed-terminal.js';
 
 const SCHEMA_PATH = fileURLToPath(
   new URL(
@@ -58,17 +62,37 @@ function gateNameEnum() {
  * every branch of the gate list is surfaced (injecting `packageScripts` keeps
  * the derivation independent of this checkout's own package.json).
  *
+ * Story #5172 added a third axis: with a resolvable enabled-kind set the
+ * baselines gate registers as the split pair rather than the single name, so
+ * a config enabling both a coverage-independent and a coverage-consuming kind
+ * is unioned in too. Without it the two split names would never reach the
+ * schema check and their evidence would be silently dropped on every close —
+ * the exact regression #4697 exists to prevent.
+ *
  * @returns {string[]}
  */
 function deriveCloseValidationGateNames() {
   const names = new Set();
-  for (const gate of buildDefaultGates({
-    packageScripts: { 'test:coverage': 'c8 node --test' },
-  })) {
-    names.add(gate.name);
-  }
-  for (const gate of buildDefaultGates({ packageScripts: {} })) {
-    names.add(gate.name);
+  const configs = [
+    { packageScripts: { 'test:coverage': 'c8 node --test' } },
+    { packageScripts: {} },
+    {
+      packageScripts: { 'test:coverage': 'c8 node --test' },
+      presentBaselines: ['crap', 'maintainability'],
+      config: {
+        delivery: {
+          quality: {
+            gates: {
+              crap: { enabled: true },
+              maintainability: { enabled: true },
+            },
+          },
+        },
+      },
+    },
+  ];
+  for (const opts of configs) {
+    for (const gate of buildDefaultGates(opts)) names.add(gate.name);
   }
   return [...names];
 }
@@ -123,10 +147,12 @@ test('AC-2: every close-validation gate name is a member of the schema gateName 
     gateNames.includes('coverage-capture'),
     'coverage-capture must be derivable from buildDefaultGates()',
   );
-  assert.ok(
-    gateNames.includes('check-baselines'),
-    'check-baselines must be derivable from buildDefaultGates()',
-  );
+  for (const name of Object.values(BASELINES_GATE_NAMES)) {
+    assert.ok(
+      gateNames.includes(name),
+      `${name} must be derivable from buildDefaultGates()`,
+    );
+  }
 
   for (const name of gateNames) {
     assert.ok(
@@ -149,5 +175,30 @@ test('AC-2 anchor: the close-validation phase sources its gates from buildDefaul
     /buildDefaultGates/,
     'close-validation phase should build its gate list via buildDefaultGates; ' +
       're-anchor deriveCloseValidationGateNames() if this changes.',
+  );
+});
+
+test('AC-3 anchor: the failed terminal reports every split baselines entry buildDefaultGates can emit', () => {
+  // `failed-terminal.js` deliberately keeps a LOCAL copy of the split gate
+  // names (several close suites replace `close-validation/gates.js` wholesale
+  // via `t.mock.module`, and a named import there would fail to link against
+  // such a mock). This is the pin that stops the copy drifting: every split
+  // name the gate builder can emit must be a key the failed terminal reports,
+  // or a failing close would name a gate the envelope never mentions.
+  const reported = new Set(
+    Object.keys(gatesForFailedPhase('close-validation')),
+  );
+  for (const name of [
+    BASELINES_GATE_NAMES.independent,
+    BASELINES_GATE_NAMES.coverage,
+  ]) {
+    assert.ok(
+      reported.has(name),
+      `gatesForFailedPhase must report "${name}"; it reported ${[...reported].join(', ')}`,
+    );
+  }
+  assert.ok(
+    !reported.has(BASELINES_GATE_NAMES.single),
+    'the unsplit fallback rolls up under `validation`; it is not a separate envelope key',
   );
 });

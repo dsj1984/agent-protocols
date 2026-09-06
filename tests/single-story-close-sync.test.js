@@ -15,6 +15,7 @@ import assert from 'node:assert/strict';
 import path from 'node:path';
 import { describe, it } from 'node:test';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { BASELINES_GATE_NAMES as REAL_BASELINES_GATE_NAMES } from '../.agents/scripts/lib/close-validation/gates.js';
 import { pinRunScopedConfig } from '../.agents/scripts/lib/orchestration/run-scoped-config.js';
 import {
   buildSyncFailureCommentBody,
@@ -48,7 +49,13 @@ const CLOSE_VALIDATION_RUNNER_URL = pathToFileURL(
 function mockCloseValidation(t, { namedExports }) {
   const { buildDefaultGates, runCloseValidation } = namedExports;
   t.mock.module(CLOSE_VALIDATION_GATES_URL, {
-    namedExports: { buildDefaultGates },
+    namedExports: {
+      // Story #5172 — `single-story-close/runner.js` statically imports the
+      // split baselines gate names alongside the builder, so a mock that
+      // omits them fails to link the module under test.
+      BASELINES_GATE_NAMES: REAL_BASELINES_GATE_NAMES,
+      buildDefaultGates,
+    },
   });
   t.mock.module(CLOSE_VALIDATION_RUNNER_URL, {
     namedExports: { runCloseValidation },
@@ -910,5 +917,214 @@ describe('runSingleStoryClose — run-scoped base pin (Story #4891)', () => {
     assert.ok(friction, 'a friction comment must be posted');
     assert.doesNotMatch(friction.body, /git merge --no-edit origin\/main/);
     assert.match(friction.body, /`main` is unconfirmed/);
+  });
+});
+
+describe('runSingleStoryClose — pre-push phase order (Story #5172)', () => {
+  const reviewOk = async () => ({
+    status: 'ok',
+    severity: { critical: 0, high: 0, medium: 0, suggestion: 0 },
+    posted: false,
+    postedCommentId: null,
+    commentTargetId: 0,
+    halted: false,
+    blockerReason: null,
+  });
+
+  /**
+   * Model HEAD as a value the pre-push phases move: base-sync writes the
+   * merge commit that integrates the base, close-validation observes whatever
+   * HEAD it is handed, and the push sends whatever HEAD is current when it
+   * runs. Under the pre-#5172 order those last two disagreed on every close
+   * that merged anything — the gates validated a tree the push then replaced.
+   */
+  function orderHarness(t, { syncResult, gh }) {
+    const order = [];
+    const observed = { validatedSha: null, pushedSha: null };
+    let head = 'a'.repeat(40);
+    t.mock.module(GIT_UTILS_URL, {
+      namedExports: {
+        ...gitUtilsMock().namedExports,
+        gitSync: (_cwd, ...args) => {
+          if (args[0] === 'push') {
+            order.push('push');
+            observed.pushedSha = head;
+          }
+          return '';
+        },
+      },
+    });
+    mockCloseValidation(t, {
+      namedExports: {
+        buildDefaultGates: () => [],
+        runCloseValidation: async () => {
+          order.push('close-validation');
+          observed.validatedSha = head;
+          return { ok: true, failed: [] };
+        },
+      },
+    });
+    t.mock.module(WORKTREE_MANAGER_URL, worktreeManagerMock());
+    const injectedSync = async () => {
+      order.push('base-sync');
+      // A merge that integrates the base writes a commit; HEAD moves.
+      head = 'b'.repeat(40);
+      return syncResult;
+    };
+    const run = (extra = {}) =>
+      runSingleStoryCloseFrom(t, {
+        injectedSync,
+        injectedGh: gh,
+        injectedRunCodeReview: reviewOk,
+        ...extra,
+      });
+    return { order, observed, run };
+  }
+
+  let tag = 0;
+  async function runSingleStoryCloseFrom(_t, opts) {
+    tag += 1;
+    const { runSingleStoryClose } = await import(`${SUT_URL}?t=order-${tag}`);
+    return runSingleStoryClose({
+      storyId: 4242,
+      noWaitForMerge: true,
+      cwd: REPO_ROOT,
+      injectedProvider: fakeProvider(),
+      injectedConfig: fakeConfig(),
+      injectedNotify: () => Promise.resolve(),
+      ...opts,
+    });
+  }
+
+  const happyGh = () =>
+    makeFakeGh((args) => {
+      if (args[1] === 'list') return [];
+      if (args[1] === 'create') return 'https://github.com/o/r/pull/7';
+      return '';
+    });
+
+  // AC-7 — base-sync is invoked before the validation runner.
+  it('runs base-sync before close-validation', async (t) => {
+    const h = orderHarness(t, {
+      syncResult: { synced: true, kind: 'merge-commit' },
+      gh: happyGh(),
+    });
+    const out = await h.run();
+    assert.equal(out.success, true);
+    assert.deepEqual(h.order, ['base-sync', 'close-validation', 'push']);
+  });
+
+  // AC-7 — a conflict costs no gate run at all.
+  it('never invokes the validation runner when base-sync conflicts', async (t) => {
+    const h = orderHarness(t, {
+      syncResult: { synced: false, kind: 'conflict', conflictFiles: ['a.js'] },
+      gh: makeFakeGh(() => {
+        throw new Error('gh must not be invoked when sync fails');
+      }),
+    });
+    await assert.rejects(() => h.run(), /Base-sync failed \(conflict\)/);
+    assert.deepEqual(h.order, ['base-sync']);
+  });
+
+  // AC-8 — the validated tree is the pushed tree.
+  it('pushes the exact SHA close-validation ran against', async (t) => {
+    const h = orderHarness(t, {
+      syncResult: { synced: true, kind: 'merge-commit' },
+      gh: happyGh(),
+    });
+    await h.run();
+    assert.ok(h.observed.validatedSha, 'fixture: validation must observe HEAD');
+    assert.equal(
+      h.observed.pushedSha,
+      h.observed.validatedSha,
+      'the push must send the tree the gates validated',
+    );
+  });
+
+  // AC-9 — the two skip flags keep their meanings and stay independent.
+  it('--skip-sync elides only base-sync', async (t) => {
+    const h = orderHarness(t, {
+      syncResult: { synced: true, kind: 'fast-forward' },
+      gh: happyGh(),
+    });
+    await h.run({ skipSync: true });
+    assert.deepEqual(h.order, ['close-validation', 'push']);
+  });
+
+  it('--skip-validation elides only close-validation', async (t) => {
+    const h = orderHarness(t, {
+      syncResult: { synced: true, kind: 'fast-forward' },
+      gh: happyGh(),
+    });
+    await h.run({ skipValidation: true });
+    assert.deepEqual(h.order, ['base-sync', 'push']);
+  });
+
+  // AC-3 — the envelope half: the two entries are named individually, so a
+  // reader can tell which of them a close actually exercised.
+  it('names each split baselines entry in the terminal envelope gates map', async (t) => {
+    const independent = {
+      name: 'check-baselines-independent',
+      cmd: 'x',
+      args: [],
+    };
+    const coverage = { name: 'check-baselines-coverage', cmd: 'x', args: [] };
+    t.mock.module(GIT_UTILS_URL, gitUtilsMock());
+    mockCloseValidation(t, {
+      namedExports: {
+        buildDefaultGates: () => [
+          { name: 'lint', cmd: 'x', args: [] },
+          independent,
+          coverage,
+        ],
+        // The coverage-consuming entry short-circuited on shared evidence;
+        // the other two ran.
+        runCloseValidation: async () => ({
+          ok: true,
+          failed: [],
+          skipped: [{ gate: coverage, reason: 'evidence-hit' }],
+        }),
+      },
+    });
+    t.mock.module(WORKTREE_MANAGER_URL, worktreeManagerMock());
+
+    const out = await runSingleStoryCloseFrom(t, {
+      injectedSync: async () => ({ synced: true, kind: 'fast-forward' }),
+      injectedGh: happyGh(),
+      injectedRunCodeReview: reviewOk,
+    });
+    assert.equal(out.terminal.gates['check-baselines-independent'], 'passed');
+    assert.equal(out.terminal.gates['check-baselines-coverage'], 'skipped');
+    assert.equal(
+      out.terminal.gates.lint,
+      undefined,
+      'only the baselines entries are broken out; the rest stay rolled up under `validation`',
+    );
+    assert.equal(out.terminal.gates.validation, 'passed');
+  });
+
+  it('omits the baselines entries from the envelope when validation is skipped', async (t) => {
+    const h = orderHarness(t, {
+      syncResult: { synced: true, kind: 'fast-forward' },
+      gh: happyGh(),
+    });
+    const out = await h.run({ skipValidation: true });
+    assert.equal(out.terminal.gates.validation, 'skipped');
+    for (const key of Object.keys(out.terminal.gates)) {
+      assert.ok(
+        !key.startsWith('check-baselines'),
+        `no baselines entry ran, so none may be reported; saw ${key}`,
+      );
+    }
+  });
+
+  it('both flags together elide both phases and still push', async (t) => {
+    const h = orderHarness(t, {
+      syncResult: { synced: true, kind: 'fast-forward' },
+      gh: happyGh(),
+    });
+    const out = await h.run({ skipSync: true, skipValidation: true });
+    assert.equal(out.result.pushed, true);
+    assert.deepEqual(h.order, ['push']);
   });
 });
