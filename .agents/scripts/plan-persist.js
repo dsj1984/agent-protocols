@@ -126,6 +126,7 @@ const CLI_OPTIONS = {
   'allow-large-fan-out': { type: 'boolean', default: false },
   'epic-title': { type: 'string' },
   'epic-goal': { type: 'string' },
+  epic: { type: 'string' },
 };
 
 const USAGE =
@@ -136,7 +137,7 @@ const USAGE =
   '[--route-downgrade-reason <text>] ' +
   '[--dry-run] [--chain-on-clean] [--force-review] ' +
   '[--allow-over-budget] [--allow-large-fan-out] ' +
-  '[--epic-title <text> --epic-goal <text>]';
+  '[--epic-title <text> --epic-goal <text> | --epic <id>]';
 
 async function readOptional(filePath, { required }) {
   try {
@@ -226,6 +227,53 @@ export function resolveEpicRequest(values) {
 }
 
 /**
+ * Refuse `--epic` alongside `--epic-title`/`--epic-goal`.
+ *
+ * A run either joins a container or opens one; asking for both names no
+ * coherent outcome, so it is a usage error rather than a silent precedence
+ * rule the operator would have to know.
+ *
+ * @param {object} values Parsed `parseArgs` values.
+ * @returns {void}
+ * @throws {Error} When both forms were supplied.
+ */
+export function assertEpicFlagsExclusive(values) {
+  const adopts = (values.epic ?? '').trim() !== '';
+  const creates =
+    (values['epic-title'] ?? '').trim() !== '' ||
+    (values['epic-goal'] ?? '').trim() !== '';
+  if (adopts && creates) {
+    throw new Error(
+      '[plan-persist] --epic (join an existing container) and ' +
+        '--epic-title/--epic-goal (open a new one) are mutually exclusive — ' +
+        'a run either adopts an Epic or creates one, never both.',
+    );
+  }
+}
+
+/**
+ * Resolve `--epic <id>`: the existing open container this run joins.
+ *
+ * Story #5155. Parsed here rather than deep in the engine so a typo costs a
+ * usage error before any provider call — the id itself is verified against
+ * live state later, before the first create.
+ *
+ * @param {object} values Parsed `parseArgs` values.
+ * @returns {number|null} `null` when no adoption was requested.
+ */
+export function resolveEpicAdoptionId(values) {
+  const raw = (values.epic ?? '').trim();
+  if (raw === '') return null;
+  const id = Number.parseInt(raw.replace(/^#/, ''), 10);
+  if (!Number.isInteger(id) || id <= 0) {
+    throw new Error(
+      `[plan-persist] --epic expects a positive issue id (got "${raw}").`,
+    );
+  }
+  return id;
+}
+
+/**
  * Assemble the `runPlanPersist` opts bag from parsed CLI values.
  *
  * Exported for tests: this is the join where the envelope-derived source ids
@@ -254,6 +302,7 @@ export function buildPersistOptions(values, paths, planContextEnvelope) {
     sourceTicketOrigin: source.origin,
     routeDowngradeReason: values['route-downgrade-reason'] ?? null,
     epic: resolveEpicRequest(values),
+    adoptEpicId: resolveEpicAdoptionId(values),
     // Default-on: `--no-close-superseded` is the explicit escape and always
     // wins over the (default `true`) `--close-superseded`.
     closeSuperseded:
@@ -428,6 +477,12 @@ async function main() {
   } catch (err) {
     throw new Error(`Config schema validation failed:\n${err.message}`);
   }
+  // Argument-shape refusals fire before any I/O (Story #5155): a usage error
+  // the operator can see without waiting on artifact reads or a provider.
+  assertEpicFlagsExclusive(values);
+  resolveEpicRequest(values);
+  resolveEpicAdoptionId(values);
+
   const provider = createProvider(config);
   const paths = resolveInputPaths(values);
   const artifacts = await loadArtifacts(paths);
@@ -505,6 +560,10 @@ runAsCli(import.meta.url, main, {
       [
         '--epic-goal <text>',
         'The container Epic’s one-paragraph goal (needs --epic-title).',
+      ],
+      [
+        '--epic <id>',
+        'Join an existing open container Epic instead of creating one (excludes --epic-title/--epic-goal).',
       ],
     ],
   },

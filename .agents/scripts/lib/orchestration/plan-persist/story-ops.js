@@ -35,6 +35,10 @@ import {
 import { assertSpecWithinBudget } from '../spec-spill.js';
 import { assertAcceptancePartition } from '../split-policy-validator.js';
 import {
+  externalDependencyId,
+  isExternalDependencyRef,
+} from './external-deps.js';
+import {
   assertSupersedePartition,
   normalizeSupersedes,
 } from './supersede-ops.js';
@@ -557,7 +561,9 @@ function orderStoriesByDependencies(stories) {
   const list = Array.isArray(stories) ? stories : [];
   const known = new Set(list.map((story) => story.slug));
   for (const story of list) {
-    const unknown = story.depends_on.filter((slug) => !known.has(slug));
+    const unknown = story.depends_on.filter(
+      (slug) => !isExternalDependencyRef(slug) && !known.has(slug),
+    );
     if (unknown.length > 0) {
       throw new Error(
         `[plan-persist] Story "${story.slug}" depends on unknown sibling(s): ${unknown.join(', ')}`,
@@ -568,8 +574,13 @@ function orderStoriesByDependencies(stories) {
   const scheduled = new Set();
   const pending = [...list];
   while (pending.length > 0) {
+    // External refs gate delivery, never creation order: the blocker is
+    // already live, so it can never become "scheduled" in this run and would
+    // otherwise wedge the sort into a false cycle (Story #5155).
     const index = pending.findIndex((story) =>
-      story.depends_on.every((slug) => scheduled.has(slug)),
+      story.depends_on
+        .filter((slug) => !isExternalDependencyRef(slug))
+        .every((slug) => scheduled.has(slug)),
     );
     if (index === -1) {
       throw new Error(
@@ -720,8 +731,8 @@ function warnOnDivergentSameTitleStory(story, idsByTitle) {
  * @returns {string}
  */
 function renderStoryBodyForCreate(story, idBySlug) {
-  const dependencyRefs = story.depends_on.map(
-    (slug) => `#${idBySlug.get(slug)}`,
+  const dependencyRefs = story.depends_on.map((slug) =>
+    isExternalDependencyRef(slug) ? slug.trim() : `#${idBySlug.get(slug)}`,
   );
   let base = story.body;
   if (dependencyRefs.length > 0) {
@@ -798,12 +809,22 @@ async function mirrorNativeDependencyEdges({ provider, stories, idBySlug }) {
 
   try {
     const { gh, owner, repo } = provider.getDependencyWriteContext();
+    // `applyBlockedByDependencies` resolves every entry through this one map,
+    // so an external `#<id>` ref only needs an identity entry to be mirrored
+    // by the same code path as a sibling (Story #5155).
+    const slugToIssueNumber = Object.fromEntries(idBySlug);
+    for (const story of stories) {
+      for (const entry of story.depends_on) {
+        const externalId = externalDependencyId(entry);
+        if (externalId !== null) slugToIssueNumber[entry.trim()] = externalId;
+      }
+    }
     const summary = await applyBlockedByDependencies({
       stories: stories.map((story) => ({
         slug: story.slug,
         dependsOn: story.depends_on,
       })),
-      slugToIssueNumber: Object.fromEntries(idBySlug),
+      slugToIssueNumber,
       getTicket: (issueNumber) => provider.getTicket(issueNumber),
       owner,
       repo,

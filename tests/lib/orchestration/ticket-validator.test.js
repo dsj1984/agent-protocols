@@ -292,3 +292,45 @@ describe('ticket-validator: per-Story provenance shape (Story #5045)', () => {
     );
   });
 });
+
+describe('ticket-validator: external `#<id>` depends_on refs (Story #5155)', () => {
+  it('ACCEPTS a `#<id>` ref that matches no sibling slug', () => {
+    // The unknown-slug guard is what would otherwise reject every cross-plan
+    // edge: `#4712` names a live issue, and by construction no slug in this
+    // backlog will ever equal it.
+    const backlog = [{ ...story('s1'), depends_on: ['#4712'] }, story('s2')];
+    assert.doesNotThrow(() => validateAndNormalizeTickets(backlog));
+  });
+
+  it('still REJECTS a genuine unknown sibling slug alongside an external ref', () => {
+    const backlog = [
+      { ...story('s1'), depends_on: ['#4712', 'typo-slug'] },
+      story('s2'),
+    ];
+    assert.throws(
+      () => validateAndNormalizeTickets(backlog),
+      /unknown slugs: .*typo-slug/,
+    );
+  });
+
+  it('excludes external refs from cycle detection', () => {
+    // Two Stories each waiting on the same live blocker is not a cycle; only
+    // an edge between nodes IN this run can close one.
+    const backlog = [
+      { ...story('s1'), depends_on: ['#4712'] },
+      { ...story('s2'), depends_on: ['#4712', 's1'] },
+    ];
+    assert.doesNotThrow(() => validateAndNormalizeTickets(backlog));
+  });
+
+  it('still detects a real cycle between siblings', () => {
+    const backlog = [
+      { ...story('s1'), depends_on: ['s2'] },
+      { ...story('s2'), depends_on: ['#4712', 's1'] },
+    ];
+    assert.throws(
+      () => validateAndNormalizeTickets(backlog),
+      /Circular dependency/,
+    );
+  });
+});

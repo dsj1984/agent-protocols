@@ -34,7 +34,9 @@ import {
 import { concurrentMap, FANOUT_CONCURRENCY } from '../util/concurrent-map.js';
 import { buildComplexitySignals } from './complexity-gate.js';
 import { parseDeliverySlicingTable } from './consolidation-precondition.js';
+import { findDependencyCandidates } from './dependency-candidates.js';
 import { buildDocsDigest } from './docs-digest.js';
+import { findOpenEpicCandidates } from './epic-candidates.js';
 import { buildAuthoringContext } from './planning/authoring-context.js';
 import { buildDecomposerSystemPrompt } from './planning/decomposer-context.js';
 
@@ -849,11 +851,12 @@ async function searchStoryDuplicates({
 }
 
 /**
- * Gather the three independent envelope inputs — the open-Story duplicate
- * search, the folded authoring context, and the inline docs digest — under
- * bounded concurrency (Story #4952).
+ * Gather the independent envelope inputs — the open-Story duplicate search,
+ * the folded authoring context, the inline docs digest, and (Story #5155) the
+ * open-Epic and cross-plan-dependency candidate lists — under bounded
+ * concurrency (Story #4952).
  *
- * None of the three reads a value the others produce, so the result is a pure
+ * None of them reads a value the others produce, so the result is a pure
  * function of `seed` and the injected config: the assembled envelope is
  * **byte-identical** to the serial build for the same inputs, whichever order
  * the three happen to settle in. `concurrentMap` preserves input order, so the
@@ -875,6 +878,8 @@ async function searchStoryDuplicates({
  * @returns {Promise<{
  *   duplicates: Array<object>,
  *   authoring: object,
+ *   epicCandidates: Array<object>,
+ *   dependencyCandidates: Array<object>,
  *   docsContext: { mode: 'digest-inline', digest: string }|null,
  * }>}
  */
@@ -882,13 +887,20 @@ async function gatherEnvelopeInputs({
   seed,
   epicTitle,
   excludeIds = [],
+  predictedPaths = [],
   provider,
   config,
   settings,
   cwd,
 }) {
   const paths = settings?.paths ?? {};
-  const [duplicates, authoring, inlineDigest] = await concurrentMap(
+  const [
+    duplicates,
+    authoring,
+    inlineDigest,
+    epicCandidates,
+    dependencyCandidates,
+  ] = await concurrentMap(
     [
       () => searchStoryDuplicates({ seed, provider, config, excludeIds }),
       () =>
@@ -907,6 +919,25 @@ async function gatherEnvelopeInputs({
           docsContextFiles: settings?.docsContextFiles,
           docsRoot: paths.docsRoot,
         }),
+      // Story #5155 — the two cross-plan lookups. Both are advisory triage
+      // lists offered at Gate #3, independent of every other gather and of
+      // each other, so they join the same bounded fan-out rather than adding
+      // two more serial round-trips to the operator's wait.
+      () =>
+        findOpenEpicCandidates({
+          seed,
+          provider,
+          owner: config.github?.owner,
+          repo: config.github?.repo,
+        }),
+      () =>
+        findDependencyCandidates({
+          predictedPaths,
+          provider,
+          owner: config.github?.owner,
+          repo: config.github?.repo,
+          excludeIds,
+        }),
     ],
     (gather) => gather(),
     // The per-mode envelope gathers (Story #4952): the duplicate search, the
@@ -919,6 +950,8 @@ async function gatherEnvelopeInputs({
   return {
     duplicates,
     authoring,
+    epicCandidates,
+    dependencyCandidates,
     docsContext:
       inlineDigest == null
         ? null
@@ -949,19 +982,41 @@ async function buildSeedFileModeEnvelope({
     );
   }
 
-  // Dup search, the authoring-context fold grounded in the seed prose, and the
-  // inline docs digest are independent — gathered concurrently (Story #4952).
-  const { duplicates, authoring, docsContext } = await gatherEnvelopeInputs({
+  const limits = getLimits(config);
+  const heuristics = resolveRiskHeuristics(config);
+
+  // Hoisted above the gather (Story #5155): the dependency-candidate lookup
+  // intersects against `predictedPaths`, so the signals have to exist before
+  // the fan-out starts. `buildComplexitySignals` is synchronous and reads
+  // nothing the gather produces, so hoisting it changes cost, not output.
+  const complexitySignals = withAdvisorySignals(
+    buildComplexitySignals({
+      seedText: content,
+      config,
+      riskHeuristics: heuristics,
+      cwd,
+    }),
+    { config, cwd },
+  );
+
+  // Dup search, the authoring-context fold grounded in the seed prose, the
+  // inline docs digest and the two cross-plan candidate lists are independent
+  // — gathered concurrently (Story #4952, Story #5155).
+  const {
+    duplicates,
+    authoring,
+    docsContext,
+    epicCandidates,
+    dependencyCandidates,
+  } = await gatherEnvelopeInputs({
     seed: content,
     epicTitle: seedFilePath ?? 'seed',
+    predictedPaths: complexitySignals.predictedPaths,
     provider,
     config,
     settings,
     cwd,
   });
-
-  const limits = getLimits(config);
-  const heuristics = resolveRiskHeuristics(config);
 
   return {
     mode: modeLabel,
@@ -972,16 +1027,10 @@ async function buildSeedFileModeEnvelope({
     // `deliverLightSuggestion` is the advisory plan-side routing handshake
     // (Story #4741 AC-6) and `uiSurface` the advisory /prototype offer —
     // neither is ever an automatic reroute.
-    complexitySignals: withAdvisorySignals(
-      buildComplexitySignals({
-        seedText: content,
-        config,
-        riskHeuristics: heuristics,
-        cwd,
-      }),
-      { config, cwd },
-    ),
+    complexitySignals,
     duplicates,
+    epicCandidates,
+    dependencyCandidates,
     docsContext,
     bddRunner: authoring.bddRunner,
     bddScenarios: authoring.bddScenarios,
@@ -1095,36 +1144,48 @@ async function buildTicketsModeEnvelope({
     .map((t) => `# ${t.title}\n\n${t.body}`)
     .join('\n\n---\n\n');
 
-  // Same three independent gathers as seed-file mode, concurrent under the
-  // same bound (Story #4952); only the source-ticket hydration above is a
-  // genuine data dependency, because `seed` is derived from it.
-  const { duplicates, authoring, docsContext } = await gatherEnvelopeInputs({
+  const limits = getLimits(config);
+  const heuristics = resolveRiskHeuristics(config);
+
+  // Hoisted for the same reason as seed-file mode (Story #5155).
+  const complexitySignals = withAdvisorySignals(
+    buildComplexitySignals({
+      seedText: seed,
+      config,
+      riskHeuristics: heuristics,
+      cwd,
+    }),
+    { config, cwd },
+  );
+
+  // Same independent gathers as seed-file mode, concurrent under the same
+  // bound (Story #4952); only the source-ticket hydration above is a genuine
+  // data dependency, because `seed` is derived from it.
+  const {
+    duplicates,
+    authoring,
+    docsContext,
+    epicCandidates,
+    dependencyCandidates,
+  } = await gatherEnvelopeInputs({
     seed,
     epicTitle: sourceTickets[0]?.title ?? 'tickets',
     excludeIds: ticketIds,
+    predictedPaths: complexitySignals.predictedPaths,
     provider,
     config,
     settings,
     cwd,
   });
 
-  const limits = getLimits(config);
-  const heuristics = resolveRiskHeuristics(config);
-
   return {
     mode: 'tickets',
     sourceTickets,
     seed: { text: seed, path: null },
-    complexitySignals: withAdvisorySignals(
-      buildComplexitySignals({
-        seedText: seed,
-        config,
-        riskHeuristics: heuristics,
-        cwd,
-      }),
-      { config, cwd },
-    ),
+    complexitySignals,
     duplicates,
+    epicCandidates,
+    dependencyCandidates,
     docsContext,
     bddRunner: authoring.bddRunner,
     bddScenarios: authoring.bddScenarios,

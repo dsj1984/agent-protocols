@@ -15,7 +15,10 @@ import { describe, it } from 'node:test';
 import { PLAN_CONTEXT_FILENAME } from '../../.agents/scripts/lib/orchestration/plan-persist/plan-context-source.js';
 import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
 import {
+  assertEpicFlagsExclusive,
   buildPersistOptions,
+  resolveEpicAdoptionId,
+  resolveEpicRequest,
   resolveInputPaths,
 } from '../../.agents/scripts/plan-persist.js';
 
@@ -154,5 +157,71 @@ describe('buildPersistOptions — the container-Epic request', () => {
       null,
     );
     assert.equal(opts.epic, null);
+  });
+});
+
+describe('the Epic flag surface (Story #5155)', () => {
+  it('refuses --epic together with either creation flag', () => {
+    for (const extra of [{ 'epic-title': 'T' }, { 'epic-goal': 'G' }]) {
+      assert.throws(
+        () => assertEpicFlagsExclusive({ epic: '90', ...extra }),
+        /mutually exclusive/,
+      );
+    }
+  });
+
+  it('allows either form on its own, and neither', () => {
+    assert.doesNotThrow(() => assertEpicFlagsExclusive({ epic: '90' }));
+    assert.doesNotThrow(() =>
+      assertEpicFlagsExclusive({ 'epic-title': 'T', 'epic-goal': 'G' }),
+    );
+    assert.doesNotThrow(() => assertEpicFlagsExclusive({}));
+  });
+
+  it('parses --epic, tolerating a leading #', () => {
+    assert.equal(resolveEpicAdoptionId({ epic: '90' }), 90);
+    assert.equal(resolveEpicAdoptionId({ epic: '#90' }), 90);
+    assert.equal(resolveEpicAdoptionId({ epic: '  90  ' }), 90);
+    assert.equal(resolveEpicAdoptionId({}), null);
+    assert.equal(resolveEpicAdoptionId({ epic: '' }), null);
+  });
+
+  it('rejects a non-numeric or non-positive --epic before any I/O', () => {
+    for (const bad of ['abc', '0', '-3']) {
+      assert.throws(
+        () => resolveEpicAdoptionId({ epic: bad }),
+        /positive issue id/,
+      );
+    }
+  });
+
+  it('still requires --epic-title and --epic-goal together', () => {
+    assert.equal(resolveEpicRequest({}), null);
+    assert.deepEqual(
+      resolveEpicRequest({ 'epic-title': 'T', 'epic-goal': 'G' }),
+      { title: 'T', goal: 'G' },
+    );
+    assert.throws(
+      () => resolveEpicRequest({ 'epic-title': 'T' }),
+      /must be supplied together/,
+    );
+  });
+
+  it('wires both Epic paths into the persist opts', () => {
+    const adopt = buildPersistOptions(
+      { epic: '90' },
+      resolveInputPaths({ stories: 's.json' }),
+      null,
+    );
+    assert.equal(adopt.adoptEpicId, 90);
+    assert.equal(adopt.epic, null);
+
+    const create = buildPersistOptions(
+      { 'epic-title': 'T', 'epic-goal': 'G' },
+      resolveInputPaths({ stories: 's.json' }),
+      null,
+    );
+    assert.equal(create.adoptEpicId, null);
+    assert.deepEqual(create.epic, { title: 'T', goal: 'G' });
   });
 });

@@ -234,7 +234,7 @@ Each `stories.json` entry: `slug` (`^[a-z0-9][a-z0-9-]*$`), `type: "story"`,
 `title`, `body` (`goal`, optional `spec`, `changes[{path, assumption}]` —
 `creates|refactors-existing|deletes`, `non_goals`, `reason_to_exist`),
 top-level `acceptance[]`, `verify[]` (`… (unit|contract|e2e|validate)`), and
-`depends_on[]` (N>1 only).
+`depends_on[]` (a sibling slug, or `#<id>` for an existing open Story).
 
 Nothing in that shape inventories the repo for the author. `changes[]` arrives
 pre-resolved against the working tree, and Phase 8's
@@ -414,7 +414,53 @@ That is the whole point of running it first: a dry run that comes back clean
 has already paid for every deterministic refusal, so the real persist has
 nothing left to discover except network failure.
 
-## The container Epic (Gate #3, N>2)
+## The container Epic (Gate #3)
+
+Gate #3 has two branches, in this order: **adopt** an Epic that already exists,
+else **create** a new one.
+
+### Adopting an open Epic (any N)
+
+`epicCandidates[]` in the plan-context envelope lists **every open `type::epic`
+issue**, each `{ id, title, url, score, childIds }`, ranked by token overlap
+between the seed and the Epic's title, `## Goal` and its children's titles. The
+list is deliberately **complete rather than thresholded**: a low score is
+evidence for the operator to weigh, and hiding a candidate is exactly how a
+plan opens its second container for one body of work.
+
+This branch fires at **any N, N=1 included** — "add this to the Epic we started
+last week" is the single-Story case, and refusing it below three Stories would
+leave the common follow-up plan with nowhere to file itself. The three-Story
+threshold governs **creation** only, where it still holds: at two Stories a
+pair of ids is as easy to carry as one container id.
+
+On a yes, pass `--epic <id>`. Persist then:
+
+1. resolves the id **before the first create** (dry run included) — it must be
+   **open** and carry `type::epic`, or the run hard-errors having written
+   nothing;
+2. after the Stories exist, appends one `- [ ] #N` row per new Story to the
+   Epic's checklist via `appendEpicChildIds`, which is idempotent and preserves
+   existing rows' **checked state**, their order, and the fingerprint marker;
+3. mirrors a native sub-issue edge per child.
+
+The refusal posture is the **opposite** of creation's, deliberately. Creation
+degrades (an unensurable label just skips the container) because the operator
+never named one. Adoption cannot: the operator named a specific id, so silently
+not adopting it would leave them believing their Stories were filed somewhere
+they were not. Hence a hard error, raised while nothing has been written and
+the fix is free. Once the Stories are live the posture flips back — a failed
+checklist write or sub-issue edge only warns.
+
+**Only open Epics are adoptable.** A closed Epic is a finished body of work;
+joining one would reopen a container the epilogue deliberately closed and
+re-scope a completed plan. Open a new container, or reopen the old one by hand.
+
+`--epic` and `--epic-title`/`--epic-goal` are **mutually exclusive** — a run
+either joins a container or opens one — and supplying both is a usage error
+raised before any I/O.
+
+### Creating a new container (N>2)
 
 Above two Stories, `/mandrel-plan` offers to group them under one `type::epic`
 container. Confirmed, persist opens it **after** the Stories — its body embeds
@@ -441,6 +487,40 @@ the Stories are untouched and deliver by id. A resumed persist adopts an
 existing Epic carrying the same fingerprint, which is keyed on the title **and
 the exact child set**, so a run grouping different Stories never adopts the
 wrong container.
+
+## Cross-plan `depends_on` (`#<id>`)
+
+A `depends_on[]` entry is read **lexically**: `some-slug` is a sibling inside
+this plan, `#<id>` an **external** blocker already live on the tracker. The
+second form is what lets a plan authored today wait on a Story an earlier plan
+opened and never had to name.
+
+`dependencyCandidates[]` in the envelope is the advisory prompt for it: open
+`type::story` issues whose declared `changes[]` footprint intersects the seed's
+`complexitySignals.predictedPaths`, each carrying the `overlappingPaths[]` that
+matched. Overlap is computed on **declared footprints** and not on prose, using
+the same `storyFootprint` the wave runner uses to withhold colliding Stories at
+dispatch — so the planner sees the collision the runtime would later enforce,
+one layer earlier and while it is still cheap to order around. A seed naming no
+paths short-circuits to `[]` with no provider call at all.
+
+It stays advisory: two Stories can touch a shared barrel file with no real
+ordering between them, and only the operator knows.
+
+External refs are **excluded from sibling ordering and cycle detection** —
+a Story already open is not scheduled by this run, so it has no position in the
+topological sort and cannot close a cycle back into a Story that does not exist
+yet. They are validated **before any create** (dry run included): each must
+resolve to an **open `type::story`**, and a closed issue, a container Epic, a
+missing id or a non-Story hard-errors with every bad ref named in one pass. The
+strictness is the point — a blocker that can never be satisfied reads to the
+delivery engine as a permanent wedge rather than as an error worth reporting.
+
+Persist renders the entry unchanged as a `blocked by #<id>` footer line and
+mirrors the native `blocked_by` edge, which is the same pair of surfaces a
+sibling edge produces. `/mandrel-deliver` therefore gates on it with no engine
+change: `resolve-stories.js` has always resolved foreign blockers from live
+state.
 
 ## Ready means fully persisted
 

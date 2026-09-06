@@ -1,12 +1,12 @@
 {
   "$schema": ".agents/schemas/baselines/maintainability.schema.json",
   "kernelVersion": "0.1.0",
-  "generatedAt": "2026-09-06T00:57:21.751Z",
+  "generatedAt": "2026-09-06T11:42:53.190Z",
   "rollup": {
     "*": {
       "min": 76.381,
-      "p50": 98.829,
-      "p95": 122.913
+      "p50": 98.886,
+      "p95": 122.902
     }
   },
   "rows": [
@@ -1127,6 +1127,10 @@
       "mi": 93.343
     },
     {
+      "path": ".agents/scripts/lib/orchestration/dependency-candidates.js",
+      "mi": 104.235
+    },
+    {
       "path": ".agents/scripts/lib/orchestration/diff-magnitude.js",
       "mi": 95.875
     },
@@ -1137,6 +1141,14 @@
     {
       "path": ".agents/scripts/lib/orchestration/docs-digest.js",
       "mi": 93.747
+    },
+    {
+      "path": ".agents/scripts/lib/orchestration/epic-candidates.js",
+      "mi": 103.244
+    },
+    {
+      "path": ".agents/scripts/lib/orchestration/epic-checklist.js",
+      "mi": 109.441
     },
     {
       "path": ".agents/scripts/lib/orchestration/epic-container.js",
@@ -1271,8 +1283,20 @@
       "mi": 106.793
     },
     {
+      "path": ".agents/scripts/lib/orchestration/plan-persist/cross-plan-links.js",
+      "mi": 114.736
+    },
+    {
+      "path": ".agents/scripts/lib/orchestration/plan-persist/epic-adoption.js",
+      "mi": 95.527
+    },
+    {
       "path": ".agents/scripts/lib/orchestration/plan-persist/epic-ops.js",
       "mi": 93.456
+    },
+    {
+      "path": ".agents/scripts/lib/orchestration/plan-persist/external-deps.js",
+      "mi": 103.897
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/fan-out-gate.js",
@@ -1288,7 +1312,7 @@
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/run-plan-persist.js",
-      "mi": 95.892
+      "mi": 95.159
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/story-ops.js",

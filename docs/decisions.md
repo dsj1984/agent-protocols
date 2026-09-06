@@ -195,6 +195,34 @@ Expansion is per id, so Epic and Story ids mix freely.
 child is `agent::done`. Nothing else propagates: no child status roll-up, no
 label inheritance, no reopening.
 
+**Amended by Story #5155 — a container is joinable, not just creatable.** As
+first shipped, an Epic could only be opened by the plan that created it: the
+resume path re-adopts one whose fingerprint matches, but that fingerprint is
+keyed on the exact child set, so a *later* plan extending the same body of work
+never matched and had no way in. That made containers fragment one-per-plan,
+which is the opposite of what a container is for.
+
+`/mandrel-plan` therefore ranks every **open** Epic into `epicCandidates[]` and
+offers adoption at Gate #3 **before** offering to create, at **any Story count**
+— the three-Story threshold governs creation only, because "add this to the Epic
+we started last week" is characteristically a one-Story plan. `plan-persist
+--epic <id>` appends to the target's checklist idempotently and mirrors the
+sub-issue edges.
+
+Two constraints keep this inside the decision above rather than widening it.
+**Linkage stays parent→child only** — adoption writes the Epic's body and edges,
+never a Story's — so every `Epic: #N` refusal still fires and each Story remains
+independently deliverable. And **only open Epics are adoptable**: a closed one is
+a finished body of work, and reopening it from a plan would undo the one cascade
+this ADR allows.
+
+The same Story admits `#<id>` entries in `depends_on[]`, naming an existing open
+Story as a blocker. That is a Story→Story edge, not a hierarchy edge, so it does
+not touch the parent→child rule: it renders the `blocked by #N` footer and the
+native `blocked_by` relation that sibling edges already produce, and the
+delivery engine — which has always resolved foreign blockers from live state —
+needs no change.
+
 ### Consequences
 
 A sweep's Stories finally have a name and one id that delivers them, and

@@ -4,6 +4,7 @@
 
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
+import { parseBlockedBy } from '../../../.agents/scripts/lib/dependency-parser.js';
 import {
   AGENT_LABELS,
   TYPE_LABELS,
@@ -1282,5 +1283,60 @@ describe('createStoryIssues — the createIssue retry probe (Story #5112)', () =
     });
     await probe();
     assert.deepEqual(args, { state: 'open', labels: TYPE_LABELS.STORY });
+  });
+});
+
+describe('external `#<id>` depends_on refs (Story #5155)', () => {
+  it('renders the canonical footer line and mirrors ONE native edge to that issue', async () => {
+    const provider = makeMirrorProvider();
+    const { created, dependencyEdges } = await createStoryIssues({
+      provider,
+      stories: assemblePlanStories([
+        storyTicket('follow-up', { depends_on: ['#4712'] }),
+      ]).stories,
+    });
+
+    assert.equal(created.length, 1);
+    assert.deepEqual(dependencyEdges, {
+      edgesAdded: 1,
+      edgesSkipped: 0,
+      edgesFailed: 0,
+      storiesProcessed: 1,
+    });
+
+    // The footer is the durable half — it is what `parseBlockedBy` reads when
+    // the dependencies API is unavailable, so the rendered form must be the
+    // canonical one and not the slug-substituted `#undefined` a sibling-only
+    // resolver would produce.
+    const body = provider.createPayloads[0].body;
+    assert.match(body, /^blocked by #4712$/m);
+    assert.deepEqual(parseBlockedBy(body), [4712]);
+
+    const posts = provider.ghCalls.filter((c) => c.method === 'POST');
+    assert.equal(posts.length, 1);
+    assert.equal(
+      posts[0].body.issue_id,
+      94712,
+      'the blocker resolves to the EXISTING issue, not a sibling slot',
+    );
+  });
+
+  it('does not order creation around an external ref — it gates delivery only', async () => {
+    const provider = makeMirrorProvider();
+    // `#4712` is already live, so it can never become "scheduled" in this run.
+    // Treated as a sibling it would wedge the topological sort into a cycle.
+    const { created } = await createStoryIssues({
+      provider,
+      stories: assemblePlanStories([
+        storyTicket('second', { depends_on: ['first', '#4712'] }),
+        storyTicket('first'),
+      ]).stories,
+    });
+
+    assert.deepEqual(
+      created.map((s) => s.slug),
+      ['first', 'second'],
+      'sibling ordering still applies; the external ref is simply not a node',
+    );
   });
 });
