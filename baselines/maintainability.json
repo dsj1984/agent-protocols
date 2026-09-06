@@ -1,7 +1,7 @@
 {
   "$schema": ".agents/schemas/baselines/maintainability.schema.json",
   "kernelVersion": "0.1.0",
-  "generatedAt": "2026-09-06T16:56:43.596Z",
+  "generatedAt": "2026-09-06T17:59:26.044Z",
   "rollup": {
     "*": {
       "min": 76.381,
@@ -364,7 +364,7 @@
     },
     {
       "path": ".agents/scripts/lib/baselines/git-base.js",
-      "mi": 104.797
+      "mi": 107.459
     },
     {
       "path": ".agents/scripts/lib/baselines/kernel.js",
@@ -1097,6 +1097,10 @@
     {
       "path": ".agents/scripts/lib/orchestration/check-baselines/phases/pipeline.js",
       "mi": 99.173
+    },
+    {
+      "path": ".agents/scripts/lib/orchestration/check-baselines/phases/refresh-ack.js",
+      "mi": 95.423
     },
     {
       "path": ".agents/scripts/lib/orchestration/check-baselines/phases/report.js",

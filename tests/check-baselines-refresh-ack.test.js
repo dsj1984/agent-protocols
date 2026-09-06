@@ -84,20 +84,37 @@ function setupTmpRepo() {
  *
  * @param {{ baseRows: object[], subjects?: string[] }} opts
  */
-function installGitStub({ baseRows, subjects = [] }) {
+/**
+ * Story #5179 — `git show` is now also asked for the baseline blob at a REFRESH
+ * COMMIT's own SHA, so the stub resolves per-SHA blobs from `commits[].rows`.
+ * A tagged commit models a real refresh by recording the head values; a commit
+ * with no `rows` models a blob that cannot be read at all.
+ */
+function installGitStub({ baseRows, commits = [] }) {
   const baseJson = JSON.stringify(miEnvelope({ rows: baseRows }));
+  const blobBySha = new Map();
+  for (const c of commits) {
+    if (c.rows)
+      blobBySha.set(c.sha, JSON.stringify(miEnvelope({ rows: c.rows })));
+  }
   __setSpawnRunner({
     spawn: (_cmd, args) => {
       const verb = args?.[0];
       if (verb === 'show') {
         const spec = args?.[1] ?? '';
-        if (spec.endsWith(`:${MI_BASELINE_REL}`)) {
-          return { status: 0, stdout: baseJson, stderr: '' };
+        if (!spec.endsWith(`:${MI_BASELINE_REL}`)) {
+          return { status: 128, stdout: '', stderr: 'no base' };
         }
-        return { status: 128, stdout: '', stderr: 'no base' };
+        const ref = spec.slice(0, spec.length - MI_BASELINE_REL.length - 1);
+        if (blobBySha.has(ref)) {
+          return { status: 0, stdout: blobBySha.get(ref), stderr: '' };
+        }
+        if (ref === 'main') return { status: 0, stdout: baseJson, stderr: '' };
+        return { status: 128, stdout: '', stderr: 'no blob at ref' };
       }
       if (verb === 'log') {
-        return { status: 0, stdout: `${subjects.join('\n')}\n`, stderr: '' };
+        const lines = commits.map((c) => `${c.sha}\u0000${c.subject}`);
+        return { status: 0, stdout: `${lines.join('\n')}\n`, stderr: '' };
       }
       return { status: 128, stdout: '', stderr: 'unexpected' };
     },
@@ -130,8 +147,13 @@ describe('check-baselines — maintainability refresh acknowledgment (#4731)', (
     );
     installGitStub({
       baseRows: [{ path: 'src/a.js', mi: 95 }],
-      subjects: [
-        'chore(baselines): baseline-refresh: regenerate MI full-scope',
+      commits: [
+        {
+          sha: 'r1',
+          subject:
+            'chore(baselines): baseline-refresh: regenerate MI full-scope',
+          rows: [{ path: 'src/a.js', mi: 80 }],
+        },
       ],
     });
     const res = await runCheckBaselines({ argv: ['--no-friction'], cwd: root });
@@ -153,7 +175,12 @@ describe('check-baselines — maintainability refresh acknowledgment (#4731)', (
     );
     installGitStub({
       baseRows: [{ path: 'src/a.js', mi: 95 }],
-      subjects: ['fix(gate): unrelated change that does not carry the tag'],
+      commits: [
+        {
+          sha: 'c1',
+          subject: 'fix(gate): unrelated change that does not carry the tag',
+        },
+      ],
     });
     const res = await runCheckBaselines({ argv: ['--no-friction'], cwd: root });
     assert.equal(res.exitCode, 4);
@@ -174,7 +201,7 @@ describe('check-baselines — maintainability refresh acknowledgment (#4731)', (
     );
     installGitStub({
       baseRows: [{ path: 'src/a.js', mi: 95 }],
-      subjects: ['fix(gate): no tag here'],
+      commits: [{ sha: 'c1', subject: 'fix(gate): no tag here' }],
     });
     const res = await runCheckBaselines({
       argv: ['--no-friction'],
@@ -200,8 +227,13 @@ describe('check-baselines — maintainability refresh acknowledgment (#4731)', (
     );
     installGitStub({
       baseRows: [{ path: 'src/a.js', mi: 95 }],
-      subjects: [
-        'chore(baselines): baseline-refresh: regenerate MI full-scope',
+      commits: [
+        {
+          sha: 'r1',
+          subject:
+            'chore(baselines): baseline-refresh: regenerate MI full-scope',
+          rows: [{ path: 'src/a.js', mi: 50 }],
+        },
       ],
     });
     const res = await runCheckBaselines({ argv: ['--no-friction'], cwd: root });
@@ -222,7 +254,7 @@ describe('check-baselines — maintainability refresh acknowledgment (#4731)', (
     );
     installGitStub({
       baseRows: [{ path: 'src/a.js', mi: 95 }],
-      subjects: ['fix(gate): no tag'],
+      commits: [{ sha: 'c1', subject: 'fix(gate): no tag' }],
     });
     const res = await runCheckBaselines({
       argv: ['--no-friction'],

@@ -18,7 +18,7 @@ import {
   __resetForTests,
   __setSpawnRunner,
   readBaseFromGit,
-  readRangeSubjectsTouchingFile,
+  readRangeCommitsTouchingFile,
 } from '../../.agents/scripts/lib/baselines/git-base.js';
 
 /** The explicit stdout ceiling both git reads must pass (Story #4914). */
@@ -199,7 +199,7 @@ describe('readBaseFromGit', () => {
   });
 });
 
-describe('readRangeSubjectsTouchingFile (Story #4914)', () => {
+describe('readRangeCommitsTouchingFile (Story #4914, #5179)', () => {
   afterEach(() => {
     __resetForTests();
   });
@@ -211,15 +211,71 @@ describe('readRangeSubjectsTouchingFile (Story #4914)', () => {
     __setSpawnRunner({
       spawn: (_cmd, _args, opts) => {
         lastOpts = opts;
-        return { status: 0, stdout: 'chore: seed\n', stderr: '' };
+        return { status: 0, stdout: 'abc123\u0000chore: seed\n', stderr: '' };
       },
     });
-    const subjects = readRangeSubjectsTouchingFile(
+    const commits = readRangeCommitsTouchingFile(
       'main',
       'baselines/maintainability.json',
     );
-    assert.deepEqual(subjects, ['chore: seed']);
+    assert.deepEqual(commits, [{ sha: 'abc123', subject: 'chore: seed' }]);
     assert.equal(lastOpts.maxBuffer, 67108864);
+  });
+
+  // Story #5179 — the SHA is the whole point of this read: without a commit
+  // handle the acknowledgment cannot ask what the refresh actually rewrote.
+  it('asks git for SHA and subject, NUL-separated', () => {
+    let lastArgs = null;
+    __setSpawnRunner({
+      spawn: (_cmd, args) => {
+        lastArgs = args;
+        return { status: 0, stdout: '', stderr: '' };
+      },
+    });
+    readRangeCommitsTouchingFile('main', 'baselines/coverage.json');
+    assert.deepEqual(lastArgs, [
+      'log',
+      'main..HEAD',
+      '--format=%H%x00%s',
+      '--',
+      'baselines/coverage.json',
+    ]);
+  });
+
+  it('parses multiple commits newest-first and keeps subjects intact', () => {
+    __setSpawnRunner({
+      spawn: () => ({
+        status: 0,
+        stdout:
+          'sha2\u0000chore(baselines): baseline-refresh: re-anchor\n' +
+          'sha1\u0000feat: something with -- dashes\n',
+        stderr: '',
+      }),
+    });
+    assert.deepEqual(
+      readRangeCommitsTouchingFile('main', 'baselines/maintainability.json'),
+      [
+        {
+          sha: 'sha2',
+          subject: 'chore(baselines): baseline-refresh: re-anchor',
+        },
+        { sha: 'sha1', subject: 'feat: something with -- dashes' },
+      ],
+    );
+  });
+
+  it('skips malformed lines carrying no NUL separator', () => {
+    __setSpawnRunner({
+      spawn: () => ({
+        status: 0,
+        stdout: 'garbage-without-separator\nsha1\u0000chore: real\n',
+        stderr: '',
+      }),
+    });
+    assert.deepEqual(
+      readRangeCommitsTouchingFile('main', 'baselines/maintainability.json'),
+      [{ sha: 'sha1', subject: 'chore: real' }],
+    );
   });
 
   // AC-8 — the tolerant contract is deliberate and unchanged: this path
@@ -230,7 +286,7 @@ describe('readRangeSubjectsTouchingFile (Story #4914)', () => {
       spawn: () => ({ status: 128, stdout: '', stderr: 'fatal: bad revision' }),
     });
     assert.deepEqual(
-      readRangeSubjectsTouchingFile('nope', 'baselines/maintainability.json'),
+      readRangeCommitsTouchingFile('nope', 'baselines/maintainability.json'),
       [],
     );
   });
@@ -242,7 +298,7 @@ describe('readRangeSubjectsTouchingFile (Story #4914)', () => {
       },
     });
     assert.deepEqual(
-      readRangeSubjectsTouchingFile('main', 'baselines/maintainability.json'),
+      readRangeCommitsTouchingFile('main', 'baselines/maintainability.json'),
       [],
     );
   });

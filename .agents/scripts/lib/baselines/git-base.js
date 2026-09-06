@@ -145,6 +145,32 @@ function cleanGitEnv() {
   );
 }
 
+/** Both reads reject the same way on a missing or non-string argument. */
+function isNonEmptyString(value) {
+  return typeof value === 'string' && value.length > 0;
+}
+
+/** Both reads coerce a missing stdout to the empty string rather than throwing. */
+function stdoutOf(result) {
+  return typeof result?.stdout === 'string' ? result.stdout : '';
+}
+
+/**
+ * Run a git subprocess through the shared child surface. Both reads below need
+ * the identical shape — injected runner, resolved cwd, `GIT_*`-scrubbed env,
+ * argv tokens rather than a shell string — so it lives here once.
+ *
+ * @param {string[]} args
+ * @param {{ cwd?: string }} opts
+ */
+function runGit(args, opts) {
+  return spawnChild('git', args, {
+    run: _spawnRunner,
+    cwd: opts.cwd ?? process.cwd(),
+    env: cleanGitEnv(),
+  });
+}
+
 /**
  * Read `<file>` at the given git ref. Returns the file contents as a
  * UTF-8 string when the path exists, or `null` when git reports the
@@ -161,10 +187,10 @@ function cleanGitEnv() {
  * @returns {string | null}
  */
 export function readBaseFromGit(ref, file, opts = {}) {
-  if (typeof ref !== 'string' || ref.length === 0) {
+  if (!isNonEmptyString(ref)) {
     throw new TypeError('readBaseFromGit: ref must be a non-empty string');
   }
-  if (typeof file !== 'string' || file.length === 0) {
+  if (!isNonEmptyString(file)) {
     throw new TypeError('readBaseFromGit: file must be a non-empty string');
   }
 
@@ -176,19 +202,14 @@ export function readBaseFromGit(ref, file, opts = {}) {
     return cached;
   }
 
-  const cwd = opts.cwd ?? process.cwd();
   const spec = `${ref}:${file}`;
-  const result = spawnChild('git', ['show', spec], {
-    run: _spawnRunner,
-    cwd,
-    env: cleanGitEnv(),
-  });
+  const result = runGit(['show', spec], opts);
 
   // `child_process.spawnSync` returns `status: null` when the child died
   // by signal. Treat that as a hard failure rather than "no file".
   const status = result.status;
   if (status === 0) {
-    const out = typeof result.stdout === 'string' ? result.stdout : '';
+    const out = stdoutOf(result);
     touch(key, out);
     return out;
   }
@@ -212,53 +233,68 @@ export function readBaseFromGit(ref, file, opts = {}) {
 }
 
 /**
- * Read the commit subjects, within the range `<baseRef>..HEAD`, of commits
- * that touched `<file>` (Story #4731). Powers the maintainability
+ * Read the commits, within the range `<baseRef>..HEAD`, that touched `<file>`
+ * (Story #4731; widened to carry SHAs by Story #5179). Powers the baseline
  * refresh-acknowledgment trigger: a `baseline-refresh:`-tagged commit in the
- * compared range that touches the maintainability baseline demotes that run's
+ * compared range that touches a kind's baseline acknowledges that run's
  * head-vs-base regressions.
  *
- * Restricting the log to `-- <file>` means the returned subjects already
- * satisfy the "commit whose diff touches the baseline file" half of the
- * predicate; the caller only has to match the tag substring against each
- * subject. Runs through the same shared `spawnChild` surface and injected
- * runner as `readBaseFromGit`, so it inherits the identical env scrubbing
- * (drop inherited `GIT_*`), the same stdout ceiling, and the spawn-not-exec
- * security posture (argv tokens, `shell: false`).
+ * Story #5179 — this returned SUBJECTS ONLY, and that omission was load-bearing
+ * in the wrong direction. With no commit handle, the acknowledgment could not
+ * ask what the tagged commit actually rewrote, so it could only be a whole-run
+ * blanket: every regression in the range demoted, including rows that commit
+ * never touched and drift that landed after it. Carrying `sha` alongside
+ * `subject` is what lets the caller read the baseline blob AT the refresh
+ * commit and scope the acknowledgment to it.
  *
- * Returns an empty array whenever the range cannot be walked (missing base
- * ref, git failure, empty range) — the acknowledgment path treats "no
- * matching commit" and "could not determine" identically: the ratchet stays
- * at full strength. Not cached: the range result depends on live HEAD, which
- * the `(ref, file)` LRU key does not capture.
+ * Restricting the log to `-- <file>` means the returned commits already satisfy
+ * the "commit whose diff touches the baseline file" half of the predicate; the
+ * caller only has to match the tag substring against each subject. Runs through
+ * the same shared `spawnChild` surface and injected runner as
+ * `readBaseFromGit`, so it inherits the identical env scrubbing (drop inherited
+ * `GIT_*`), the same stdout ceiling, and the spawn-not-exec security posture
+ * (argv tokens, `shell: false`).
+ *
+ * A NUL separator between the two fields is what makes this parse safely: a
+ * commit subject may contain anything except a newline, so any printable
+ * delimiter could appear inside one, but neither field may contain NUL.
+ *
+ * Returns an empty array whenever the range cannot be walked (missing base ref,
+ * git failure, empty range) — the acknowledgment path treats "no matching
+ * commit" and "could not determine" identically: the ratchet stays at full
+ * strength. Not cached: the range result depends on live HEAD, which the
+ * `(ref, file)` LRU key does not capture.
  *
  * @param {string} baseRef - Range base (e.g. `main`, `origin/main`, a SHA).
  * @param {string} file    - Repo-relative path to the baseline file.
  * @param {{ cwd?: string }} [opts]
- * @returns {string[]} commit subjects, newest first; `[]` on any failure.
+ * @returns {{ sha: string, subject: string }[]} newest first; `[]` on any failure.
  */
-export function readRangeSubjectsTouchingFile(baseRef, file, opts = {}) {
-  if (typeof baseRef !== 'string' || baseRef.length === 0) return [];
-  if (typeof file !== 'string' || file.length === 0) return [];
+export function readRangeCommitsTouchingFile(baseRef, file, opts = {}) {
+  if (!isNonEmptyString(baseRef) || !isNonEmptyString(file)) return [];
 
-  const cwd = opts.cwd ?? process.cwd();
   let result;
   try {
-    result = spawnChild(
-      'git',
-      ['log', `${baseRef}..HEAD`, '--format=%s', '--', file],
-      { run: _spawnRunner, cwd, env: cleanGitEnv() },
+    result = runGit(
+      ['log', `${baseRef}..HEAD`, '--format=%H%x00%s', '--', file],
+      opts,
     );
   } catch {
     return [];
   }
 
-  if (!result || result.status !== 0) return [];
-  const out = typeof result.stdout === 'string' ? result.stdout : '';
-  return out
+  if (result?.status !== 0) return [];
+  return stdoutOf(result)
     .split('\n')
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0);
+    .map((line) => {
+      const sep = line.indexOf('\u0000');
+      if (sep === -1) return null;
+      return {
+        sha: line.slice(0, sep).trim(),
+        subject: line.slice(sep + 1).trim(),
+      };
+    })
+    .filter((commit) => commit !== null && commit.sha.length > 0);
 }
 
 /**

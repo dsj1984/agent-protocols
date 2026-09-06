@@ -1,12 +1,12 @@
 {
   "$schema": ".agents/schemas/baselines/coverage.schema.json",
   "kernelVersion": "1.0.0",
-  "generatedAt": "2026-09-06T17:04:53.709Z",
+  "generatedAt": "2026-09-06T17:59:26.314Z",
   "rollup": {
     "*": {
-      "lines": 96.04,
-      "branches": 86.98,
-      "functions": 88.3
+      "lines": 96.05,
+      "branches": 86.96,
+      "functions": 88.32
     }
   },
   "rows": [
@@ -522,8 +522,8 @@
     },
     {
       "path": ".agents/scripts/lib/baselines/git-base.js",
-      "lines": 97.79,
-      "branches": 84.21,
+      "lines": 98.05,
+      "branches": 90.24,
       "functions": 100
     },
     {
@@ -1656,8 +1656,8 @@
     },
     {
       "path": ".agents/scripts/lib/orchestration/check-baselines/phases/evaluate.js",
-      "lines": 97.45,
-      "branches": 70.59,
+      "lines": 96.13,
+      "branches": 67.57,
       "functions": 100
     },
     {
@@ -1685,8 +1685,14 @@
       "functions": 100
     },
     {
+      "path": ".agents/scripts/lib/orchestration/check-baselines/phases/refresh-ack.js",
+      "lines": 97.81,
+      "branches": 73.61,
+      "functions": 100
+    },
+    {
       "path": ".agents/scripts/lib/orchestration/check-baselines/phases/report.js",
-      "lines": 96.88,
+      "lines": 97.1,
       "branches": 82.14,
       "functions": 100
     },
