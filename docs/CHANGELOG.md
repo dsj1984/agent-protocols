@@ -15,6 +15,22 @@ All notable changes to this project will be documented in this file.
 -->
 <!-- markdownlint-disable-file MD004 MD012 MD037 -->
 
+## [2.40.0](https://github.com/dsj1984/mandrel/compare/mandrel-v2.39.0...mandrel-v2.40.0) (2026-09-06)
+
+
+### Added
+
+* audit-to-stories --auto: persist the cross-run ledger via a `--ledger-commit` PR and ship the audit-sweep runbook template ([#5145](https://github.com/dsj1984/mandrel/issues/5145)) ([#5151](https://github.com/dsj1984/mandrel/issues/5151)) ([7274e6a](https://github.com/dsj1984/mandrel/commit/7274e6abe1bbf4fca6e1ed09abc8b4ebc9598d89))
+* audit-to-stories: parse `####` findings under grouping headers and fail closed on a missing or mismatched `Severity tally:` line ([#5144](https://github.com/dsj1984/mandrel/issues/5144)) ([#5149](https://github.com/dsj1984/mandrel/issues/5149)) ([d9d8275](https://github.com/dsj1984/mandrel/commit/d9d827584989406e85d3e22110e6b741dab837e9))
+* container Epic: /mandrel-plan offers one above 2 Stories, /mandrel-deliver expands an Epic id, /audit-to-stories requests one by default ([#5139](https://github.com/dsj1984/mandrel/issues/5139)) ([#5147](https://github.com/dsj1984/mandrel/issues/5147)) ([60dd912](https://github.com/dsj1984/mandrel/commit/60dd912f9d00dbf2fb7c17f8c98639b4008b5892))
+
+
+### Fixed
+
+* audit-to-stories --wire-edges: carry the live provider's write ports through the dedup adapter ([#5143](https://github.com/dsj1984/mandrel/issues/5143)) ([#5146](https://github.com/dsj1984/mandrel/issues/5146)) ([380577e](https://github.com/dsj1984/mandrel/commit/380577e5e8f215bf28bb15ef8f2ac03c5958f0b8))
+* **tests:** assert the report path separator-agnostically for Windows ([#5153](https://github.com/dsj1984/mandrel/issues/5153)) ([afe7fda](https://github.com/dsj1984/mandrel/commit/afe7fda7aa257bfb5e0745160363189ed84c2ad1))
+* **tests:** import the provider fixture as a file URL for Windows ([#5150](https://github.com/dsj1984/mandrel/issues/5150)) ([797af46](https://github.com/dsj1984/mandrel/commit/797af46269e22e878fbd13293e5e5df6a044a1d3))
+
 ## [2.39.0](https://github.com/dsj1984/mandrel/compare/mandrel-v2.38.0...mandrel-v2.39.0) (2026-09-05)
 
 
