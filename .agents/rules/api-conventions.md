@@ -1,12 +1,11 @@
 # API & Endpoint Conventions
 
-Rules for REST and GraphQL API surfaces in any project that consumes this
-framework. This rule is the **single source of truth** for the response
-envelope, validation-status taxonomy, HTTP status-code conventions, and
-payload-naming conventions. The companion skill
-[`core/api-and-interface-design`](../skills/core/api-and-interface-design/SKILL.md)
-covers process — when to design first, how to validate at boundaries, how to
-extend without breaking — and links back here for the canonical wording.
+This rule applies when designing, changing, or reviewing a REST or GraphQL API
+surface in any project that consumes this framework. It is the **single source
+of truth** for the response envelope, validation-status taxonomy, HTTP
+status-code conventions, payload-naming conventions, list pagination, and the
+pre-PR authoring checklist. Copy the canonical shapes from here rather than
+redrafting a divergent one.
 
 ## Payload Formatting
 
@@ -73,3 +72,40 @@ attached via `error.details`.
 Authorization failures (401, 403) take precedence over validation: if the
 caller is not allowed to invoke the endpoint at all, return the auth status
 without running validation.
+
+## Pagination
+
+Every list endpoint MUST be paginated. Use `page` + `pageSize` query
+parameters and return a `pagination` envelope alongside the collection — do
+not invent a per-endpoint cursor shape when the offset shape suffices:
+
+```json
+{
+  "items": [],
+  "pagination": {
+    "page": 1,
+    "pageSize": 20,
+    "totalItems": 137,
+    "totalPages": 7
+  }
+}
+```
+
+`page` is 1-based. A `pageSize` above the endpoint's documented maximum MUST
+be clamped or rejected as `VALIDATION_ERROR` — never honoured unbounded.
+
+## Authoring Checklist
+
+Before opening a PR that adds or edits an API surface:
+
+- [ ] Every endpoint has typed input and output schemas.
+- [ ] Error responses follow the envelope in
+      [§ Response Envelope](#response-envelope).
+- [ ] Status codes match [§ HTTP Status Codes](#http-status-codes), and
+      validation failures return the canonical **400** `VALIDATION_ERROR`.
+- [ ] List endpoints support pagination per [§ Pagination](#pagination).
+- [ ] New fields are additive and optional (backward compatible). When a
+      removal is unavoidable, use expand–contract: ship the replacement,
+      migrate consumers, then delete the old surface in a later release.
+- [ ] Naming follows [§ Payload Formatting](#payload-formatting).
+- [ ] API documentation or types are committed alongside the implementation.

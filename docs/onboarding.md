@@ -73,9 +73,9 @@ mandrel/
    and points at a `reference.md` sibling for the long-form material — read the
    sibling only when the task needs that depth. The `.agents/rules/` set is
    likewise split into an always-on core (`security-baseline.md`,
-   `git-conventions.md`) and an on-demand set (`shell-conventions.md`,
-   `testing-standards.md`, `orchestration-error-handling.md`, and the domain
-   rules) read only when the task engages them. See
+   `git-conventions.md`) and an on-demand set (`testing-standards.md`,
+   `api-conventions.md`, and the domain rules) read only when the task
+   engages them. See
    [`.agents/README.md` § What to always-load vs read on-demand](../.agents/README.md)
    and [`.agents/instructions.md` § 1.F](../.agents/instructions.md) for the
    full split. There is no `.agents/personas/` pack and no `persona::*` label

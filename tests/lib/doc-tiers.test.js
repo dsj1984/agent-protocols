@@ -148,7 +148,7 @@ test('resolveDocTiers partitions the four tiers with highest-tier-wins dedup', (
     '.agents/rules/security-baseline.md': 'always-on rule A\n',
     '.agents/rules/git-conventions.md': 'always-on rule B\n',
     '.agents/rules/testing-standards.md': 'on-demand rule\n',
-    '.agents/rules/shell-conventions.md': 'on-demand rule 2\n',
+    '.agents/rules/api-conventions.md': 'on-demand rule 2\n',
     'docs/architecture.md': 'context doc\n',
     'docs/style-guide.md': 'conditional doc\n',
   });
@@ -177,10 +177,7 @@ test('resolveDocTiers partitions the four tiers with highest-tier-wins dedup', (
   // The always-on rules stay in alwaysLoaded, NOT onDemand.
   assert.deepEqual(
     tiers.onDemand.map((e) => e.path),
-    [
-      '.agents/rules/shell-conventions.md',
-      '.agents/rules/testing-standards.md',
-    ],
+    ['.agents/rules/api-conventions.md', '.agents/rules/testing-standards.md'],
   );
   // Every entry carries { path, bytes }.
   for (const tier of Object.values(tiers)) {

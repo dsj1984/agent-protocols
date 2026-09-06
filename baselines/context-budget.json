@@ -1,10 +1,10 @@
 {
   "$schema": "https://mandrel.dev/baselines/context-budget.schema.json",
-  "generatedAt": "2026-09-06T11:48:45.901Z",
+  "generatedAt": "2026-09-06T12:22:23.481Z",
   "toleranceBytes": 2048,
   "tiers": {
     "alwaysLoaded": {
-      "totalBytes": 21495,
+      "totalBytes": 21503,
       "files": [
         {
           "path": ".agentrc.json",
@@ -12,11 +12,11 @@
         },
         {
           "path": ".agents/instructions.md",
-          "bytes": 8926
+          "bytes": 8896
         },
         {
           "path": ".agents/rules/git-conventions.md",
-          "bytes": 3226
+          "bytes": 3264
         },
         {
           "path": ".agents/rules/security-baseline.md",
@@ -54,7 +54,7 @@
       ]
     },
     "workflow": {
-      "totalBytes": 278488,
+      "totalBytes": 278656,
       "files": [
         {
           "path": ".agents/workflows/audit-accessibility.md",
@@ -130,11 +130,11 @@
         },
         {
           "path": ".agents/workflows/git-cleanup.md",
-          "bytes": 4103
+          "bytes": 4187
         },
         {
           "path": ".agents/workflows/git-deliver.md",
-          "bytes": 7680
+          "bytes": 7764
         },
         {
           "path": ".agents/workflows/helpers/deliver-digest.md",
@@ -205,7 +205,7 @@
     ]
   },
   "workflowClosure": {
-    "reachableTotalBytes": 484123,
+    "reachableTotalBytes": 484291,
     "entryPoints": [
       {
         "path": ".agents/workflows/audit-accessibility.md",
@@ -299,13 +299,13 @@
       },
       {
         "path": ".agents/workflows/git-cleanup.md",
-        "mandatoryBytes": 4103,
-        "reachableBytes": 4103
+        "mandatoryBytes": 4187,
+        "reachableBytes": 4187
       },
       {
         "path": ".agents/workflows/git-deliver.md",
-        "mandatoryBytes": 7680,
-        "reachableBytes": 263712
+        "mandatoryBytes": 7764,
+        "reachableBytes": 263796
       },
       {
         "path": ".agents/workflows/helpers/deliver-story.md",

@@ -13,11 +13,12 @@ on-demand
 ## Canonical Branching (v2)
 
 Every Story lands on a dedicated **Story branch** named
-`story-<storyId>`, seeded from `project.baseBranch` (`main` by default).
-The runtime owns branch creation via `single-story-init.js`; agents
-commit on that branch only. Close opens a PR against `main` (squash +
-required checks). No `epic/<id>` integration branch, no `--no-ff` wave
-merge, no child tickets: commits land on `story-<storyId>` directly, the
+`story-<storyId>`, seeded from `project.baseBranch` (`main` by default),
+isolated in its own worktree at `.worktrees/story-<id>/`. The runtime
+owns both via `single-story-init.js`; agents commit there only. Close
+opens a PR against `main` (squash + required checks). No `epic/<id>`
+integration branch, no `--no-ff` wave merge, no child tickets: commits
+land on `story-<storyId>` directly, the
 subject referencing the Story via `(refs #<storyId>)` — see
 [`.agents/instructions.md` § 5.B](../instructions.md).
 

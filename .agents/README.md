@@ -341,8 +341,8 @@ what keeps that footer refused. The execution-model contract is owned by
 | [`starter-agentrc.json`](starter-agentrc.json) | Bootstrap delta-seed copied to the consumer repo root as `.agentrc.json`. |
 | [`agentrc-reference.json`](docs/agentrc-reference.json) | Exhaustive editor reference enumerating every schema key with its framework default. |
 | [`agents/`](agents/) | Optional role-scoped spawn boot contexts (`delivery.routing.roleScopedAgents`). |
-| [`rules/`](rules/) | Domain-agnostic coding, security, testing, shell, git, and workflow rules. |
-| [`skills/core/`](skills/core/) | Universal process skills such as debugging, TDD, security, documentation, and code review. |
+| [`rules/`](rules/) | Domain-agnostic coding, security, testing, git, and workflow rules. |
+| [`skills/core/`](skills/core/) | Universal process skills such as scope triage, security, documentation, and code review. |
 | [`skills/stack/`](skills/stack/) | Stack-specific guardrails for frameworks, services, and testing tools. |
 | [`workflows/`](workflows/) | Workflow definitions. Top-level files are projected into the flat `.claude/commands/` tree and invoked as `/<name>`. |
 | [`workflows/helpers/`](workflows/helpers/) | Workflow fragments read by parent workflows; not exposed as commands. |

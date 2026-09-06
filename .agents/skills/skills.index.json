@@ -1,17 +1,7 @@
 {
-  "generatedAt": "2026-08-06T10:26:18.702Z",
+  "generatedAt": "2026-09-06T12:17:12.738Z",
   "generator": "generate-skills-index.js@1",
   "skills": [
-    {
-      "name": "api-and-interface-design",
-      "tier": "core",
-      "category": "core",
-      "path": ".agents/skills/core/api-and-interface-design/SKILL.md",
-      "description": "Designs stable, well-documented APIs and module interfaces. Use when creating REST/GraphQL endpoints, defining contracts between modules, or changing public interfaces. The wire-format SSOT — response envelope, HTTP status codes, validation taxonomy, payload naming — lives in `.agents/rules/api-conventions.md`; this skill shows authors how to apply it.",
-      "policyCapsuleBullets": 9,
-      "allowedTools": null,
-      "vendor": null
-    },
     {
       "name": "browser-testing-with-devtools",
       "tier": "core",
@@ -33,16 +23,6 @@
       "vendor": null
     },
     {
-      "name": "debugging-and-error-recovery",
-      "tier": "core",
-      "category": "core",
-      "path": ".agents/skills/core/debugging-and-error-recovery/SKILL.md",
-      "description": "Guides systematic root-cause debugging. Use when tests fail, builds break, behavior doesn't match expectations, or you encounter any unexpected error. Use when you need a systematic approach to finding and fixing the root cause rather than guessing.",
-      "policyCapsuleBullets": 9,
-      "allowedTools": null,
-      "vendor": null
-    },
-    {
       "name": "documentation-and-adrs",
       "tier": "core",
       "category": "core",
@@ -60,16 +40,6 @@
       "description": "Governs quality gates and the unified-baseline snapshots. Use when authoring a baseline refresh commit (CRAP, maintainability, dead-exports, lighthouse), when setting up or modifying CI quality gates, or when introducing a new gate that asserts on pre-existing state without turning the integration branch red.",
       "policyCapsuleBullets": 9,
       "allowedTools": ["Read", "Write", "Bash"],
-      "vendor": null
-    },
-    {
-      "name": "git-workflow-and-versioning",
-      "tier": "core",
-      "category": "core",
-      "path": ".agents/skills/core/git-workflow-and-versioning/SKILL.md",
-      "description": "Structures git workflow practices. Use when making any code change. Use when committing, branching, resolving conflicts, or when you need to organize work across multiple parallel streams.",
-      "policyCapsuleBullets": 6,
-      "allowedTools": null,
       "vendor": null
     },
     {
@@ -161,16 +131,6 @@
       "policyCapsuleBullets": 7,
       "allowedTools": null,
       "vendor": null
-    },
-    {
-      "name": "vitest",
-      "tier": "stack",
-      "category": "qa",
-      "path": ".agents/skills/stack/qa/vitest/SKILL.md",
-      "description": "Writes fast, isolated unit and integration tests with Vitest. Use when each test must run on file-save without shared state — `vi.mock()` for external deps, `vi.spyOn()` for call monitoring, AAA structure, and edge-case coverage for null/undefined/boundary inputs.",
-      "policyCapsuleBullets": 8,
-      "allowedTools": null,
-      "vendor": "vitest"
     }
   ]
 }
