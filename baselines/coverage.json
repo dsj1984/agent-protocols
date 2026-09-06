@@ -1,7 +1,7 @@
 {
   "$schema": ".agents/schemas/baselines/coverage.schema.json",
   "kernelVersion": "1.0.0",
-  "generatedAt": "2026-09-06T17:01:22.221Z",
+  "generatedAt": "2026-09-06T17:04:53.709Z",
   "rollup": {
     "*": {
       "lines": 96.04,
@@ -912,8 +912,8 @@
     },
     {
       "path": ".agents/scripts/lib/close-validation/runner.js",
-      "lines": 81.25,
-      "branches": 50.85,
+      "lines": 81.41,
+      "branches": 51.72,
       "functions": 72.73
     },
     {
