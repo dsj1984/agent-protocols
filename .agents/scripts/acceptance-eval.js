@@ -57,8 +57,9 @@
  *   --no-signal               Suppress the signal emit (tests).
  *
  * Stdout: a single JSON envelope
- *   { storyId, epicId, decision, round, cap, capReached, totalCriteria,
- *     metCount, unmetCriteria[], signalEmitted, replay, verdictFingerprint }
+ *   { storyId, epicId, fullSuiteVerifyCommands[], decision, round, cap,
+ *     capReached, totalCriteria, metCount, unmetCriteria[], signalEmitted,
+ *     replay, verdictFingerprint }
  *   (`epicId` is retained as a always-null field for envelope stability.)
  *
  * Reading is free (Story #4874): re-invoking the gate over a verdict the
@@ -88,6 +89,10 @@ import {
   decideAcceptanceEval,
   resolveAcceptanceEvalRound,
 } from './lib/orchestration/acceptance-eval-decision.js';
+import {
+  FULL_SUITE_SHAPE_WARNING,
+  isFullSuiteCommand,
+} from './lib/orchestration/verify-credit.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -226,6 +231,35 @@ export function assertCriteriaCoverage(verdict, expectedCriteria) {
 }
 
 /**
+ * Collect the distinct `verify[]` commands a verdict recorded that are
+ * themselves full-suite runs (Story #5174).
+ *
+ * The intended `verify[]` shape is scoped entries **plus** the one credited
+ * full-suite run the worker makes before the hand-off push. A full-suite
+ * command sitting in `verify[]` is the misshapen case: it either re-pays for
+ * the credited run or, worse, gets skipped as "already covered" without
+ * anyone saying so. The gate is where every round's evidence passes through,
+ * so it is where the shape is called out.
+ *
+ * Exported for tests.
+ *
+ * @param {object} verdict — schema-validated verdict.
+ * @returns {string[]} distinct offending commands, in first-seen order.
+ */
+export function collectFullSuiteVerifyCommands(verdict) {
+  const seen = new Set();
+  for (const criterion of verdict?.criteria ?? []) {
+    for (const evidence of criterion?.verifyEvidence ?? []) {
+      const command = evidence?.command;
+      if (typeof command === 'string' && isFullSuiteCommand(command)) {
+        seen.add(command.trim());
+      }
+    }
+  }
+  return [...seen];
+}
+
+/**
  * Compose the operator-facing envelope and emit the per-criterion signal.
  *
  * Exported for tests so the decision + signal path can be exercised
@@ -304,9 +338,12 @@ export async function runAcceptanceEval(
     }
   }
 
+  const fullSuiteVerifyCommands = collectFullSuiteVerifyCommands(verdict);
+
   const envelope = {
     storyId: storyId ?? null,
     epicId: null,
+    fullSuiteVerifyCommands,
     decision: outcome.decision,
     round: outcome.round,
     cap: outcome.cap,
@@ -349,7 +386,7 @@ export async function runAcceptanceEval(
  *   resolveConfigImpl?: typeof resolveConfig,
  *   validateVerdictImpl?: typeof validateVerdict,
  *   runAcceptanceEvalImpl?: typeof runAcceptanceEval,
- *   logger?: { info: Function },
+ *   logger?: { info: Function, warn?: Function },
  * }} [deps]
  * @returns {Promise<object>} the emitted envelope.
  */
@@ -411,6 +448,17 @@ export async function runAcceptanceEvalCli(
   if (Number.isInteger(verdict.storyId) && verdict.storyId !== storyId) {
     throw new Error(
       `acceptance-eval: verdict storyId (${verdict.storyId}) does not match --story ${storyId}.`,
+    );
+  }
+
+  // Story #5174 — the shape warning is derived from the VALIDATED verdict, not
+  // from the envelope, so it fires for the real decision path and for every
+  // caller that injects its own scorer.
+  const fullSuiteVerify = collectFullSuiteVerifyCommands(verdict);
+  if (fullSuiteVerify.length > 0) {
+    logger.warn?.(
+      `acceptance-eval: verify[] carries full-suite command(s) ${fullSuiteVerify.join(', ')}. ` +
+        FULL_SUITE_SHAPE_WARNING,
     );
   }
 

@@ -90,14 +90,25 @@ Do **not** re-read every file in `project.docsContextFiles`. Read the
 at the line numbers it names. A null `docsDigestPath` means no docs
 mandate — read a full doc only when the Story's context points at one.
 
-## Close gates — do not pre-run
+## Close gates — one credited run, no ad-hoc stamping
 
 `single-story-close.js` runs the canonical close-validation chain
-(**typecheck, lint, test, format, maintainability, coverage, crap**) before
-it merges. Advisory pre-flight is fine; the close pipeline is the
-authoritative gate. The acceptance self-eval loop may share `lint` /
-`typecheck` evidence with close via `evidence-gate.js`; never stamp
-coverage / CRAP fresh that way.
+(**typecheck, lint, test, format, maintainability, coverage, crap**) and is
+the authoritative gate — do not pre-run the chain. The **one** exception is
+the full suite: run it exactly once, after the self-eval loop's last fix
+commit and immediately before the push, in the shape close credits. A bare
+`npm test` / `pnpm run test` deposits **no** credit:
+
+```bash
+# CRAP gate on (default) + a `test:coverage` script:
+node <main-repo>/.agents/scripts/coverage-capture.js --cwd <workCwd>
+# otherwise — <workCwd> ABSOLUTE, runner exactly `npm test`:
+node <main-repo>/.agents/scripts/evidence-gate.js --standalone \
+  --scope-id <storyId> --gate test --worktree <workCwd> -- npm test
+```
+
+Sharing `lint` / `typecheck` evidence with close via `evidence-gate.js` is
+fine; never stamp coverage / CRAP fresh any other way.
 
 Before trusting a gate's output — or diagnosing a red one — read
 [`known-tooling-behavior.md`](../rules/known-tooling-behavior.md): measured
@@ -138,14 +149,13 @@ You do **not** run close. Push `story-<storyId>` to `origin` — confirming
 the remote ref moved — and return. The dispatching orchestrator runs
 `single-story-close.js` in its own session, serialized against your
 siblings. Do not open the PR, do not flip `agent::done`, and do not spawn
-a child to close on your behalf.
+a child to close on your behalf. If the push itself fails, take the blocked
+path above rather than returning a hand-off you cannot back.
 
 ## Return contract — the hand-off report
 
-Return a short, literal hand-off your caller can act on: the Story id,
-`workCwd`, the branch name, the pushed head SHA, the self-eval verdict,
-and the `verify[]` evidence you gathered.
-Say plainly that the branch is pushed and unclosed. Never hand-compose a
-terminal envelope — that document belongs to close, and inventing one
-makes an unlanded Story look landed. If the push itself fails, take the
-blocked path above rather than returning a hand-off you cannot back.
+A short, literal hand-off your caller can act on: Story id, `workCwd`,
+branch, pushed head SHA, self-eval verdict, `verify[]` evidence. Say plainly
+that the branch is pushed and unclosed. Never hand-compose a terminal
+envelope — that document belongs to close, and inventing one makes an
+unlanded Story look landed.
