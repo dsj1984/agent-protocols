@@ -1,11 +1,11 @@
 {
   "$schema": ".agents/schemas/baselines/maintainability.schema.json",
   "kernelVersion": "0.1.0",
-  "generatedAt": "2026-09-05T23:41:50.320Z",
+  "generatedAt": "2026-09-06T00:50:40.190Z",
   "rollup": {
     "*": {
       "min": 76.381,
-      "p50": 98.797,
+      "p50": 98.829,
       "p95": 122.913
     }
   },
@@ -293,6 +293,10 @@
     {
       "path": ".agents/scripts/lib/audit-to-stories/group-findings.js",
       "mi": 93.387
+    },
+    {
+      "path": ".agents/scripts/lib/audit-to-stories/ledger-commit.js",
+      "mi": 105.686
     },
     {
       "path": ".agents/scripts/lib/audit-to-stories/ledger.js",

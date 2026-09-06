@@ -45,6 +45,10 @@ import {
   writeLedger,
 } from './lib/audit-to-stories/ledger.js';
 import {
+  resolveLedgerSummary,
+  runLedgerCommit,
+} from './lib/audit-to-stories/ledger-commit.js';
+import {
   parseAuditReports,
   parseSeverityTally,
 } from './lib/audit-to-stories/parse-audit-md.js';
@@ -828,15 +832,31 @@ async function resolveSeverityFloor(explicit) {
  * @param {boolean} [params.dryRun]
  * @param {boolean} [params.useProvider]
  * @param {string} [params.ledgerPath]
+ * @param {boolean} [params.ledgerCommit] — the operator asked for a ledger PR,
+ *   so an unpersistable checkout is not a warning: it is about to be fixed.
+ * @param {(cwd: string, ...args: string[]) => string} [params.git] — probe seam.
+ * @param {string} [params.cwd]
+ * @param {{ warn: Function }} [params.logger]
  * @returns {Promise<{ summary: object, stories: Array<object> }>}
  */
-async function runAuto({ glob, severity, dryRun, useProvider, ledgerPath }) {
+async function runAuto({
+  glob,
+  severity,
+  dryRun,
+  useProvider,
+  ledgerPath,
+  ledgerCommit,
+  git,
+  cwd,
+  logger = Logger,
+}) {
   const floor = await resolveSeverityFloor(severity);
+  const resolvedLedgerPath = ledgerPath ?? DEFAULT_LEDGER_PATH;
   const plan = await buildPlan({
     glob,
     severity: floor,
     useProvider,
-    ledger: { path: ledgerPath ?? DEFAULT_LEDGER_PATH, write: !dryRun },
+    ledger: { path: resolvedLedgerPath, write: !dryRun },
     // `--auto` never accepts `--allow-missing-tally`: an unattended sweep has
     // no operator to read a warning, so every report failure is fatal here.
     allowMissingTally: false,
@@ -878,7 +898,19 @@ async function runAuto({ glob, severity, dryRun, useProvider, ledgerPath }) {
       .flatMap((c) => c.matchedIssues ?? [])
       .map((i) => i.number)
       .filter((n) => typeof n === 'number'),
-    ledger: plan.summary?.ledger ?? null,
+    // The sweep may have just written memory this checkout cannot keep — an
+    // ephemeral scheduled clone is exactly where that bites (Story #5145).
+    // The whole decision lives in `resolveLedgerSummary` so this assembly
+    // stays branch-free.
+    ledger: await resolveLedgerSummary({
+      ledger: plan.summary?.ledger ?? null,
+      ledgerPath: resolvedLedgerPath,
+      dryRun,
+      ledgerCommit,
+      cwd,
+      git,
+      logger,
+    }),
   };
 
   return { summary, stories };
@@ -1098,6 +1130,7 @@ export async function runAuditToStories(
     wireEdgesImpl = wireEdges,
     parseIssueMapImpl = parseIssueMap,
     persistImpl = persist,
+    runLedgerCommitImpl = runLedgerCommit,
     stdout = process.stdout,
   } = deps;
   const { values } = parseArgs({
@@ -1113,6 +1146,7 @@ export async function runAuditToStories(
       glob: { type: 'string' },
       severity: { type: 'string' },
       ledger: { type: 'string' },
+      'ledger-commit': { type: 'boolean' },
       plan: { type: 'string' },
       out: { type: 'string' },
       'no-provider': { type: 'boolean' },
@@ -1132,8 +1166,17 @@ export async function runAuditToStories(
         dryRun: values['dry-run'],
         useProvider: !values['no-provider'],
         ledgerPath: values.ledger,
+        ledgerCommit: values['ledger-commit'],
       })
     ).summary;
+
+  // Deliberately AFTER the summary is persisted (see the subcommand table's
+  // `after` slot): a broken remote must not cost the operator the sweep's
+  // findings, so the PR attempt is the last thing the run does (Story #5145).
+  const commitLedger = async () => {
+    if (!values['ledger-commit'] || values['dry-run']) return;
+    await runLedgerCommitImpl({ ledgerPath: values.ledger });
+  };
 
   const scanPlan = () =>
     buildPlanImpl({
@@ -1171,9 +1214,10 @@ export async function runAuditToStories(
   // renders its sub-command's output; persisting it — and the stdout newline a
   // piped run needs — happens once, below. The chain restated that tail in
   // every arm, so each new sub-command paid for it twice: once in the branch
-  // and once in the complexity budget.
+  // and once in the complexity budget. The optional fourth slot is an
+  // after-persist tail for work that must not pre-empt the report.
   const subcommands = [
-    ['auto', async () => json(await runAutoSummary()), true],
+    ['auto', async () => json(await runAutoSummary()), true, commitLedger],
     ['scan', async () => json(await scanPlan()), true],
     ['emit-plan-seed', () => seedMarkdown(), false],
     ['emit-stories', () => emittedStories(), true],
@@ -1186,9 +1230,10 @@ export async function runAuditToStories(
       'Usage: node audit-to-stories.js (--scan | --emit-plan-seed | --emit-stories | --wire-edges) [options]',
     );
   }
-  const [, render, newlineOnStdout] = entry;
+  const [, render, newlineOnStdout, after] = entry;
   persistImpl(await render(), values.out);
   if (newlineOnStdout && !values.out) stdout.write('\n');
+  if (after) await after();
 }
 
 /**
@@ -1248,6 +1293,10 @@ runAsCli(import.meta.url, main, {
       ['--glob <pattern>', 'Override the audit-results glob.'],
       ['--severity <level>', 'Lowest severity to include (high|medium|low).'],
       ['--ledger <path>', 'Path to the dedup ledger.'],
+      [
+        '--ledger-commit',
+        'After the --auto summary prints, commit a changed ledger onto chore/audit-ledger-<date>, push it, and open a PR against the base branch (never auto-merged). Ignored under --dry-run.',
+      ],
       [
         '--plan <path>',
         'Read a previously emitted plan instead of re-scanning.',

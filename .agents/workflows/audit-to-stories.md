@@ -367,9 +367,19 @@ writing their `temp/audits/audit-*-results.md` reports, then (2) invokes the
 CLI's **`--auto` mode** over those results:
 
 ```bash
-node .agents/scripts/audit-to-stories.js --auto [--dry-run] \
+node .agents/scripts/audit-to-stories.js --auto [--dry-run] [--ledger-commit] \
   [--glob "temp/audits/audit-*-results.md"] [--severity <floor>]
 ```
+
+The routine shape is **lenses full-scope → dry-run → live with a ledger PR**:
+
+1. Run the `audit-*` lenses with no `--paths` and no change-set filter. A
+   sweep scoped to a change set re-reports the same recent files every cycle
+   and never reaches the untouched code where findings accumulate.
+2. `--auto --dry-run` for the first cycles — zero writes, summary only. Read
+   `totals.create` and raise the severity floor until it is a batch the team
+   would actually take on.
+3. `--auto --ledger-commit` once the tallies stop surprising you.
 
 `--auto` runs with **no interactive gates**: it resolves the severity floor
 from `delivery.auditToStories.severityFloor` (default `high`, overridable with
@@ -386,6 +396,30 @@ non-zero having opened no Issue and written no ledger. `--allow-missing-tally`
 is a `--scan` affordance that `--auto` ignores. A red sweep means the report is
 untrustworthy: re-run the lens. The host scheduler owns the cadence; this
 workflow owns the routing.
+
+### The ledger is consumer state — commit it
+
+`baselines/audit-ledger.json` is **committed consumer state, not scratch
+output**. A scheduled sweep normally runs on an ephemeral checkout, so unless
+the reconciled ledger is committed back it dies with the clone: every later
+sweep starts amnesiac, re-proposing findings already filed and re-surfacing
+findings a human already rejected.
+
+`--ledger-commit` closes that loop. After the summary prints — and only when
+the ledger changed — it creates `chore/audit-ledger-<YYYY-MM-DD>` from HEAD,
+commits **only** the ledger file, pushes it, and opens a PR against
+`project.baseBranch`. **Auto-merge is never requested**: a human glance at the
+`accepted-risk` / `regressed` flips before it lands is the point. A git or `gh`
+failure is fatal and names its step, but only after the summary is printed, so
+a broken remote never costs the operator the run's findings. `--dry-run` skips
+the tail. Without the flag, a changed ledger on a checkout that cannot persist
+it — no `origin`, or HEAD off the base branch — sets `ledger.unpersisted: true`
+in the summary and warns on stderr naming the file.
+
+The full sweep procedure — tally cross-check, the ledger PR, the
+enrich-before-deliver step and the label convention — ships as a
+consumer-copyable template at
+[`templates/docs/audit-sweep-runbook.md`](../templates/docs/audit-sweep-runbook.md).
 
 ## See also
 
