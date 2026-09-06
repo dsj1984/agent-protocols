@@ -3,15 +3,23 @@ import { describe, it } from 'node:test';
 
 import {
   assertCriteriaCoverage,
+  collectFullSuiteVerifyCommands,
   resolveExpectedCriteria,
   runAcceptanceEval,
   runAcceptanceEvalCli,
   validateVerdict,
 } from '../.agents/scripts/acceptance-eval.js';
+import { runCoverageCapture } from '../.agents/scripts/coverage-capture.js';
 import {
   computeVerdictFingerprint,
   resolveAcceptanceEvalRound,
 } from '../.agents/scripts/lib/orchestration/acceptance-eval-decision.js';
+import {
+  isFullSuiteCommand,
+  parseVerifyEntry,
+  planVerifyExecution,
+  resolveVerifyCredit,
+} from '../.agents/scripts/lib/orchestration/verify-credit.js';
 
 /**
  * Story #4780 — `main` scored CRAP 69.1: the gate's whole error table
@@ -490,5 +498,368 @@ describe('runAcceptanceEval — replay guard (Story #4874)', () => {
     assert.equal(envelope.round, 1);
     assert.equal(envelope.replay, false);
     assert.equal(appended.length, 1);
+  });
+});
+
+/**
+ * Story #5174 — the delivery already runs the full suite once. What it did not
+ * do was tell anyone, so a `verify[]` entry that names the same suite spawned
+ * it again and the close gate chain spawned it a third time. These cover the
+ * read side of the credit and the shape warning that keeps `verify[]` honest.
+ */
+describe('verify[] credit — the suite is paid for once (#5174)', () => {
+  const credited = (command, over = {}) =>
+    resolveVerifyCredit(
+      { command, storyId: 5174, worktree: '/abs/worktree', cwd: '/abs/repo' },
+      {
+        resolveConfigImpl: () => ({}),
+        getQualityImpl: () => ({
+          crap: {
+            enabled: true,
+            coveragePath: 'coverage/coverage-final.json',
+            targetDirs: ['.agents/scripts'],
+          },
+        }),
+        readPackageScriptsImpl: () => ({ 'test:coverage': 'node --test' }),
+        hasNpmScriptImpl: () => true,
+        isCoverageFreshImpl: () => ({ fresh: true, reason: 'fresh' }),
+        ...over,
+      },
+    );
+
+  it('classifies whole-suite runners and leaves scoped commands alone', () => {
+    // A false positive here is the dangerous direction: it would report a
+    // SCOPED command as already covered and never run it, which is how a gate
+    // stops gating. So anything carrying its own path argument is scoped.
+    for (const full of [
+      'npm test',
+      'npm run test',
+      'pnpm test',
+      'pnpm run test',
+      'yarn test',
+      'npm run test:coverage',
+      'node --test',
+    ]) {
+      assert.equal(
+        isFullSuiteCommand(full),
+        true,
+        `${full} is the whole suite`,
+      );
+    }
+    for (const scoped of [
+      'npm test -- tests/acceptance-eval.test.js',
+      'node --test tests/acceptance-eval.test.js',
+      'npm run lint',
+      'node .agents/scripts/check-context-budget.js',
+      '',
+    ]) {
+      assert.equal(isFullSuiteCommand(scoped), false, `${scoped} is scoped`);
+    }
+  });
+
+  it('strips the Story body tier tag before classifying', () => {
+    // verify[] lines are written `<command> (<tier>)`. Left attached, the tag
+    // makes every entry look like it carries an argument — i.e. scoped — and
+    // the credit would never fire on a real Story body.
+    assert.deepEqual(parseVerifyEntry('npm test (unit)'), {
+      command: 'npm test',
+      tier: 'unit',
+    });
+    assert.equal(
+      isFullSuiteCommand(parseVerifyEntry('npm test (unit)').command),
+      true,
+    );
+  });
+
+  it('reports a full-suite entry as credited against a fresh capture stamp', () => {
+    const verdict = credited('npm test');
+    assert.equal(verdict.fullSuite, true);
+    assert.equal(verdict.credited, true);
+    assert.equal(verdict.spawn, false);
+    assert.equal(verdict.mode, 'capture');
+    assert.equal(verdict.reason, 'capture-stamp-fresh');
+    assert.match(verdict.warning, /scoped entries plus the single credited/);
+  });
+
+  it('runs the command for real when the stamp is stale — credit never manufactures a pass', () => {
+    const verdict = credited('npm test', {
+      isCoverageFreshImpl: () => ({ fresh: false, reason: 'stale' }),
+    });
+    assert.equal(verdict.credited, false);
+    assert.equal(verdict.spawn, true);
+    assert.equal(verdict.reason, 'stale');
+  });
+
+  it('falls back to the evidence record when no capture stamp is configured', () => {
+    const seen = [];
+    const verdict = resolveVerifyCredit(
+      {
+        command: 'npm test',
+        storyId: 5174,
+        worktree: '/abs/wt',
+        cwd: '/abs/repo',
+      },
+      {
+        resolveConfigImpl: () => ({}),
+        getQualityImpl: () => ({ crap: { enabled: false } }),
+        readPackageScriptsImpl: () => ({}),
+        hasNpmScriptImpl: () => false,
+        hashCommandConfigImpl: (input) => {
+          seen.push(input);
+          return 'hash-1';
+        },
+        shouldSkipImpl: (input) => {
+          seen.push(input);
+          return { skip: true, reason: 'evidence-match' };
+        },
+        gitSpawnFn: () => ({ status: 0, stdout: 'abc1234\n' }),
+      },
+    );
+    assert.equal(verdict.mode, 'evidence');
+    assert.equal(verdict.credited, true);
+    assert.equal(verdict.spawn, false);
+    // Keyed on the WORKTREE tree, matching how the crediting invocation is
+    // documented — a main-checkout cwd would hash to a different config.
+    assert.equal(seen[0].cwd, '/abs/wt');
+    assert.equal(seen[1].currentSha, 'abc1234');
+    assert.equal(seen[1].gateName, 'test');
+  });
+
+  it('plans a whole verify[] array in one pass', () => {
+    const plan = planVerifyExecution(
+      ['npm run lint (validate)', 'npm test (unit)'],
+      { storyId: 5174, worktree: '/abs/wt', cwd: '/abs/repo' },
+      {
+        resolveConfigImpl: () => ({}),
+        getQualityImpl: () => ({
+          crap: { enabled: true, coveragePath: 'c.json', targetDirs: ['x'] },
+        }),
+        readPackageScriptsImpl: () => ({ 'test:coverage': 'x' }),
+        hasNpmScriptImpl: () => true,
+        isCoverageFreshImpl: () => ({ fresh: true, reason: 'fresh' }),
+      },
+    );
+    assert.deepEqual(
+      plan.map((p) => [p.command, p.spawn, p.tier]),
+      [
+        ['npm run lint', true, 'validate'],
+        ['npm test', false, 'unit'],
+      ],
+    );
+  });
+});
+
+describe('the gate warns on a misshapen verify[] (#5174)', () => {
+  const verdictWith = (commands) => ({
+    storyId: 5174,
+    schemaVersion: 1,
+    round: 1,
+    criteria: [
+      {
+        index: 0,
+        criterion: 'AC-1 holds',
+        verdict: 'met',
+        evidence: 'suite green',
+        verifyEvidence: commands.map((command) => ({
+          command,
+          outcome: 'pass',
+        })),
+      },
+    ],
+  });
+
+  it('collects the offending commands, de-duplicated, in first-seen order', () => {
+    const found = collectFullSuiteVerifyCommands(
+      verdictWith(['npm run lint', 'npm test', 'npm test', 'pnpm run test']),
+    );
+    assert.deepEqual(found, ['npm test', 'pnpm run test']);
+  });
+
+  it('says nothing about a verify[] that is all scoped entries', () => {
+    assert.deepEqual(
+      collectFullSuiteVerifyCommands(
+        verdictWith(['npm run lint', 'node --test tests/x.test.js']),
+      ),
+      [],
+    );
+  });
+
+  it('emits the warning naming the intended shape, and still scores the round', async () => {
+    const warns = [];
+    const infos = [];
+    const envelope = await runAcceptanceEvalCli(
+      ['--story', '5174', '--verdict', '/tmp/verdict.json'],
+      {
+        readFileSyncImpl: () => JSON.stringify(verdictWith(['npm test'])),
+        resolveConfigImpl: () => ({
+          delivery: { acceptanceEval: { maxRounds: 2 } },
+        }),
+        runAcceptanceEvalImpl: async () => ({
+          envelope: { storyId: 5174, decision: 'proceed', unmetCriteria: [] },
+          exitCode: 0,
+        }),
+        logger: {
+          info: (m) => infos.push(m),
+          warn: (m) => warns.push(m),
+        },
+      },
+    );
+    assert.equal(envelope.decision, 'proceed');
+    assert.equal(warns.length, 1);
+    assert.match(warns[0], /npm test/);
+    assert.match(
+      warns[0],
+      /scoped entries plus the single credited full-suite run/,
+    );
+    // A warning, never a refusal: the round still scores.
+    assert.equal(infos.length, 1);
+  });
+
+  it('reports the offenders on the envelope so a caller can act on them', async () => {
+    const { envelope } = await runAcceptanceEval({
+      storyId: 5174,
+      verdict: verdictWith(['npm test', 'npm run lint']),
+      config: { delivery: { acceptanceEval: { maxRounds: 2 } } },
+      emitSignal: false,
+    });
+    assert.deepEqual(envelope.fullSuiteVerifyCommands, ['npm test']);
+  });
+});
+
+describe('the happy path spends ONE full-suite spawn per Story (#5174)', () => {
+  /**
+   * The documented worker transcript, in order. This is the artifact the
+   * ordering contract is really about: exactly one entry may be a whole-suite
+   * spawn, and it must sit after the last fix commit and before the push.
+   */
+  const TRANSCRIPT = [
+    'node .agents/scripts/single-story-init.js --story 5174',
+    'npm run lint',
+    'node --test tests/acceptance-eval.test.js',
+    'git commit -m "feat: implement (refs #5174)"',
+    'node .agents/scripts/acceptance-eval.js --story 5174 --verdict v.json',
+    'node .agents/scripts/coverage-capture.js --cwd /abs/wt',
+    'git push origin story-5174',
+  ];
+
+  it('runs the whole suite exactly once, after the last commit and before the push', () => {
+    const suiteRuns = TRANSCRIPT.filter(
+      (line) =>
+        isFullSuiteCommand(line) || line.includes('coverage-capture.js --cwd'),
+    );
+    assert.equal(suiteRuns.length, 1, 'exactly one full-suite spawn per Story');
+
+    const suiteAt = TRANSCRIPT.indexOf(suiteRuns[0]);
+    const lastCommitAt = TRANSCRIPT.reduce(
+      (acc, line, i) => (line.startsWith('git commit') ? i : acc),
+      -1,
+    );
+    const pushAt = TRANSCRIPT.findIndex((line) => line.startsWith('git push'));
+    assert.ok(
+      lastCommitAt < suiteAt && suiteAt < pushAt,
+      'the credited run must sit between the last fix commit and the push, or its stamp describes a tree that is not the one pushed',
+    );
+  });
+
+  it('leaves the close coverage-capture gate nothing to do', () => {
+    // What the single spawn buys: close consults the stamp the worker wrote
+    // and exits fresh, instead of paying for the identical suite again.
+    const logs = [];
+    const exit = runCoverageCapture(
+      ['node', 'coverage-capture.js', '--cwd', '/abs/wt'],
+      {
+        resolveConfigImpl: () => ({}),
+        getQualityImpl: () => ({
+          crap: {
+            enabled: true,
+            coveragePath: 'coverage/coverage-final.json',
+            targetDirs: ['.agents/scripts'],
+          },
+          coverage: { enabled: true },
+        }),
+        readPackageScriptsImpl: () => ({ 'test:coverage': 'node --test' }),
+        hasNpmScriptImpl: () => true,
+        isCoverageFreshImpl: () => ({ fresh: true, reason: 'fresh' }),
+        runCaptureImpl: () => {
+          throw new Error('close re-ran the suite the worker already credited');
+        },
+        logger: {
+          info: (m) => logs.push(m),
+          warn: (m) => logs.push(m),
+          error: (m) => logs.push(m),
+        },
+      },
+    );
+    assert.equal(exit, 0);
+    assert.ok(
+      logs.some((l) => /skipping capture/i.test(l)),
+      `close must report the skip; got ${JSON.stringify(logs)}`,
+    );
+  });
+});
+
+describe('verify[] credit — the fail-closed edges (#5174)', () => {
+  const evidenceDeps = (over = {}) => ({
+    resolveConfigImpl: () => ({}),
+    getQualityImpl: () => ({ crap: { enabled: false } }),
+    readPackageScriptsImpl: () => ({}),
+    hasNpmScriptImpl: () => false,
+    hashCommandConfigImpl: () => 'hash-1',
+    shouldSkipImpl: () => ({ skip: false, reason: 'no-record' }),
+    gitSpawnFn: () => ({ status: 0, stdout: 'abc1234\n' }),
+    ...over,
+  });
+
+  it('spawns rather than credits when HEAD cannot be read', () => {
+    // No SHA means no key to check the evidence record against. The only safe
+    // answer is to run the command — a credit here would be a guess.
+    const verdict = resolveVerifyCredit(
+      { command: 'npm test', storyId: 5174, worktree: '/abs/wt' },
+      evidenceDeps({ gitSpawnFn: () => ({ status: 128, stdout: '' }) }),
+    );
+    assert.equal(verdict.credited, false);
+    assert.equal(verdict.spawn, true);
+    assert.equal(verdict.reason, 'no-head');
+  });
+
+  it('spawns when the evidence record does not match the current HEAD', () => {
+    const verdict = resolveVerifyCredit(
+      { command: 'npm test', storyId: 5174, worktree: '/abs/wt' },
+      evidenceDeps({
+        shouldSkipImpl: () => ({ skip: false, reason: 'sha-mismatch' }),
+      }),
+    );
+    assert.equal(verdict.credited, false);
+    assert.equal(verdict.reason, 'sha-mismatch');
+  });
+
+  it('reports an unreadable freshness verdict as unknown, never as fresh', () => {
+    const verdict = resolveVerifyCredit(
+      { command: 'npm test', storyId: 5174, worktree: '/abs/wt' },
+      {
+        resolveConfigImpl: () => ({}),
+        getQualityImpl: () => ({
+          crap: { enabled: true, coveragePath: 'c.json', targetDirs: ['x'] },
+        }),
+        readPackageScriptsImpl: () => ({ 'test:coverage': 'x' }),
+        hasNpmScriptImpl: () => true,
+        isCoverageFreshImpl: () => undefined,
+      },
+    );
+    assert.equal(verdict.credited, false);
+    assert.equal(verdict.spawn, true);
+    assert.equal(verdict.reason, 'unknown');
+  });
+
+  it('survives a Story body that quotes the command or omits the tier', () => {
+    assert.deepEqual(parseVerifyEntry('`npm test`'), {
+      command: 'npm test',
+      tier: null,
+    });
+    assert.deepEqual(parseVerifyEntry(undefined), { command: '', tier: null });
+  });
+
+  it('treats a missing verify[] array as nothing to plan', () => {
+    assert.deepEqual(planVerifyExecution(undefined, { worktree: '/x' }), []);
   });
 });

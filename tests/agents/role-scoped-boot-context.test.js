@@ -31,7 +31,7 @@ import { fileURLToPath } from 'node:url';
 import Ajv2020 from 'ajv/dist/2020.js';
 import addFormats from 'ajv-formats';
 import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
-import { assertDocMentions } from '../helpers/doc-assert.js';
+import { assertDocMentions, assertDocOmits } from '../helpers/doc-assert.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, '..', '..');
@@ -136,6 +136,64 @@ describe('story-worker boot context carries every delivery MUST (default-true ga
         `close gate "${gate}" missing from the boot context`,
       );
     }
+  });
+
+  test('carries both crediting invocations of the one full-suite run (#5174)', () => {
+    // The invocation used to live only in deliver-story-reference.md — a file
+    // a dispatched worker is told NOT to read on the happy path. So every
+    // worker ran the suite in the shape that earns no credit, and close ran
+    // the identical suite again. The instruction has to reach the file the
+    // worker actually boots on.
+    const { body } = bootContext('story-worker.md');
+    assert.match(
+      body,
+      /scripts\/coverage-capture\.js --cwd <workCwd>/,
+      'the boot context must carry the coverage-capture crediting invocation',
+    );
+    assert.match(
+      body,
+      /scripts\/evidence-gate\.js --standalone/,
+      'the boot context must carry the evidence-gate alternative for repos with no capture stamp',
+    );
+    assertDocMentions(
+      body,
+      /--gate test --worktree <workCwd> -- npm test/,
+      'the evidence-gate alternative must be complete enough to run verbatim',
+    );
+  });
+
+  test('names the shape that deposits no credit (#5174)', () => {
+    assertDocMentions(
+      bootContext('story-worker.md').body,
+      /bare `npm test` \/ `pnpm run test` deposits \*\*no\*\* credit/,
+      'the boot context must say plainly which invocation earns nothing',
+    );
+  });
+
+  test('permits the credited run without licensing ad-hoc stamping (#5174)', () => {
+    // The reconciliation this Story exists for: the old paragraph told the
+    // worker never to stamp coverage/CRAP fresh at all, which reads as a
+    // prohibition on the very invocation the digest now mandates. Appending
+    // the new text would have left the worker holding both. Assert the
+    // contradiction is gone AND that the narrow prohibition survives — a
+    // rewrite that dropped the second half would license a hand-rolled
+    // coverage record, which silently weakens the floor.
+    const { body } = bootContext('story-worker.md');
+    assertDocOmits(
+      body,
+      /never stamp coverage \/ CRAP fresh that way/,
+      'the blanket prohibition contradicts the credited invocation — it must be rewritten, not kept alongside it',
+    );
+    assertDocMentions(
+      body,
+      /never stamp coverage \/ CRAP fresh any other way/,
+      'ad-hoc coverage/CRAP stamping must still be forbidden outside the credited invocation',
+    );
+    assertDocMentions(
+      body,
+      /run it exactly once, after the self-eval loop's last fix commit and immediately before the push/,
+      'the boot context must place the credited run where its stamp still describes the pushed tree',
+    );
   });
 
   test('can transition agent::blocked and never falls silent', () => {

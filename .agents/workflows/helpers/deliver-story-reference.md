@@ -233,17 +233,19 @@ runs maker-blind at Story-scope review inside the close subprocess. The
 dispatch step produces `checklistPath` from the Story's predicted footprint
 before it spawns the worker — see [`/mandrel-deliver`](../mandrel-deliver.md).
 
-**Pre-eval full-suite discipline (spine step 1.3).** Repo-invariant guards —
+**Full-suite discipline (spine Step 2.5).** Repo-invariant guards —
 drift-guard and schema tests living outside the Story's scoped greps — are
 the failure class that actually bounces deliveries: close-validation
 discovers them only after the whole close pipeline has run, at several times
-the cost of one pre-eval full-suite run.
+the cost of one full-suite run in the worktree.
 
-**Run it so close can credit it.** Close skips a gate that already passed at
-the current HEAD, but a bare `npm test` deposits no such record — the suite
-then runs twice per delivery, once here and once in the close gate chain.
-Pick the invocation by the same predicate `close-validation/gates.js` uses to
-choose its test gate:
+**Run it once, last, so close can credit it.** The run belongs **after** the
+self-eval loop's last fix commit and immediately **before** the hand-off push,
+so its stamp describes the tree that is pushed; redraft rounds run scoped
+tests. Close skips a gate that already passed at the current HEAD, but a bare
+`npm test` deposits no such record — the suite then runs twice per delivery,
+once here and once in the close gate chain. Pick the invocation by the same
+predicate `close-validation/gates.js` uses to choose its test gate:
 
 ```bash
 # CRAP gate enabled (default) + a `test:coverage` script — writes the stamp
@@ -259,7 +261,15 @@ node <main-repo>/.agents/scripts/evidence-gate.js --standalone \
 The credit expires the moment it stops describing the tree: evidence is keyed
 on HEAD, the capture stamp on a content digest of `crap.targetDirs`. A
 self-eval fix — or any commit — invalidates it and close re-runs the suite for
-real, so this never trades away the gate.
+real, so this never trades away the gate. That keying is exactly why the run
+comes last.
+
+**`verify[]` reuses the same stamp.** A `verify[]` entry that is itself a
+full-suite command is reported **credited** against that stamp rather than
+respawned (`resolveVerifyCredit` in
+[`verify-credit.js`](../../scripts/lib/orchestration/verify-credit.js)), and the
+self-eval gate warns when it sees one: the intended shape is scoped `verify[]`
+entries **plus** the single credited run.
 
 **Conflict with `main` mid-implementation** → resolve as you would any branch
 rebase. There is no `epic/<id>` intermediate, so the rebase base is `main`
