@@ -27,8 +27,12 @@ import {
 const PHASE_ORDER = Object.freeze([
   'init',
   'wrong-tree-guard',
-  'close-validation',
+  // Story #5172 — base-sync now precedes close-validation, so the tree the
+  // gates validate is the tree the push sends. The order here is not
+  // decoration: it is how a failed terminal decides which gates had already
+  // cleared, so it MUST track `runPrePushPhases`.
   'base-sync',
+  'close-validation',
   'push',
   'pull-request',
   'code-review',
@@ -46,6 +50,62 @@ const GATE_PHASES = Object.freeze([
 ]);
 
 /**
+ * The names the split baselines gate registers under, mirrored from
+ * `BASELINES_GATE_NAMES` in `lib/close-validation/gates.js` (Story #5172).
+ *
+ * Deliberately a local copy rather than an import: several close suites
+ * replace that module wholesale via `t.mock.module`, and a named import here
+ * would fail to link against a mock that does not re-export the constant —
+ * turning an unrelated test's mock into a load error on the CLI's own entry
+ * path. `tests/close-validation-gates-enum.test.js` pins the two lists
+ * against each other so the copy cannot drift.
+ */
+const BASELINES_ENTRY_NAMES = Object.freeze([
+  'check-baselines-independent',
+  'check-baselines-coverage',
+]);
+
+/**
+ * Outcome for each split baselines entry on a run that died at `phase`.
+ *
+ * The two entries sit in ONE pipeline phase, so the phase walk alone cannot
+ * separate them — `failedGate` (tagged onto the error by the close-validation
+ * phase) is what names the entry that actually broke. Rules, in the module's
+ * house style of never claiming a pass it cannot prove:
+ *   - validation skipped, or the run died before reaching it → both `skipped`.
+ *   - the run cleared validation entirely → both `passed`.
+ *   - the run died IN validation on the coverage-independent entry → that one
+ *     `failed`, the coverage one `skipped` (it runs behind `coverage-capture`,
+ *     which the failure pre-empted).
+ *   - died on the coverage-consuming entry → that one `failed`, and the
+ *     independent one `passed`: it is in the parallel partition that must go
+ *     green before any serial gate starts.
+ *   - died in validation on some other gate → both `skipped`; which of them
+ *     had run is not knowable from the phase alone.
+ *
+ * @param {string} phase
+ * @param {{ skipValidation?: boolean, failedGate?: string|null }} args
+ * @returns {Record<string, 'passed'|'failed'|'skipped'>}
+ */
+function baselinesGatesForFailedPhase(phase, { skipValidation, failedGate }) {
+  const [independent, coverage] = BASELINES_ENTRY_NAMES;
+  const both = (outcome) => ({ [independent]: outcome, [coverage]: outcome });
+  const failedAt = PHASE_ORDER.indexOf(phase);
+  const validationAt = PHASE_ORDER.indexOf('close-validation');
+  if (skipValidation || failedAt < 0 || failedAt < validationAt) {
+    return both('skipped');
+  }
+  if (failedAt > validationAt) return both('passed');
+  if (failedGate === independent) {
+    return { [independent]: 'failed', [coverage]: 'skipped' };
+  }
+  if (failedGate === coverage) {
+    return { [independent]: 'passed', [coverage]: 'failed' };
+  }
+  return both('skipped');
+}
+
+/**
  * Report every gate's outcome for a run that died at `phase`.
  *
  * The schema's contract: "A gate the run skipped … reports `skipped` rather
@@ -59,8 +119,14 @@ const GATE_PHASES = Object.freeze([
  * turned off via `--skip-validation` / `--skip-sync` is `skipped` too (it did
  * not pass — it never ran).
  *
+ * Story #5172 — the reported set also carries the two split baselines
+ * entries under their own names, so a failed close says WHICH half of the
+ * baselines gate breached instead of a single generic verdict.
+ *
  * @param {string} phase The phase the run died in.
- * @param {{ skipValidation?: boolean, skipSync?: boolean }} args Parsed CLI args.
+ * @param {{ skipValidation?: boolean, skipSync?: boolean, failedGate?: string|null }} args
+ *   Parsed CLI args, plus the gate name tagged onto the error by the
+ *   close-validation phase.
  * @returns {Record<string, 'passed'|'failed'|'skipped'>}
  */
 export function gatesForFailedPhase(phase, args = {}) {
@@ -73,7 +139,13 @@ export function gatesForFailedPhase(phase, args = {}) {
     else if (failedAt < 0 || at > failedAt) gates[gate] = 'skipped';
     else gates[gate] = skipped[gate] ? 'skipped' : 'passed';
   }
-  return gates;
+  return {
+    ...gates,
+    ...baselinesGatesForFailedPhase(phase, {
+      skipValidation: args.skipValidation,
+      failedGate: args.failedGate ?? null,
+    }),
+  };
 }
 
 /**
@@ -90,6 +162,10 @@ export function gatesForFailedPhase(phase, args = {}) {
  * once reported a schema `ENOENT` as its fatal error, because the worktree
  * holding the script had been reaped mid-run. On failure this returns null
  * and the caller rethrows the original.
+ *
+ * `err.closeGate` — tagged by the close-validation phase — names the gate that
+ * died inside that phase, which is what lets the reported gates separate the
+ * two split baselines entries (Story #5172).
  *
  * @param {unknown} err
  * @param {{ storyId?: string|number, skipValidation?: boolean, skipSync?: boolean }} args
@@ -108,7 +184,10 @@ export function failedTerminalFor(err, args = {}) {
       storyId,
       status: 'failed',
       phase,
-      gates: gatesForFailedPhase(phase, args),
+      gates: gatesForFailedPhase(phase, {
+        ...args,
+        failedGate: err?.closeGate ?? null,
+      }),
       failure: { reason: String(err?.message ?? err) },
       nextCommand: NEXT_COMMANDS.recover(storyId),
       elapsedSeconds: 0,

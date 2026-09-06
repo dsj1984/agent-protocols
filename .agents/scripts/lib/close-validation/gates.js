@@ -124,21 +124,62 @@ const CHECK_BASELINES_HINT =
   'Unified baselines gate breached. Inspect the JSON report (`node .agents/scripts/check-baselines.js`) to see which kind/component/axis fell below floor; remediate the underlying file(s) or — when the regression is intentional — refresh the relevant baseline through its per-kind update script and commit with a `baseline-refresh:` tagged subject.';
 
 /**
+ * The names the unified baselines gate can register under (Story #5172).
+ *
+ * `single` is the unsplit entry — the historical name, and the fail-closed
+ * fallback used whenever the enabled-kind set cannot be resolved into two
+ * buckets. `independent` and `coverage` are the split pair: the first reads no
+ * coverage artifact and therefore fails alongside `lint` / `format` /
+ * `typecheck` in the parallel partition, the second consumes the artifact
+ * `coverage-capture` writes and therefore stays serial behind it.
+ *
+ * Every name here MUST also be a member of the `gateName` enum in
+ * `.agents/schemas/validation-evidence.schema.json` — the close pipeline keys
+ * per-gate evidence on it. `tests/close-validation-gates-enum.test.js` pins
+ * that ⊆ invariant.
+ */
+export const BASELINES_GATE_NAMES = Object.freeze({
+  single: 'check-baselines',
+  independent: 'check-baselines-independent',
+  coverage: 'check-baselines-coverage',
+});
+
+/**
+ * The baseline kinds whose evaluation reads the coverage artifact written by
+ * the `coverage-capture` gate (`coverage` scores it directly; `crap` divides
+ * complexity by it). They are the only kinds that have to wait for the
+ * capture — every other kind scores the source tree and can run as early as
+ * the cheapest gates do.
+ */
+const COVERAGE_CONSUMING_KINDS = new Set(['coverage', 'crap']);
+
+/**
  * Baseline kinds the resolved config enables for the unified
  * `check-baselines` gate. Mirrors `selectEnabledGates` in the check-baselines
  * pipeline (a kind runs when its `gates.<kind>` block is present and not
  * explicitly disabled) so the registration probe's view of "what will run"
- * matches the gate's own view exactly.
+ * matches the gate's own view exactly — and so the Story #5172 partition is
+ * derived from the pipeline's own view of what runs rather than a hardcoded
+ * kind list that a consumer's config could silently contradict.
+ *
+ * Returns `null` when that view cannot be resolved at all (a config object
+ * whose `delivery.quality` access throws). Callers MUST read `null` as
+ * "unknown" and fall back to the single unsplit gate: a partition that cannot
+ * be computed must never silently drop enforcement.
  *
  * @param {object|undefined|null} config canonical resolved config
- * @returns {string[]}
+ * @returns {string[]|null}
  */
 function enabledBaselineKinds(config) {
-  const gates = getQuality(config)?.gates ?? {};
-  return KNOWN_KINDS.filter((kind) => {
-    const block = gates[kind];
-    return block && typeof block === 'object' && block.enabled !== false;
-  });
+  try {
+    const gates = getQuality(config)?.gates ?? {};
+    return KNOWN_KINDS.filter((kind) => {
+      const block = gates[kind];
+      return block && typeof block === 'object' && block.enabled !== false;
+    });
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -182,13 +223,22 @@ function toKindSet(presentBaselines) {
  *     (`requireBaselines: true`) but absent; keep the gate registered so it
  *     fails, with a preflight hint naming the fix.
  *
- * @param {{ config?: object, cwd?: string, presentBaselines?: string[]|Set<string> }} opts
- *   `presentBaselines` injects the set of kinds whose baseline artifact
- *   exists (tests), short-circuiting the on-disk probe.
+ * @param {{ config?: object, cwd?: string, enabledKinds?: string[]|null, presentBaselines?: string[]|Set<string> }} opts
+ *   `enabledKinds` is `enabledBaselineKinds(config)` computed once by the
+ *   caller (so the probe and the partition below read the same view).
+ *   A `null` — the unresolvable set — reads as "no enabled kinds", which is
+ *   the fail-closed path: the gate stays registered under its single
+ *   historical name. `presentBaselines` injects the set of kinds whose
+ *   baseline artifact exists (tests), short-circuiting the on-disk probe.
  * @returns {{ register: boolean, reason?: string, hint?: string }}
  */
-function probeBaselinesGate({ config, cwd, presentBaselines } = {}) {
-  const enabled = enabledBaselineKinds(config);
+function probeBaselinesGate({
+  config,
+  cwd,
+  enabledKinds,
+  presentBaselines,
+} = {}) {
+  const enabled = enabledKinds ?? [];
   if (enabled.length === 0) {
     // No enabled baseline kinds → `check-baselines.js` self-skips every kind
     // and exits clean (an empty PASS). There is no deterministic-failure risk
@@ -218,6 +268,66 @@ function probeBaselinesGate({ config, cwd, presentBaselines } = {}) {
       `check-baselines skipped — enabled kind(s) ${enabled.join(', ')} have no committed baseline artifact under baselines/ ` +
       'and delivery.quality.requireBaselines is not set. Commit baseline artifacts (or set requireBaselines to enforce them) to activate the gate.',
   };
+}
+
+/**
+ * Build the `check-baselines` gate entries for this run (Story #5172).
+ *
+ * One registration decision, one `BASELINE_REF` overlay, one remediation
+ * hint — fanned out across however many entries the enabled-kind set splits
+ * into. Keeping the fan-out here is what makes the #3890 (`BASELINE_REF`)
+ * and #4495 (`probeBaselinesGate`) invariants structurally impossible to
+ * apply to one entry and forget on the other.
+ *
+ * Three shapes:
+ *   - decision says skip → no entries at all (#4495's greenfield skip).
+ *   - `kinds` is null (unresolvable) or empty → ONE entry under the single
+ *     historical name with no `--gate` filter, in its historical serial
+ *     position. Fail closed: a partition that cannot be computed must never
+ *     silently drop enforcement, and an empty set means the gate self-skips
+ *     every kind and exits a clean empty PASS exactly as it did pre-split.
+ *   - otherwise → the split pair, each pinned to its own `--gate` list.
+ *     Neither bucket is ever registered with an empty kind set, so a consumer
+ *     running only coverage-consuming kinds gets no parallel entry and one
+ *     running none of them gets no serial entry.
+ *
+ * The independent entry is emitted first so a reader of the gate list sees
+ * the order the runner actually walks; `partitionGates` is what routes it
+ * into the parallel phase, and the coverage entry keeps its declared
+ * position after `coverage-capture`.
+ *
+ * @param {{ decision: { register: boolean, hint?: string }, kinds: string[]|null, env: { BASELINE_REF: string }|null }} args
+ * @returns {Gate[]}
+ */
+function buildBaselinesGateEntries({ decision, kinds, env }) {
+  if (!decision.register) return [];
+  const entry = (name, gateKinds) => ({
+    name,
+    cmd: 'node',
+    args: [
+      '.agents/scripts/check-baselines.js',
+      ...(gateKinds ? ['--gate', gateKinds.join(',')] : []),
+      '--format',
+      'text',
+    ],
+    hint: decision.hint ?? CHECK_BASELINES_HINT,
+    ...(env ? { env } : {}),
+  });
+  if (!Array.isArray(kinds) || kinds.length === 0) {
+    return [entry(BASELINES_GATE_NAMES.single, null)];
+  }
+  const independentKinds = kinds.filter(
+    (k) => !COVERAGE_CONSUMING_KINDS.has(k),
+  );
+  const coverageKinds = kinds.filter((k) => COVERAGE_CONSUMING_KINDS.has(k));
+  return [
+    ...(independentKinds.length > 0
+      ? [entry(BASELINES_GATE_NAMES.independent, independentKinds)]
+      : []),
+    ...(coverageKinds.length > 0
+      ? [entry(BASELINES_GATE_NAMES.coverage, coverageKinds)]
+      : []),
+  ];
 }
 
 /**
@@ -308,9 +418,11 @@ export function buildDefaultGates({
       ? buildChangedFileScope(baseBranch)
       : null;
   const baselinesGateEnv = buildBaselinesGateEnv(baseBranch);
+  const baselineKinds = enabledBaselineKinds(config);
   const baselinesDecision = probeBaselinesGate({
     config,
     cwd,
+    enabledKinds: baselineKinds,
     presentBaselines,
   });
   if (!baselinesDecision.register && baselinesDecision.reason) {
@@ -362,17 +474,19 @@ export function buildDefaultGates({
     // gate fails deterministically on first try reading a non-existent
     // `baselines/<kind>.json` (`probeBaselinesGate`). When required-by-config
     // but absent, it stays registered with a preflight hint naming the fix.
-    ...(baselinesDecision.register
-      ? [
-          {
-            name: 'check-baselines',
-            cmd: 'node',
-            args: ['.agents/scripts/check-baselines.js', '--format', 'text'],
-            hint: baselinesDecision.hint ?? CHECK_BASELINES_HINT,
-            ...(baselinesGateEnv ? { env: baselinesGateEnv } : {}),
-          },
-        ]
-      : []),
+    //
+    // Story #5172: the gate registers as up to TWO entries. The kinds that
+    // read no coverage artifact run in the parallel independent partition so
+    // a baseline breach fails beside `lint` / `format` / `typecheck` instead
+    // of minutes later behind `coverage-capture`; the coverage-consuming
+    // kinds keep the serial slot after it. `buildBaselinesGateEntries` owns
+    // that fan-out so both entries inherit ONE registration decision, ONE
+    // `BASELINE_REF` overlay and ONE hint.
+    ...buildBaselinesGateEntries({
+      decision: baselinesDecision,
+      kinds: baselineKinds,
+      env: baselinesGateEnv,
+    }),
   ];
 }
 
@@ -392,7 +506,16 @@ export const DEFAULT_GATES = buildDefaultGates();
  * state, no overlapping ports/sockets). Safe to run concurrently — see
  * `runCloseValidation` for the Promise.all + AbortController plumbing.
  */
-const INDEPENDENT_GATE_NAMES = new Set(['lint', 'format', 'typecheck']);
+const INDEPENDENT_GATE_NAMES = new Set([
+  'lint',
+  'format',
+  'typecheck',
+  // Story #5172 — the coverage-independent half of the baselines gate. It
+  // reads the committed `baselines/<kind>.json` files and scores the source
+  // tree in-process; it writes nothing and shares no port, so it satisfies
+  // the same read-only contract as the three gates above.
+  BASELINES_GATE_NAMES.independent,
+]);
 
 /**
  * Partition a gate list into the parallel-safe set and the order-sensitive

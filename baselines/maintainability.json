@@ -1,7 +1,7 @@
 {
   "$schema": ".agents/schemas/baselines/maintainability.schema.json",
   "kernelVersion": "0.1.0",
-  "generatedAt": "2026-09-06T15:59:16.331Z",
+  "generatedAt": "2026-09-06T16:25:50.482Z",
   "rollup": {
     "*": {
       "min": 76.381,
@@ -12,7 +12,7 @@
   "rows": [
     {
       "path": ".agents/scripts/acceptance-eval.js",
-      "mi": 87.896
+      "mi": 88.936
     },
     {
       "path": ".agents/scripts/agents-bootstrap-github.js",
@@ -1440,7 +1440,7 @@
     },
     {
       "path": ".agents/scripts/lib/orchestration/single-story-close/failed-terminal.js",
-      "mi": 93.686
+      "mi": 91.946
     },
     {
       "path": ".agents/scripts/lib/orchestration/single-story-close/gate-log.js",
@@ -1456,7 +1456,7 @@
     },
     {
       "path": ".agents/scripts/lib/orchestration/single-story-close/phases/close-validation.js",
-      "mi": 80.891
+      "mi": 84.468
     },
     {
       "path": ".agents/scripts/lib/orchestration/single-story-close/phases/code-review.js",

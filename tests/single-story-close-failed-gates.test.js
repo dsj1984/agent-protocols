@@ -9,6 +9,12 @@
  * the other two entirely — exactly the ambiguity the contract forbids. A
  * reader of a base-sync failure could not tell whether validation had passed
  * or had never run.
+ *
+ * Story #5172 extends the reported set two ways. The phase order swapped —
+ * base-sync now runs BEFORE close-validation — so a gate failure reports
+ * base-sync as already `passed`. And the split baselines entries are reported
+ * under their own names, so a reader can tell the cheap coverage-independent
+ * half from the coverage-consuming half.
  */
 
 import assert from 'node:assert/strict';
@@ -16,7 +22,15 @@ import { describe, it } from 'node:test';
 
 import { gatesForFailedPhase } from '../.agents/scripts/single-story-close.js';
 
-const ALL_GATES = ['validation', 'baseSync', 'codeReview'];
+const BASELINES_INDEPENDENT = 'check-baselines-independent';
+const BASELINES_COVERAGE = 'check-baselines-coverage';
+const ALL_GATES = [
+  'validation',
+  'baseSync',
+  'codeReview',
+  BASELINES_INDEPENDENT,
+  BASELINES_COVERAGE,
+];
 const OUTCOMES = new Set(['passed', 'failed', 'skipped']);
 
 describe('gatesForFailedPhase', () => {
@@ -24,8 +38,8 @@ describe('gatesForFailedPhase', () => {
     for (const phase of [
       'init',
       'wrong-tree-guard',
-      'close-validation',
       'base-sync',
+      'close-validation',
       'push',
       'pull-request',
       'code-review',
@@ -49,11 +63,66 @@ describe('gatesForFailedPhase', () => {
   });
 
   it('names the dead gate failed and leaves later gates skipped, not passed', () => {
+    // Story #5172 — base-sync precedes close-validation, so reaching the
+    // gates means the sync already cleared.
     assert.deepEqual(gatesForFailedPhase('close-validation', {}), {
       validation: 'failed',
-      baseSync: 'skipped',
+      baseSync: 'passed',
       codeReview: 'skipped',
+      [BASELINES_INDEPENDENT]: 'skipped',
+      [BASELINES_COVERAGE]: 'skipped',
     });
+  });
+
+  it('reports a base-sync failure with validation never run (Story #5172 order)', () => {
+    assert.deepEqual(gatesForFailedPhase('base-sync', {}), {
+      validation: 'skipped',
+      baseSync: 'failed',
+      codeReview: 'skipped',
+      [BASELINES_INDEPENDENT]: 'skipped',
+      [BASELINES_COVERAGE]: 'skipped',
+    });
+  });
+
+  // AC-3 — the two baselines entries are separable in failure output.
+  it('names the coverage-independent baselines entry as the one that failed', () => {
+    assert.deepEqual(
+      gatesForFailedPhase('close-validation', {
+        failedGate: BASELINES_INDEPENDENT,
+      }),
+      {
+        validation: 'failed',
+        baseSync: 'passed',
+        codeReview: 'skipped',
+        [BASELINES_INDEPENDENT]: 'failed',
+        [BASELINES_COVERAGE]: 'skipped',
+      },
+    );
+  });
+
+  it('names the coverage-consuming baselines entry as the one that failed, with its sibling passed', () => {
+    assert.deepEqual(
+      gatesForFailedPhase('close-validation', {
+        failedGate: BASELINES_COVERAGE,
+      }),
+      {
+        validation: 'failed',
+        baseSync: 'passed',
+        codeReview: 'skipped',
+        // The independent entry is in the parallel partition that must go
+        // green before any serial gate starts, so it demonstrably passed.
+        [BASELINES_INDEPENDENT]: 'passed',
+        [BASELINES_COVERAGE]: 'failed',
+      },
+    );
+  });
+
+  it('claims no baselines pass when some other validation gate died', () => {
+    const gates = gatesForFailedPhase('close-validation', {
+      failedGate: 'lint',
+    });
+    assert.equal(gates[BASELINES_INDEPENDENT], 'skipped');
+    assert.equal(gates[BASELINES_COVERAGE], 'skipped');
   });
 
   it('reports gates the run had already cleared as passed', () => {
@@ -63,6 +132,8 @@ describe('gatesForFailedPhase', () => {
       validation: 'passed',
       baseSync: 'passed',
       codeReview: 'failed',
+      [BASELINES_INDEPENDENT]: 'passed',
+      [BASELINES_COVERAGE]: 'passed',
     });
   });
 
@@ -72,7 +143,13 @@ describe('gatesForFailedPhase', () => {
         skipValidation: true,
         skipSync: true,
       }),
-      { validation: 'skipped', baseSync: 'skipped', codeReview: 'failed' },
+      {
+        validation: 'skipped',
+        baseSync: 'skipped',
+        codeReview: 'failed',
+        [BASELINES_INDEPENDENT]: 'skipped',
+        [BASELINES_COVERAGE]: 'skipped',
+      },
     );
   });
 
@@ -81,14 +158,18 @@ describe('gatesForFailedPhase', () => {
       validation: 'skipped',
       baseSync: 'skipped',
       codeReview: 'skipped',
+      [BASELINES_INDEPENDENT]: 'skipped',
+      [BASELINES_COVERAGE]: 'skipped',
     });
   });
 
-  it('marks post-arm phases as having cleared all three gates', () => {
+  it('marks post-arm phases as having cleared every gate', () => {
     assert.deepEqual(gatesForFailedPhase('confirm-merge', {}), {
       validation: 'passed',
       baseSync: 'passed',
       codeReview: 'passed',
+      [BASELINES_INDEPENDENT]: 'passed',
+      [BASELINES_COVERAGE]: 'passed',
     });
   });
 
@@ -97,6 +178,8 @@ describe('gatesForFailedPhase', () => {
       validation: 'skipped',
       baseSync: 'skipped',
       codeReview: 'skipped',
+      [BASELINES_INDEPENDENT]: 'skipped',
+      [BASELINES_COVERAGE]: 'skipped',
     });
   });
 });

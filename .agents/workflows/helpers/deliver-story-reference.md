@@ -510,22 +510,16 @@ judgment that help text cannot carry.
 
 The `single-story-close.js` script, in order:
 
-1. Runs the close-validation gates against `baseBranch` as the baseline.
-   On any gate failure it throws — the operator fixes and re-runs close.
-   **Gate output is captured, not streamed.** Every gate line
-   goes to `temp/orchestration/close-gates-<storyId>.log`; a clean run reports
-   one digest line naming that artifact, and a **failed** gate replays its
-   captured tail inline so the evidence is in front of you without opening a
-   file. Read the artifact when you need the full text — or re-run under
-   `AGENT_LOG_LEVEL=verbose` for live streaming.
-   1a. **Syncs the Story branch from `origin/<baseBranch>`** before push.
-   Runs `git fetch origin <baseBranch>` followed by
-   `git merge --no-edit origin/<baseBranch>` inside the worktree. This
+1. **Syncs the Story branch from `origin/<baseBranch>`** — before the gates,
+   not after them. Runs `git fetch origin <baseBranch>` followed
+   by `git merge --no-edit origin/<baseBranch>` inside the worktree. This
    defends against the parallel-`/deliver-story` race: when
    multiple sessions run in parallel, the Story that auto-merges first
    bumps `baseBranch`, and without this sync the lagging Stories open
    PRs that are "behind base" and stall against branch-protection's
-   `up-to-date branch` rule. Outcomes:
+   `up-to-date branch` rule. Running it first also means a conflict costs
+   no gate run at all, and — the load-bearing half — the tree the gates
+   validate is the tree the push sends. Outcomes:
    - **No-op / fast-forward / clean merge-commit** → close proceeds to
      push.
    - **Merge conflict** → the merge is aborted, a `friction` structured
@@ -543,12 +537,26 @@ The `single-story-close.js` script, in order:
    closes the PR-open-time race but a residual race remains between PR
    open and auto-merge fire.
 
-2. Pushes `story-<id>` to `origin`.
-3. Probes for an existing open PR with `head = story-<id>`. If none
+2. Runs the close-validation gates against `baseBranch` as the baseline.
+   On any gate failure it throws — the operator fixes and re-runs close.
+   The chain fails cheapest-first: `typecheck`, `lint`, `format` and the
+   coverage-independent half of the baselines gate
+   (`check-baselines-independent`) run in parallel, and only once they are
+   green does the serial walk pay for `coverage-capture` and the
+   coverage-consuming half (`check-baselines-coverage`).
+   **Gate output is captured, not streamed.** Every gate line
+   goes to `temp/orchestration/close-gates-<storyId>.log`; a clean run reports
+   one digest line naming that artifact, and a **failed** gate replays its
+   captured tail inline so the evidence is in front of you without opening a
+   file. Read the artifact when you need the full text — or re-run under
+   `AGENT_LOG_LEVEL=verbose` for live streaming.
+
+3. Pushes `story-<id>` to `origin`.
+4. Probes for an existing open PR with `head = story-<id>`. If none
    exists, opens one via `gh pr create --base <baseBranch>`. The PR
    body carries `Closes #<storyId>` so the GitHub merge auto-closes the
    issue.
-   3a. **Enables GitHub native auto-merge by default** via
+   4a. **Enables GitHub native auto-merge by default** via
    `gh pr merge <prNumber> --auto --squash --delete-branch`. Once CI's
    required checks turn green, GitHub squash-merges the PR and deletes
    the source branch — the operator does not need to babysit the merge
@@ -556,7 +564,7 @@ The `single-story-close.js` script, in order:
    non-fatal: the operator retains the manual merge surface in the
    GitHub UI. Pass `--no-auto-merge` to opt out when the PR needs a
    pre-merge eyeball.
-4. Flips the Story to **`agent::closing`** (NOT `agent::done`) and leaves
+5. Flips the Story to **`agent::closing`** (NOT `agent::done`) and leaves
    the GitHub issue **OPEN**. Auto-merge completes
    asynchronously _after_ this script exits, so closing the issue here
    would strand a CLOSED issue with no merged work if the PR later failed
@@ -567,9 +575,9 @@ The `single-story-close.js` script, in order:
    `--no-wait-merge` run, or the in-close confirm phase on the
    close-and-land default. (Step 5.5 is the Status-column resync.) A Story
    only reaches `agent::done` once its PR to `main` is confirmed merged.
-5. Reaps the worktree when `delivery.worktreeIsolation.reapOnSuccess`
+6. Reaps the worktree when `delivery.worktreeIsolation.reapOnSuccess`
    is enabled.
-6. **Releases the Story lease.** Clears the Story assignment
+7. **Releases the Story lease.** Clears the Story assignment
    that init claimed so the next `/deliver-story` run sees an
    unclaimed ticket. The release is a no-op when the operator no longer
    holds the claim (a later run took over via reclaim/steal), so a late
@@ -582,13 +590,15 @@ The `single-story-close.js` script, in order:
    de-assigning the ticket. The close result carries
    `leaseReleased: <boolean>`.
 
-`--skip-validation` bypasses Step 1 (gates). Use only when re-running
+`--skip-validation` bypasses the gate step. Use only when re-running
 close after a fixed gate failure that's already known to pass.
 
-`--skip-sync` bypasses Step 1a (base-sync). Use only when re-running
-close after a hand-resolved sync, or in tests.
+`--skip-sync` bypasses the base-sync step. Use only when re-running
+close after a hand-resolved sync, or in tests. The two flags are
+independent: either, both or neither may be set, and each elides exactly
+its own phase.
 
-`--no-auto-merge` disables Step 3a. Use when the PR materially changes
+`--no-auto-merge` disables the auto-merge arm (step 4a). Use when the PR materially changes
 behaviour and warrants pre-merge review.
 
 ---
