@@ -66,19 +66,18 @@ The emitted plan envelope carries `findings`, `groups`, `edges`,
 `classifications`, and `summary`. Subsequent phases consume the file
 rather than re-parsing the reports.
 
-**The tally cross-check is automatic.** Every report must declare
+**The tally cross-check is automatic.** Every report declares
 `Severity tally: Critical <n> / High <n> / Medium <n> / Low <n>` in its
-Executive Summary; the scan compares that line with what it actually parsed and
-carries every disagreement on `summary.reportFailures[]` — each entry naming
-`{ sourceReport, kind, reported, parsed }` for one of three kinds:
-`missing-tally` (no line at all), `tally-mismatch` (the line and the parse
-disagree), and `unresolved-severity` (a finding whose severity did not resolve;
-it is dropped from grouping rather than filed as an `unknown` group). The
-failures are printed to stderr before `--scan` returns its plan, so a silently
-mis-parsed report is never read as a clean audit. Re-run the lens (or fix the
-report) rather than filing from it. For an interactive pass over older reports
-predating the mandate, `--scan --allow-missing-tally` downgrades **only** the
-`missing-tally` kind to a warning; the other two stay failures.
+Executive Summary; the scan compares that line with what it parsed and carries
+each disagreement on `summary.reportFailures[]` as
+`{ sourceReport, kind, reported, parsed }`. The kinds are `missing-tally` (no
+line), `tally-mismatch` (line and parse disagree), and `unresolved-severity` (a
+finding whose severity did not resolve — dropped from grouping, never filed as
+an `unknown` group). They print to stderr before `--scan` returns its plan, so
+a mis-parsed report is never read as a clean audit: re-run the lens rather than
+file from it. Over older reports predating the mandate,
+`--scan --allow-missing-tally` downgrades **only** `missing-tally` to a
+warning.
 
 ## Phase 2 — HITL: severity gate
 
@@ -367,11 +366,11 @@ operator may want a "re-detected" comment on). `--dry-run` performs zero GitHub
 writes and skips the ledger write, emitting only the summary.
 
 `--auto` **fails closed on any `summary.reportFailures[]` entry** (Phase 1): an
-unattended sweep has no operator to read a warning, so a report with a missing
-or mismatched `Severity tally:` line — or one carrying a finding whose severity
-did not resolve — exits non-zero having opened no Issue and written no ledger.
-`--allow-missing-tally` is a `--scan` affordance; `--auto` ignores it. A red
-nightly sweep means the report is untrustworthy: re-run the lens. The host
+unattended sweep has no operator to read a warning, so a missing or mismatched
+`Severity tally:` line — or a finding whose severity did not resolve — exits
+non-zero having opened no Issue and written no ledger. `--allow-missing-tally`
+is a `--scan` affordance that `--auto` ignores. A red sweep means the report is
+untrustworthy: re-run the lens. The host
 scheduler owns the cadence; this workflow owns the routing.
 
 ## See also
