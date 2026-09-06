@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 import { defaultGateRunner } from '../../.agents/scripts/lib/close-validation/process.js';
@@ -13,6 +12,7 @@ import {
   withFullSuiteLockSync,
 } from '../../.agents/scripts/lib/full-suite-lock.js';
 import { acquireSweepLock } from '../../.agents/scripts/lib/single-story-sweep/sweep-lock.js';
+import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
 
 /**
  * Story #5173 — the host-level full-suite lock.
@@ -31,7 +31,7 @@ describe('full-suite lock (Story #5173)', () => {
   let lockPath;
 
   beforeEach(() => {
-    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mandrel-fsl-'));
+    dir = makeTempDir('mandrel-fsl-');
     lockPath = path.join(dir, 'full-suite.lock');
   });
 
