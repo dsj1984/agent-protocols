@@ -11,9 +11,20 @@
  */
 
 import assert from 'node:assert/strict';
+import path from 'node:path';
+import process from 'node:process';
 import { describe, it } from 'node:test';
+import { __testing } from '../../.agents/scripts/audit-to-stories.js';
 import { wireAuditStoryEdges } from '../../.agents/scripts/lib/audit-to-stories/wire-dependencies.js';
 import { parse as parseStoryBody } from '../../.agents/scripts/lib/story-body/story-body.js';
+
+const { loadProvider, wireEdges } = __testing;
+
+/** A fixture provider with dedup ports and no `updateTicket` (Story #4678). */
+const SEARCH_ONLY_FIXTURE = path.resolve(
+  import.meta.dirname,
+  '../../.agents/scripts/lib/audit-to-stories/__tests__/fixtures/failing-subset-provider.js',
+);
 
 /** A minimal grouped-findings entry, shaped like `groupFindings` output. */
 function group(groupKey, { file = `lib/${groupKey}.js` } = {}) {
@@ -191,5 +202,160 @@ describe('wireAuditStoryEdges — declared ordering for a standalone audit cohor
     assert.deepEqual(parseStoryBody(bodies.get(102)).body.depends_on, ['#101']);
     assert.deepEqual(parseStoryBody(bodies.get(103)).body.depends_on, ['#102']);
     assert.equal(bodies.has(101), false, 'the root has no blocker');
+  });
+});
+
+/**
+ * A provider shaped like the live `GitHubProvider`: every port is a prototype
+ * method reaching through `this`, so a port carried across the adapter
+ * unbound throws on first call rather than quietly writing nothing. That is
+ * exactly what `loadProvider`'s narrowing hid until Story #5143.
+ */
+class StubLiveProvider {
+  constructor() {
+    this.patched = [];
+    this.nativeEdges = [];
+  }
+
+  async searchIssues() {
+    return [];
+  }
+
+  async updateTicket(issueNumber, mutations) {
+    this.patched.push({ issueNumber, body: mutations.body });
+  }
+
+  async getTicket(issueNumber) {
+    return { internalId: 900000 + issueNumber };
+  }
+
+  getDependencyWriteContext() {
+    return {
+      owner: 'o',
+      repo: 'r',
+      gh: {
+        api: ({ method, endpoint, body }) => {
+          if (method === 'GET') return Promise.resolve([]);
+          this.nativeEdges.push({ endpoint, body });
+          return Promise.resolve({});
+        },
+      },
+    };
+  }
+}
+
+/** Drive the real adapter off `stub` through `loadProvider`'s seams. */
+const liveAdapter = (stub) => () =>
+  loadProvider({
+    createProviderImpl: () => stub,
+    resolveConfigImpl: () => ({ github: { owner: 'o', repo: 'r' } }),
+  });
+
+const PLAN = {
+  edges: [{ fromGroupKey: 'b', toGroupKey: 'a' }],
+  classifications: [
+    { action: 'create', group: group('a') },
+    { action: 'create', group: group('b') },
+  ],
+};
+
+describe('wireEdges — the live provider reaches the wire step (Story #5143)', () => {
+  it('carries updateTicket/getTicket/getDependencyWriteContext through the dedup adapter (AC-1)', async () => {
+    // Pre-change, `loadProvider` returned an adapter narrowed to the two dedup
+    // search ports, so this threw "--wire-edges needs a provider exposing
+    // updateTicket" against a correctly configured, correctly authed repo.
+    const stub = new StubLiveProvider();
+    const summary = await wireEdges(
+      { plan: PLAN, issueByGroupKey: { a: 101, b: 102 } },
+      { loadProviderImpl: liveAdapter(stub) },
+    );
+
+    assert.deepEqual(
+      stub.patched.map((p) => p.issueNumber),
+      [102],
+      'updateTicket runs once per dependent Story, on the provider itself',
+    );
+    assert.ok(stub.patched[0].body.includes('blocked by #101'));
+    assert.deepEqual(parseStoryBody(stub.patched[0].body).body.depends_on, [
+      '#101',
+    ]);
+    assert.equal(summary.bodiesUpdated, 1);
+    // The native half proves getTicket + getDependencyWriteContext survived
+    // the crossing bound — an unbound method would throw on `this`.
+    assert.deepEqual(summary.native, {
+      edgesAdded: 1,
+      edgesSkipped: 0,
+      edgesFailed: 0,
+    });
+    assert.deepEqual(stub.nativeEdges[0].body, { issue_id: 900101 });
+  });
+
+  it('names the missing configuration rather than guessing at it (AC-3)', async () => {
+    await assert.rejects(
+      () =>
+        wireEdges(
+          { plan: PLAN, issueByGroupKey: { a: 101, b: 102 } },
+          {
+            loadProviderImpl: () =>
+              loadProvider({ resolveConfigImpl: () => ({ github: {} }) }),
+          },
+        ),
+      (err) => {
+        assert.match(
+          err.message,
+          /github\.owner and github\.repo are not both set/,
+        );
+        assert.doesNotMatch(err.message, /wire the edges by hand/);
+        return true;
+      },
+    );
+  });
+
+  it('names a failed provider construction as auth, not configuration (AC-3)', async () => {
+    await assert.rejects(
+      () =>
+        wireEdges(
+          { plan: PLAN, issueByGroupKey: { a: 101, b: 102 } },
+          {
+            loadProviderImpl: () =>
+              loadProvider({
+                resolveConfigImpl: () => ({
+                  github: { owner: 'o', repo: 'r' },
+                }),
+                createProviderImpl: () => {
+                  throw new Error('gh auth token missing');
+                },
+              }),
+          },
+        ),
+      (err) => {
+        assert.match(err.message, /check GH_TOKEN \/ gh auth/);
+        assert.match(err.message, /gh auth token missing/);
+        assert.doesNotMatch(err.message, /wire the edges by hand/);
+        return true;
+      },
+    );
+  });
+
+  it('names the fixture seam when a fixture provider has no updateTicket (AC-3)', async () => {
+    const previous = process.env.AUDIT_TO_STORIES_PROVIDER_FIXTURE;
+    process.env.AUDIT_TO_STORIES_PROVIDER_FIXTURE = SEARCH_ONLY_FIXTURE;
+    try {
+      await assert.rejects(
+        () => wireEdges({ plan: PLAN, issueByGroupKey: { a: 101, b: 102 } }),
+        (err) => {
+          assert.match(
+            err.message,
+            /AUDIT_TO_STORIES_PROVIDER_FIXTURE names a fixture provider with no updateTicket port/,
+          );
+          assert.doesNotMatch(err.message, /wire the edges by hand/);
+          return true;
+        },
+      );
+    } finally {
+      if (previous === undefined)
+        delete process.env.AUDIT_TO_STORIES_PROVIDER_FIXTURE;
+      else process.env.AUDIT_TO_STORIES_PROVIDER_FIXTURE = previous;
+    }
   });
 });
