@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import path from 'node:path';
 import process from 'node:process';
 import { test } from 'node:test';
+import { pathToFileURL } from 'node:url';
 import { __testing } from '../../.agents/scripts/audit-to-stories.js';
 import { classifyGroupsAgainstGitHub } from '../../.agents/scripts/lib/audit-to-stories/dedupe-against-github.js';
 import {
@@ -272,7 +273,10 @@ test('the dedup path consumes only the adapter search ports, widened or not (AC-
 });
 
 test('the fixture-provider path is still returned verbatim (AC-2, Story #5143)', async () => {
-  const fixture = await import(SEARCH_ONLY_FIXTURE);
+  // A bare absolute path is not a valid ESM specifier on Windows, where it
+  // parses as protocol `d:` — the production `loadFixtureProvider` converts
+  // with `pathToFileURL` for the same reason.
+  const fixture = await import(pathToFileURL(SEARCH_ONLY_FIXTURE).href);
   const loaded = await withFixtureProvider(SEARCH_ONLY_FIXTURE, () =>
     loadProvider({
       resolveConfigImpl: () => {
