@@ -4,6 +4,8 @@
 
 One High-impact maintainability issue and one Low.
 
+Severity tally: Critical 0 / High 1 / Medium 0 / Low 1
+
 ## Detailed Findings
 
 ### Cyclomatic complexity hotspot in login handler

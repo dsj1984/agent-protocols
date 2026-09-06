@@ -20,7 +20,10 @@ import path from 'node:path';
 import { normalizeSeverity } from '../findings/severity.js';
 
 const KEY_LINE = /^\s*-\s*\*\*([^:*]+):\*\*\s*(.*)$/;
-const HEADING_FINDING = /^###\s+(.+?)\s*$/;
+const HEADING_FINDING = /^(#{3,4})\s+(.+?)\s*$/;
+const SEVERITY_KEY_LINE = /^\s*-\s*\*\*(?:severity|impact)\s*:\*\*/i;
+const TALLY_LINE =
+  /severity\s+tally\s*:?\**\s*critical\s+(\d+)\s*\/\s*high\s+(\d+)\s*\/\s*medium\s+(\d+)\s*\/\s*low\s+(\d+)/i;
 const HEADING_SECTION = /^##\s+(.+?)\s*$/;
 const PATH_HINT =
   /(?<![\w/])([A-Za-z0-9_./\\@-]+\.(?:js|ts|tsx|jsx|mjs|cjs|md|json|yaml|yml|css|scss|html|py|go|rs|java|kt|rb|sh|ps1|tf|env))(?![\w])/g;
@@ -238,7 +241,11 @@ function splitFindingBlocks(reportText) {
     const findingMatch = HEADING_FINDING.exec(line);
     if (findingMatch) {
       if (current) blocks.push(current);
-      current = { title: findingMatch[1].trim(), bodyLines: [] };
+      current = {
+        level: findingMatch[1].length,
+        title: findingMatch[2].trim(),
+        bodyLines: [],
+      };
       continue;
     }
 
@@ -247,6 +254,88 @@ function splitFindingBlocks(reportText) {
 
   if (current) blocks.push(current);
   return blocks;
+}
+
+/**
+ * Does this block carry the axis line that makes it a finding rather than a
+ * section header? The skeleton mandates `Severity` (or its `Impact` alias), so
+ * its absence is the signal that a heading is organisational.
+ *
+ * @param {{ bodyLines: string[] }} block
+ * @returns {boolean}
+ */
+function carriesSeverity(block) {
+  return block.bodyLines.some((line) => SEVERITY_KEY_LINE.test(line));
+}
+
+/**
+ * Resolve `###` headings that are **grouping headers** rather than findings.
+ *
+ * Several lenses nest their findings one level deeper — a `###` per dimension
+ * (`### Perceivable`), each holding `####` finding blocks. Read flat, that
+ * report parsed as one severity-less finding per dimension with no files and
+ * no recommendation, and `--auto` filed those empties (Story #5144). The rule
+ * this applies: a `###` heading that carries no `Severity:`/`Impact:` line and
+ * is followed by `####` headings is a grouping header — its `####` children
+ * are emitted as findings and the header itself never is.
+ *
+ * A `###` heading that DOES carry the axis line keeps the previous behaviour:
+ * its `####` sub-sections fold back into its own body rather than splitting
+ * into phantom findings, so existing flat reports parse exactly as before.
+ *
+ * @param {Array<{ level: number, title: string, bodyLines: string[] }>} blocks
+ * @returns {Array<{ level: number, title: string, bodyLines: string[] }>}
+ */
+function foldGroupingHeaders(blocks) {
+  const out = [];
+  let parent = null;
+  for (const block of blocks) {
+    if (block.level <= 3) {
+      parent = block;
+      out.push(block);
+      continue;
+    }
+    if (!parent) {
+      out.push(block);
+      continue;
+    }
+    if (carriesSeverity(parent)) {
+      parent.bodyLines.push(`#### ${block.title}`, ...block.bodyLines);
+      continue;
+    }
+    parent.isGroupingHeader = true;
+    out.push(block);
+  }
+  return out.filter((block) => !block.isGroupingHeader);
+}
+
+/**
+ * Read the machine-readable severity tally the report envelope mandates in its
+ * `## Executive Summary`:
+ *
+ * ```text
+ * Severity tally: Critical 0 / High 2 / Medium 1 / Low 0
+ * ```
+ *
+ * The line is what lets a consumer cross-check what the lens says it found
+ * against what the parser actually extracted — a parse that silently drops
+ * findings is otherwise indistinguishable from a clean report. `Info` is never
+ * counted (the severity scale already excludes it from scheduled work).
+ *
+ * @param {string} markdown — full report text.
+ * @returns {{ critical: number, high: number, medium: number, low: number }|null}
+ *   `null` when the report declares no tally at all.
+ */
+export function parseSeverityTally(markdown) {
+  if (typeof markdown !== 'string') return null;
+  const match = TALLY_LINE.exec(markdown);
+  if (!match) return null;
+  return {
+    critical: Number(match[1]),
+    high: Number(match[2]),
+    medium: Number(match[3]),
+    low: Number(match[4]),
+  };
 }
 
 function parseBlockFields(bodyLines) {
@@ -302,7 +391,7 @@ export function parseAuditReport({ markdown, sourceReport, repoRoot }) {
   }
 
   const fallbackDimension = inferDimensionFromReportName(sourceReport);
-  const blocks = splitFindingBlocks(markdown);
+  const blocks = foldGroupingHeaders(splitFindingBlocks(markdown));
 
   return blocks.map((block) => {
     const fields = parseBlockFields(block.bodyLines);
@@ -357,6 +446,8 @@ export function parseAuditReports(reports, { repoRoot } = {}) {
 }
 
 export const __testing = {
+  carriesSeverity,
+  foldGroupingHeaders,
   normaliseSeverity,
   extractFilePaths,
   normaliseTitle,

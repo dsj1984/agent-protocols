@@ -23,6 +23,10 @@ let workDir;
 
 const FIXTURE = `# Audit: Security
 
+## Executive Summary
+
+Severity tally: Critical 0 / High 1 / Medium 0 / Low 1
+
 ## Detailed Findings
 
 ### SQLi in login handler

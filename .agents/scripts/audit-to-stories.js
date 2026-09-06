@@ -44,7 +44,10 @@ import {
   reconcileLedger,
   writeLedger,
 } from './lib/audit-to-stories/ledger.js';
-import { parseAuditReports } from './lib/audit-to-stories/parse-audit-md.js';
+import {
+  parseAuditReports,
+  parseSeverityTally,
+} from './lib/audit-to-stories/parse-audit-md.js';
 import { buildPlanSeedMarkdown } from './lib/audit-to-stories/seed-from-findings.js';
 import { wireAuditStoryEdges } from './lib/audit-to-stories/wire-dependencies.js';
 import { runAsCli } from './lib/cli-utils.js';
@@ -116,6 +119,180 @@ function tallyBySeverity(findings) {
     else t.unknown += 1;
   }
   return t;
+}
+
+/**
+ * The four levels a report's `Severity tally:` line declares. `Info` is
+ * deliberately absent — the severity scale already excludes it from scheduled
+ * work — and `unknown` is not a level a lens can declare, so neither is
+ * comparable against the line.
+ */
+const TALLY_LEVELS = Object.freeze(['critical', 'high', 'medium', 'low']);
+
+/**
+ * Project a findings list onto the four comparable levels, so a report's
+ * declared tally and the parsed one are compared over the same axes.
+ *
+ * @param {Array<{ severity?: string }>} findings
+ * @returns {{ critical: number, high: number, medium: number, low: number }}
+ */
+function comparableTally(findings) {
+  const full = tallyBySeverity(findings);
+  return Object.fromEntries(TALLY_LEVELS.map((level) => [level, full[level]]));
+}
+
+function sameTally(a, b) {
+  return TALLY_LEVELS.every((level) => a[level] === b[level]);
+}
+
+function formatTally(tally) {
+  if (!tally) return '(no Severity tally line)';
+  return `Critical ${tally.critical} / High ${tally.high} / Medium ${tally.medium} / Low ${tally.low}`;
+}
+
+/**
+ * Run the cross-check, route its messages to stderr, and enforce the
+ * fail-closed arm — the whole report-verification step as one call, so
+ * `buildPlan` reads as a pipeline rather than absorbing the branching.
+ *
+ * `--auto` files unattended, so a report it cannot trust must stop the run
+ * BEFORE the ledger reconcile and before any Story payload is built: no GitHub
+ * write, no ledger write, non-zero exit. `--scan` reports and carries on — the
+ * failures ride the plan envelope for the operator to act on.
+ *
+ * @param {object} params
+ * @param {Array<{ sourceReport: string, markdown: string }>} params.reports
+ * @param {Array<object>} params.findings — every parsed finding, unfiltered.
+ * @param {boolean} [params.allowMissingTally]
+ * @param {boolean} [params.failOnReportFailures]
+ * @param {{ warn: Function }} params.logger
+ * @returns {Array<object>} the failures, for `summary.reportFailures[]`.
+ */
+function auditReportFailures({
+  reports,
+  findings,
+  allowMissingTally,
+  failOnReportFailures,
+  logger,
+}) {
+  const { failures, warnings } = crossCheckReports({
+    reports,
+    findings,
+    allowMissingTally,
+  });
+  for (const warning of warnings) logger.warn(warning);
+  if (failures.length === 0) return failures;
+  const message = reportFailureWarning(failures);
+  logger.warn(message);
+  if (failOnReportFailures) {
+    throw new Error(
+      `refusing to file from an unverified report set. ${message}`,
+    );
+  }
+  return failures;
+}
+
+/**
+ * Cross-check every report's declared `Severity tally:` line against the
+ * findings the parser actually extracted from it (Story #5144).
+ *
+ * A parser that silently drops findings is indistinguishable from a clean
+ * report: the empty plan looks exactly like "nothing to file". The lens
+ * contract therefore mandates one machine-readable tally line per report, and
+ * this is where the two numbers meet. Three failure kinds are named:
+ *
+ * - `missing-tally` — the report declares no tally at all (an older or
+ *   hand-written report). `allowMissingTally` downgrades ONLY this kind to a
+ *   warning, for an interactive `--scan` over legacy reports.
+ * - `tally-mismatch` — the report says one thing and the parse says another.
+ * - `unresolved-severity` — a finding parsed with no resolvable severity. It
+ *   is a report defect, never an `unknown` group.
+ *
+ * Pure: returns the messages and lets the caller own the single `Logger.warn`
+ * (stderr) sink, so `--scan` JSON on stdout stays clean.
+ *
+ * @param {object} params
+ * @param {Array<{ sourceReport: string, markdown: string }>} params.reports
+ * @param {Array<{ sourceReport: string, severity?: string, title?: string }>} params.findings
+ * @param {boolean} [params.allowMissingTally]
+ * @returns {{ failures: Array<object>, warnings: string[] }}
+ */
+function crossCheckReports({ reports, findings, allowMissingTally }) {
+  const failures = [];
+  const warnings = [];
+  const byReport = new Map(reports.map((r) => [r.sourceReport, []]));
+  for (const finding of findings) {
+    byReport.get(finding.sourceReport)?.push(finding);
+  }
+
+  for (const report of reports) {
+    const own = byReport.get(report.sourceReport) ?? [];
+    const parsed = comparableTally(own);
+    const reported = parseSeverityTally(report.markdown);
+    const sourceReport = report.sourceReport;
+    const unresolved = own.filter((f) => !f.severity);
+    if (unresolved.length > 0) {
+      failures.push({
+        sourceReport,
+        kind: 'unresolved-severity',
+        reported,
+        parsed,
+        titles: unresolved.map((f) => f.title),
+      });
+    }
+    if (!reported) {
+      const failure = {
+        sourceReport,
+        kind: 'missing-tally',
+        reported: null,
+        parsed,
+      };
+      if (allowMissingTally) warnings.push(missingTallyWarning(failure));
+      else failures.push(failure);
+      continue;
+    }
+    if (!sameTally(reported, parsed)) {
+      failures.push({ sourceReport, kind: 'tally-mismatch', reported, parsed });
+    }
+  }
+
+  return { failures, warnings };
+}
+
+/**
+ * The `--allow-missing-tally` downgrade message. It still names the report and
+ * says plainly that `--auto` ignores the flag, so an operator never reads the
+ * warning as "this report is fine".
+ *
+ * @param {{ sourceReport: string, parsed: object }} failure
+ * @returns {string}
+ */
+function missingTallyWarning(failure) {
+  return `audit report cross-check: ${failure.sourceReport} declares no "Severity tally:" line — downgraded to a warning by --allow-missing-tally (parsed ${formatTally(failure.parsed)}). --auto ignores that flag and refuses the report.`;
+}
+
+/**
+ * Render the report-failure block: one line per failure naming the report path
+ * and BOTH tallies, so the operator can see which side is wrong without
+ * re-reading the report.
+ *
+ * Pure: returns the message string so the caller owns the single `Logger.warn`.
+ *
+ * @param {Array<{ sourceReport: string, kind: string, reported: object|null, parsed: object, titles?: string[] }>} failures
+ * @returns {string}
+ */
+function reportFailureWarning(failures) {
+  const lines = failures.map((f) => {
+    const titles = f.titles?.length
+      ? ` findings=${f.titles.map((t) => `"${t}"`).join(', ')}`
+      : '';
+    return `  - ${f.sourceReport} [${f.kind}] reported=${formatTally(f.reported)} parsed=${formatTally(f.parsed)}${titles}`;
+  });
+  return [
+    `audit report cross-check FAILED for ${failures.length} report(s) — the declared severity tally does not match the parsed findings:`,
+    ...lines,
+    'Every report must carry "Severity tally: Critical <n> / High <n> / Medium <n> / Low <n>" in its Executive Summary, matching its own findings. Fix the report (or re-run the lens) before filing.',
+  ].join('\n');
 }
 
 /**
@@ -415,7 +592,14 @@ function dedupDegradedWarning(entries) {
  * @returns {Promise<object>} the plan envelope.
  */
 async function buildPlan(
-  { glob: pattern, severity, useProvider, ledger },
+  {
+    glob: pattern,
+    severity,
+    useProvider,
+    ledger,
+    allowMissingTally,
+    failOnReportFailures,
+  },
   deps = {},
 ) {
   const {
@@ -442,14 +626,25 @@ async function buildPlan(
         create: 0,
         skipOpen: 0,
         skipReoccurring: 0,
+        reportFailures: [],
       },
     };
   }
 
   const reports = readReportsImpl(reportPaths);
   const allFindings = parseAuditReports(reports, { repoRoot: process.cwd() });
+  const reportFailures = auditReportFailures({
+    reports,
+    findings: allFindings,
+    allowMissingTally,
+    failOnReportFailures,
+    logger,
+  });
   const filtered = allFindings.filter((f) => meetsSeverity(f, severity));
-  const stamped = withFingerprints(filtered);
+  // A finding whose severity did not resolve is a report defect, not a Story.
+  // It stays visible in `summary.tally.unknown` and in `reportFailures`, but
+  // it never reaches grouping — an `unknown` group is not a thing to file.
+  const stamped = withFingerprints(filtered.filter((f) => Boolean(f.severity)));
   const { groups, edges } = groupFindings(stamped);
 
   let classifications = groups.map((g) => ({
@@ -532,6 +727,7 @@ async function buildPlan(
       totalFindings: allFindings.length,
       filtered: filtered.length,
       tally: tallyBySeverity(filtered),
+      reportFailures,
       dedupApplied,
       ...(ledgerSummary ? { ledger: ledgerSummary } : {}),
       ...summary,
@@ -641,6 +837,10 @@ async function runAuto({ glob, severity, dryRun, useProvider, ledgerPath }) {
     severity: floor,
     useProvider,
     ledger: { path: ledgerPath ?? DEFAULT_LEDGER_PATH, write: !dryRun },
+    // `--auto` never accepts `--allow-missing-tally`: an unattended sweep has
+    // no operator to read a warning, so every report failure is fatal here.
+    allowMissingTally: false,
+    failOnReportFailures: true,
   });
 
   const byAction = {
@@ -849,6 +1049,8 @@ export const __testing = {
   meetsSeverity,
   collectReportPaths,
   buildPlan,
+  crossCheckReports,
+  reportFailureWarning,
   loadProvider,
   loadProviderOrNull,
   dedupSkippedWarning,
@@ -914,6 +1116,7 @@ export async function runAuditToStories(
       plan: { type: 'string' },
       out: { type: 'string' },
       'no-provider': { type: 'boolean' },
+      'allow-missing-tally': { type: 'boolean' },
       json: { type: 'boolean' },
     },
     strict: false,
@@ -937,6 +1140,7 @@ export async function runAuditToStories(
       glob: values.glob,
       severity: values.severity,
       useProvider: !values['no-provider'],
+      allowMissingTally: values['allow-missing-tally'],
     });
 
   const seedMarkdown = () => {
@@ -1050,6 +1254,10 @@ runAsCli(import.meta.url, main, {
       ],
       ['--out <path>', 'Write output to a file instead of stdout.'],
       ['--no-provider', 'Skip live GitHub dedup lookups (offline).'],
+      [
+        '--allow-missing-tally',
+        'Downgrade a missing "Severity tally:" line to a warning (--scan only; --auto ignores it).',
+      ],
       ['--json', 'Force JSON output.'],
       ['--dry-run', 'Report what would be filed; create nothing.'],
     ],
