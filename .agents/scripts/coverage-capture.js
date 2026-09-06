@@ -12,8 +12,15 @@
  *   3. Test freshness: content digest of `crap.targetDirs` vs. the persisted
  *      capture stamp (`coverage/.capture-stamp.json`), falling back to the
  *      artifact-mtime heuristic when no stamp exists. Exit 0 when fresh.
- *   4. Otherwise spawn `npm run test:coverage`, write a fresh capture stamp
- *      on success, and propagate the exit code.
+ *   4. Otherwise spawn `npm run test:coverage` — serialized behind the
+ *      host-level full-suite lock (Story #5173) so two concurrent runs on one
+ *      checkout do not race — write a fresh capture stamp on success, and
+ *      propagate the exit code.
+ *
+ * Step 3 is preceded by the changed-file skip when
+ * `delivery.quality.gates.crap.incrementalCoverage.skipWhenUnchanged` is on
+ * (the default): no changed file under `crap.targetDirs` versus `baseRef`
+ * means no capture at all.
  *
  * Exit codes:
  *   0 — coverage is fresh (or capture skipped/succeeded).
@@ -34,6 +41,7 @@ import {
 import { runFullScopeCapture } from './lib/coverage-capture-fullscope.js';
 import { tryIncrementalCapture } from './lib/coverage-capture-incremental.js';
 import { handleCoverageCaptureHelp } from './lib/coverage-capture-usage.js';
+import { lockedCapture } from './lib/full-suite-lock.js';
 
 import { Logger } from './lib/Logger.js';
 import { hasNpmScript, readPackageScripts } from './lib/npm-scripts.js';
@@ -124,10 +132,19 @@ export function runCoverageCapture(argv = process.argv, deps = {}) {
     return 1;
   }
 
-  // Story #4981 — incremental mode, opt-in via
-  // `delivery.quality.gates.crap.incrementalCoverage.enabled`. `null` means
-  // "not applicable" (disabled, or a ref-resolution error) — fall through to
-  // the full-scope path below rather than silently skipping capture.
+  // Story #5173 — the host-level full-suite lock. Resolved once here, where
+  // the config is already in scope, and composed over the capture runner so
+  // whichever path reaches the spawn is serialized without either of them
+  // knowing about it. `delivery.execution.fullSuiteLock: false` and
+  // `MANDREL_FULL_SUITE_LOCK=0` each disable it; both hatches live in
+  // `isFullSuiteLockEnabled`.
+  const capture = lockedCapture(runCaptureImpl, config);
+
+  // Story #4981/#5173 — the capture skip, gated by
+  // `delivery.quality.gates.crap.incrementalCoverage.skipWhenUnchanged` (on
+  // by default). `null` means "not applicable" (switched off, or a
+  // ref-resolution error) — fall through to the full-scope path below rather
+  // than silently skipping capture.
   const incrementalResult = tryIncrementalCapture({
     crap,
     coverage,
@@ -135,7 +152,7 @@ export function runCoverageCapture(argv = process.argv, deps = {}) {
     getChangedFilesImpl,
     filterFilesUnderTargetsImpl,
     isCoverageFreshImpl,
-    runCaptureImpl,
+    runCaptureImpl: capture,
     computeContentDigestImpl,
     writeCaptureStampImpl,
     logger,
@@ -148,7 +165,7 @@ export function runCoverageCapture(argv = process.argv, deps = {}) {
     args,
     getChangedFilesImpl,
     isCoverageFreshImpl,
-    runCaptureImpl,
+    runCaptureImpl: capture,
     computeContentDigestImpl,
     writeCaptureStampImpl,
     logger,

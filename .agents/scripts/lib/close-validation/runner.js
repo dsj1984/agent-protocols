@@ -226,6 +226,7 @@ export async function runCloseValidation({
       log,
       signal,
       ...(gate.env ? { env: gate.env } : {}),
+      ...(gate.fullSuiteLock ? { fullSuiteLock: true } : {}),
       ...(gate.tolerateNoFilesProcessed
         ? { tolerateNoFilesProcessed: true }
         : {}),

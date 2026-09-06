@@ -830,6 +830,45 @@ describe('delivery.quality.* shape — uniform gates (Story #1737)', () => {
       );
     });
 
+    // Story #5173 — the split pair, and the deprecated alias alongside it.
+    it('accepts the split switches, together and apart', () => {
+      for (const incrementalCoverage of [
+        { skipWhenUnchanged: true },
+        { baselineJoin: false },
+        {
+          skipWhenUnchanged: false,
+          baselineJoin: true,
+          baseRef: 'origin/main',
+        },
+        { enabled: true, baselineJoin: false },
+      ]) {
+        assert.equal(
+          validate({
+            ...REQ,
+            delivery: {
+              quality: { gates: { crap: { incrementalCoverage } } },
+            },
+          }),
+          true,
+          `expected ${JSON.stringify(incrementalCoverage)} to validate`,
+        );
+      }
+    });
+
+    it('rejects a non-boolean split switch', () => {
+      expectErrors(
+        {
+          ...REQ,
+          delivery: {
+            quality: {
+              gates: { crap: { incrementalCoverage: { baselineJoin: 'yes' } } },
+            },
+          },
+        },
+        /must be boolean/,
+      );
+    });
+
     it('accepts enabled alone (baseRef optional)', () => {
       assert.equal(
         validate({
@@ -873,6 +912,28 @@ describe('delivery.quality.* shape — uniform gates (Story #1737)', () => {
         /must be string/,
       );
     });
+  });
+});
+
+// Story #5173 — `delivery.execution.fullSuiteLock` MUST live on the runtime
+// AJV delivery schema. A key declared only in the generated JSON-Schema mirror
+// never reaches config resolution, so it would be inert: the operator would
+// set it, AJV would reject the file, and the switch would never resolve.
+describe('AGENTRC_SCHEMA — delivery.execution.fullSuiteLock (Story #5173)', () => {
+  it('accepts the boolean escape hatch', () => {
+    for (const fullSuiteLock of [true, false]) {
+      assert.equal(
+        validate({ ...REQ, delivery: { execution: { fullSuiteLock } } }),
+        true,
+      );
+    }
+  });
+
+  it('rejects a non-boolean value', () => {
+    expectErrors(
+      { ...REQ, delivery: { execution: { fullSuiteLock: 'off' } } },
+      /must be boolean/,
+    );
   });
 });
 

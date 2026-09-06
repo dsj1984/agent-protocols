@@ -6,6 +6,7 @@ import {
   parseArgs,
   runCoverageCapture,
 } from '../.agents/scripts/coverage-capture.js';
+import { getQuality } from '../.agents/scripts/lib/config-resolver.js';
 import { handleCoverageCaptureHelp } from '../.agents/scripts/lib/coverage-capture-usage.js';
 
 /**
@@ -31,6 +32,7 @@ function harness({
   hasScript = true,
   digest = 'deadbeef',
   stampWritten = true,
+  lockEnabled = false,
 } = {}) {
   const log = { info: [], warn: [], error: [] };
   const calls = { capture: [], stamp: [], changed: [], fresh: [] };
@@ -38,7 +40,15 @@ function harness({
     log,
     calls,
     deps: {
-      resolveConfigImpl: (args) => ({ cwdSeen: args.cwd }),
+      // Story #5173 — the CLI wraps the capture runner in the real
+      // `lockedCapture`, so the stub config disables the host lock: a unit
+      // test must not create a lockfile in the developer's checkout. The
+      // enabled path is driven explicitly below and in
+      // tests/lib/full-suite-lock.test.js.
+      resolveConfigImpl: (args) => ({
+        cwdSeen: args.cwd,
+        delivery: { execution: { fullSuiteLock: lockEnabled } },
+      }),
       getQualityImpl: () => ({ crap, coverage: { timeoutMs: 1234 } }),
       readPackageScriptsImpl: () => ({ 'test:coverage': 'node --test' }),
       hasNpmScriptImpl: () => hasScript,
@@ -253,12 +263,18 @@ describe('runCoverageCapture', () => {
     );
   });
 
-  // Story #4981 — incremental mode, opt-in via
-  // delivery.quality.gates.crap.incrementalCoverage.
-  describe('incremental mode (Story #4981)', () => {
-    const INCREMENTAL_CRAP = {
+  // Story #4981 — the capture skip. Story #5173 split the one `enabled`
+  // switch into `skipWhenUnchanged` (this path) and `baselineJoin` (the CRAP
+  // join) and defaulted the skip ON, so these fixtures use the RESOLVED shape
+  // `config/quality.js` hands the CLI, not the raw user block.
+  describe('capture skip (Story #4981, defaulted on by #5173)', () => {
+    const SKIP_ON = {
       ...CRAP,
-      incrementalCoverage: { enabled: true, baseRef: 'origin/main' },
+      incrementalCoverage: {
+        skipWhenUnchanged: true,
+        baselineJoin: false,
+        baseRef: 'origin/main',
+      },
     };
 
     // Story #5065 — the changed-file set decides WHETHER to capture and is
@@ -267,7 +283,7 @@ describe('runCoverageCapture', () => {
     // execute those source files as tests instead of running the suite.
     it('captures on a changed target-dir file and stamps scope: incremental', () => {
       const h = harness({
-        crap: INCREMENTAL_CRAP,
+        crap: SKIP_ON,
         changed: ['.agents/scripts/a.js', 'README.md'],
         fresh: { fresh: false, reason: 'missing' },
       });
@@ -288,21 +304,21 @@ describe('runCoverageCapture', () => {
       });
     });
 
-    it('AC-4: passes requireScope: incremental to the freshness probe', () => {
-      const h = harness({ crap: INCREMENTAL_CRAP });
+    it('AC-5: passes requireScope: incremental to the freshness probe, so the stamp it writes cannot credit a full-scope caller', () => {
+      const h = harness({ crap: SKIP_ON });
       runCoverageCapture(argv(), h.deps);
       assert.equal(h.calls.fresh[0].requireScope, 'incremental');
     });
 
     it('skips capture when nothing changed under targetDirs', () => {
-      const h = harness({ crap: INCREMENTAL_CRAP, changed: ['README.md'] });
+      const h = harness({ crap: SKIP_ON, changed: ['README.md'] });
       assert.equal(runCoverageCapture(argv(), h.deps), 0);
       assert.equal(h.calls.capture.length, 0);
       assert.match(h.log.info[0], /Incremental mode: no changed files/);
     });
 
     it('falls back to full-scope capture on a bad ref (fail-closed, not skipped)', () => {
-      const h = harness({ crap: INCREMENTAL_CRAP, changed: 'throw' });
+      const h = harness({ crap: SKIP_ON, changed: 'throw' });
       runCoverageCapture(argv(), h.deps);
       assert.match(h.log.warn[0], /incremental mode:.*falling back/);
       // Full-scope path still ran (freshness probe reached with default scope).
@@ -310,12 +326,83 @@ describe('runCoverageCapture', () => {
       assert.equal(h.calls.fresh[0].requireScope, undefined);
     });
 
-    it('AC-5: default (no incrementalCoverage key) never calls the incremental path', () => {
-      const h = harness({ changed: 'throw' });
-      // If the incremental branch ran it would call getChangedFilesImpl and throw
-      // internally (caught); asserting no warn line proves it never engaged.
-      runCoverageCapture(argv(), h.deps);
-      assert.equal(h.log.warn.length, 0);
+    // AC-4 — the saving, measured through the REAL resolver rather than a
+    // hand-written fixture: a consumer with no `incrementalCoverage` key at
+    // all must skip the suite on a docs-only diff. Resolving the config here
+    // is the point of the test; a fixture asserting `skipWhenUnchanged: true`
+    // would pass even if the default were still off.
+    it('AC-4: a docs-only diff under the inherited default costs no suite spawn', () => {
+      const { crap } = getQuality({});
+      assert.equal(
+        crap.incrementalCoverage.skipWhenUnchanged,
+        true,
+        'AC-1: the skip is inherited without setting the key',
+      );
+      const h = harness({
+        crap: { ...crap, targetDirs: CRAP.targetDirs },
+        changed: ['README.md', 'docs/architecture.md'],
+      });
+      assert.equal(runCoverageCapture(argv(), h.deps), 0);
+      assert.equal(h.calls.capture.length, 0);
+    });
+
+    // AC-3 — the capture half of the independence claim: the skip must not
+    // read `baselineJoin`. The join half (it must not read
+    // `skipWhenUnchanged`) is asserted in tests/config/quality.floors.test.js
+    // against `resolveCrapPreviewIncremental`.
+    it('AC-3: skipWhenUnchanged:false skips nothing even with baselineJoin on', () => {
+      const h = harness({
+        crap: {
+          ...CRAP,
+          incrementalCoverage: {
+            skipWhenUnchanged: false,
+            baselineJoin: true,
+            baseRef: null,
+          },
+        },
+        changed: ['README.md'],
+        fresh: { fresh: false, reason: 'missing' },
+      });
+      assert.equal(runCoverageCapture(argv(), h.deps), 0);
+      assert.equal(h.calls.capture.length, 1, 'the full-scope path must run');
+      assert.equal(h.calls.fresh[0].requireScope, undefined);
+    });
+  });
+
+  // Story #5173 — the CLI composes the host lock over the capture runner, so
+  // whichever capture path reaches the spawn is serialized without knowing it.
+  describe('full-suite lock wiring (Story #5173)', () => {
+    // AC-9 — the lock covers the spawn, never the freshness check. A capture
+    // that is already credited returns before the runner is reached at all,
+    // so there is nothing to wait on.
+    it('AC-9: an already-fresh capture never reaches the lock', () => {
+      const h = harness({ fresh: { fresh: true, reason: 'fresh' } });
+      assert.equal(runCoverageCapture(argv(), h.deps), 0);
+      assert.equal(
+        h.calls.capture.length,
+        0,
+        'a fresh capture must not reach the spawn (and so not the lock)',
+      );
+    });
+
+    it('passes the capture options through the wrapper unchanged', () => {
+      const h = harness({ fresh: { fresh: false, reason: 'missing' } });
+      assert.equal(runCoverageCapture(argv('--cwd', '/repo'), h.deps), 0);
+      assert.equal(h.calls.capture.length, 1);
+      assert.equal(h.calls.capture[0].cwd, '/repo');
+      assert.equal(h.calls.capture[0].timeoutMs, 1234);
+    });
+
+    // Best-effort, end to end from the CLI: with the lock switched ON but no
+    // resolvable lock home (`/repo` is not a checkout), the capture still
+    // runs exactly once rather than failing or hanging.
+    it('AC-10: an enabled lock with no resolvable home still captures once', () => {
+      const h = harness({
+        lockEnabled: true,
+        fresh: { fresh: false, reason: 'missing' },
+      });
+      assert.equal(runCoverageCapture(argv('--cwd', '/repo'), h.deps), 0);
+      assert.equal(h.calls.capture.length, 1);
     });
   });
 

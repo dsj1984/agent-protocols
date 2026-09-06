@@ -89,7 +89,8 @@
   },
   "delivery": {
     "execution": {
-      "timeoutMs": 600000
+      "timeoutMs": 600000,
+      "fullSuiteLock": true
     },
     "docsFreshness": {
       "paths": ["README.md"]
@@ -188,7 +189,11 @@
           },
           "refreshTag": "baseline-refresh:",
           "refreshTimeoutMs": 60000,
-          "ignoreGlobs": []
+          "ignoreGlobs": [],
+          "incrementalCoverage": {
+            "skipWhenUnchanged": true,
+            "baselineJoin": false
+          }
         },
         "maintainability": {
           "enabled": true,

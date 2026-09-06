@@ -7,6 +7,8 @@
 
 import { spawn } from 'node:child_process';
 
+import { withFullSuiteLockAsync } from '../full-suite-lock.js';
+
 /**
  * Pipe a child stream's output line-by-line through `emit`, prepending
  * `prefix` to each line. Tail bytes without a trailing newline flush on
@@ -141,12 +143,42 @@ function isBiomeNoFilesProcessed(output) {
  * because that exit means every config-included path was already excluded,
  * not that formatting drifted.
  *
+ * When `opts.fullSuiteLock` is set — the standalone `test` gate, the one gate
+ * here that runs a whole suite (Story #5173) — the spawn is serialized behind
+ * the host-level advisory lock so two concurrent closes on one checkout do not
+ * run two suites against the same cores. Best-effort: a wait that expires
+ * spawns anyway. The async wrapper is used rather than the synchronous one
+ * precisely because this runner drives sibling gates on the same event loop,
+ * which a blocking wait would stall.
+ *
  * @param {string} cmd
  * @param {string[]} args
- * @param {{ cwd: string, signal?: AbortSignal, gateName?: string, log?: (m: string) => void, env?: Record<string, string>, tolerateNoFilesProcessed?: boolean }} opts
+ * @param {{ cwd: string, signal?: AbortSignal, gateName?: string, log?: (m: string) => void, env?: Record<string, string>, tolerateNoFilesProcessed?: boolean, fullSuiteLock?: boolean }} opts
  * @returns {Promise<{ status: number }>}
  */
 export function defaultGateRunner(cmd, args, opts = {}) {
+  if (!opts.fullSuiteLock) return spawnGate(cmd, args, opts);
+  const { cwd, log } = opts;
+  return withFullSuiteLockAsync(
+    {
+      cwd,
+      log: typeof log === 'function' ? log : () => {},
+    },
+    () => spawnGate(cmd, args, opts),
+  );
+}
+
+/**
+ * The bare gate spawn — child process, prefixed drain, abort wiring, exit-code
+ * normalisation. Split from {@link defaultGateRunner} so the full-suite lock
+ * composes over one named unit.
+ *
+ * @param {string} cmd
+ * @param {string[]} args
+ * @param {Parameters<typeof defaultGateRunner>[2]} opts
+ * @returns {Promise<{ status: number }>}
+ */
+function spawnGate(cmd, args, opts) {
   const { cwd, signal, gateName, log, env, tolerateNoFilesProcessed } = opts;
   const child = spawn(cmd, args, {
     cwd,
