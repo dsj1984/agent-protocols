@@ -19,9 +19,9 @@
  * @see .agents/scripts/lib/validation-evidence.js (`shouldSkip`)
  */
 
-import { spawnSync } from 'node:child_process';
 import { getQuality, resolveConfig } from '../config-resolver.js';
 import { isCoverageFresh } from '../coverage-capture.js';
+import { gitSpawn } from '../git-utils.js';
 import { hasNpmScript, readPackageScripts } from '../npm-scripts.js';
 import { hashCommandConfig, shouldSkip } from '../validation-evidence.js';
 
@@ -95,11 +95,11 @@ export function isFullSuiteCommand(command) {
  * routes to `spawn`, never to a credit.
  *
  * @param {string} cwd
- * @param {Function} spawnFn
+ * @param {Function} gitSpawnFn
  * @returns {string|null}
  */
-function readHeadSha(cwd, spawnFn) {
-  const res = spawnFn('git', ['rev-parse', 'HEAD'], { cwd, encoding: 'utf8' });
+function readHeadSha(cwd, gitSpawnFn) {
+  const res = gitSpawnFn(cwd, 'rev-parse', 'HEAD');
   if (res?.status !== 0) return null;
   const sha = String(res.stdout ?? '').trim();
   return sha.length > 0 ? sha : null;
@@ -132,7 +132,7 @@ export function resolveVerifyCredit(
     isCoverageFreshImpl = isCoverageFresh,
     shouldSkipImpl = shouldSkip,
     hashCommandConfigImpl = hashCommandConfig,
-    spawnFn = spawnSync,
+    gitSpawnFn = gitSpawn,
   } = deps;
 
   const base = { command, fullSuite: false, mode: null, warning: null };
@@ -168,7 +168,7 @@ export function resolveVerifyCredit(
     };
   }
 
-  const headSha = readHeadSha(worktree, spawnFn);
+  const headSha = readHeadSha(worktree, gitSpawnFn);
   if (!headSha) {
     return { ...scoped, mode, credited: false, spawn: true, reason: 'no-head' };
   }

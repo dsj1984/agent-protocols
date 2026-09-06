@@ -612,7 +612,7 @@ describe('verify[] credit — the suite is paid for once (#5174)', () => {
           seen.push(input);
           return { skip: true, reason: 'evidence-match' };
         },
-        spawnFn: () => ({ status: 0, stdout: 'abc1234\n' }),
+        gitSpawnFn: () => ({ status: 0, stdout: 'abc1234\n' }),
       },
     );
     assert.equal(verdict.mode, 'evidence');
@@ -795,5 +795,71 @@ describe('the happy path spends ONE full-suite spawn per Story (#5174)', () => {
       logs.some((l) => /skipping capture/i.test(l)),
       `close must report the skip; got ${JSON.stringify(logs)}`,
     );
+  });
+});
+
+describe('verify[] credit — the fail-closed edges (#5174)', () => {
+  const evidenceDeps = (over = {}) => ({
+    resolveConfigImpl: () => ({}),
+    getQualityImpl: () => ({ crap: { enabled: false } }),
+    readPackageScriptsImpl: () => ({}),
+    hasNpmScriptImpl: () => false,
+    hashCommandConfigImpl: () => 'hash-1',
+    shouldSkipImpl: () => ({ skip: false, reason: 'no-record' }),
+    gitSpawnFn: () => ({ status: 0, stdout: 'abc1234\n' }),
+    ...over,
+  });
+
+  it('spawns rather than credits when HEAD cannot be read', () => {
+    // No SHA means no key to check the evidence record against. The only safe
+    // answer is to run the command — a credit here would be a guess.
+    const verdict = resolveVerifyCredit(
+      { command: 'npm test', storyId: 5174, worktree: '/abs/wt' },
+      evidenceDeps({ gitSpawnFn: () => ({ status: 128, stdout: '' }) }),
+    );
+    assert.equal(verdict.credited, false);
+    assert.equal(verdict.spawn, true);
+    assert.equal(verdict.reason, 'no-head');
+  });
+
+  it('spawns when the evidence record does not match the current HEAD', () => {
+    const verdict = resolveVerifyCredit(
+      { command: 'npm test', storyId: 5174, worktree: '/abs/wt' },
+      evidenceDeps({
+        shouldSkipImpl: () => ({ skip: false, reason: 'sha-mismatch' }),
+      }),
+    );
+    assert.equal(verdict.credited, false);
+    assert.equal(verdict.reason, 'sha-mismatch');
+  });
+
+  it('reports an unreadable freshness verdict as unknown, never as fresh', () => {
+    const verdict = resolveVerifyCredit(
+      { command: 'npm test', storyId: 5174, worktree: '/abs/wt' },
+      {
+        resolveConfigImpl: () => ({}),
+        getQualityImpl: () => ({
+          crap: { enabled: true, coveragePath: 'c.json', targetDirs: ['x'] },
+        }),
+        readPackageScriptsImpl: () => ({ 'test:coverage': 'x' }),
+        hasNpmScriptImpl: () => true,
+        isCoverageFreshImpl: () => undefined,
+      },
+    );
+    assert.equal(verdict.credited, false);
+    assert.equal(verdict.spawn, true);
+    assert.equal(verdict.reason, 'unknown');
+  });
+
+  it('survives a Story body that quotes the command or omits the tier', () => {
+    assert.deepEqual(parseVerifyEntry('`npm test`'), {
+      command: 'npm test',
+      tier: null,
+    });
+    assert.deepEqual(parseVerifyEntry(undefined), { command: '', tier: null });
+  });
+
+  it('treats a missing verify[] array as nothing to plan', () => {
+    assert.deepEqual(planVerifyExecution(undefined, { worktree: '/x' }), []);
   });
 });
