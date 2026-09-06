@@ -745,3 +745,163 @@ describe('check-baselines — ack direction follows the kind, not a guess (#5179
     assert.equal(gate.acknowledged, true);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Story #5179 — row identity comes out of the kind's own `compare()`.
+//
+// A kind's `keyField` names the row property the kind is ABOUT, which is not
+// always the key `compare()` diffs on. CRAP declares `keyField: 'path'` but
+// keys rows as `path::method@startLine`, because one file holds many methods.
+// A first cut of this acknowledgment read `row[keyField]` to decide row
+// membership, which for CRAP produced a key matching no regression: the gate
+// then silently acknowledged NOTHING on the one kind whose stale rows are the
+// most common reason a refresh is needed at all.
+//
+// It failed silently in exactly the direction that hides — no error, no
+// warning, just an acknowledgment that never fired — so it is pinned here.
+// ---------------------------------------------------------------------------
+
+const CRAP_BASELINE_REL = 'baselines/crap.json';
+
+function crapRow(method, startLine, crap) {
+  return { path: 'src/a.js', method, startLine, crap };
+}
+
+function crapEnvelope(rows) {
+  return {
+    $schema: 'crap.schema.json',
+    kernelVersion: currentKernelVersion('crap'),
+    generatedAt: '2026-01-01T00:00:00.000Z',
+    scoringSemantics: 'method-identity-v3',
+    tsTranspilerVersion: '6.0.3',
+    provenanceStamped: true,
+    rollup: { '*': { p50: 2, p95: 4, max: 6, methodsAbove20: 0 } },
+    rows,
+  };
+}
+
+function setupCrapRepo() {
+  const dir = makeTempDir('check-baselines-crap-');
+  mkdirSync(path.join(dir, 'baselines'), { recursive: true });
+  writeJson(path.join(dir, '.agentrc.json'), {
+    project: {
+      baseBranch: 'main',
+      paths: { agentRoot: '.agents', docsRoot: 'docs', tempRoot: 'temp' },
+      docsContextFiles: [],
+      commands: { test: 'echo', typecheck: 'echo' },
+    },
+    github: { owner: 'x', repo: 'y', operatorHandle: '@ci' },
+    delivery: {
+      quality: {
+        gateScoping: { scope: 'diff', diffRef: 'main' },
+        gates: {
+          crap: {
+            enabled: true,
+            baselinePath: CRAP_BASELINE_REL,
+            tolerance: { kind: 'absolute', value: 1 },
+            floors: { '*': { methodsAbove20: 5 } },
+          },
+        },
+      },
+    },
+  });
+  return dir;
+}
+
+function installCrapGitStub({ baseRows, commits }) {
+  const baseJson = JSON.stringify(crapEnvelope(baseRows));
+  const blobBySha = new Map();
+  for (const c of commits) {
+    if (c.rows) blobBySha.set(c.sha, JSON.stringify(crapEnvelope(c.rows)));
+  }
+  __setSpawnRunner({
+    spawn: (_cmd, args) => {
+      const verb = args?.[0];
+      if (verb === 'show') {
+        const spec = args?.[1] ?? '';
+        if (!spec.endsWith(`:${CRAP_BASELINE_REL}`)) {
+          return { status: 128, stdout: '', stderr: 'no base' };
+        }
+        const ref = spec.slice(0, spec.length - CRAP_BASELINE_REL.length - 1);
+        if (blobBySha.has(ref)) {
+          return { status: 0, stdout: blobBySha.get(ref), stderr: '' };
+        }
+        if (ref === 'main') return { status: 0, stdout: baseJson, stderr: '' };
+        return { status: 128, stdout: '', stderr: 'no blob at ref' };
+      }
+      if (verb === 'log') {
+        const lines = commits.map((c) => `${c.sha}\u0000${c.subject}`);
+        return { status: 0, stdout: `${lines.join('\n')}\n`, stderr: '' };
+      }
+      return { status: 128, stdout: '', stderr: 'unexpected' };
+    },
+  });
+}
+
+describe('check-baselines — ack keys come from compare(), not keyField (#5179)', () => {
+  let root;
+
+  beforeEach(() => {
+    __resetForTests();
+  });
+
+  afterEach(() => {
+    __resetForTests();
+    if (root) rmSync(root, { recursive: true, force: true });
+    root = undefined;
+  });
+
+  // Two methods share one `path`, so a path-keyed membership test cannot tell
+  // them apart — and matches no regression key either.
+  it('acknowledges the refreshed method on a kind whose compare key is composite', async () => {
+    root = setupCrapRepo();
+    writeJson(
+      path.join(root, 'baselines', 'crap.json'),
+      crapEnvelope([crapRow('alpha', 10, 6), crapRow('beta', 20, 2)]),
+    );
+    installCrapGitStub({
+      baseRows: [crapRow('alpha', 10, 4), crapRow('beta', 20, 2)],
+      commits: [
+        {
+          sha: 'r1',
+          subject: REFRESH_SUBJECT,
+          rows: [crapRow('alpha', 10, 6), crapRow('beta', 20, 2)],
+        },
+      ],
+    });
+    const res = await runCheckBaselines({ argv: ['--no-friction'], cwd: root });
+    assert.equal(res.exitCode, 0);
+    const gate = res.report.gates.find((g) => g.kind === 'crap');
+    assert.equal(gate.acknowledged, true, 'composite-keyed row acknowledged');
+    assert.deepEqual(gate.acknowledgedKeys, ['src/a.js::alpha@10']);
+  });
+
+  // The other half: two methods in the SAME file, only one of them refreshed.
+  // A path-keyed membership test would clear both, since they share a path.
+  it('does not acknowledge a sibling method in the same file that the refresh left alone', async () => {
+    root = setupCrapRepo();
+    writeJson(
+      path.join(root, 'baselines', 'crap.json'),
+      crapEnvelope([crapRow('alpha', 10, 6), crapRow('beta', 20, 7)]),
+    );
+    installCrapGitStub({
+      baseRows: [crapRow('alpha', 10, 4), crapRow('beta', 20, 2)],
+      commits: [
+        {
+          // Refreshes only `alpha`; `beta` also regressed but was never rescored.
+          sha: 'r1',
+          subject: REFRESH_SUBJECT,
+          rows: [crapRow('alpha', 10, 6)],
+        },
+      ],
+    });
+    const res = await runCheckBaselines({ argv: ['--no-friction'], cwd: root });
+    assert.equal(res.exitCode, 4, 'the unrefreshed sibling method still fails');
+    const gate = res.report.gates.find((g) => g.kind === 'crap');
+    assert.deepEqual(gate.acknowledgedKeys, ['src/a.js::alpha@10']);
+    assert.deepEqual(
+      gate.regressions.map((r) => r.key),
+      ['src/a.js::beta@20'],
+    );
+  });
+});

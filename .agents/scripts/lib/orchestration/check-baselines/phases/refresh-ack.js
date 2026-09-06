@@ -119,59 +119,69 @@ function readRowsAtCommit(sha, baselinePath, cwd) {
 }
 
 /**
- * Build the row set the refresh commits collectively vouch for, keyed by the
- * kind's own `keyField`.
+ * Classify the head rows against one refresh commit's rows, using the kind's
+ * own classifier and the gate's own tolerance.
  *
- * `readRangeCommitsTouchingFile` returns newest-first, so the first commit to
- * claim a key wins: when two tagged commits both rewrote a row, the newest is
- * the state the branch is actually asking to be held to.
+ * Row identity is deliberately never derived here. A kind's `keyField` names
+ * the row property the kind is *about*, which is not always its compare key:
+ * CRAP declares `keyField: 'path'` but keys rows as `path::method@startLine`,
+ * because one file holds many methods. Reading `row[keyField]` would produce a
+ * key matching no regression, silently acknowledging nothing for that kind.
+ * `compare()` is the one thing that knows a kind's key, so every key here comes
+ * back out of it — the same reason direction and tolerance are delegated rather
+ * than reimplemented.
+ *
+ * That also collapses both tests into one classification:
+ *
+ *   - `regressions` — present in both, worse at head: post-refresh drift.
+ *   - `improvements` / `unchanged` — present in both, no worse: the rows this
+ *     commit vouches for.
+ *   - `additions` — present at head but absent from the refresh blob, i.e.
+ *     never refreshed by this commit, so deliberately in neither set.
+ *
+ * @returns {{ ok: string[], drifted: string[] } | null} null when the
+ *   classifier is unusable, which acknowledges nothing.
  */
-function collectRefreshedRows({ keyField, refreshCommits, baselinePath, cwd }) {
-  const byKey = new Map();
-  for (const { sha } of refreshCommits) {
-    const rows = readRowsAtCommit(sha, baselinePath, cwd);
-    if (rows === null) continue;
-    for (const row of rows) {
-      const key = row?.[keyField];
-      if (typeof key !== 'string' || byKey.has(key)) continue;
-      byKey.set(key, row);
-    }
+function classifyAgainstRefresh({ mod, headRows, refreshRows, tolerance }) {
+  try {
+    const result = mod.compare({ rows: headRows }, { rows: refreshRows });
+    const tolerated = applyTolerance(
+      {
+        regressions: result?.regressions ?? [],
+        improvements: result?.improvements ?? [],
+        unchanged: result?.unchanged ?? [],
+        additions: result?.additions ?? [],
+      },
+      tolerance ?? null,
+    );
+    return {
+      ok: [...tolerated.improvements, ...tolerated.unchanged].map((r) => r.key),
+      drifted: tolerated.regressions.map((r) => r.key),
+    };
+  } catch {
+    return null;
   }
-  return byKey;
 }
 
 /**
  * Which regression keys are acknowledgeable by the tagged commits (Story #5179)?
  *
  * The acknowledgment is a statement about what a refresh commit re-scored, so a
- * key is acknowledgeable only when BOTH hold:
+ * key is acknowledgeable only when the commit both covered it and recorded a
+ * value the head has not since fallen below. Both tests come out of
+ * `classifyAgainstRefresh` above:
  *
- *   1. **Row membership** — the key exists in the baseline blob at a refresh
- *      commit's own SHA. A key absent there was never refreshed by that commit,
- *      and demoting it was the larger half of the leak: a single tagged commit
- *      cleared regressions on rows in directories it never touched.
- *   2. **No post-refresh drift** — the head row is no worse than what that
- *      commit recorded. Drift introduced by commits landing AFTER the refresh is
- *      exactly what "the baseline commit must be the branch's last score-moving
- *      commit" asks for by convention and nothing enforced.
- *
- * Test 2 delegates direction to the kind module's own `compare()` rather than
- * re-deriving `betterWhen`: a second implementation of higher-is-better could
- * disagree with the classifier that produced the regressions in the first
- * place, and a gate whose two halves disagree fails open. Note `compare` files
- * a head row with no base row under `additions`, not `regressions`, which is
- * precisely why test 1 is a separate membership check and not an inference from
- * test 2's output.
- *
- * The gate's own `tolerance` is applied to the drift compare as well. Without
- * it this check would be STRICTER than the ratchet it guards — a sub-tolerance
- * wiggle against the refreshed row would block a branch that the same wiggle
- * against the base ref would wave through — and the two halves of a gate that
- * disagree on what counts as movement is the bug class this Story exists to
- * close, not one to reintroduce.
+ *   1. **Row membership** — a key absent from the refresh blob lands in
+ *      `additions`, never in `ok`. This was the larger half of the leak: a
+ *      single tagged commit cleared regressions on rows in directories it never
+ *      touched.
+ *   2. **No post-refresh drift** — a key worse at head than the commit recorded
+ *      lands in `drifted`. Drift from commits landing AFTER the refresh is what
+ *      "the baseline commit must be the branch's last score-moving commit" asks
+ *      for by convention and nothing enforced.
  *
  * Fails closed at every step: an unreadable blob, a missing `compare`, or a
- * classifier that throws yields an empty set, so every regression stands.
+ * classifier that throws contributes nothing, so those regressions stand.
  *
  * @returns {Set<string>}
  */
@@ -183,51 +193,40 @@ function acknowledgeableKeys({
   cwd,
   tolerance,
 }) {
-  if (refreshCommits.length === 0) return new Set();
+  const acknowledgeable = new Set();
+  if (refreshCommits.length === 0) return acknowledgeable;
   if (typeof baselinePath !== 'string' || baselinePath.length === 0)
-    return new Set();
+    return acknowledgeable;
 
   let mod;
   try {
     mod = getKindModule(kind);
   } catch {
-    return new Set();
+    return acknowledgeable;
   }
-  if (typeof mod?.keyField !== 'string' || typeof mod.compare !== 'function')
-    return new Set();
-
-  const refreshedByKey = collectRefreshedRows({
-    keyField: mod.keyField,
-    refreshCommits,
-    baselinePath,
-    cwd,
-  });
-  if (refreshedByKey.size === 0) return new Set();
+  if (typeof mod?.compare !== 'function') return acknowledgeable;
 
   const headRows = Array.isArray(headBaseline?.rows) ? headBaseline.rows : [];
-  let drifted;
-  try {
-    const result = mod.compare(
-      { rows: headRows },
-      { rows: [...refreshedByKey.values()] },
-    );
-    const tolerated = applyTolerance(
-      {
-        regressions: result?.regressions ?? [],
-        improvements: result?.improvements ?? [],
-        unchanged: result?.unchanged ?? [],
-        additions: result?.additions ?? [],
-      },
-      tolerance ?? null,
-    );
-    drifted = new Set(tolerated.regressions.map((r) => r.key));
-  } catch {
-    return new Set();
-  }
-
-  const acknowledgeable = new Set();
-  for (const key of refreshedByKey.keys()) {
-    if (!drifted.has(key)) acknowledgeable.add(key);
+  // `readRangeCommitsTouchingFile` returns newest-first, and a key the newest
+  // refresh already ruled on is not reopened by an older one: the newest is the
+  // state the branch is asking to be held to.
+  const decided = new Set();
+  for (const { sha } of refreshCommits) {
+    const refreshRows = readRowsAtCommit(sha, baselinePath, cwd);
+    if (refreshRows === null) continue;
+    const verdict = classifyAgainstRefresh({
+      mod,
+      headRows,
+      refreshRows,
+      tolerance,
+    });
+    if (verdict === null) continue;
+    for (const key of verdict.ok) {
+      if (decided.has(key)) continue;
+      decided.add(key);
+      acknowledgeable.add(key);
+    }
+    for (const key of verdict.drifted) decided.add(key);
   }
   return acknowledgeable;
 }
