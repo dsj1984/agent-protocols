@@ -501,7 +501,7 @@ judgment that help text cannot carry.
 The `single-story-close.js` script, in order:
 
 1. **Syncs the Story branch from `origin/<baseBranch>`** — before the gates,
-   not after them (Story #5172). Runs `git fetch origin <baseBranch>` followed
+   not after them. Runs `git fetch origin <baseBranch>` followed
    by `git merge --no-edit origin/<baseBranch>` inside the worktree. This
    defends against the parallel-`/deliver-story` race: when
    multiple sessions run in parallel, the Story that auto-merges first
