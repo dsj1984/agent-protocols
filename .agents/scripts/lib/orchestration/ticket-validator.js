@@ -5,6 +5,7 @@ import { gitSpawn } from '../git-utils.js';
 
 import { Logger } from '../Logger.js';
 import { validateStoryFileAssumptions } from './file-assumptions.js';
+import { isExternalDependencyRef } from './plan-persist/external-deps.js';
 import { computeSpecBudgetFindings } from './spec-budget.js';
 import {
   assertStoryBodiesParse,
@@ -461,7 +462,13 @@ function indexTicketsBySlug(tickets) {
       }
       ticketBySlug.set(t.slug, t);
     }
-    slugAdjacency.set(t.slug, t.depends_on ?? []);
+    // External `#<id>` refs (Story #5155) name issues already on the tracker,
+    // not nodes in this run's graph — they cannot close a cycle back into a
+    // Story that does not exist yet, so they are not edges here.
+    slugAdjacency.set(
+      t.slug,
+      (t.depends_on ?? []).filter((d) => !isExternalDependencyRef(d)),
+    );
     if (t.type === 'story') stories.push(t);
   }
   return { ticketBySlug, stories, slugAdjacency };
@@ -568,6 +575,9 @@ function assertNoUnknownDeps({ tickets, ticketBySlug }) {
   const unknownDeps = [];
   for (const t of tickets) {
     for (const depSlug of t.depends_on ?? []) {
+      // An external `#<id>` ref is resolved against the tracker at persist
+      // (`assertExternalDependenciesResolvable`), never against this backlog.
+      if (isExternalDependencyRef(depSlug)) continue;
       if (!ticketBySlug.has(depSlug)) {
         unknownDeps.push({ slug: t.slug, title: t.title, dep: depSlug });
       }

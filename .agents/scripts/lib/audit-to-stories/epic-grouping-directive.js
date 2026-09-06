@@ -12,6 +12,10 @@
  * It stays a directive in the text rather than an automatic write: the
  * workflow's Phase 4 HITL stop is where an operator declines it.
  *
+ * Since Story #5155 the directive names adoption first: a repeat sweep over the
+ * same area is the case most likely to already have a container, and opening a
+ * second one beside it is the failure this ordering exists to prevent.
+ *
  * @module lib/audit-to-stories/epic-grouping-directive
  */
 
@@ -31,6 +35,8 @@ export function formatEpicGrouping(groups) {
   }
   return [
     `**Group these under a container Epic.** This sweep proposes ${count} Stories from one audit pass, which is exactly the case a container earns: they share a provenance and an operator will want to deliver them as a unit.`,
+    '',
+    '**Check `epicCandidates[]` first.** A repeat sweep over the same area usually belongs under the Epic the previous sweep opened, not beside it — adopt that one with `--epic <id>` (any Story count) rather than opening a second container for one body of work. Only when no open Epic fits does this directive mean *create*.',
     '',
     'The Epic is a **pure container** — a title, a one-paragraph goal, and the child checklist. It must carry no finding, no path and no rationale that is not already in a child Story, or that information ends up somewhere no delivering agent reads.',
     '',

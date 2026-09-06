@@ -10,6 +10,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
+import { appendEpicChildIds } from '../epic-checklist.js';
 import {
   composeEpicBody,
   isEpicTicket,
@@ -153,5 +154,71 @@ describe('readEpicChildIdsFrom', () => {
     assert.equal(warnings.length, 1);
     assert.match(warnings[0], /Epic #5/);
     assert.match(warnings[0], /GraphQL unavailable/);
+  });
+});
+
+describe('appendEpicChildIds — adoption writes into a live body (Story #5155)', () => {
+  const MARKER = '<!-- mandrel-epic-fingerprint abcd1234 -->';
+
+  it('replaces the empty-container placeholder rather than leaving it standing', () => {
+    const body = `${composeEpicBody({ goal: 'Group it.' })}\n${MARKER}\n`;
+    assert.ok(body.includes('_No child Stories linked._'));
+
+    const next = appendEpicChildIds(body, [7, 8]);
+
+    assert.ok(!next.includes('_No child Stories linked._'));
+    assert.ok(next.includes('- [ ] #7'));
+    assert.ok(next.includes('- [ ] #8'));
+    assert.ok(next.includes(MARKER), 'the fingerprint marker survives');
+  });
+
+  it('is idempotent — a resumed persist must not double-list its cohort', () => {
+    const body = `${composeEpicBody({ goal: 'g' })}\n${MARKER}\n`;
+    const once = appendEpicChildIds(body, [7, 8]);
+    const twice = appendEpicChildIds(once, [7, 8]);
+
+    assert.equal(twice, once);
+    assert.deepEqual(readEpicChildIds(twice), [7, 8]);
+  });
+
+  it('returns the body byte-identical when every id is already listed', () => {
+    const body = composeEpicBody({ goal: 'g', childIds: [1, 2] });
+    assert.equal(appendEpicChildIds(body, [2, 1]), body);
+  });
+
+  it('preserves checked state and appends after the last existing row', () => {
+    const body = composeEpicBody({ goal: 'g', childIds: [1, 2] }).replace(
+      '- [ ] #1',
+      '- [x] #1',
+    );
+
+    const next = appendEpicChildIds(body, [2, 9]);
+
+    assert.ok(next.includes('- [x] #1'), 'a ticked child stays ticked');
+    assert.deepEqual(
+      readEpicChildIds(next),
+      [1, 2, 9],
+      'original order first, then the appended id',
+    );
+  });
+
+  it('keeps the goal prose untouched', () => {
+    const goal = 'Group the auth hardening work for Q3.';
+    const next = appendEpicChildIds(composeEpicBody({ goal }), [5]);
+    assert.ok(next.includes(goal));
+  });
+
+  it('adds a checklist section to a hand-written Epic that has none', () => {
+    const next = appendEpicChildIds('Some operator prose, no headings.\n', [3]);
+
+    assert.ok(next.includes('## Stories'));
+    assert.deepEqual(readEpicChildIds(next), [3]);
+    assert.ok(next.startsWith('Some operator prose, no headings.'));
+  });
+
+  it('ignores non-ids and a non-string body without throwing', () => {
+    assert.equal(appendEpicChildIds('body', []), 'body');
+    assert.equal(appendEpicChildIds('body', [0, -1, 'x', null]), 'body');
+    assert.equal(appendEpicChildIds(null, [1]).includes('- [ ] #1'), true);
   });
 });

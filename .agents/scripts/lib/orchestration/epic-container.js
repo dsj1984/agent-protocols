@@ -37,11 +37,27 @@ import { TYPE_LABELS } from '../label-constants.js';
  */
 const CHECKLIST_ITEM_RE = /^-\s*\[[ xX]\]\s+#(\d+)\s*$/gm;
 
+/**
+ * The same grammar, unanchored to a global cursor — for callers testing one
+ * line at a time. Kept beside its `/g` twin so the two cannot drift.
+ */
+export const CHECKLIST_ITEM_LINE_RE = /^-\s*\[[ xX]\]\s+#\d+\s*$/;
+
 /** Heading the container's one prose section renders under. */
 const GOAL_HEADING = '## Goal';
 
 /** Heading the child checklist renders under. */
-const CHILDREN_HEADING = '## Stories';
+export const CHILDREN_HEADING = '## Stories';
+
+/**
+ * Rendered in place of the checklist when a container has no children yet.
+ *
+ * Exported because {@link appendEpicChildIds} must *remove* it when the first
+ * child arrives: a container that lists a Story and still claims to be empty
+ * is a body that contradicts itself, and the two writers have to agree on the
+ * exact string to keep that from happening.
+ */
+export const NO_CHILDREN_PLACEHOLDER = '_No child Stories linked._';
 
 /**
  * Normalize an issue's labels to plain strings. GitHub hands labels back
@@ -95,7 +111,7 @@ export function composeEpicBody({ goal, childIds = [] } = {}) {
   const ids = normalizeChildIds(childIds);
   const lines = [GOAL_HEADING, '', text, '', CHILDREN_HEADING, ''];
   if (ids.length === 0) {
-    lines.push('_No child Stories linked._');
+    lines.push(NO_CHILDREN_PLACEHOLDER);
   } else {
     for (const id of ids) lines.push(`- [ ] #${id}`);
   }

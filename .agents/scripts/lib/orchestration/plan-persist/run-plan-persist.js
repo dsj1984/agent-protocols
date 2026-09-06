@@ -68,7 +68,10 @@ import {
   renderHardConflictError,
 } from '../ticket-validator-conflicts.js';
 import { upsertStructuredComment } from '../ticketing.js';
-import { createContainerEpic } from './epic-ops.js';
+import {
+  resolveContainerEpic,
+  resolveCrossPlanLinks,
+} from './cross-plan-links.js';
 import {
   enforceFanOutGate,
   surfaceSoftConflictFindings,
@@ -751,6 +754,14 @@ export async function runPlanPersist({
   });
   await enforceReachability(reachability, config);
 
+  // Story #5155 — the plan's outward references (`--epic <id>`, and any
+  // `#<id>` blocker) resolve BEFORE the first create, dry run included.
+  const adoptionTarget = await resolveCrossPlanLinks({
+    provider,
+    stories: rawStories,
+    epicId: opts.adoptEpicId ?? null,
+  });
+
   // Split policy + inline Spec fold (over-budget Specs fail closed — no docs/).
   const { stories } = assemblePlanStories(rawStories, {
     sharedSpec: techSpecContent,
@@ -850,8 +861,9 @@ export async function runPlanPersist({
   // database ids, neither of which exists until the Stories are live. It is
   // never load-bearing, so a failure here degrades to "no container" and the
   // Stories still deliver by id.
-  const containerEpic = await createContainerEpic({
+  const containerEpic = await resolveContainerEpic({
     provider,
+    adoptionTarget,
     epic,
     created,
     opts: { dryRun },

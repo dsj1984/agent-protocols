@@ -150,10 +150,14 @@ async function findExistingEpic({ provider, fingerprint }) {
  * `getSubTickets` reads it as a first-class child source. A lost edge costs
  * the GitHub UI's nesting, not the grouping itself.
  *
+ * Exported since Story #5155 so the adoption path (`epic-adoption.js`) links
+ * children exactly the way creation does — one mirroring rule, not two that
+ * drift.
+ *
  * @param {{ provider: object, epicNumber: number, childIds: number[] }} opts
  * @returns {Promise<{ added: number, skipped: number, failed: number }|null>}
  */
-async function mirrorSubIssueEdges({ provider, epicNumber, childIds }) {
+export async function mirrorSubIssueEdges({ provider, epicNumber, childIds }) {
   if (
     typeof provider?.getDependencyWriteContext !== 'function' ||
     typeof provider?.getTicket !== 'function'
