@@ -24,6 +24,10 @@ const FIXTURE_PROVIDER = path.join(HERE, 'fixtures/failing-subset-provider.js');
 
 const FIXTURE = `# Audit: Security
 
+## Executive Summary
+
+Severity tally: Critical 0 / High 4 / Medium 0 / Low 0
+
 ## Detailed Findings
 
 ### SQLi in login handler

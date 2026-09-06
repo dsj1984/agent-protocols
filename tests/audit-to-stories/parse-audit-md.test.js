@@ -7,6 +7,7 @@ import {
   __testing,
   parseAuditReport,
   parseAuditReports,
+  parseSeverityTally,
 } from '../../.agents/scripts/lib/audit-to-stories/parse-audit-md.js';
 
 const __filename = url.fileURLToPath(import.meta.url);
@@ -121,4 +122,85 @@ test('extractFilePaths ignores bare words but captures paths', () => {
   assert.ok(found.includes('src/foo/bar.js'));
   assert.ok(found.includes('lib/x.ts'));
   assert.ok(!found.includes('description.md'));
+});
+
+test('parseAuditReport emits the #### findings under severity-less ### grouping headers', () => {
+  // Story #5144: a lens that groups its findings by dimension writes
+  // `### Perceivable` (no Severity line) with `####` findings under it. Read
+  // flat, that report parsed as one empty finding per dimension header — no
+  // files, no recommendation, no severity — and `--auto` filed the empties.
+  const findings = parseAuditReport(
+    loadFixture('audit-accessibility-nested-results.md'),
+  );
+
+  assert.equal(findings.length, 3);
+  assert.deepEqual(
+    findings.map((f) => f.severity),
+    ['high', 'low', 'medium'],
+  );
+  for (const finding of findings) {
+    assert.ok(finding.files.length > 0, `${finding.title} anchors a file`);
+    assert.ok(
+      finding.recommendation.length > 0,
+      `${finding.title} carries a recommendation`,
+    );
+  }
+  // The grouping headers themselves are never findings.
+  const titles = findings.map((f) => f.title);
+  assert.equal(titles.includes('Perceivable'), false);
+  assert.equal(titles.includes('Operable'), false);
+});
+
+test('parseAuditReport keeps #### sub-sections inside a ### block that IS a finding', () => {
+  const findings = parseAuditReport({
+    sourceReport: '/tmp/audit-privacy-results.md',
+    markdown: [
+      '## Detailed Findings',
+      '',
+      '### A real finding',
+      '',
+      '- **Severity:** High',
+      '- **Current State:** Something in `src/a.js` is wrong.',
+      '',
+      '#### Supporting detail',
+      '',
+      'Prose that belongs to the finding above.',
+      '',
+    ].join('\n'),
+  });
+
+  assert.equal(findings.length, 1);
+  assert.equal(findings[0].title, 'A real finding');
+});
+
+test('parseSeverityTally reads the mandated Executive Summary line', () => {
+  const { markdown } = loadFixture('audit-security-results.md');
+  assert.deepEqual(parseSeverityTally(markdown), {
+    critical: 0,
+    high: 2,
+    medium: 1,
+    low: 0,
+  });
+});
+
+test('parseSeverityTally returns null when the report declares no tally', () => {
+  assert.equal(
+    parseSeverityTally('# Report\n\n## Executive Summary\n\nAll good.\n'),
+    null,
+  );
+  assert.equal(parseSeverityTally(null), null);
+});
+
+test('every shipped fixture report declares a tally matching its findings', () => {
+  for (const name of fs.readdirSync(FIXTURES)) {
+    const { markdown, sourceReport } = loadFixture(name);
+    const declared = parseSeverityTally(markdown);
+    assert.ok(declared, `${name} declares a Severity tally line`);
+    const counted = { critical: 0, high: 0, medium: 0, low: 0 };
+    for (const finding of parseAuditReport({ markdown, sourceReport })) {
+      assert.ok(finding.severity, `${name}: ${finding.title} has a severity`);
+      if (finding.severity in counted) counted[finding.severity] += 1;
+    }
+    assert.deepEqual(declared, counted, `${name} tally matches its findings`);
+  }
 });

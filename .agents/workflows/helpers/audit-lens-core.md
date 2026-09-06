@@ -51,7 +51,8 @@ path). The report MUST include every section its lens template mandates — writ
 `_No findings._` rather than omitting a section — and always an
 `## Executive Summary` and a `## Detailed Findings` section. The Executive
 Summary carries the self-cross-check `kept <k> / dropped <d>` line
-([below](#self-cross-check)).
+([below](#self-cross-check)) and, beside it, the machine-readable severity
+tally ([below](#severity-tally)).
 
 Every finding under `## Detailed Findings` uses the shared 7-field skeleton
 below. A lens may **add** fields (e.g. a WCAG success criterion, a CWE ID, a
@@ -64,9 +65,11 @@ drops or renames a shared field.
 ```markdown
 ## Executive Summary
 
-[The lens's headline read plus the self-cross-check `kept <k> / dropped <d>`
-line. A lens may mandate additional report sections between here and the
-findings — its own body names them.]
+[The lens's headline read, the self-cross-check `kept <k> / dropped <d>` line,
+and the severity tally line below. A lens may mandate additional report
+sections between here and the findings — its own body names them.]
+
+Severity tally: Critical <n> / High <n> / Medium <n> / Low <n>
 
 ## Detailed Findings
 
@@ -187,6 +190,23 @@ that rests on one of them:
 
 A lens that keeps every finding still records `dropped 0` — the line's absence
 is itself a defect (it means the pass did not run).
+
+## Severity tally (mandatory, machine-readable) {#severity-tally}
+
+The Executive Summary MUST also carry exactly one tally line, counting the
+findings you kept:
+
+```text
+Severity tally: Critical <n> / High <n> / Medium <n> / Low <n>
+```
+
+Write every bucket, zeros included, and never count `Info` — the scale already
+excludes it from scheduled work. This line is the report's own checksum:
+`audit-to-stories --scan` cross-checks it against the findings its parser
+extracted and names any disagreement as a **report failure**
+(`summary.reportFailures[]`), and `--auto` refuses to file anything from a
+report whose line is missing or wrong. A parse that silently drops findings is
+otherwise indistinguishable from a clean audit.
 
 ## Execution strategy {#execution-strategy}
 

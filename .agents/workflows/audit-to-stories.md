@@ -44,9 +44,11 @@ They remain read-only emitters of audit reports.
 ## Phase 1 — Discover & parse
 
 Run the CLI in `--scan` mode against the resolved glob. It parses every
-`### Finding` block, normalises the fields (`Severity` / `Impact` are
+finding block, normalises the fields (`Severity` / `Impact` are
 both recognised; `Dimension` / `Category` likewise), and extracts file
-paths mentioned in the body. It then stamps each finding with a stable
+paths mentioned in the body. A `###` heading that carries no severity axis and
+holds `####` blocks is read as a **grouping header**: its `####` children are
+the findings, and the header itself never becomes one. It then stamps each finding with a stable
 sha1 fingerprint via the shared
 [`lib/findings/route-finding.js`](../scripts/lib/findings/route-finding.js)
 helper (`fingerprintFinding`) — the single dedup/route implementation
@@ -63,6 +65,20 @@ node .agents/scripts/audit-to-stories.js --scan \
 The emitted plan envelope carries `findings`, `groups`, `edges`,
 `classifications`, and `summary`. Subsequent phases consume the file
 rather than re-parsing the reports.
+
+**The tally cross-check is automatic.** Every report must declare
+`Severity tally: Critical <n> / High <n> / Medium <n> / Low <n>` in its
+Executive Summary; the scan compares that line with what it actually parsed and
+carries every disagreement on `summary.reportFailures[]` — each entry naming
+`{ sourceReport, kind, reported, parsed }` for one of three kinds:
+`missing-tally` (no line at all), `tally-mismatch` (the line and the parse
+disagree), and `unresolved-severity` (a finding whose severity did not resolve;
+it is dropped from grouping rather than filed as an `unknown` group). The
+failures are printed to stderr before `--scan` returns its plan, so a silently
+mis-parsed report is never read as a clean audit. Re-run the lens (or fix the
+report) rather than filing from it. For an interactive pass over older reports
+predating the mandate, `--scan --allow-missing-tally` downgrades **only** the
+`missing-tally` kind to a warning; the other two stay failures.
 
 ## Phase 2 — HITL: severity gate
 
@@ -348,7 +364,14 @@ from `delivery.auditToStories.severityFloor` (default `high`, overridable with
 and prints a run-summary JSON (create / skip-open / skip-reoccurring /
 suppressed-by-ledger tallies, plus the re-detected open Issue numbers an
 operator may want a "re-detected" comment on). `--dry-run` performs zero GitHub
-writes and skips the ledger write, emitting only the summary. The host
+writes and skips the ledger write, emitting only the summary.
+
+`--auto` **fails closed on any `summary.reportFailures[]` entry** (Phase 1): an
+unattended sweep has no operator to read a warning, so a report with a missing
+or mismatched `Severity tally:` line — or one carrying a finding whose severity
+did not resolve — exits non-zero having opened no Issue and written no ledger.
+`--allow-missing-tally` is a `--scan` affordance; `--auto` ignores it. A red
+nightly sweep means the report is untrustworthy: re-run the lens. The host
 scheduler owns the cadence; this workflow owns the routing.
 
 ## See also

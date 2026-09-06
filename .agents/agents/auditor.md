@@ -130,6 +130,18 @@ Record the outcome in the Executive Summary as a single line —
 `Self-cross-check: kept <k> / dropped <d>.` — and, when `d > 0`, name the
 dropped findings with their reason. The line's absence is itself a defect.
 
+## Severity tally (mandatory, machine-readable)
+
+Beside that line, the Executive Summary MUST carry exactly one tally over the
+findings you kept — every bucket, zeros included, `Info` never counted:
+
+```text
+Severity tally: Critical <n> / High <n> / Medium <n> / Low <n>
+```
+
+`audit-to-stories` cross-checks it against what its parser extracted and
+refuses to file from a report whose line is missing or disagrees.
+
 ## Fan-out (heavyweight lenses)
 
 When your caller dispatches you for a single dimension of a heavyweight lens

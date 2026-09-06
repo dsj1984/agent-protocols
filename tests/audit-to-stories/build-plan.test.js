@@ -77,6 +77,7 @@ describe('buildPlan', () => {
       create: 0,
       skipOpen: 0,
       skipReoccurring: 0,
+      reportFailures: [],
     });
   });
 

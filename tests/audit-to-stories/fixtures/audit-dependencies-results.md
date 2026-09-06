@@ -1,5 +1,9 @@
 # Dependency Audit Report
 
+## Executive Summary
+
+Severity tally: Critical 0 / High 1 / Medium 1 / Low 0
+
 ## Health Summary
 
 - **Outdated Packages:** 8

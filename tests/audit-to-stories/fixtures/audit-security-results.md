@@ -4,6 +4,8 @@
 
 Two High-severity issues and one Medium were identified during the review.
 
+Severity tally: Critical 0 / High 2 / Medium 1 / Low 0
+
 ## Detailed Findings
 
 ### Unparameterised SQL query in login handler
