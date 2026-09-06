@@ -1,11 +1,11 @@
 {
   "$schema": ".agents/schemas/baselines/maintainability.schema.json",
   "kernelVersion": "0.1.0",
-  "generatedAt": "2026-09-06T16:25:50.482Z",
+  "generatedAt": "2026-09-06T16:56:43.596Z",
   "rollup": {
     "*": {
       "min": 76.381,
-      "p50": 98.886,
+      "p50": 98.874,
       "p95": 122.902
     }
   },
@@ -913,6 +913,10 @@
     {
       "path": ".agents/scripts/lib/fs-walk.js",
       "mi": 102.83
+    },
+    {
+      "path": ".agents/scripts/lib/full-suite-lock.js",
+      "mi": 95.57
     },
     {
       "path": ".agents/scripts/lib/gates/baseline-store.js",
