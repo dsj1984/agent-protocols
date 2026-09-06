@@ -132,6 +132,11 @@ Ask:
 >   default-single policy.
 > - **Individual standalone Stories** — opens one GitHub Issue per
 >   group directly (no plan ceremony).
+>
+> Either way, if the sweep proposes **more than 2** Stories they are grouped
+> under a **container Epic** by default — a title, a one-paragraph goal and a
+> child checklist, carrying nothing a child does not already carry. Say so if
+> you would rather file them flat.
 
 **STOP** until the operator picks.
 
@@ -148,7 +153,14 @@ node .agents/scripts/audit-to-stories.js --emit-plan-seed \
 The seed renders the canonical one-pager sections — Problem Statement,
 Recommended Direction, Key Assumptions (with links to every source
 report), MVP Scope (the M proposed Stories), Key Files (so `/mandrel-plan`'s
-authoring step has concrete anchors), Not Doing.
+authoring step has concrete anchors), Grouping, Not Doing.
+
+**Grouping is the container-Epic directive.** Above 2 proposed Stories the
+seed instructs `/mandrel-plan` to group them under one Epic — a sweep is the
+clearest case for a container, since every Story shares a provenance and an
+operator usually delivers them together. It is a directive in the text, not an
+automatic write: Phase 4 above is where an operator declines it. Below the
+threshold the section says so and asks for nothing.
 
 Chain into the existing planning entrypoint:
 
@@ -312,6 +324,8 @@ summarising the run:
 
 When the single-plan path ran, link the Story (or plan-run) the chained
 `/mandrel-plan` opened. When the Standalone-Stories path ran, list every Issue URL.
+Either way, name the container Epic if one was created — it is the single id
+that delivers the whole sweep (`/mandrel-deliver <epicId>`).
 
 ## Constraints
 

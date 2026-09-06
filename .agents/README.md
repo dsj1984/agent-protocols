@@ -322,9 +322,12 @@ in `runtime-deps.json`.
 Orchestration and planning are **Story-only** (`type::story`) — `/mandrel-plan`
 persists Stories with inline `acceptance[]` / `verify[]` and a folded
 `## Spec`; `/mandrel-deliver` runs `helpers/deliver-story` on `story-<id>` → PR →
-`main`. There is no `type::epic` / `type::task` label, Epic issue form, or
-`epic/<id>` integration branch; a ticket carrying an `Epic: #N` footer is
-refused by `/mandrel-deliver`. The execution-model contract is owned by
+`main`. There is no `type::task` label, Epic issue form, or `epic/<id>`
+integration branch; a ticket carrying an `Epic: #N` footer is refused by
+`/mandrel-deliver`. `type::epic` exists as a **pure container** — a goal plus a
+child checklist, never delivered itself, expanded to its open Stories by
+`/mandrel-deliver <epicId>` — and its linkage is parent→child only, which is
+what keeps that footer refused. The execution-model contract is owned by
 [`instructions.md` § 5.B](instructions.md) and [`docs/SDLC.md`](docs/SDLC.md).
 
 ---

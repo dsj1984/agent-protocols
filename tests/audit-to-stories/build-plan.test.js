@@ -531,6 +531,34 @@ describe('runAuditToStories (sub-command dispatch)', () => {
     assert.ok(h.seen.runAuto);
     assert.equal(h.seen.buildPlan, undefined);
   });
+
+  /**
+   * Story #5139 — the container Epic is the DEFAULT grouping for an audit
+   * sweep, so both output paths must say so. The `--json` form deliberately
+   * stays a bare array (a documented shape the test above asserts); the Epic
+   * is an operator decision the workflow's Phase 4 stop owns.
+   */
+  it('--emit-stories carries the grouping block in the prose transcript', async () => {
+    const h = harness();
+    await runAuditToStories(['--emit-stories', '--plan', 'plan.json'], h.deps);
+    assert.match(h.persisted[0].text, /--- grouping ---/);
+  });
+
+  it('says no Epic is needed when the sweep is below the threshold', async () => {
+    const h = harness();
+    // One create-eligible group — under the 3-Story container threshold.
+    await runAuditToStories(['--emit-stories', '--plan', 'plan.json'], h.deps);
+    assert.match(h.persisted[0].text, /below the 3-Story threshold/);
+  });
+
+  it('--emit-stories --json stays a bare array (shape unchanged)', async () => {
+    const h = harness();
+    await runAuditToStories(
+      ['--emit-stories', '--plan', 'plan.json', '--json'],
+      h.deps,
+    );
+    assert.ok(Array.isArray(JSON.parse(h.persisted[0].text)));
+  });
 });
 
 // ---------------------------------------------------------------------------

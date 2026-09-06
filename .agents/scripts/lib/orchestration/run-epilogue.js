@@ -7,6 +7,8 @@
  *   2. Rolls up friction follow-ups across every Story in the run and
  *      files/posts them on the primary Story.
  *   3. Checks sibling Spec/acceptance coherence across Story bodies.
+ *   4. Closes any container Epic whose children all landed (Story #5139) —
+ *      the only completion cascade v2 reintroduces.
  *
  * There is no inert planner-only path: `planRunEpilogue` enumerates steps
  * and `runPlanRunEpilogue` executes them. Single-Story runs skip the
@@ -19,6 +21,8 @@ import { selectAudits } from '../audit-suite/index.js';
 import { graduateRetroProposals } from '../feedback-loop/retro-proposals-graduator.js';
 import { gitSpawn } from '../git-utils.js';
 import { Logger } from '../Logger.js';
+import { AGENT_LABELS, TYPE_LABELS } from '../label-constants.js';
+import { isEpicTicket, readEpicChildIds } from './epic-container.js';
 import { composeRoutedProposals } from './retro-proposals.js';
 import {
   assessRollupOutcome,
@@ -31,13 +35,129 @@ import { upsertStructuredComment } from './ticketing.js';
 
 /**
  * Canonical epilogue step kinds, in execution order.
- * @type {readonly ['audit-roster', 'follow-up-rollup', 'sibling-coherence']}
+ * @type {readonly ['audit-roster', 'follow-up-rollup', 'sibling-coherence', 'epic-close']}
  */
 export const RUN_EPILOGUE_STEP_KINDS = Object.freeze([
   'audit-roster',
   'follow-up-rollup',
   'sibling-coherence',
+  'epic-close',
 ]);
+
+/**
+ * Close a container Epic once every child Story has landed.
+ *
+ * This is the **only** completion cascade v2 reintroduces (Story #5139), and
+ * it is deliberately one-directional: closing the container, never touching a
+ * child's state, never reopening.
+ *
+ * The lookup runs child→parent by scanning open Epics, because linkage is
+ * parent→child only — a Story body carries no pointer back. That is the
+ * price of leaving Story bodies untouched, and it is cheap: open Epics are
+ * few, and the scan is scoped to Epics that actually contain one of this
+ * run's delivered Stories, so an unrelated Epic is never swept.
+ *
+ * Non-fatal throughout: the epilogue is a reporting tail, and a container
+ * left open costs tidiness, not correctness.
+ *
+ * @param {{ stories: string[], provider: object }} opts
+ * @returns {Promise<{ kind: string, closed: number[], pending: number[] }>}
+ */
+async function executeEpicClose({ stories, provider }) {
+  const result = { kind: 'epic-close', closed: [], pending: [] };
+  if (
+    typeof provider?.listIssuesByLabel !== 'function' ||
+    typeof provider?.updateTicket !== 'function'
+  ) {
+    return result;
+  }
+
+  const delivered = new Set(stories.map((id) => Number(id)));
+  let epics;
+  try {
+    epics = await provider.listIssuesByLabel({
+      state: 'open',
+      labels: TYPE_LABELS.EPIC,
+    });
+  } catch (err) {
+    Logger.warn(
+      `[run-epilogue] Could not list open Epics (${err?.message ?? err}); skipping the Epic close.`,
+    );
+    return result;
+  }
+
+  for (const epic of Array.isArray(epics) ? epics : []) {
+    if (!isEpicTicket(epic)) continue;
+    const epicId = Number(epic?.number ?? epic?.id);
+    if (!Number.isInteger(epicId)) continue;
+
+    const childIds = readEpicChildIds(epic?.body);
+    if (childIds.length === 0) continue;
+    // Only Epics this run actually advanced. Sweeping every open Epic would
+    // make a delivery close containers it had nothing to do with.
+    if (!childIds.some((c) => delivered.has(c))) continue;
+
+    let allLanded = true;
+    for (const childId of childIds) {
+      try {
+        const child = await provider.getTicket(childId);
+        if (!isSatisfiedChild(child)) {
+          allLanded = false;
+          break;
+        }
+      } catch (err) {
+        Logger.warn(
+          `[run-epilogue] Epic #${epicId}: could not read child #${childId} ` +
+            `(${err?.message ?? err}) — leaving the Epic open.`,
+        );
+        allLanded = false;
+        break;
+      }
+    }
+
+    if (!allLanded) {
+      result.pending.push(epicId);
+      continue;
+    }
+
+    try {
+      await provider.updateTicket(epicId, {
+        state: 'closed',
+        state_reason: 'completed',
+      });
+      Logger.info(
+        `[run-epilogue] Closed container Epic #${epicId} — all ${childIds.length} child Story(ies) landed.`,
+      );
+      result.closed.push(epicId);
+    } catch (err) {
+      Logger.warn(
+        `[run-epilogue] Could not close Epic #${epicId} (${err?.message ?? err}).`,
+      );
+      result.pending.push(epicId);
+    }
+  }
+
+  return result;
+}
+
+/**
+ * A child no longer holds its Epic open once it is closed or `agent::done`.
+ *
+ * Mirrors `isSatisfiedBlocker` in `lib/orchestration/resolve-stories.js`
+ * rather than importing it: that module is the delivery-resolution path and
+ * pulling it in here would drag the whole story-body parser into the
+ * epilogue for a two-line predicate.
+ *
+ * @param {{ state?: string, labels?: unknown }} issue
+ * @returns {boolean}
+ */
+function isSatisfiedChild(issue) {
+  if (String(issue?.state ?? '').toLowerCase() === 'closed') return true;
+  const labels = Array.isArray(issue?.labels)
+    ? issue.labels.map((l) => (typeof l === 'string' ? l : l?.name))
+    : [];
+  return labels.includes(AGENT_LABELS.DONE);
+}
 
 /**
  * @param {string|number|{ id?: string|number, slug?: string }} entry
@@ -121,6 +241,11 @@ export function planRunEpilogue({ planRunId, stories } = {}) {
     {
       kind: 'sibling-coherence',
       description: `Sibling-coherence check across the ${ids.length} Story specs of run ${effectiveRunId}`,
+      stories: ids,
+    },
+    {
+      kind: 'epic-close',
+      description: `Close any container Epic whose children all landed in run ${effectiveRunId}`,
       stories: ids,
     },
   ];
@@ -824,6 +949,10 @@ export async function runPlanRunEpilogue({
             stories: plan.stories,
             provider,
           }),
+        );
+      } else if (step.kind === 'epic-close') {
+        results.push(
+          await executeEpicClose({ stories: plan.stories, provider }),
         );
       }
     } catch (err) {

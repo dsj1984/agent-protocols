@@ -61,12 +61,12 @@ describe('planRunEpilogue — not applicable', () => {
     const plan = planRunEpilogue({ stories: ['102', '101'] });
     assert.equal(plan.applicable, true);
     assert.equal(plan.planRunId, 'adhoc-101-102');
-    assert.equal(plan.steps.length, 3);
+    assert.equal(plan.steps.length, RUN_EPILOGUE_STEP_KINDS.length);
   });
 });
 
 describe('planRunEpilogue — applicable (N>1)', () => {
-  it('emits the three ordered epilogue steps over the run Stories', () => {
+  it('emits every ordered epilogue step over the run Stories', () => {
     const plan = planRunEpilogue({
       planRunId: 'run-42',
       stories: ['s1', 's2', 's3'],
@@ -1020,5 +1020,214 @@ describe('follow-up-rollup — zero proposals from N signals (Story #4828)', () 
     } finally {
       rmSync(tempRoot, { recursive: true, force: true });
     }
+  });
+});
+
+/**
+ * Story #5139 — the container Epic closes once every child lands.
+ *
+ * This is the ONE completion cascade v2 reintroduces, so its boundaries
+ * matter more than its happy path: it must not close an Epic with an
+ * outstanding child, and it must not touch an Epic this run never advanced.
+ */
+describe('epic-close — the container closes only when its children all landed', () => {
+  function epicProvider({ epics, tickets, updates }) {
+    return {
+      listIssuesByLabel: async ({ labels }) =>
+        labels === 'type::epic' ? epics : [],
+      getTicket: async (id) => tickets.get(Number(id)) ?? null,
+      getTicketComments: async () => [],
+      postComment: async () => ({ commentId: 1 }),
+      deleteComment: async () => {},
+      updateTicket: async (id, mutations) => {
+        updates.push({ id, mutations });
+      },
+    };
+  }
+
+  const child = (id, done) => [
+    id,
+    {
+      id,
+      number: id,
+      title: `Story ${id}`,
+      body: '',
+      labels: done ? ['type::story', 'agent::done'] : ['type::story'],
+      state: 'open',
+    },
+  ];
+
+  const container = (number, childIds) => ({
+    number,
+    labels: ['type::epic'],
+    state: 'open',
+    body: `## Stories\n\n${childIds.map((c) => `- [ ] #${c}`).join('\n')}\n`,
+  });
+
+  it('closes the Epic as completed when every child is agent::done', async () => {
+    const updates = [];
+    const result = await runPlanRunEpilogue({
+      planRunId: 'run-e',
+      stories: [1, 2],
+      provider: epicProvider({
+        epics: [container(90, [1, 2])],
+        tickets: new Map([child(1, true), child(2, true)]),
+        updates,
+      }),
+      config: { github: { owner: 'o', repo: 'r' } },
+      cwd: process.cwd(),
+    });
+    const step = result.results.find((r) => r.kind === 'epic-close');
+    assert.deepEqual(step.closed, [90]);
+    assert.deepEqual(updates, [
+      { id: 90, mutations: { state: 'closed', state_reason: 'completed' } },
+    ]);
+  });
+
+  it('leaves the Epic open while any child is still outstanding', async () => {
+    const updates = [];
+    const result = await runPlanRunEpilogue({
+      planRunId: 'run-e',
+      stories: [1, 2],
+      provider: epicProvider({
+        epics: [container(90, [1, 2, 3])],
+        tickets: new Map([child(1, true), child(2, true), child(3, false)]),
+        updates,
+      }),
+      config: { github: { owner: 'o', repo: 'r' } },
+      cwd: process.cwd(),
+    });
+    const step = result.results.find((r) => r.kind === 'epic-close');
+    assert.deepEqual(step.closed, []);
+    assert.deepEqual(step.pending, [90]);
+    assert.equal(updates.length, 0, 'no write may happen for a pending Epic');
+  });
+
+  it('never touches an Epic this run did not advance', async () => {
+    const updates = [];
+    const result = await runPlanRunEpilogue({
+      planRunId: 'run-e',
+      stories: [1, 2],
+      provider: epicProvider({
+        // Every child of #91 has landed, but none of them is in this run.
+        epics: [container(91, [7, 8])],
+        tickets: new Map([
+          child(1, true),
+          child(2, true),
+          child(7, true),
+          child(8, true),
+        ]),
+        updates,
+      }),
+      config: { github: { owner: 'o', repo: 'r' } },
+      cwd: process.cwd(),
+    });
+    const step = result.results.find((r) => r.kind === 'epic-close');
+    assert.deepEqual(step.closed, []);
+    assert.equal(updates.length, 0, 'an unrelated Epic must never be swept');
+  });
+
+  it('degrades to a no-op on a provider without the label/update surface', async () => {
+    const result = await runPlanRunEpilogue({
+      planRunId: 'run-e',
+      stories: [1, 2],
+      provider: {
+        getTicket: async (id) => ({ id, title: '', body: '', labels: [] }),
+        getTicketComments: async () => [],
+        postComment: async () => ({ commentId: 1 }),
+        deleteComment: async () => {},
+      },
+      config: { github: { owner: 'o', repo: 'r' } },
+      cwd: process.cwd(),
+    });
+    const step = result.results.find((r) => r.kind === 'epic-close');
+    assert.deepEqual(step, { kind: 'epic-close', closed: [], pending: [] });
+  });
+
+  it('skips malformed rows: a non-Epic, a bad number, and an empty checklist', async () => {
+    const updates = [];
+    const result = await runPlanRunEpilogue({
+      planRunId: 'run-e',
+      stories: [1, 2],
+      provider: epicProvider({
+        epics: [
+          { number: 92, labels: ['type::story'], body: '- [ ] #1\n' },
+          { number: 'nope', labels: ['type::epic'], body: '- [ ] #1\n' },
+          container(93, []),
+        ],
+        tickets: new Map([child(1, true), child(2, true)]),
+        updates,
+      }),
+      config: { github: { owner: 'o', repo: 'r' } },
+      cwd: process.cwd(),
+    });
+    const step = result.results.find((r) => r.kind === 'epic-close');
+    assert.deepEqual(step.closed, []);
+    assert.deepEqual(step.pending, []);
+    assert.equal(updates.length, 0);
+  });
+
+  it('leaves the Epic open when a child cannot be read', async () => {
+    const updates = [];
+    const provider = epicProvider({
+      epics: [container(94, [1, 2])],
+      tickets: new Map([child(1, true)]),
+      updates,
+    });
+    provider.getTicket = async (id) => {
+      if (Number(id) === 2) throw new Error('403 forbidden');
+      return child(1, true)[1];
+    };
+    const result = await runPlanRunEpilogue({
+      planRunId: 'run-e',
+      stories: [1, 2],
+      provider,
+      config: { github: { owner: 'o', repo: 'r' } },
+      cwd: process.cwd(),
+    });
+    const step = result.results.find((r) => r.kind === 'epic-close');
+    assert.deepEqual(step.pending, [94], 'unknown must never mean "landed"');
+    assert.equal(updates.length, 0);
+  });
+
+  it('reports the Epic pending when the close write fails', async () => {
+    const provider = epicProvider({
+      epics: [container(95, [1, 2])],
+      tickets: new Map([child(1, true), child(2, true)]),
+      updates: [],
+    });
+    provider.updateTicket = async () => {
+      throw new Error('422 unprocessable');
+    };
+    const result = await runPlanRunEpilogue({
+      planRunId: 'run-e',
+      stories: [1, 2],
+      provider,
+      config: { github: { owner: 'o', repo: 'r' } },
+      cwd: process.cwd(),
+    });
+    const step = result.results.find((r) => r.kind === 'epic-close');
+    assert.deepEqual(step.closed, []);
+    assert.deepEqual(step.pending, [95]);
+  });
+
+  it('degrades to a no-op when the Epic listing fails', async () => {
+    const provider = epicProvider({
+      epics: [],
+      tickets: new Map([child(1, true), child(2, true)]),
+      updates: [],
+    });
+    provider.listIssuesByLabel = async () => {
+      throw new Error('search down');
+    };
+    const result = await runPlanRunEpilogue({
+      planRunId: 'run-e',
+      stories: [1, 2],
+      provider,
+      config: { github: { owner: 'o', repo: 'r' } },
+      cwd: process.cwd(),
+    });
+    const step = result.results.find((r) => r.kind === 'epic-close');
+    assert.deepEqual(step, { kind: 'epic-close', closed: [], pending: [] });
   });
 });

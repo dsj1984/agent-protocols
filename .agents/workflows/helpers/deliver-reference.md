@@ -292,6 +292,14 @@ This executes, in order:
   (files issues when auto-file is on; posts `follow-ups`).
 - `sibling-coherence` — Spec/Acceptance coherence check across sibling bodies
   (`plan-run-sibling-coherence`).
+- `epic-close` — closes a container Epic once **every** child Story is
+  `agent::done`, as `completed`. This is the only completion cascade v2 has:
+  it closes the container and nothing else — no child status roll-up, no label
+  inheritance, no reopening. Because linkage is parent→child only, the parent
+  is found by scanning open `type::epic` issues, and only an Epic containing
+  one of *this run's* Stories is considered, so an unrelated container is
+  never swept. An Epic with an outstanding child is reported `pending` and
+  left open.
 
 A single-Story run skips the epilogue — follow-ups are captured on merge
 confirm instead (`captureStoryFollowUps`).

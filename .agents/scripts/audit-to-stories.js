@@ -35,6 +35,7 @@ import { pathToFileURL } from 'node:url';
 import { parseArgs } from 'node:util';
 import { buildStoryBody } from './lib/audit-to-stories/build-story-body.js';
 import { classifyGroupsAgainstGitHub } from './lib/audit-to-stories/dedupe-against-github.js';
+import { formatEpicGrouping } from './lib/audit-to-stories/epic-grouping-directive.js';
 import { withFingerprints } from './lib/audit-to-stories/finding-adapter.js';
 import { groupFindings } from './lib/audit-to-stories/group-findings.js';
 import {
@@ -147,6 +148,48 @@ function sameTally(a, b) {
 function formatTally(tally) {
   if (!tally) return '(no Severity tally line)';
   return `Critical ${tally.critical} / High ${tally.high} / Medium ${tally.medium} / Low ${tally.low}`;
+}
+
+/**
+ * Run the cross-check, route its messages to stderr, and enforce the
+ * fail-closed arm — the whole report-verification step as one call, so
+ * `buildPlan` reads as a pipeline rather than absorbing the branching.
+ *
+ * `--auto` files unattended, so a report it cannot trust must stop the run
+ * BEFORE the ledger reconcile and before any Story payload is built: no GitHub
+ * write, no ledger write, non-zero exit. `--scan` reports and carries on — the
+ * failures ride the plan envelope for the operator to act on.
+ *
+ * @param {object} params
+ * @param {Array<{ sourceReport: string, markdown: string }>} params.reports
+ * @param {Array<object>} params.findings — every parsed finding, unfiltered.
+ * @param {boolean} [params.allowMissingTally]
+ * @param {boolean} [params.failOnReportFailures]
+ * @param {{ warn: Function }} params.logger
+ * @returns {Array<object>} the failures, for `summary.reportFailures[]`.
+ */
+function auditReportFailures({
+  reports,
+  findings,
+  allowMissingTally,
+  failOnReportFailures,
+  logger,
+}) {
+  const { failures, warnings } = crossCheckReports({
+    reports,
+    findings,
+    allowMissingTally,
+  });
+  for (const warning of warnings) logger.warn(warning);
+  if (failures.length === 0) return failures;
+  const message = reportFailureWarning(failures);
+  logger.warn(message);
+  if (failOnReportFailures) {
+    throw new Error(
+      `refusing to file from an unverified report set. ${message}`,
+    );
+  }
+  return failures;
 }
 
 /**
@@ -590,23 +633,13 @@ async function buildPlan(
 
   const reports = readReportsImpl(reportPaths);
   const allFindings = parseAuditReports(reports, { repoRoot: process.cwd() });
-  const { failures: reportFailures, warnings } = crossCheckReports({
+  const reportFailures = auditReportFailures({
     reports,
     findings: allFindings,
     allowMissingTally,
+    failOnReportFailures,
+    logger,
   });
-  for (const warning of warnings) logger.warn(warning);
-  if (reportFailures.length > 0) {
-    logger.warn(reportFailureWarning(reportFailures));
-    // `--auto` files unattended, so a report it cannot trust must stop the run
-    // BEFORE the ledger reconcile and before any Story payload is built: no
-    // GitHub write, no ledger write, non-zero exit.
-    if (failOnReportFailures) {
-      throw new Error(
-        `refusing to file from an unverified audit report set. ${reportFailureWarning(reportFailures)}`,
-      );
-    }
-  }
   const filtered = allFindings.filter((f) => meetsSeverity(f, severity));
   // A finding whose severity did not resolve is a report defect, not a Story.
   // It stays visible in `summary.tally.unknown` and in `reportFailures`, but
@@ -1165,11 +1198,17 @@ export async function runAuditToStories(
  * numbers yet — so this is where a human driving the create pass by hand sees
  * the ordering they will replay through `--wire-edges` (Story #5044).
  *
+ * The trailing `--- grouping ---` block carries the container-Epic default
+ * (Story #5139), so the standalone path states it where it is actually read.
+ * The `--json` form stays a bare array on purpose: it is a documented output
+ * shape with a test asserting it, and the Epic is an operator decision the
+ * workflow's Phase 4 stop owns, not a field a machine consumer acts on.
+ *
  * @param {Array<{ title: string, labels: string[], body: string, groupKey?: string, dependsOn?: string[] }>} built
  * @returns {string}
  */
 function renderStoryDrafts(built) {
-  return built
+  const drafts = built
     .map((s, i) => {
       const deps = (s.dependsOn ?? []).length
         ? `\nDepends on group(s): ${s.dependsOn.join(', ')}`
@@ -1177,6 +1216,9 @@ function renderStoryDrafts(built) {
       return `--- story ${i + 1} ---\nTitle: ${s.title}\nLabels: ${s.labels.join(', ')}\nGroup key: ${s.groupKey}${deps}\n\n${s.body}\n`;
     })
     .join('\n');
+
+  const grouping = formatEpicGrouping(built);
+  return `${drafts}\n--- grouping ---\n${grouping}\n`;
 }
 
 async function main() {

@@ -1,11 +1,11 @@
 {
   "$schema": ".agents/schemas/baselines/maintainability.schema.json",
   "kernelVersion": "0.1.0",
-  "generatedAt": "2026-09-05T01:02:27.127Z",
+  "generatedAt": "2026-09-05T23:41:50.320Z",
   "rollup": {
     "*": {
       "min": 76.381,
-      "p50": 98.829,
+      "p50": 98.797,
       "p95": 122.913
     }
   },
@@ -281,6 +281,10 @@
     {
       "path": ".agents/scripts/lib/audit-to-stories/dedupe-against-github.js",
       "mi": 90.343
+    },
+    {
+      "path": ".agents/scripts/lib/audit-to-stories/epic-grouping-directive.js",
+      "mi": 122.565
     },
     {
       "path": ".agents/scripts/lib/audit-to-stories/finding-adapter.js",
@@ -980,7 +984,7 @@
     },
     {
       "path": ".agents/scripts/lib/label-taxonomy.js",
-      "mi": 84.443
+      "mi": 94.327
     },
     {
       "path": ".agents/scripts/lib/Logger.js",
@@ -1131,6 +1135,14 @@
       "mi": 93.747
     },
     {
+      "path": ".agents/scripts/lib/orchestration/epic-container.js",
+      "mi": 106.267
+    },
+    {
+      "path": ".agents/scripts/lib/orchestration/epic-expansion.js",
+      "mi": 96.096
+    },
+    {
       "path": ".agents/scripts/lib/orchestration/file-assumption-enum.js",
       "mi": 142.277
     },
@@ -1253,6 +1265,10 @@
     {
       "path": ".agents/scripts/lib/orchestration/plan-navigation.js",
       "mi": 106.793
+    },
+    {
+      "path": ".agents/scripts/lib/orchestration/plan-persist/epic-ops.js",
+      "mi": 93.456
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/fan-out-gate.js",
@@ -2015,6 +2031,10 @@
       "mi": 101.946
     },
     {
+      "path": ".agents/scripts/providers/github/sub-issue-add.js",
+      "mi": 96.185
+    },
+    {
       "path": ".agents/scripts/providers/github/sub-issues.js",
       "mi": 100.364
     },
@@ -2044,7 +2064,7 @@
     },
     {
       "path": ".agents/scripts/resolve-stories.js",
-      "mi": 105.681
+      "mi": 106.791
     },
     {
       "path": ".agents/scripts/resync-status-column.js",

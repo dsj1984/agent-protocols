@@ -74,8 +74,26 @@ export function isValidTransition(fromState, toState) {
   return allowed.includes(toState);
 }
 
+/**
+ * Ticket-type axis.
+ *
+ * `STORY` is the only type carrying an execution payload — it is what
+ * `/mandrel-deliver` branches, implements and lands.
+ *
+ * `EPIC` (Story #5139) is a **pure container**: a grouping ticket that holds
+ * a `## Goal` paragraph and a child checklist and nothing else. It is never
+ * branched, never implemented, and never carries an `agent::*` label — that
+ * absence is what keeps it out of the bare `/mandrel-deliver` ready list and
+ * outside `lint-issue-body.js`, which is `type::story`-scoped.
+ *
+ * This is deliberately NOT a revival of the v1 Epic tier. Linkage runs
+ * parent→child only (the Epic body's checklist plus native sub-issue edges),
+ * so Story bodies stay untouched and the `Epic: #N` footer stays retired and
+ * refused. See ADR `20260905-container-epic` in `docs/decisions.md`.
+ */
 export const TYPE_LABELS = {
   STORY: 'type::story',
+  EPIC: 'type::epic',
 };
 
 export const STATUS_LABELS = {

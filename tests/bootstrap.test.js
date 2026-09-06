@@ -95,9 +95,11 @@ class MockProvider extends ITicketingProvider {
 describe('Bootstrap — LABEL_TAXONOMY', () => {
   it('contains all required type labels', () => {
     const names = LABEL_TAXONOMY.map((l) => l.name);
-    // Stage 5 hard cutover — the type axis is Story-only.
+    // Story #5139 — the type axis is Story plus the CONTAINER Epic. The v1
+    // execution tier is not back: `type::epic` marks a grouping ticket with
+    // no execution payload, and the `Epic: #N` footer stays refused.
     const typeLabels = names.filter((n) => n.startsWith('type::')).sort();
-    assert.deepEqual(typeLabels, ['type::story']);
+    assert.deepEqual(typeLabels, ['type::epic', 'type::story']);
   });
 
   it('contains all required agent state labels', () => {
@@ -148,7 +150,9 @@ describe('Bootstrap — LABEL_TAXONOMY', () => {
     // Epic #4474 PR4 — added `delivery::single`; removed again post-v2
     // (never applied or read once the single-delivery reader was retired).
     // v2 persona deletion — removed the `persona::*` axis entirely.
-    const taxonomyBase = 9;
+    // Story #5139 — added `type::epic` back as a container-only grouping
+    // label (no execution payload, never carries `agent::*`).
+    const taxonomyBase = 10;
     assert.equal(LABEL_TAXONOMY.length, taxonomyBase);
   });
 
