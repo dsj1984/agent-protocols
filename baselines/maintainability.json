@@ -1,7 +1,7 @@
 {
   "$schema": ".agents/schemas/baselines/maintainability.schema.json",
   "kernelVersion": "0.1.0",
-  "generatedAt": "2026-09-06T00:50:40.190Z",
+  "generatedAt": "2026-09-06T00:57:21.751Z",
   "rollup": {
     "*": {
       "min": 76.381,
@@ -160,7 +160,7 @@
     },
     {
       "path": ".agents/scripts/generate-skills-index.js",
-      "mi": 98.844
+      "mi": 100.833
     },
     {
       "path": ".agents/scripts/generate-workflows-doc.js",
@@ -304,7 +304,7 @@
     },
     {
       "path": ".agents/scripts/lib/audit-to-stories/parse-audit-md.js",
-      "mi": 90.23
+      "mi": 91.969
     },
     {
       "path": ".agents/scripts/lib/audit-to-stories/seed-from-findings.js",
