@@ -11,9 +11,13 @@
  * "human-in-the-loop / human-driven". This spec is the green-build gate that
  * proves the rename landed across the tracked surface:
  *
- *   1. `.agents/workflows/qa-assist.md` exists and the generated
- *      `.claude/commands/qa-assist.md` mirror exists (re-run
- *      `npm run sync:commands` if missing).
+ *   1. `.agents/workflows/qa-assist.md` exists and projects to the generated
+ *      command `.claude/commands/qa-assist.md`. The projection is computed
+ *      fresh into a temp tree rather than read off the repo's own
+ *      `.claude/commands/`: that mirror is generated and gitignored,
+ *      materialized by the `prepare` script, so it is empty in any freshly
+ *      materialized worktree (which inherits `node_modules/` by clone and
+ *      never runs `prepare`). See `tests/helpers/projected-commands.js`.
  *   2. `.agents/workflows/qa-explore.md` exists and declares itself agent-led,
  *      explicitly disclaiming any human-driven flow (which now lives in
  *      `/qa-assist`).
@@ -36,12 +40,14 @@ import path from 'node:path';
 import { describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
+import { projectedCommands } from './helpers/projected-commands.js';
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const REPO_ROOT = path.resolve(__dirname, '..');
 
 const ASSIST_WORKFLOW = '.agents/workflows/qa-assist.md';
-const ASSIST_COMMAND = '.claude/commands/qa-assist.md';
+const ASSIST_COMMAND = 'qa-assist.md';
 const EXPLORE_WORKFLOW = '.agents/workflows/qa-explore.md';
 
 const SCAN_ROOTS = [
@@ -104,9 +110,9 @@ describe('qa-assist rename / cutover guard', () => {
       `${ASSIST_WORKFLOW} must exist — it owns the human-led QA flow`,
     );
     assert.equal(
-      await fileExists(path.join(REPO_ROOT, ASSIST_COMMAND)),
+      projectedCommands().has(ASSIST_COMMAND),
       true,
-      `${ASSIST_COMMAND} must exist — re-run \`npm run sync:commands\``,
+      `.agents/workflows/ must project .claude/commands/${ASSIST_COMMAND}`,
     );
   });
 

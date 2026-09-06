@@ -7,11 +7,17 @@
  *
  *   1. `.agents/workflows/qa-run.md` exists and
  *      `.agents/workflows/qa-run-harness.md` does not.
- *   2. `.claude/commands/qa-run.md` exists and
- *      `.claude/commands/qa-run-harness.md` does not. The `.claude/commands/`
- *      tree is generated from `.agents/workflows/` by `sync-claude-commands.js`,
- *      which prunes orphans — so the old generated command disappears once the
- *      source workflow is renamed and the sync re-runs.
+ *   2. Projecting `.agents/workflows/` through `sync-claude-commands.js` yields
+ *      `qa-run.md` and not `qa-run-harness.md`, and the projector's orphan-reap
+ *      removes a stale `qa-run-harness.md` left over from before the rename.
+ *
+ *      This is asserted against a *fresh* projection into a temp tree, not
+ *      against the repo's own `.claude/commands/` — that mirror is generated
+ *      and gitignored, materialized by the `prepare` script, so it is empty in
+ *      any freshly materialized worktree (which inherits `node_modules/` by
+ *      clone and never runs `prepare`). Asserting on it made the guard depend
+ *      on whether somebody had run `npm run sync:commands` by hand. See
+ *      `tests/helpers/projected-commands.js`.
  *   3. No file under `.agents/`, `docs/`, `.claude/`, or `tests/` references the
  *      old `qa-run-harness` string (this test file and `docs/CHANGELOG.md`
  *      excepted — the release-please version changelog legitimately records the
@@ -36,14 +42,16 @@ import path from 'node:path';
 import { describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
+import { projectCommands } from './helpers/projected-commands.js';
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const REPO_ROOT = path.resolve(__dirname, '..');
 
 const NEW_WORKFLOW = '.agents/workflows/qa-run.md';
 const OLD_WORKFLOW = '.agents/workflows/qa-run-harness.md';
-const NEW_COMMAND = '.claude/commands/qa-run.md';
-const OLD_COMMAND = '.claude/commands/qa-run-harness.md';
+const NEW_COMMAND = 'qa-run.md';
+const OLD_COMMAND = 'qa-run-harness.md';
 
 const SCAN_ROOTS = [
   path.join(REPO_ROOT, '.agents'),
@@ -125,16 +133,20 @@ describe('qa-run rename guard', () => {
     );
   });
 
-  it('renames the generated command to .claude/commands/qa-run.md', async () => {
+  it('projects the renamed workflow to .claude/commands/qa-run.md, reaping the old command', () => {
+    // Seed the destination with the pre-rename generated command so the run
+    // exercises the orphan-reap, not just its absence from a fresh tree.
+    const projection = projectCommands({ seedOrphans: [OLD_COMMAND] });
+
     assert.equal(
-      await fileExists(path.join(REPO_ROOT, NEW_COMMAND)),
+      projection.has(NEW_COMMAND),
       true,
-      `${NEW_COMMAND} must exist — re-run \`npm run sync:commands\``,
+      `.agents/workflows/ must project .claude/commands/${NEW_COMMAND}`,
     );
     assert.equal(
-      await fileExists(path.join(REPO_ROOT, OLD_COMMAND)),
+      projection.has(OLD_COMMAND),
       false,
-      `${OLD_COMMAND} must be absent — re-run \`npm run sync:commands\` to prune the orphaned generated command`,
+      `.claude/commands/${OLD_COMMAND} must be reaped as an orphan — no workflow sources it any more`,
     );
   });
 
