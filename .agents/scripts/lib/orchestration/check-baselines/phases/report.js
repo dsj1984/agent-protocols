@@ -34,7 +34,12 @@ function formatGateLine(g) {
     g.baseRef && g.baseRead === false
       ? ' [baseRead=false — compare skipped]'
       : '';
-  const ack = g.acknowledged ? ' [ACKNOWLEDGED — this run only]' : '';
+  // Story #5179 — a refresh commit acknowledges only the rows it refreshed, so
+  // the count says how much was cleared and the status ahead of it still shows
+  // FAIL when regressions outside those rows survived.
+  const ack = g.acknowledged
+    ? ` [ACKNOWLEDGED ${g.acknowledgedKeys?.length ?? 0} row(s) — this run only]`
+    : '';
   return `  - ${g.kind}: ${status}${drift}${baseRef}${baseRead}${ack}`;
 }
 
