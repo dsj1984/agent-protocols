@@ -46,6 +46,31 @@ describe('buildDefaultGates — coverage-capture registration (Story #4473)', ()
     assert.deepEqual([testGate.cmd, ...testGate.args], ['npm', 'test']);
   });
 
+  // Story #5173 — the plain `test` gate is the one gate here that spawns a
+  // whole suite, so it carries the host-lock flag `defaultGateRunner` acts on.
+  // It is flagged on this entry alone precisely because the two full-suite
+  // gates are mutually exclusive: when `coverage-capture` is registered
+  // instead, the lock is taken one level down, inside `runCapture`.
+  it('Story #5173: the restored test gate is flagged for the full-suite lock', () => {
+    const gates = buildDefaultGates({
+      config: { delivery: { quality: { gates: { crap: { enabled: true } } } } },
+      packageScripts: { test: 'node --test' },
+    });
+    assert.equal(gates.find((g) => g.name === 'test').fullSuiteLock, true);
+  });
+
+  it('Story #5173: no other gate carries the full-suite lock flag', () => {
+    const gates = buildDefaultGates({
+      config: { delivery: { quality: { gates: { crap: { enabled: true } } } } },
+      packageScripts: { 'test:coverage': 'c8 node --test' },
+    });
+    assert.deepEqual(
+      gates.filter((g) => g.fullSuiteLock).map((g) => g.name),
+      [],
+      'coverage-capture locks inside runCapture, not at the gate runner',
+    );
+  });
+
   it('CRAP off → plain test gate present, coverage-capture absent (regardless of script)', () => {
     const gates = buildDefaultGates({
       config: {

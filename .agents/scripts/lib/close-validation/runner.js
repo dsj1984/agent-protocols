@@ -226,6 +226,11 @@ export async function runCloseValidation({
       log,
       signal,
       ...(gate.env ? { env: gate.env } : {}),
+      // Story #5173 — forwarded unconditionally (never a conditional spread
+      // like the two below): `defaultGateRunner` already treats a falsy value
+      // as "no lock", so a branch here would only add a decision point to the
+      // hottest function in this file.
+      fullSuiteLock: gate.fullSuiteLock,
       ...(gate.tolerateNoFilesProcessed
         ? { tolerateNoFilesProcessed: true }
         : {}),

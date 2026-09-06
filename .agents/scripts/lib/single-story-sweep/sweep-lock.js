@@ -162,6 +162,30 @@ function readLockOwner(lockPath, fsImpl = fs) {
 }
 
 /**
+ * Read the pid a lockfile was created by (its third line — see
+ * {@link tryCreateLock}'s body format). Returns `null` when the file is
+ * absent, unreadable, or its pid line is not a positive integer.
+ *
+ * Exists so a *waiting* caller can name the holder in its wait line: a bounded
+ * wait with no attribution is indistinguishable from a hang, and the pid is
+ * the one field an operator can act on (`ps`, `kill`). Reading it is
+ * advisory — a `null` just means the wait line says less.
+ *
+ * @param {string} lockPath
+ * @param {object} [fsImpl]
+ * @returns {number|null}
+ */
+export function readLockHolderPid(lockPath, fsImpl = fs) {
+  try {
+    const lines = String(fsImpl.readFileSync(lockPath, 'utf8')).split('\n');
+    const pid = Number.parseInt(lines[2] ?? '', 10);
+    return Number.isInteger(pid) && pid > 0 ? pid : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Pure: do two identity tuples describe the same lockfile instance? A `null`
  * on either side is "not the same" — an absent file is never the file we
  * observed. Module-private, like {@link readLockIdentity} it compares:

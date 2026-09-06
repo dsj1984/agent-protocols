@@ -14,8 +14,13 @@ import { getChangedFiles } from '../changed-files.js';
  * not be resolved — a resolution failure falls back to full-scope rather
  * than silently relaxing the gate.
  *
+ * Gated by `incrementalCoverage.baselineJoin` alone (Story #5173). It MUST
+ * NOT consult `skipWhenUnchanged`: the join loosens what the gate demands,
+ * while the skip only decides whether a capture runs, so a consumer that took
+ * the saving has not thereby asked for the loosening.
+ *
  * @param {{
- *   crap: { incrementalCoverage?: { enabled?: boolean, baseRef?: string } },
+ *   crap: { incrementalCoverage?: { baselineJoin?: boolean, baseRef?: string } },
  *   diffRef: string | null,
  *   cwd: string,
  *   baselineRows: Array<object>,
@@ -30,7 +35,7 @@ export function resolveCrapPreviewIncremental({
   baselineRows,
   getChangedFilesImpl = getChangedFiles,
 }) {
-  if (crap.incrementalCoverage?.enabled !== true) return null;
+  if (crap.incrementalCoverage?.baselineJoin !== true) return null;
   const baseRef = crap.incrementalCoverage.baseRef || diffRef || 'main';
   try {
     const touchedFiles = new Set(getChangedFilesImpl({ ref: baseRef, cwd }));

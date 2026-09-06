@@ -585,6 +585,12 @@ describe('runCapture', () => {
     );
   });
 
+  // Story #5173 — `runCapture` deliberately stays a pure spawn helper: the
+  // host lock is composed OVER it by `lockedCapture` (full-suite-lock.js) at
+  // the CLI's one production call site, so the pre-push and unit-test callers
+  // reaching it directly spawn unserialized with no flag to pass. What that
+  // buys is pinned in tests/lib/full-suite-lock.test.js.
+
   // Story #5065 — the spawn takes NO positional file arguments. Story #4981
   // appended `-- <files...>` believing a test runner would read them as
   // filters over the suite; Node's runner executes each path as a test file,

@@ -39,6 +39,12 @@ const EXECUTION_SCHEMA = {
         'Per-command timeout (ms) for the long-running spawns delivery drives — the close-validation chain and the gate CLIs.',
       default: LIMITS_DEFAULTS.executionTimeoutMs,
     },
+    fullSuiteLock: {
+      type: 'boolean',
+      description:
+        'Serialize full-suite spawns (`npm test` / `npm run test:coverage`) behind a host-level advisory lock, so two concurrent deliveries on one checkout do not run two suites against the same cores. Best-effort: a wait that expires spawns anyway, so the lock can never fail a delivery. Set false — or export `MANDREL_FULL_SUITE_LOCK=0` for one invocation — to disable.',
+      default: true,
+    },
   },
   additionalProperties: false,
 };

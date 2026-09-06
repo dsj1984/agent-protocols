@@ -117,7 +117,12 @@ function isCrapGateEnabled(config) {
  */
 function buildTestGateEntry(coverageCaptureActive) {
   if (coverageCaptureActive) return [];
-  return [{ name: 'test', cmd: 'npm', args: ['test'] }];
+  // Story #5173 — `fullSuiteLock` marks the one gate here that spawns a whole
+  // suite, so `defaultGateRunner` serializes it behind the host lock. It is
+  // set on this entry alone precisely because the two full-suite gates are
+  // mutually exclusive: when `coverage-capture` is registered instead, the
+  // lock is taken one level down, inside `runCapture`.
+  return [{ name: 'test', cmd: 'npm', args: ['test'], fullSuiteLock: true }];
 }
 
 const CHECK_BASELINES_HINT =

@@ -451,6 +451,11 @@
               "minimum": 1,
               "description": "Per-command timeout (ms) for the long-running spawns delivery drives — the close-validation chain and the gate CLIs.",
               "default": 600000
+            },
+            "fullSuiteLock": {
+              "type": "boolean",
+              "description": "Serialize full-suite spawns (`npm test` / `npm run test:coverage`) behind a host-level advisory lock, so two concurrent deliveries on one checkout do not run two suites against the same cores. Best-effort: a wait that expires spawns anyway, so the lock can never fail a delivery. Set false — or export `MANDREL_FULL_SUITE_LOCK=0` for one invocation — to disable.",
+              "default": true
             }
           },
           "additionalProperties": false
@@ -978,11 +983,21 @@
                     },
                     "incrementalCoverage": {
                       "type": "object",
-                      "description": "Story #4981 — opt-in incremental coverage-capture + CRAP-join scoping. Default (key absent) preserves today’s full-repo behaviour byte-for-byte. When `enabled: true`, the changed-file set against `baseRef` (default: the gate’s own `--ref` / `main`) decides WHETHER to capture — no changed file under `crap.targetDirs` means no capture at all — and the CRAP join treats a method in a file the diff did not touch as resolved by its committed baseline row instead of requiring fresh coverage for it. It does NOT narrow the capture run itself: a capture that does happen is the ordinary full `npm run test:coverage` (Story #5065).",
+                      "description": "The two independent full-suite economies (Story #4981, split by Story #5173). `skipWhenUnchanged` (default true) decides WHETHER to capture — no changed file under `crap.targetDirs` versus `baseRef` means no capture at all — and is a pure saving. `baselineJoin` (default false) loosens gate semantics: the CRAP join resolves a method in an untouched file from its committed baseline row instead of requiring fresh coverage for it. Neither narrows the capture run itself: a capture that does happen is the ordinary full `npm run test:coverage` (Story #5065).",
                       "properties": {
+                        "skipWhenUnchanged": {
+                          "type": "boolean",
+                          "description": "Skip the capture entirely when no changed file under `crap.targetDirs` versus `baseRef` was touched. The only measured saving, and gate-semantics-neutral. Defaults to true.",
+                          "default": true
+                        },
+                        "baselineJoin": {
+                          "type": "boolean",
+                          "description": "Let the CRAP join resolve a method in a file the diff did not touch from its committed baseline row instead of requiring fresh coverage for it. A gate loosening, not a saving — defaults to false.",
+                          "default": false
+                        },
                         "enabled": {
                           "type": "boolean",
-                          "description": "Master switch for the capture skip and the baseline-resolved CRAP join."
+                          "description": "DEPRECATED alias for setting both `skipWhenUnchanged` and `baselineJoin`. Prefer the two switches: they are not equally safe, and bundling them is why the earlier default flip was reverted. Either explicit switch overrides this alias."
                         },
                         "baseRef": {
                           "type": "string",

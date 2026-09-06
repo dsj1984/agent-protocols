@@ -176,14 +176,18 @@ export function resolveRawRow(mr, { requireCoverage, coverageAvailable }) {
 }
 
 /**
- * Incremental-mode join (Story #4981): resolve a file's raw method rows
- * against its committed CRAP-baseline rows instead of requiring fresh
- * coverage, for a file the diff did NOT touch.
+ * Baseline-join mode (Story #4981; gated by
+ * `incrementalCoverage.baselineJoin` since Story #5173): resolve a file's raw
+ * method rows against its committed CRAP-baseline rows instead of requiring
+ * fresh coverage, for a file the diff did NOT touch.
  *
- * Rationale: `coverage-capture`'s incremental mode only runs the consumer's
- * test suite scoped to the diff, so an untouched file's coverage entry may
- * legitimately be absent even though nothing about that file's methods
- * changed. Requiring a fresh join for it would either (a) skip-and-count
+ * Rationale: when the capture was skipped because nothing under
+ * `crap.targetDirs` changed, the coverage artifact on disk is whatever the
+ * last run left — so an untouched file's coverage entry may legitimately be
+ * absent even though nothing about that file's methods changed. (The capture
+ * run itself is never narrowed: a capture that *does* happen is the ordinary
+ * full suite — Story #5065.) Requiring a fresh join for it would either
+ * (a) skip-and-count
  * every one of its methods under `requireCoverage: true`, weakening the
  * gate's signal for the vast majority of the tree on every run, or (b) score
  * them at an invented 0% under `requireCoverage: false`, manufacturing a

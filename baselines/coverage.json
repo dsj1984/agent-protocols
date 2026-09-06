@@ -1,12 +1,12 @@
 {
   "$schema": ".agents/schemas/baselines/coverage.schema.json",
   "kernelVersion": "1.0.0",
-  "generatedAt": "2026-09-06T16:10:50.570Z",
+  "generatedAt": "2026-09-06T17:04:53.709Z",
   "rollup": {
     "*": {
-      "lines": 96.02,
-      "branches": 86.85,
-      "functions": 88.28
+      "lines": 96.04,
+      "branches": 86.98,
+      "functions": 88.3
     }
   },
   "rows": [
@@ -174,8 +174,8 @@
     },
     {
       "path": ".agents/scripts/coverage-capture.js",
-      "lines": 98.28,
-      "branches": 90.48,
+      "lines": 98.43,
+      "branches": 90.91,
       "functions": 100
     },
     {
@@ -474,8 +474,8 @@
     },
     {
       "path": ".agents/scripts/lib/baselines/crap-preview-incremental.js",
-      "lines": 95.12,
-      "branches": 40,
+      "lines": 100,
+      "branches": 87.5,
       "functions": 100
     },
     {
@@ -870,15 +870,15 @@
     },
     {
       "path": ".agents/scripts/lib/close-validation/gates.js",
-      "lines": 98.55,
-      "branches": 92.06,
+      "lines": 98.89,
+      "branches": 93.83,
       "functions": 100
     },
     {
       "path": ".agents/scripts/lib/close-validation/process.js",
-      "lines": 91.13,
-      "branches": 80,
-      "functions": 55.56
+      "lines": 92.24,
+      "branches": 82.86,
+      "functions": 60
     },
     {
       "path": ".agents/scripts/lib/close-validation/projections/advisories.js",
@@ -912,8 +912,8 @@
     },
     {
       "path": ".agents/scripts/lib/close-validation/runner.js",
-      "lines": 80.78,
-      "branches": 50,
+      "lines": 81.41,
+      "branches": 51.72,
       "functions": 72.73
     },
     {
@@ -1080,8 +1080,8 @@
     },
     {
       "path": ".agents/scripts/lib/config/quality.js",
-      "lines": 97.35,
-      "branches": 77.62,
+      "lines": 97.69,
+      "branches": 83.12,
       "functions": 100
     },
     {
@@ -1140,8 +1140,8 @@
     },
     {
       "path": ".agents/scripts/lib/coverage-capture-incremental.js",
-      "lines": 95.69,
-      "branches": 81.25,
+      "lines": 96.12,
+      "branches": 88.89,
       "functions": 100
     },
     {
@@ -1407,6 +1407,12 @@
       "lines": 100,
       "branches": 100,
       "functions": 100
+    },
+    {
+      "path": ".agents/scripts/lib/full-suite-lock.js",
+      "lines": 98.39,
+      "branches": 95.65,
+      "functions": 90
     },
     {
       "path": ".agents/scripts/lib/gates/baseline-store.js",
@@ -2604,9 +2610,9 @@
     },
     {
       "path": ".agents/scripts/lib/single-story-sweep/sweep-lock.js",
-      "lines": 95.04,
-      "branches": 90.48,
-      "functions": 88.89
+      "lines": 97.14,
+      "branches": 86.96,
+      "functions": 95.45
     },
     {
       "path": ".agents/scripts/lib/single-story/confirm-merge.js",

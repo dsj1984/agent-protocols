@@ -11,16 +11,22 @@
 import path from 'node:path';
 
 /**
- * Run the incremental capture path when
- * `delivery.quality.gates.crap.incrementalCoverage.enabled` is true.
+ * Run the skip-aware capture path when
+ * `delivery.quality.gates.crap.incrementalCoverage.skipWhenUnchanged` is true
+ * (the default since Story #5173).
  *
  * **This does not shorten the capture run.** The changed-file set decides
  * *whether* to capture, never *what* the capture executes: when nothing under
  * `crap.targetDirs` changed there is no capture at all, and otherwise the
  * ordinary full `npm run test:coverage` runs. The saving that makes the mode
- * worth having is the skip; the other half is the CRAP join, which resolves
- * methods in untouched files from the committed baseline row
- * (`crap-baseline-join.js`) instead of demanding fresh coverage for them.
+ * worth having is the skip.
+ *
+ * Gated by `skipWhenUnchanged` alone (Story #5173). It MUST NOT consult
+ * `baselineJoin`: that switch governs the CRAP join
+ * (`crap-baseline-join.js`), which resolves methods in untouched files from
+ * the committed baseline row instead of demanding fresh coverage for them —
+ * a gate loosening, where the skip is a pure saving. The two are defaulted
+ * differently for exactly that reason, so neither may read the other.
  *
  * Returns the process exit code when incremental mode handled the run
  * (skip, capture, or a capture failure), or `null` when the caller should
@@ -54,7 +60,7 @@ export function tryIncrementalCapture({
   writeCaptureStampImpl,
   logger,
 }) {
-  if (crap.incrementalCoverage?.enabled !== true) return null;
+  if (crap.incrementalCoverage?.skipWhenUnchanged !== true) return null;
 
   const ref = crap.incrementalCoverage.baseRef || args.ref;
   let changed = null;

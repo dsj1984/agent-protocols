@@ -72,22 +72,27 @@ const DEFAULT_MI_FLOORS = Object.freeze({
 });
 
 /**
- * Story #4981 — opt-in incremental coverage-capture + CRAP-join scoping.
- * Disabled by default: `coverage-capture.js` and the CRAP join keep their
- * pre-#4981 full-repo behaviour byte-for-byte until a consumer sets
- * `enabled: true`. `baseRef: null` means "use the caller's own ref
- * resolution" (the gate's `--ref` flag / `main`) rather than a second,
- * possibly-conflicting default.
+ * Story #4981 / #5065 / #5173 — the two independent full-suite economies.
  *
- * Story #5065 — what `enabled: true` actually buys, measured: the capture is
- * **skipped entirely** when no changed file lives under `crap.targetDirs`,
- * and the CRAP join resolves methods in untouched files from the committed
- * baseline row instead of requiring fresh coverage. It does **not** shorten
- * the capture run — when a capture does happen it is the ordinary full
- * `npm run test:coverage`.
+ * `skipWhenUnchanged` decides *whether* to capture: no changed file under
+ * `crap.targetDirs` versus `baseRef` means no capture at all. It is on by
+ * default because it is gate-semantics-neutral — the gates score exactly what
+ * they scored before, since nothing they score moved.
+ *
+ * `baselineJoin` lets the CRAP join resolve a method in an untouched file
+ * from its committed baseline row instead of requiring fresh coverage for it.
+ * That *loosens* the gate, so it stays off by default. Bundling the two under
+ * one `enabled` switch is precisely what forced the earlier default flip to
+ * be reverted (Story #5173).
+ *
+ * Neither switch shortens the capture run — a capture that does happen is the
+ * ordinary full `npm run test:coverage` (Story #5065). `baseRef: null` means
+ * "use the caller's own ref resolution" (the gate's `--ref` flag / `main`)
+ * rather than a second, possibly-conflicting default.
  */
 const DEFAULT_INCREMENTAL_COVERAGE = Object.freeze({
-  enabled: false,
+  skipWhenUnchanged: true,
+  baselineJoin: false,
   baseRef: null,
 });
 
@@ -263,19 +268,29 @@ function resolveResolutionRate(value, fallback) {
 }
 
 /**
- * Resolve `gates.crap.incrementalCoverage` (Story #4981). A malformed or
- * absent user block resolves to the framework default (disabled), so a
- * consumer that never sets the key gets the exact pre-#4981 shape back.
+ * Resolve `gates.crap.incrementalCoverage` (Story #4981, split by #5173).
  *
- * @param {{ enabled?: boolean, baseRef?: string } | undefined} user
- * @param {{ enabled: boolean, baseRef: string | null }} defaults
- * @returns {{ enabled: boolean, baseRef: string | null }}
+ * Precedence, lowest to highest: the framework defaults
+ * (`skipWhenUnchanged: true`, `baselineJoin: false`), then the deprecated
+ * `enabled` alias which sets **both** switches to its value, then either
+ * explicit switch. A malformed or absent user block resolves to the defaults,
+ * so a consumer that never sets the key inherits the saving without the
+ * loosening.
+ *
+ * @param {{ skipWhenUnchanged?: boolean, baselineJoin?: boolean, enabled?: boolean, baseRef?: string } | undefined} user
+ * @param {{ skipWhenUnchanged: boolean, baselineJoin: boolean, baseRef: string | null }} defaults
+ * @returns {{ skipWhenUnchanged: boolean, baselineJoin: boolean, baseRef: string | null }}
  */
 function resolveIncrementalCoverage(user, defaults) {
   if (user == null || typeof user !== 'object') return { ...defaults };
+  const alias = typeof user.enabled === 'boolean' ? user.enabled : null;
+  const pick = (explicit, fallback) => {
+    if (typeof explicit === 'boolean') return explicit;
+    return alias === null ? fallback : alias;
+  };
   return {
-    enabled:
-      typeof user.enabled === 'boolean' ? user.enabled : defaults.enabled,
+    skipWhenUnchanged: pick(user.skipWhenUnchanged, defaults.skipWhenUnchanged),
+    baselineJoin: pick(user.baselineJoin, defaults.baselineJoin),
     baseRef:
       typeof user.baseRef === 'string' && user.baseRef.length > 0
         ? user.baseRef
