@@ -518,6 +518,45 @@ describe('check-baselines — refresh acknowledgment is row-scoped (#5179)', () 
     assert.deepEqual(gate.acknowledgedKeys, ['src/a.js']);
   });
 
+  // Fail-closed depth: a blob that IS present at the refresh SHA but is not
+  // parseable JSON is not a refreshed row set. `readRowsAtCommit` returns null
+  // for an unparseable payload exactly as it does for an absent one.
+  it('a tagged commit whose baseline blob is unparseable acknowledges nothing', async () => {
+    root = setupTmpRepo();
+    writeHead(root, [covRow('src/a.js', 70)]);
+    const baseJson = JSON.stringify(
+      covEnvelope({ rows: [covRow('src/a.js', 95)] }),
+    );
+    __setSpawnRunner({
+      spawn: (_cmd, args) => {
+        if (args?.[0] === 'show') {
+          const spec = args?.[1] ?? '';
+          if (!spec.endsWith(`:${COV_BASELINE_REL}`)) {
+            return { status: 128, stdout: '', stderr: 'no base' };
+          }
+          const ref = spec.slice(0, spec.length - COV_BASELINE_REL.length - 1);
+          if (ref === 'main')
+            return { status: 0, stdout: baseJson, stderr: '' };
+          // Present, readable, and not JSON.
+          return { status: 0, stdout: 'not json at all {{{', stderr: '' };
+        }
+        if (args?.[0] === 'log') {
+          return {
+            status: 0,
+            stdout: `r1\u0000${REFRESH_SUBJECT}\n`,
+            stderr: '',
+          };
+        }
+        return { status: 128, stdout: '', stderr: 'unexpected' };
+      },
+    });
+    const res = await runCheckBaselines({ argv: ['--no-friction'], cwd: root });
+    assert.equal(res.exitCode, 4);
+    const gate = res.report.gates.find((g) => g.kind === 'coverage');
+    assert.equal(gate.acknowledged, false);
+    assert.deepEqual(gate.acknowledgedKeys, []);
+  });
+
   // AC-7 — floors are never suppressed, on the tag arm as on the env arm.
   it('a floor breach still fails under a commit-tag acknowledgment', async () => {
     root = setupTmpRepo({ floors: { '*': { lines: 95 } } });
