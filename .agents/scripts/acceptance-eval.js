@@ -260,6 +260,29 @@ export function collectFullSuiteVerifyCommands(verdict) {
 }
 
 /**
+ * Surface the misshapen-`verify[]` warning, if there is one.
+ *
+ * Extracted from `runAcceptanceEvalCli` rather than inlined: the CLI shell is
+ * already the file's worst-CRAP method, and a branch added there costs more
+ * than the same branch in a small, fully-covered helper. Module-private: it is
+ * reached through the CLI shell, which is where the tests drive it.
+ *
+ * @param {object} verdict — schema-validated verdict.
+ * @param {{ warn?: Function }} logger
+ * @returns {string[]} the offending commands (empty when the shape is fine).
+ */
+function warnOnFullSuiteVerify(verdict, logger) {
+  const commands = collectFullSuiteVerifyCommands(verdict);
+  if (commands.length > 0) {
+    logger?.warn?.(
+      `acceptance-eval: verify[] carries full-suite command(s) ${commands.join(', ')}. ` +
+        FULL_SUITE_SHAPE_WARNING,
+    );
+  }
+  return commands;
+}
+
+/**
  * Compose the operator-facing envelope and emit the per-criterion signal.
  *
  * Exported for tests so the decision + signal path can be exercised
@@ -454,13 +477,7 @@ export async function runAcceptanceEvalCli(
   // Story #5174 — the shape warning is derived from the VALIDATED verdict, not
   // from the envelope, so it fires for the real decision path and for every
   // caller that injects its own scorer.
-  const fullSuiteVerify = collectFullSuiteVerifyCommands(verdict);
-  if (fullSuiteVerify.length > 0) {
-    logger.warn?.(
-      `acceptance-eval: verify[] carries full-suite command(s) ${fullSuiteVerify.join(', ')}. ` +
-        FULL_SUITE_SHAPE_WARNING,
-    );
-  }
+  warnOnFullSuiteVerify(verdict, logger);
 
   const config = resolveConfigImpl();
   const { envelope, exitCode } = await runAcceptanceEvalImpl({
