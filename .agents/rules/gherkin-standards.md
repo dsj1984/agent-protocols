@@ -125,11 +125,26 @@ implementation detail.
 
 ## Step Reuse — Grep Before You Write
 
-Before authoring a new step, grep the step-definition library for the verb
-stem and **reuse an existing step verbatim** (adjust your scenario to fit it),
-or **extend a near-match** (add a parameter, widen the regex, updating every
-call site in the same PR) — new steps fragment the vocabulary and multiply
-maintenance. Add a new definition only when no reasonable match exists, and
-never copy-paste a step implementation to support a paraphrased scenario.
+This is the **one prose home** for the step-reuse rule; the authoring skills
+and the runtime wiring skill link here rather than restating it.
+
+New steps fragment the vocabulary and multiply maintenance, so the search
+comes before the writing. The mandatory sequence, before any scenario text is
+authored:
+
+1. **Search the step-definition library for the verb stem**
+   (`rg -n "issues? an invoice" tests/steps`) and list every step signature you
+   intend to reuse — one `Given/When/Then "…"` per line. Report that list in
+   your output; an authoring pass that cannot produce it stops and reports
+   rather than proceeding.
+2. **Reuse an existing step verbatim** — adjust the scenario to fit the step,
+   not the step to fit the scenario.
+3. **Extend a near-match** when no verbatim match exists: add a parameter or
+   widen the regex, updating every call site in the same PR.
+4. **Add a new definition only when no reasonable match exists**, in the
+   correct domain directory. Never copy-paste a step implementation to support
+   a paraphrased scenario, and never author new step definitions during
+   scenario authoring — record the missing step as a named gap instead.
+
 When a step is superseded, mark it deprecated and migrate every call site in
 the same PR; do not leave two near-identical steps live.

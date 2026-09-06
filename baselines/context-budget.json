@@ -1,6 +1,6 @@
 {
   "$schema": "https://mandrel.dev/baselines/context-budget.schema.json",
-  "generatedAt": "2026-09-06T12:22:23.481Z",
+  "generatedAt": "2026-09-06T12:41:29.498Z",
   "toleranceBytes": 2048,
   "tiers": {
     "alwaysLoaded": {
@@ -33,11 +33,11 @@
       ]
     },
     "mandatoryRead": {
-      "totalBytes": 365316,
+      "totalBytes": 365435,
       "files": [
         {
           "path": "docs/architecture.md",
-          "bytes": 91762
+          "bytes": 91881
         },
         {
           "path": "docs/data-dictionary.md",
@@ -54,7 +54,7 @@
       ]
     },
     "workflow": {
-      "totalBytes": 278656,
+      "totalBytes": 279098,
       "files": [
         {
           "path": ".agents/workflows/audit-accessibility.md",
@@ -166,15 +166,15 @@
         },
         {
           "path": ".agents/workflows/qa-assist.md",
-          "bytes": 16539
+          "bytes": 16861
         },
         {
           "path": ".agents/workflows/qa-explore.md",
-          "bytes": 13513
+          "bytes": 13563
         },
         {
           "path": ".agents/workflows/qa-run.md",
-          "bytes": 14143
+          "bytes": 14213
         }
       ]
     }
@@ -205,7 +205,7 @@
     ]
   },
   "workflowClosure": {
-    "reachableTotalBytes": 484291,
+    "reachableTotalBytes": 484733,
     "entryPoints": [
       {
         "path": ".agents/workflows/audit-accessibility.md",
@@ -339,18 +339,18 @@
       },
       {
         "path": ".agents/workflows/qa-assist.md",
-        "mandatoryBytes": 16539,
-        "reachableBytes": 304478
+        "mandatoryBytes": 16861,
+        "reachableBytes": 304920
       },
       {
         "path": ".agents/workflows/qa-explore.md",
-        "mandatoryBytes": 13513,
-        "reachableBytes": 304478
+        "mandatoryBytes": 13563,
+        "reachableBytes": 304920
       },
       {
         "path": ".agents/workflows/qa-run.md",
-        "mandatoryBytes": 14143,
-        "reachableBytes": 304478
+        "mandatoryBytes": 14213,
+        "reachableBytes": 304920
       }
     ]
   }

@@ -1,11 +1,11 @@
 {
   "$schema": "https://mandrel.dev/baselines/cyclomatic.schema.json",
-  "generatedAt": "2026-09-03T02:33:21.942Z",
+  "generatedAt": "2026-09-06T12:41:21.302Z",
   "ceiling": 12,
   "rollup": {
     "*": {
-      "filesAboveCeiling": 48,
-      "methodsAboveCeiling": 52,
+      "filesAboveCeiling": 47,
+      "methodsAboveCeiling": 51,
       "maxCyclomatic": 20
     }
   },
@@ -199,11 +199,6 @@
       "file": ".agents/scripts/lib/orchestration/ticket-validator.js",
       "methodsAboveCeiling": 1,
       "maxCyclomatic": 17
-    },
-    {
-      "file": ".agents/scripts/lib/qa/coverage-verdict.js",
-      "methodsAboveCeiling": 1,
-      "maxCyclomatic": 16
     },
     {
       "file": ".agents/scripts/lib/signals/detectors/common.js",

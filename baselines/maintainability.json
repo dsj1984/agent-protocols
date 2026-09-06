@@ -1643,10 +1643,6 @@
       "mi": 101.876
     },
     {
-      "path": ".agents/scripts/lib/qa/coverage-verdict.js",
-      "mi": 97.99
-    },
-    {
       "path": ".agents/scripts/lib/qa/qa-session.js",
       "mi": 103.062
     },

@@ -17,7 +17,7 @@ description:
 - Never assert on HTTP status codes, SQL state, DOM selectors, URLs, or JSON payloads inside `.feature` prose — push those to contract tests.
 - Tag every Scenario or Outline with exactly one canonical `@domain-*` tag and the appropriate risk/platform tags from the gherkin-standards taxonomy.
 - Use `Background` only when every scenario in the file genuinely shares the precondition with no per-scenario variation.
-- Reuse existing step definitions: grep the steps tree for the verb stem before authoring a new step.
+- Complete the step-reuse sequence in [`gherkin-standards.md` § Step Reuse](../../../../rules/gherkin-standards.md#step-reuse--grep-before-you-write) before authoring any scenario text; that rule is the only home for it.
 - Author one scenario per PRD acceptance criterion; for bounded matrices, use a Scenario Outline with ≤12 Examples rows.
 - Use third-person present-tense, role-qualified actors (`the billing-admin`), never first person.
 
@@ -29,16 +29,10 @@ the rule for the **what**.
 
 ## Long-form reference — read on demand
 
-The worked authoring material — canonical Given/When/Then phrasing, the
-one-AC-to-one-scenario translation walkthrough, Background-vs-Given and
-Outline-vs-multi-scenario decisions, the step-definition library layout and
-reuse/deprecation workflow, and the pre-PR authoring checklist — lives in the
-on-demand sibling [`reference.md`](reference.md). Open a section only when the
-task engages it.
+The step-definition library layout and the pre-PR authoring checklist live in
+the on-demand sibling [`reference.md`](reference.md). Open a section only when
+the task engages it.
 
-- [Canonical Given / When / Then Phrasing](reference.md#canonical-given--when--then-phrasing)
-- [Translating PRD Acceptance Criteria to Scenarios](reference.md#translating-prd-acceptance-criteria-to-scenarios)
-- [Background vs. Given, Outline vs. Multi-Scenario](reference.md#background-vs-given-outline-vs-multi-scenario)
 - [Step-Definition Library Structure](reference.md#step-definition-library-structure)
 - [Authoring Checklist](reference.md#authoring-checklist)
 

@@ -1480,8 +1480,8 @@ resolution (`resolve-qa-contract.js`), scenario selection
 (`resolve-selection.js`), and console filtering (`console-allowlist.js`);
 the LLM owns navigation, assertion, and triage. The same `lib/qa/`
 directory also houses the shared exploratory-QA core consumed by
-`/qa-assist` and `/qa-explore` (see below): `qa-session.js`,
-`redact-evidence.js`, and `coverage-verdict.js`. The full run procedure is the SSOT in
+`/qa-assist` and `/qa-explore` (see below): `qa-session.js` and
+`redact-evidence.js`. The full run procedure is the SSOT in
 [`.agents/workflows/qa-run.md`](../.agents/workflows/qa-run.md);
 the instrumentation conventions live in the
 `skills/stack/qa/qa-harness` skill.
@@ -1583,10 +1583,12 @@ Both record observations as `QaLedgerItem`s
 (`.agents/schemas/qa-ledger.schema.json`) in a **persistent, resumable
 rolling session under `temp/qa/`** (`qa-session.js` owns session/ledger
 resolution), so items from either entry point flow through the identical
-machinery: dedup/classification/routing (`lib/findings/`), coverage
-verdicts (`coverage-verdict.js`), and evidence redaction
-(`redact-evidence.js`). Locating code and naming the missing test are the
-model's own work — Story #5008 removed the helpers that wrapped them. Procedure SSOT remains the workflow files:
+machinery: dedup/classification/routing (`lib/findings/`) and evidence
+redaction (`redact-evidence.js`). Locating code, reading per-tier coverage
+against the three path rules in `.agents/rules/testing-standards.md`, and
+naming the missing test are the model's own work — Story #5008 removed the
+helpers that wrapped the first, and Story #5159 retired the coverage-verdict
+helper as three path rules with no CLI. Procedure SSOT remains the workflow files:
 [`qa-assist.md`](../.agents/workflows/qa-assist.md) and
 [`qa-explore.md`](../.agents/workflows/qa-explore.md).
 

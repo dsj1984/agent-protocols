@@ -29,7 +29,8 @@ the agent never invents those decisions in prose.
 > passes before `/mandrel-deliver`, or on demand while debugging a Story's
 > user-visible behavior in a live browser.
 >
-> **Skills**: `stack/qa/gherkin-authoring`, `stack/qa/playwright-bdd`
+> **Skills**: `stack/qa/qa-harness` (driving and instrumentation
+> conventions), `stack/qa/gherkin-authoring` and `stack/qa/playwright-bdd`
 > (authoring reference; this harness owns execution)
 
 ## Slash Command

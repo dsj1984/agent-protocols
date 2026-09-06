@@ -14,6 +14,19 @@ Prove-It Pattern, good-test style, and property-based technique) in
 
 ## The Three Tiers
 
+**Classifying an existing test by path.** Three rules, applied in order, decide
+which tier a test file already occupies — use them whenever you need to read a
+surface's coverage tier by tier:
+
+1. A `.feature` file is **acceptance**.
+2. A path containing `/contract/` or a `.contract.test.` segment is
+   **contract**.
+3. A path containing `.test.` or a `__tests__/` directory is **unit**.
+
+A skipped test exercises nothing: a `@skip` tag, `it.skip` / `xit` /
+`describe.skip`, or the runner equivalent leaves its tier **uncovered**, so
+never read a skipped test as coverage for its tier.
+
 ### Unit
 
 Pure logic, no I/O. Unit tests exercise a single function, component, or

@@ -5,8 +5,8 @@
   "rollup": {
     "*": {
       "lines": 96.02,
-      "branches": 86.85,
-      "functions": 88.27
+      "branches": 86.83,
+      "functions": 88.25
     }
   },
   "rows": [
@@ -2498,12 +2498,6 @@
       "path": ".agents/scripts/lib/qa/console-allowlist.js",
       "lines": 98.68,
       "branches": 81.48,
-      "functions": 100
-    },
-    {
-      "path": ".agents/scripts/lib/qa/coverage-verdict.js",
-      "lines": 100,
-      "branches": 94.87,
       "functions": 100
     },
     {
