@@ -1,7 +1,7 @@
 {
   "$schema": ".agents/schemas/baselines/coverage.schema.json",
   "kernelVersion": "1.0.0",
-  "generatedAt": "2026-09-06T00:50:40.434Z",
+  "generatedAt": "2026-09-06T11:47:35.662Z",
   "rollup": {
     "*": {
       "lines": 96.01,
@@ -1727,6 +1727,12 @@
       "functions": 100
     },
     {
+      "path": ".agents/scripts/lib/orchestration/dependency-candidates.js",
+      "lines": 98.56,
+      "branches": 75,
+      "functions": 100
+    },
+    {
       "path": ".agents/scripts/lib/orchestration/diff-magnitude.js",
       "lines": 99.29,
       "branches": 87.27,
@@ -1742,6 +1748,18 @@
       "path": ".agents/scripts/lib/orchestration/docs-digest.js",
       "lines": 100,
       "branches": 92.11,
+      "functions": 100
+    },
+    {
+      "path": ".agents/scripts/lib/orchestration/epic-candidates.js",
+      "lines": 100,
+      "branches": 71.43,
+      "functions": 100
+    },
+    {
+      "path": ".agents/scripts/lib/orchestration/epic-checklist.js",
+      "lines": 99.03,
+      "branches": 88,
       "functions": 100
     },
     {
@@ -1943,9 +1961,27 @@
       "functions": 100
     },
     {
+      "path": ".agents/scripts/lib/orchestration/plan-persist/cross-plan-links.js",
+      "lines": 91.57,
+      "branches": 75,
+      "functions": 100
+    },
+    {
+      "path": ".agents/scripts/lib/orchestration/plan-persist/epic-adoption.js",
+      "lines": 96.88,
+      "branches": 83.33,
+      "functions": 100
+    },
+    {
       "path": ".agents/scripts/lib/orchestration/plan-persist/epic-ops.js",
       "lines": 98.44,
       "branches": 79.03,
+      "functions": 100
+    },
+    {
+      "path": ".agents/scripts/lib/orchestration/plan-persist/external-deps.js",
+      "lines": 98.17,
+      "branches": 86.05,
       "functions": 100
     },
     {

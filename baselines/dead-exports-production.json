@@ -1,7 +1,7 @@
 {
   "$schema": "https://mandrel.dev/baselines/dead-exports.schema.json",
   "kernelVersion": "6.17.1",
-  "generatedAt": "2026-09-05T23:42:43.196Z",
+  "generatedAt": "2026-09-06T11:48:44.950Z",
   "mode": "production",
   "rows": [
     {
@@ -846,15 +846,7 @@
     },
     {
       "file": ".agents/scripts/lib/duplicate-search.js",
-      "symbol": "overlapScore"
-    },
-    {
-      "file": ".agents/scripts/lib/duplicate-search.js",
       "symbol": "pickSearchTokens"
-    },
-    {
-      "file": ".agents/scripts/lib/duplicate-search.js",
-      "symbol": "tokenize"
     },
     {
       "file": ".agents/scripts/lib/dynamic-workflow/architecture-report-contract.js",
@@ -1189,10 +1181,6 @@
       "symbol": "probeTicket"
     },
     {
-      "file": ".agents/scripts/lib/orchestration/epic-container.js",
-      "symbol": "normalizeChildIds"
-    },
-    {
       "file": ".agents/scripts/lib/orchestration/file-assumptions.js",
       "symbol": "FILE_ASSUMPTION_VALUES"
     },
@@ -1315,6 +1303,10 @@
     {
       "file": ".agents/scripts/lib/orchestration/plan-metrics.js",
       "symbol": "PLAN_METRICS_KIND_CRITIC_SKIP"
+    },
+    {
+      "file": ".agents/scripts/lib/orchestration/plan-persist/external-deps.js",
+      "symbol": "collectExternalDependencyIds"
     },
     {
       "file": ".agents/scripts/lib/orchestration/plan-persist/persist-helpers.js",
@@ -2115,10 +2107,6 @@
     {
       "file": ".agents/scripts/lib/validation-evidence.js",
       "symbol": "SCHEMA_VERSION"
-    },
-    {
-      "file": ".agents/scripts/lib/wave-runner/footprint.js",
-      "symbol": "storyFootprint"
     },
     {
       "file": ".agents/scripts/lib/wave-runner/ready-set.js",
