@@ -1,13 +1,13 @@
 {
   "$schema": ".agents/schemas/baselines/duplication.schema.json",
   "kernelVersion": "1.0.0",
-  "generatedAt": "2026-09-03T02:33:09.719Z",
+  "generatedAt": "2026-09-05T23:42:32.436Z",
   "rollup": {
     "*": {
-      "percentage": 5.95,
-      "duplicatedLines": 1329,
-      "totalLines": 22334,
-      "filesWithDuplication": 73
+      "percentage": 6.13,
+      "duplicatedLines": 1394,
+      "totalLines": 22738,
+      "filesWithDuplication": 75
     }
   },
   "rows": [
@@ -234,6 +234,12 @@
       "percentage": 5.34
     },
     {
+      "path": ".agents/scripts/lib/orchestration/epic-container.js",
+      "duplicatedLines": 18,
+      "totalLines": 186,
+      "percentage": 9.68
+    },
+    {
       "path": ".agents/scripts/lib/orchestration/git-cleanup/phases/git-probes.js",
       "duplicatedLines": 34,
       "totalLines": 510,
@@ -352,6 +358,12 @@
       "duplicatedLines": 10,
       "totalLines": 71,
       "percentage": 14.08
+    },
+    {
+      "path": ".agents/scripts/providers/github/sub-issue-add.js",
+      "duplicatedLines": 47,
+      "totalLines": 218,
+      "percentage": 21.56
     },
     {
       "path": ".agents/scripts/quality-preview.js",

@@ -7,12 +7,13 @@ each Story is delivered on its own `story-<id>` branch and reaches `main`
 through its own PR.
 
 An Epic may still exist as an **optional untyped human umbrella issue**
-(no `type::epic` label and no shipped Epic issue form — only
-`.github/ISSUE_TEMPLATE/story.yml`), but **delivery and planning
-orchestration are Story-only**: there is no Epic wave loop, no
-`epic/<id>` integration branch, no `epic.yaml` reconciler, and any ticket
-that still carries an `Epic: #N` footer is **refused** by `/mandrel-deliver`
-(close it or re-plan it as a v2 Story).
+(the only shipped issue form is `.github/ISSUE_TEMPLATE/story.yml`), and
+**delivery and planning orchestration are Story-only**: there is no Epic
+wave loop, no `epic/<id>` integration branch, no `epic.yaml` reconciler,
+and any ticket that still carries an `Epic: #N` footer is **refused** by
+`/mandrel-deliver` (close it or re-plan it as a v2 Story). `type::epic`
+exists as a **container only** — a grouping ticket with no execution
+payload, expanded to its children at delivery (ADR `20260905-5139`).
 
 The framework is **Claude Code-first**: `.claude/`, hooks, skills, and
 the slash-command surface lean in on Claude Code as the reference
@@ -247,9 +248,10 @@ self-eval, ceremony, close, CI watch, confirm-merge, cleanup) lives in the
 
 The single operator-facing entry point is `/mandrel-deliver`. It performs no
 git/label mutations itself — `deliver-story` owns every script invocation
-per Story. Any ticket that is not `type::story`, or that still carries an
-`Epic: #N` reference, is a hard error naming the ID and the fix (close or
-re-plan as a v2 Story).
+per Story. A `type::epic` id expands to its open child Stories before
+resolution. Any ticket that is neither of those two types, or that still
+carries an `Epic: #N` reference, is a hard error naming the ID and the fix
+(close or re-plan as a v2 Story).
 
 ### Branch model (authoritative)
 
@@ -560,9 +562,15 @@ Editing the main checkout's `.agentrc.json` only affects **the next**
 
 ### `Epic: #N` refusal
 
-`/mandrel-deliver` refuses any ticket that still carries an `Epic: #N` footer or is
-not `type::story`. This is expected — v2 has no Epic delivery path. Close
-the ticket or re-plan the work as a v2 Story via `/mandrel-plan --tickets <id>`.
+`/mandrel-deliver` refuses any ticket that still carries an `Epic: #N` footer,
+or that is neither `type::story` nor `type::epic`. This is expected — v2 has
+no Epic *delivery* path. Close the ticket or re-plan the work as a v2 Story
+via `/mandrel-plan --tickets <id>`.
+
+The container Epic (ADR `20260905-5139`) does **not** soften this. Its linkage
+runs parent→child only — the Epic body lists its children, and no Story body
+ever gains a footer pointing back — so a ticket carrying `Epic: #N` is still a
+v1 ticket and still refused.
 
 ---
 
@@ -573,6 +581,7 @@ the ticket or re-plan the work as a v2 Story via `/mandrel-plan --tickets <id>`.
 | `npx mandrel init` | Cold-start — install `mandrel` (if absent), `mandrel sync`, `bootstrap.js` (provisions repo + Projects V2 board, labels, branch protection), then the onboarding tail (stack detection, docs scaffolding, doctor gate, `/mandrel-plan` handoff). |
 | `/mandrel-plan --seed "<text>"` | Plan from chat text — interrogate → author **one Story by default** → persist `type::story`. |
 | `/mandrel-plan --seed-file <path>` | Plan from on-disk notes / a plan seed (the `/audit-to-stories` handoff). |
+| `/mandrel-deliver <epicId>` | Deliver every open Story under a container Epic — the id expands before resolution. |
 | `/mandrel-plan --tickets <ids>` | Analyze existing issue(s) into proper Stories (prefer an N=1 rewrite). |
 | `/mandrel-deliver <storyId>` | Deliver one Story via `helpers/deliver-story` — `story-<id>` → PR → `main`. |
 | `/mandrel-deliver <storyId> [<storyId>…]` | Deliver multiple Stories in `depends_on` order (resolved from live state), then run the per-run epilogue. |

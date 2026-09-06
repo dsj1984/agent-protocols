@@ -60,12 +60,13 @@ the floor-vs-ratchet policy are tooling commitments rather than ADRs and live in
 
 <!-- ADR-INDEX:START -->
 
-**In force (38).** Each governs the surface named beside it.
+**In force (39).** Each governs the surface named beside it.
 A `Status` of `Accepted in part` means some clause of the entry has been
 superseded — open it before citing it.
 
 | Decision | Governs | Surface | Status |
 | --- | --- | --- | --- |
+| [`20260905-5139`](#adr-20260905-5139-the-container-epic-a-grouping-ticket-with-parentchild-linkage-only) | The container Epic — grouping only, parent→child linkage | `.agents/scripts/lib/orchestration/epic-container.js` | Accepted |
 | [`20260902-5111`](#adr-20260902-5111-keep-process-isolation-in-the-test-runner) | Keep process isolation in the test runner | `.agents/scripts/lib/test-runner-contract.js` | Accepted |
 | [`20260828-5077a`](#adr-20260828-5077a-the-dispatch-record-is-the-story-github-surface-not-a-manifest-artifact) | The dispatch record is the Story's GitHub surface | `.agents/scripts/lib/orchestration/ticketing.js` | Accepted |
 | [`20260828-5077b`](#adr-20260828-5077b-the-wired-detector-set-is-rework--retry-and-unknown-deliverysignals-keys-are-rejected) | Wired detector set is `{rework, retry}`; `delivery.signals` is closed | `.agents/scripts/lib/config/limits.js` | Accepted |
@@ -75,7 +76,7 @@ superseded — open it before citing it.
 | [`20260828-5077f`](#adr-20260828-5077f-dependency-ordering-has-two-channels--declared-edges-and-the-delivery-time-footprint-guard) | Two ordering channels — declared edges + footprint guard | `.agents/scripts/stories-wave-tick.js` | Accepted |
 | [`20260806-lifecycle-bus-retired`](#adr-20260806-lifecycle-bus-retired-delete-the-lifecycle-bus-the-close-path-owns-its-side-effects-directly) | Delete the lifecycle bus; the close path owns its side effects directly | `.agents/scripts/lib/orchestration/lifecycle/emit-ledger-event.js` | Accepted |
 | [`20260802-4938-schema-compilers`](#adr-20260802-4938-schema-compilers-a-schema-is-compiled-by-code-or-declares-in-file-why-not) | A schema is compiled by code, or declares in-file why not | `.agents/scripts/check-schema-references.js` | Accepted |
-| [`20260726-v2-story-collapse`](#adr-20260726-v2-story-collapse-story-only-ticket-model-one-plan-one-deliver-one-engine) | Story-only ticket model; one /plan, one /deliver, one engine | `.agents/workflows/mandrel-deliver.md` | Accepted |
+| [`20260726-v2-story-collapse`](#adr-20260726-v2-story-collapse-story-only-ticket-model-one-plan-one-deliver-one-engine) | Story-only ticket model; one /plan, one /deliver, one engine | `.agents/workflows/mandrel-deliver.md` | Accepted in part |
 | [`20260624-loop-units-division-of-labor`](#adr-20260624-loop-units-division-of-labor-mandrel-owns-content--oracle--contract-the-host-owns-cadence--iteration) | mandrel owns content + oracle + contract; the host owns cadence +… | `.agents/scripts/sync-claude-commands.js` | Accepted |
 | [`20260610-planning-determinism-dispositions`](#adr-20260610-planning-determinism-dispositions-per-layer-dispositions-for-the-deterministic-planning-proxies) | Per-layer dispositions for the deterministic planning proxies | `.agents/scripts/lib/orchestration/ticket-validator.js` | Accepted in part |
 | [`20260607-3706`](#adr-20260607-3706-drain-pending-cleanup-demoted-to-a-helper) | `drain-pending-cleanup` demoted to a helper | `.agents/scripts/drain-pending-cleanup.js` | Accepted |
@@ -142,6 +143,71 @@ at the release tag named in the entry.
 - [Earlier ADRs (001 / 002 / 003)](#earlier-adrs-001--002--003)
 
 <!-- ADR-INDEX:END -->
+
+## ADR 20260905-5139: The container Epic, a grouping ticket with parent→child linkage only
+
+**Status:** Accepted
+**Date:** 2026-09-05
+**Surface:** `.agents/scripts/lib/orchestration/epic-container.js`
+**Supersedes (in part):**
+[`20260726-v2-story-collapse`](#adr-20260726-v2-story-collapse-story-only-ticket-model-one-plan-one-deliver-one-engine)
+— its "There is no `type::epic`" clause only.
+
+### Context
+
+`/mandrel-plan` can author more than one Story, and above two the operator is
+left holding a loose id list with no durable grouping: nothing names the set,
+nothing survives the session, and delivering it means retyping every id. The
+`plan-run::<id>` label is filter metadata by design and deliberately not a
+resolution input, so it cannot fill that role.
+
+The obvious fix — bring back the Epic — is the one v1 got wrong. The v1 Epic
+owned an `epic.yaml` spec, a wave DAG, an in-process runner, a dispatch
+manifest, an `epic/<id>` integration branch and a command surface, and the
+`20260726-v2-story-collapse` cutover deleted all of it for good reasons that
+have not changed.
+
+### Decision
+
+**The Epic is a container and nothing else.** `type::epic` marks a ticket whose
+body is a `## Goal` paragraph and a `- [ ] #N` child checklist. It carries no
+`## Spec`, no `acceptance[]` / `verify[]`, and **never an `agent::*` label** —
+that last absence is load-bearing, not incidental: it is what keeps a container
+out of the bare `/mandrel-deliver` ready list and outside `lint-issue-body.js`,
+which scopes itself to `type::story`. An Epic must carry no information a child
+does not already carry; anything unique living there would be invisible to
+every agent that actually delivers the work.
+
+**Linkage runs parent→child only.** The Epic holds every edge — the body
+checklist plus native GitHub sub-issue relations. Story bodies are untouched.
+This is the whole reason the container can exist without reopening the v1
+question: the `Epic: #N` footer stays retired and every refusal that reads it
+still fires, so each Story remains independently deliverable and the delivery
+engine stays Story-only. The cost is a child→parent scan when the epilogue
+needs the parent, which is cheap because open Epics are few.
+
+**The engine never learns what an Epic is.** `/mandrel-deliver <epicId>`
+expands the id to its open child Stories *before* resolution; the DAG, the
+ready set, the wave tick and the close tail all see an ordinary Story-id list.
+Expansion is per id, so Epic and Story ids mix freely.
+
+**One cascade, one direction.** The per-run epilogue closes an Epic once every
+child is `agent::done`. Nothing else propagates: no child status roll-up, no
+label inheritance, no reopening.
+
+### Consequences
+
+A sweep's Stories finally have a name and one id that delivers them, and
+`/audit-to-stories` makes the container its default because a sweep is the
+clearest case for one. The v1 tier does not come back with it — no integration
+branch, no spec file, no decomposer, no execution payload at any level above
+the Story.
+
+The honest cost is a second ticket type to reason about, and the parent→child
+asymmetry means an Epic can be orphaned by hand-editing its checklist. Both
+were judged cheaper than reviving the footer, which would have required
+reversing the refusal in five places and re-admitting v1 tickets to the
+delivery path.
 
 ## ADR 20260902-5111: Keep process isolation in the test runner
 
@@ -231,7 +297,12 @@ anything compiling this?", never "is what compiles it faithful to it?".
 
 ## ADR 20260726-v2-story-collapse: Story-only ticket model; one /plan, one /deliver, one engine
 
-**Status:** Accepted
+**Status:** Accepted in part — the "no `type::epic`" clause of the Decision is
+superseded by
+[`20260905-5139`](#adr-20260905-5139-the-container-epic-a-grouping-ticket-with-parentchild-linkage-only),
+which reintroduces the label as a **container only**. Every other clause stands
+unchanged, including the `Epic: #N` refusal: #5139 deliberately did not revive
+that footer.
 **Date:** 2026-07-26
 **Surface:** `.agents/workflows/mandrel-deliver.md`
 **Released:** `mandrel-v2.0.0` (2026-07-15) and the v2.x line since

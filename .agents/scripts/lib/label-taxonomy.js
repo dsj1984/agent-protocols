@@ -20,14 +20,27 @@ import {
   TYPE_LABELS,
 } from './label-constants.js';
 
+/**
+ * The ticket-type axis. Both rows share one colour, so they are derived from
+ * `[name, description]` pairs rather than restated as full literals — Story
+ * #5139 added `type::epic` here, and the derived form absorbs it without
+ * growing the file's structural weight.
+ *
+ * @type {Array<{ name: string, color: string, description: string }>}
+ */
+const TYPE_LABEL_ROWS = [
+  [TYPE_LABELS.STORY, 'Story work item'],
+  [TYPE_LABELS.EPIC, 'Container-only grouping ticket for child Stories'],
+].map(([name, description]) => ({
+  name,
+  color: LABEL_COLORS.TYPE,
+  description,
+}));
+
 /** @type {Array<{ name: string, color: string, description: string }>} */
 export const LABEL_TAXONOMY = [
   // Type
-  {
-    name: TYPE_LABELS.STORY,
-    color: LABEL_COLORS.TYPE,
-    description: 'Story work item',
-  },
+  ...TYPE_LABEL_ROWS,
 
   // Agent State
   {

@@ -68,6 +68,7 @@ import {
   renderHardConflictError,
 } from '../ticket-validator-conflicts.js';
 import { upsertStructuredComment } from '../ticketing.js';
+import { createContainerEpic } from './epic-ops.js';
 import {
   enforceFanOutGate,
   surfaceSoftConflictFindings,
@@ -711,6 +712,10 @@ export async function runPlanPersist({
     closeSuperseded = true,
     routeDowngradeReason = null,
     injectedRules = undefined,
+    // Story #5139 — the optional container Epic. `null` (the default) is the
+    // ordinary shape: no Epic is created unless `/mandrel-plan` offered one
+    // above the threshold and the operator confirmed it.
+    epic = null,
   } = opts;
 
   // Boundary for the plan-metrics summary below: everything this invocation
@@ -840,6 +845,18 @@ export async function runPlanPersist({
     });
   }
 
+  // Story #5139 — the container Epic is created LAST among the writes: its
+  // body embeds the child issue numbers and its sub-issue edges need their
+  // database ids, neither of which exists until the Stories are live. It is
+  // never load-bearing, so a failure here degrades to "no container" and the
+  // Stories still deliver by id.
+  const containerEpic = await createContainerEpic({
+    provider,
+    epic,
+    created,
+    opts: { dryRun },
+  });
+
   const supersede = await runSupersedePhase({
     provider,
     stories,
@@ -866,5 +883,6 @@ export async function runPlanPersist({
     freshness,
     waveTable,
     supersede,
+    epic: containerEpic,
   };
 }

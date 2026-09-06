@@ -18,6 +18,7 @@
  */
 
 import { SEVERITIES } from '../findings/severity.js';
+import { formatEpicGrouping } from './epic-grouping-directive.js';
 import {
   renderFingerprintFooter,
   renderSemanticKeyFooter,
@@ -137,6 +138,10 @@ function formatKeyAssumptions(sourceReports) {
  * @param {string[]} params.sourceReports — list of source report paths.
  * @returns {string}
  */
+/**
+ * @param {{ groups: object[], findings: object[], sourceReports: object[] }} opts
+ * @returns {string} The `/mandrel-plan` seed one-pager.
+ */
 export function buildPlanSeedMarkdown({ groups, findings, sourceReports }) {
   if (
     !Array.isArray(groups) ||
@@ -152,6 +157,7 @@ export function buildPlanSeedMarkdown({ groups, findings, sourceReports }) {
   const scope = formatMVPScope(groups);
   const files = formatKeyFiles(groups);
   const assumptions = formatKeyAssumptions(sourceReports);
+  const grouping = formatEpicGrouping(groups);
 
   return [
     '# Idea Seed: Audit Remediation',
@@ -175,6 +181,10 @@ export function buildPlanSeedMarkdown({ groups, findings, sourceReports }) {
     '## Key Files',
     '',
     files,
+    '',
+    '## Grouping',
+    '',
+    grouping,
     '',
     '## Not Doing',
     '',

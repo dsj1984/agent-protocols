@@ -35,6 +35,7 @@ import { pathToFileURL } from 'node:url';
 import { parseArgs } from 'node:util';
 import { buildStoryBody } from './lib/audit-to-stories/build-story-body.js';
 import { classifyGroupsAgainstGitHub } from './lib/audit-to-stories/dedupe-against-github.js';
+import { formatEpicGrouping } from './lib/audit-to-stories/epic-grouping-directive.js';
 import { withFingerprints } from './lib/audit-to-stories/finding-adapter.js';
 import { groupFindings } from './lib/audit-to-stories/group-findings.js';
 import {
@@ -993,11 +994,17 @@ export async function runAuditToStories(
  * numbers yet — so this is where a human driving the create pass by hand sees
  * the ordering they will replay through `--wire-edges` (Story #5044).
  *
+ * The trailing `--- grouping ---` block carries the container-Epic default
+ * (Story #5139), so the standalone path states it where it is actually read.
+ * The `--json` form stays a bare array on purpose: it is a documented output
+ * shape with a test asserting it, and the Epic is an operator decision the
+ * workflow's Phase 4 stop owns, not a field a machine consumer acts on.
+ *
  * @param {Array<{ title: string, labels: string[], body: string, groupKey?: string, dependsOn?: string[] }>} built
  * @returns {string}
  */
 function renderStoryDrafts(built) {
-  return built
+  const drafts = built
     .map((s, i) => {
       const deps = (s.dependsOn ?? []).length
         ? `\nDepends on group(s): ${s.dependsOn.join(', ')}`
@@ -1005,6 +1012,9 @@ function renderStoryDrafts(built) {
       return `--- story ${i + 1} ---\nTitle: ${s.title}\nLabels: ${s.labels.join(', ')}\nGroup key: ${s.groupKey}${deps}\n\n${s.body}\n`;
     })
     .join('\n');
+
+  const grouping = formatEpicGrouping(built);
+  return `${drafts}\n--- grouping ---\n${grouping}\n`;
 }
 
 async function main() {

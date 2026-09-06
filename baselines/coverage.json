@@ -1,12 +1,12 @@
 {
   "$schema": ".agents/schemas/baselines/coverage.schema.json",
   "kernelVersion": "1.0.0",
-  "generatedAt": "2026-09-05T01:05:30.495Z",
+  "generatedAt": "2026-09-05T23:46:58.966Z",
   "rollup": {
     "*": {
-      "lines": 95.97,
-      "branches": 86.89,
-      "functions": 87.98
+      "lines": 96,
+      "branches": 86.91,
+      "functions": 88.12
     }
   },
   "rows": [
@@ -36,9 +36,9 @@
     },
     {
       "path": ".agents/scripts/audit-to-stories.js",
-      "lines": 97.59,
-      "branches": 72.73,
-      "functions": 93.94
+      "lines": 97.84,
+      "branches": 72.46,
+      "functions": 96.97
     },
     {
       "path": ".agents/scripts/boot-sweep.js",
@@ -398,6 +398,12 @@
       "path": ".agents/scripts/lib/audit-to-stories/dedupe-against-github.js",
       "lines": 97.99,
       "branches": 86.27,
+      "functions": 100
+    },
+    {
+      "path": ".agents/scripts/lib/audit-to-stories/epic-grouping-directive.js",
+      "lines": 100,
+      "branches": 85.71,
       "functions": 100
     },
     {
@@ -1733,6 +1739,18 @@
       "functions": 100
     },
     {
+      "path": ".agents/scripts/lib/orchestration/epic-container.js",
+      "lines": 100,
+      "branches": 93.18,
+      "functions": 100
+    },
+    {
+      "path": ".agents/scripts/lib/orchestration/epic-expansion.js",
+      "lines": 96.62,
+      "branches": 88.24,
+      "functions": 100
+    },
+    {
       "path": ".agents/scripts/lib/orchestration/file-assumption-enum.js",
       "lines": 100,
       "branches": 100,
@@ -1919,6 +1937,12 @@
       "functions": 100
     },
     {
+      "path": ".agents/scripts/lib/orchestration/plan-persist/epic-ops.js",
+      "lines": 98.44,
+      "branches": 79.03,
+      "functions": 100
+    },
+    {
       "path": ".agents/scripts/lib/orchestration/plan-persist/fan-out-gate.js",
       "lines": 100,
       "branches": 95.65,
@@ -1938,7 +1962,7 @@
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/run-plan-persist.js",
-      "lines": 93.91,
+      "lines": 94.03,
       "branches": 80.65,
       "functions": 100
     },
@@ -2118,8 +2142,8 @@
     },
     {
       "path": ".agents/scripts/lib/orchestration/run-epilogue.js",
-      "lines": 97,
-      "branches": 78.81,
+      "lines": 97.84,
+      "branches": 80,
       "functions": 100
     },
     {
@@ -2916,9 +2940,9 @@
     },
     {
       "path": ".agents/scripts/plan-persist.js",
-      "lines": 82.45,
-      "branches": 72,
-      "functions": 55.56
+      "lines": 83.76,
+      "branches": 80.56,
+      "functions": 60
     },
     {
       "path": ".agents/scripts/plan-run-epilogue.js",
@@ -3041,6 +3065,12 @@
       "functions": 100
     },
     {
+      "path": ".agents/scripts/providers/github/sub-issue-add.js",
+      "lines": 100,
+      "branches": 89.29,
+      "functions": 100
+    },
+    {
       "path": ".agents/scripts/providers/github/sub-issues.js",
       "lines": 90.35,
       "branches": 73.33,
@@ -3078,9 +3108,9 @@
     },
     {
       "path": ".agents/scripts/resolve-stories.js",
-      "lines": 82.91,
+      "lines": 85.08,
       "branches": 91.67,
-      "functions": 58.33
+      "functions": 66.67
     },
     {
       "path": ".agents/scripts/resync-status-column.js",

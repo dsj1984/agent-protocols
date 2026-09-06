@@ -39,6 +39,7 @@ import { parseArgs } from 'node:util';
 import { runAsCli } from './lib/cli-utils.js';
 import { resolveConfig } from './lib/config-resolver.js';
 import { Logger, routeAllOutputToStderr } from './lib/Logger.js';
+import { expandEpicIds } from './lib/orchestration/epic-expansion.js';
 import {
   buildStoriesEnvelope,
   isSatisfiedBlocker,
@@ -71,7 +72,9 @@ real issue state.
 Options:
   --ids <csv>    Comma-separated Story issue numbers. Required. A token may be
                  a single id (4922) or an inclusive dash range (4922-4926);
-                 ranges expand in place and dedupe against the rest.
+                 ranges expand in place and dedupe against the rest. A
+                 container Epic id expands to its open child Stories, and may
+                 be mixed with Story ids.
   --pretty       Pretty-print the JSON envelope.
   --no-native    Skip the native blocked_by read (body edges only).
   --help         Show this help.
@@ -90,16 +93,53 @@ export function resolveStoriesProvider({
 }
 
 /**
+ * Read an Epic's native sub-issue children as issue numbers.
+ *
+ * Injected into `expandEpicIds` so the lib layer stays provider-agnostic,
+ * exactly as `paginate` is injected into `readNativeBlockedBy`. A provider
+ * without the GraphQL surface yields `[]`, and the Epic body's checklist
+ * carries the children on its own.
+ *
+ * @param {object} provider
+ * @returns {(epic: object) => Promise<number[]>}
+ */
+export function nativeChildReader(provider) {
+  return async (epic) => {
+    if (typeof provider?._getNativeSubIssues !== 'function') return [];
+    return provider._getNativeSubIssues(epic?.nodeId, epic?.number ?? epic?.id);
+  };
+}
+
+/**
  * Fetch every requested id and map it to a Story record, failing on the first
  * id that is not a deliverable Story.
+ *
+ * Container Epics are expanded to their open child Stories **first**, so
+ * everything downstream sees a plain Story-id list (Story #5139). The
+ * expansion walk is sequential because it is id-by-id conditional; the Story
+ * fetch that follows stays under the bounded concurrency.
  *
  * @param {object} provider
  * @param {number[]} ids
  * @returns {Promise<object[]>}
  */
 export async function fetchStories(provider, ids) {
-  return concurrentMap(
+  const { ids: resolvedIds, expansions } = await expandEpicIds({
     ids,
+    getTicket: (id) => provider.getTicket(id),
+    readNativeChildIds: nativeChildReader(provider),
+    warn: (m) => Logger.warn(m),
+  });
+
+  for (const { epicId, childIds } of expansions) {
+    Logger.info(
+      `[resolve-stories] Epic #${epicId} → ${childIds.length} open Story(ies): ` +
+        childIds.map((c) => `#${c}`).join(', '),
+    );
+  }
+
+  return concurrentMap(
+    resolvedIds,
     async (id) => {
       const issue = await provider.getTicket(id);
       if (!issue) {
