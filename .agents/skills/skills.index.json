@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-06T12:38:56.365Z",
+  "generatedAt": "2026-09-06T12:59:23.069Z",
   "generator": "generate-skills-index.js@1",
   "skills": [
     {
@@ -8,7 +8,7 @@
       "category": "core",
       "path": ".agents/skills/core/browser-testing-with-devtools/SKILL.md",
       "description": "Tests in real browsers. Use when building or debugging anything that runs in a browser. Use when you need to inspect the DOM, capture console errors, analyze network requests, profile performance, or verify visual output with real runtime data via Chrome DevTools MCP.",
-      "policyCapsuleBullets": 9,
+      "policyCapsuleBullets": 8,
       "allowedTools": null,
       "vendor": null
     },
@@ -18,7 +18,7 @@
       "category": "core",
       "path": ".agents/skills/core/code-review-and-quality/SKILL.md",
       "description": "Conducts multi-axis code review and runs the disciplined post-green refactor pass. Use before merging any change, when reviewing code written by yourself, another agent, or a human, or when the opt-in `delivery.refactorStage` checkpoint asks for a behaviour-preserving CRAP/duplication pass after the suite is green.",
-      "policyCapsuleBullets": 12,
+      "policyCapsuleBullets": 7,
       "allowedTools": null,
       "vendor": null
     },
@@ -28,7 +28,7 @@
       "category": "core",
       "path": ".agents/skills/core/documentation-and-adrs/SKILL.md",
       "description": "Records decisions and documentation. Use when making architectural decisions, changing public APIs, shipping features, or when you need to record context that future engineers and agents will need to understand the codebase.",
-      "policyCapsuleBullets": 9,
+      "policyCapsuleBullets": 6,
       "allowedTools": null,
       "vendor": null
     },
@@ -37,8 +37,8 @@
       "tier": "core",
       "category": "core",
       "path": ".agents/skills/core/gates-and-baselines/SKILL.md",
-      "description": "Governs quality gates and the unified-baseline snapshots. Use when authoring a baseline refresh commit (CRAP, maintainability, dead-exports, lighthouse), when setting up or modifying CI quality gates, or when introducing a new gate that asserts on pre-existing state without turning the integration branch red.",
-      "policyCapsuleBullets": 9,
+      "description": "Governs quality gates and the unified-baseline snapshots. Use when authoring a baseline refresh commit (coverage, CRAP, maintainability, duplication, dead-exports), when setting up or modifying CI quality gates, or when introducing a new gate that asserts on pre-existing state without turning the base branch red.",
+      "policyCapsuleBullets": 10,
       "allowedTools": ["Read", "Write", "Bash"],
       "vendor": null
     },
@@ -67,7 +67,7 @@
       "tier": "core",
       "category": "core",
       "path": ".agents/skills/core/security-and-hardening/SKILL.md",
-      "description": "Hardens code against vulnerabilities. Use when handling user input, authentication, data storage, or external integrations. The non-negotiable security MUSTs live in `.agents/rules/security-baseline.md`; this skill shows how to apply them with process guidance, an audit-triage tree, and a review checklist.",
+      "description": "Hardens code against vulnerabilities. Use when handling user input, authentication, data storage, or external integrations. The non-negotiable security MUSTs live in `.agents/rules/security-baseline.md`; this skill shows how to apply them, with the project's surfacing and validation-response process.",
       "policyCapsuleBullets": 6,
       "allowedTools": null,
       "vendor": null

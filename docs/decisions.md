@@ -60,12 +60,14 @@ the floor-vs-ratchet policy are tooling commitments rather than ADRs and live in
 
 <!-- ADR-INDEX:START -->
 
-**In force (39).** Each governs the surface named beside it.
+**In force (41).** Each governs the surface named beside it.
 A `Status` of `Accepted in part` means some clause of the entry has been
 superseded — open it before citing it.
 
 | Decision | Governs | Surface | Status |
 | --- | --- | --- | --- |
+| [`20260906-5160a`](#adr-20260906-5160a-why-the-ci-verdict-set-carries-capacity-and-unreproducible-tier) | Why the CI verdict set carries `capacity` and `unreproducible-tier` | `.agents/rules/ci-remediation.md` | Accepted |
+| [`20260906-5160b`](#adr-20260906-5160b-the-baseline-refresh-true-body-trailer-is-the-canonical-refresh-marker) | The `baseline-refresh: true` body trailer is the canonical refresh marker | `.agents/skills/core/gates-and-baselines/reference.md` | Accepted |
 | [`20260905-5139`](#adr-20260905-5139-the-container-epic-a-grouping-ticket-with-parentchild-linkage-only) | The container Epic — grouping only, parent→child linkage | `.agents/scripts/lib/orchestration/epic-container.js` | Accepted |
 | [`20260902-5111`](#adr-20260902-5111-keep-process-isolation-in-the-test-runner) | Keep process isolation in the test runner | `.agents/scripts/lib/test-runner-contract.js` | Accepted |
 | [`20260828-5077a`](#adr-20260828-5077a-the-dispatch-record-is-the-story-github-surface-not-a-manifest-artifact) | The dispatch record is the Story's GitHub surface | `.agents/scripts/lib/orchestration/ticketing.js` | Accepted |
@@ -143,6 +145,112 @@ at the release tag named in the entry.
 - [Earlier ADRs (001 / 002 / 003)](#earlier-adrs-001--002--003)
 
 <!-- ADR-INDEX:END -->
+
+## ADR 20260906-5160a: Why the CI verdict set carries capacity and unreproducible-tier
+
+**Status:** Accepted
+**Date:** 2026-09-06
+**Deciders:** @dsj1984
+**Surface:** `.agents/rules/ci-remediation.md`
+**Story:** #5160
+
+### Context
+
+`ci-remediation.md` opens with "a red check is a defect until proven
+otherwise", and for most of its life offered exactly two verdicts —
+`defect-in-diff` and `pre-existing`. Two failure shapes fit neither, and the
+rule carried a paragraph of rationale under each of the verdicts later added
+for them. That prose is a decision record living in an always-cited rule: it
+explains *why the verdict set is what it is*, which a triaging agent never
+needs at the moment it is classifying a red check. Story #5160 moved it here
+so the rule states its contract once and nothing else.
+
+### Decision
+
+The verdict set is four, not two, and the two additions exist for a stated
+reason recorded here rather than in the rule.
+
+**`capacity`.** A job can fail because the runner ran out of something. The
+honest reading of "a defect until proven otherwise" is that capacity failures
+are the *otherwise* — but with no verdict for them the only shapes on offer
+were "fix the diff" (impossible) and "it's flaky, re-run it" (forbidden), so
+the rule got broken rather than followed. Naming the verdict removes the
+incentive to launder a capacity failure as a rerun.
+
+**`unreproducible-tier`.** This is the same structural hole one step earlier
+in the loop: a tier the sandbox cannot host at all. Without the verdict the
+honest reading is `flaky`, which routes to fix-at-source — and fix-at-source
+requires reproducing the failure, the one thing that cannot be done. The agent
+then spends the full timebox rediscovering that before escalating anyway, and
+any fix it does author is written blind against a tier it never ran.
+
+Both verdicts carry a proof obligation, stated in the rule: a green on re-run
+never establishes `capacity`, and "the suite did not run for me" never
+establishes `unreproducible-tier`. Neither licenses a re-run of a failed job.
+
+### Alternatives considered
+
+- **Keep the two-verdict set.** Rejected — it was the state that produced the
+  laundering, and a rule agents route around is worse than one that names the
+  case.
+- **Leave the rationale inline in the rule.** Rejected — the rule is read at
+  triage time, where the *why* is dead weight; the decision belongs in the log
+  that is read when the verdict set is next questioned.
+
+### Consequences
+
+- `ci-remediation.md` states the verdict table, the two proof obligations, and
+  the escalation paths, with no argument for its own shape.
+- A future proposal to collapse the verdict set has a recorded reason to
+  answer instead of rediscovering the hole.
+
+## ADR 20260906-5160b: The `baseline-refresh: true` body trailer is the canonical refresh marker
+
+**Status:** Accepted
+**Date:** 2026-09-06
+**Deciders:** @dsj1984
+**Surface:** `.agents/skills/core/gates-and-baselines/reference.md`
+**Story:** #5160
+
+### Context
+
+A baseline refresh commit needs two things: a subject `commitlint` accepts, and
+a marker a program can key on. Early refreshes used an ad-hoc leading token,
+`baseline-refresh:`, which satisfies the second and fails the first. The
+`gates-and-baselines` skill carried the fix plus a parenthetical breadcrumb
+about the marker's only reader — `baseline-refresh-rate.js`, retired with the
+execution-analysis surface in Story #4545. That breadcrumb is a decision
+record, not a procedure step, and Story #5160 moved it here.
+
+### Decision
+
+The subject is a plain Conventional-Commits `chore(baselines)` subject, and the
+machine-readable marker is the **body trailer** `baseline-refresh: true` (plus
+`Story: #<storyId>`). A subject-level leading token is not, and must not be,
+used for this purpose.
+
+The trailer stands even with **no reader**. `baseline-refresh-rate.js` was its
+only consumer and went out with the execution-analysis surface; the convention
+survives it because a trailer costs nothing to keep, is what any future reader
+would look for, and is the only place the refresh intent is stated in a form a
+program can parse. `release-please` consumes the subject on `main`, and
+`chore(baselines):` correctly keeps internal hygiene out of the user-facing
+changelog.
+
+### Alternatives considered
+
+- **Drop the trailer now that nothing reads it.** Rejected — re-establishing a
+  convention across a log of historical commits costs far more than carrying
+  it, and the retired reader is not evidence the marker was wrong.
+- **Keep the ad-hoc `baseline-refresh:` subject token.** Rejected — the
+  `commit-msg` hook rejects it, and `--no-verify` is forbidden.
+
+### Consequences
+
+- The skill states the contract; the reason the marker outlived its reader is
+  recorded once, here.
+- A future reader of refresh cadence has a parseable marker already present in
+  the history.
 
 ## ADR 20260905-5139: The container Epic, a grouping ticket with parent→child linkage only
 

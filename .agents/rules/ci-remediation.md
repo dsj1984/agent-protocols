@@ -53,6 +53,9 @@ the two options above. Name the verdict you reached in the `friction` comment.
 | **capacity** | Proven exhaustion of a runner resource, not a property of the diff (see below) | Option 2 — file `meta::framework-gap` **and** escalate to the operator |
 | **unreproducible-tier** | The tier cannot be exercised in this sandbox at all, proven by an attempted attach (see below) | Option 2 — file `meta::framework-gap` **and** escalate on first encounter |
 
+Why the verdict set carries these last two is recorded in
+[`docs/decisions.md` ADR 20260906-5160a](../../docs/decisions.md).
+
 ### The `capacity` verdict
 
 A job can fail because the runner ran out of something, not because the code is
@@ -60,13 +63,6 @@ wrong: no runner could be provisioned, the disk or memory ceiling was hit, a
 process/PTY/file-descriptor limit was exhausted, the job wall-clock timed out
 with no progress, or a self-hosted pool was saturated. Nothing on the branch
 causes it and nothing on the branch can fix it.
-
-This verdict exists because the rule previously offered no landing for that
-case. The honest reading of "a red check is a defect until proven otherwise" is
-that capacity failures are the *otherwise* — but with no verdict for them the
-only shapes on offer were "fix the diff" (impossible) and "it's flaky, re-run
-it" (forbidden), so the rule got broken rather than followed. Naming the verdict
-removes the incentive to launder a capacity failure as a rerun.
 
 **Capacity must be proven, not inferred.** A green on re-run is the single
 weakest form of evidence for it and never establishes it — that is precisely the
@@ -95,13 +91,6 @@ local process manager daemonizes, which aborts the run with
 `Process from config.webServer exited early` before any test executes. The
 failure is a property of the sandbox's ability to *host* the suite, not of the
 diff.
-
-This is the same structural hole the `capacity` verdict was added to fill, one
-step earlier in the loop. Without it the honest reading is `flaky`, which routes
-to Option 1 — and fix-at-source requires reproducing the failure, which is the
-one thing that cannot be done. The agent then spends the full timebox
-rediscovering that before escalating anyway, and any fix it does author is
-written blind against a tier it never ran.
 
 **Unreproducible must be proven, not inferred.** "The suite did not run for me"
 is not the verdict — it is the symptom every misconfiguration produces. Cite

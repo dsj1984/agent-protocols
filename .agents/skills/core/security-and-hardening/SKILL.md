@@ -4,8 +4,8 @@ description:
   Hardens code against vulnerabilities. Use when handling user input,
   authentication, data storage, or external integrations. The non-negotiable
   security MUSTs live in `.agents/rules/security-baseline.md`; this skill shows
-  how to apply them with process guidance, an audit-triage tree, and a review
-  checklist.
+  how to apply them, with the project's surfacing and validation-response
+  process.
 ---
 
 # Security and Hardening
@@ -35,5 +35,3 @@ task engages it.
 
 - [Security Surfacing, Not Runtime Pause](reference.md#security-surfacing-not-runtime-pause)
 - [Validation-Error Responses](reference.md#validation-error-responses)
-- [Triaging npm audit Results](reference.md#triaging-npm-audit-results)
-- [Security Review Checklist](reference.md#security-review-checklist)

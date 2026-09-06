@@ -1,10 +1,10 @@
 {
   "$schema": "https://mandrel.dev/baselines/context-budget.schema.json",
-  "generatedAt": "2026-09-06T12:41:29.498Z",
+  "generatedAt": "2026-09-06T12:59:24.865Z",
   "toleranceBytes": 2048,
   "tiers": {
     "alwaysLoaded": {
-      "totalBytes": 21503,
+      "totalBytes": 21488,
       "files": [
         {
           "path": ".agentrc.json",
@@ -20,7 +20,7 @@
         },
         {
           "path": ".agents/rules/security-baseline.md",
-          "bytes": 4013
+          "bytes": 3998
         },
         {
           "path": "AGENTS.md",
@@ -33,7 +33,7 @@
       ]
     },
     "mandatoryRead": {
-      "totalBytes": 365435,
+      "totalBytes": 370811,
       "files": [
         {
           "path": "docs/architecture.md",
@@ -45,7 +45,7 @@
         },
         {
           "path": "docs/decisions.md",
-          "bytes": 184320
+          "bytes": 189696
         },
         {
           "path": "docs/patterns.md",
