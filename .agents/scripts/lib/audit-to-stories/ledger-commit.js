@@ -16,10 +16,10 @@
  *     and opens a PR against `project.baseBranch` through the `gh` wrapper.
  *     Auto-merge is never requested: a ledger PR records machine-derived state
  *     a human should glance at, so landing it stays an operator decision.
- *   - {@link assessLedgerPersistence} answers the question the *unflagged*
- *     sweep needs — "would this ledger survive?" — so a run that cannot
- *     persist (no `origin`, or HEAD parked off the base branch) says so in its
- *     summary instead of silently discarding the state.
+ *   - {@link resolveLedgerSummary} answers the question the *unflagged* sweep
+ *     needs — "would this ledger survive?" — so a run that cannot persist (no
+ *     `origin`, or HEAD parked off the base branch) says so in its summary,
+ *     and on stderr, instead of silently discarding the state.
  *
  * Both take injectable `git` / `gh` seams (`.agents/rules/test-seams.md`) so
  * the branch/commit/push/PR argv shape is assertable without a live remote.
@@ -103,7 +103,8 @@ async function runStep(name, fn) {
 
 /**
  * Inspect whether the ledger changed and whether this checkout could persist
- * it at all.
+ * it at all. Module-local: the two exported entry points below are the whole
+ * public surface, so a probe helper never becomes a second way in.
  *
  * `unpersisted` is the signal the unflagged `--auto` summary carries: the
  * sweep produced new memory, and this checkout has nowhere to put it — either
@@ -119,7 +120,7 @@ async function runStep(name, fn) {
  *   hasOrigin: boolean, headBranch: string, onBaseBranch: boolean,
  *   unpersisted: boolean }>}
  */
-export async function assessLedgerPersistence({
+async function assessLedgerPersistence({
   ledgerPath = DEFAULT_LEDGER_PATH,
   baseBranch,
   cwd = process.cwd(),
@@ -144,6 +145,54 @@ export async function assessLedgerPersistence({
     onBaseBranch,
     unpersisted: changed && (!hasOrigin || !onBaseBranch),
   };
+}
+
+/**
+ * Warn that the reconciled ledger has nowhere to go. Names the file, because
+ * "state will be lost" is unactionable without knowing which state.
+ * @param {{ ledgerPath: string, baseBranch: string, hasOrigin: boolean, headBranch: string }} state
+ * @returns {string}
+ */
+function unpersistedWarning(state) {
+  const cause = state.hasOrigin
+    ? `HEAD is on "${state.headBranch || '(detached)'}", not the base branch "${state.baseBranch}"`
+    : 'this checkout has no "origin" remote';
+  return `ledger not persisted: ${state.ledgerPath} changed but ${cause}, so this sweep's memory will be lost when the checkout goes away. Re-run with --ledger-commit to open a PR for it, or commit ${state.ledgerPath} by hand.`;
+}
+
+/**
+ * Resolve the `--auto` summary's `ledger` field, annotating it with
+ * `unpersisted: true` (and warning on stderr) when the sweep produced memory
+ * this checkout cannot keep.
+ *
+ * The whole decision lives here rather than in the CLI so `runAuto` stays a
+ * straight-line assembly of its summary: `dryRun` and `ledgerCommit` are
+ * passed through raw and branched on once, in one place.
+ *
+ * @param {object} [params]
+ * @param {object|null} [params.ledger] — the plan's ledger summary, or null.
+ * @param {string} [params.ledgerPath]
+ * @param {boolean} [params.dryRun] — nothing was written, so nothing is at risk.
+ * @param {boolean} [params.ledgerCommit] — a PR is about to persist it.
+ * @param {string} [params.cwd]
+ * @param {(cwd: string, ...args: string[]) => string} [params.git]
+ * @param {{ warn: Function }} [params.logger]
+ * @returns {Promise<object|null>} the (possibly annotated) ledger summary.
+ */
+export async function resolveLedgerSummary({
+  ledger = null,
+  ledgerPath = DEFAULT_LEDGER_PATH,
+  dryRun,
+  ledgerCommit,
+  cwd,
+  git,
+  logger,
+} = {}) {
+  if (dryRun || ledgerCommit) return ledger;
+  const state = await assessLedgerPersistence({ ledgerPath, cwd, git });
+  if (!state.unpersisted) return ledger;
+  logger?.warn?.(unpersistedWarning(state));
+  return { ...(ledger ?? { path: ledgerPath }), unpersisted: true };
 }
 
 /**

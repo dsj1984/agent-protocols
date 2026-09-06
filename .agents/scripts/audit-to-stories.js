@@ -45,7 +45,7 @@ import {
   writeLedger,
 } from './lib/audit-to-stories/ledger.js';
 import {
-  assessLedgerPersistence,
+  resolveLedgerSummary,
   runLedgerCommit,
 } from './lib/audit-to-stories/ledger-commit.js';
 import {
@@ -898,42 +898,22 @@ async function runAuto({
       .flatMap((c) => c.matchedIssues ?? [])
       .map((i) => i.number)
       .filter((n) => typeof n === 'number'),
-    ledger: plan.summary?.ledger ?? null,
-  };
-
-  // The sweep just wrote memory that this checkout may be unable to keep. Say
-  // so in the summary AND on stderr rather than discarding it silently — an
-  // ephemeral scheduled clone is exactly where this bites (Story #5145).
-  if (!dryRun && !ledgerCommit) {
-    const state = await assessLedgerPersistence({
+    // The sweep may have just written memory this checkout cannot keep — an
+    // ephemeral scheduled clone is exactly where that bites (Story #5145).
+    // The whole decision lives in `resolveLedgerSummary` so this assembly
+    // stays branch-free.
+    ledger: await resolveLedgerSummary({
+      ledger: plan.summary?.ledger ?? null,
       ledgerPath: resolvedLedgerPath,
+      dryRun,
+      ledgerCommit,
       cwd,
       git,
-    });
-    if (state.unpersisted) {
-      summary.ledger = {
-        ...(summary.ledger ?? { path: resolvedLedgerPath }),
-        unpersisted: true,
-      };
-      logger.warn(ledgerUnpersistedWarning(state));
-    }
-  }
+      logger,
+    }),
+  };
 
   return { summary, stories };
-}
-
-/**
- * Warn that the reconciled ledger has nowhere to go. Names the file, because
- * "state will be lost" is unactionable without knowing which state.
- *
- * @param {{ ledgerPath: string, baseBranch: string, hasOrigin: boolean, headBranch: string }} state
- * @returns {string}
- */
-function ledgerUnpersistedWarning(state) {
-  const cause = state.hasOrigin
-    ? `HEAD is on "${state.headBranch || '(detached)'}", not the base branch "${state.baseBranch}"`
-    : 'this checkout has no "origin" remote';
-  return `ledger not persisted: ${state.ledgerPath} changed but ${cause}, so this sweep's memory will be lost when the checkout goes away. Re-run with --ledger-commit to open a PR for it, or commit ${state.ledgerPath} by hand.`;
 }
 
 /**

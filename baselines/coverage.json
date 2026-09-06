@@ -1,11 +1,11 @@
 {
   "$schema": ".agents/schemas/baselines/coverage.schema.json",
   "kernelVersion": "1.0.0",
-  "generatedAt": "2026-09-06T00:43:45.885Z",
+  "generatedAt": "2026-09-06T00:50:40.434Z",
   "rollup": {
     "*": {
       "lines": 96.01,
-      "branches": 86.93,
+      "branches": 86.92,
       "functions": 88.14
     }
   },
@@ -36,9 +36,9 @@
     },
     {
       "path": ".agents/scripts/audit-to-stories.js",
-      "lines": 98.95,
-      "branches": 80.8,
-      "functions": 97.92
+      "lines": 98.93,
+      "branches": 81.15,
+      "functions": 97.87
     },
     {
       "path": ".agents/scripts/boot-sweep.js",
@@ -420,8 +420,8 @@
     },
     {
       "path": ".agents/scripts/lib/audit-to-stories/ledger-commit.js",
-      "lines": 98.76,
-      "branches": 87.5,
+      "lines": 98.97,
+      "branches": 86.67,
       "functions": 100
     },
     {

@@ -18,7 +18,7 @@ import path from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { makeTempDir } from '../../test-temp.js';
-import { assessLedgerPersistence, runLedgerCommit } from '../ledger-commit.js';
+import { resolveLedgerSummary, runLedgerCommit } from '../ledger-commit.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(HERE, '../../../../..');
@@ -210,50 +210,57 @@ test('AC-2: an unpersistable checkout reports ledger.unpersisted and warns by na
   );
 });
 
-test('AC-2: assessLedgerPersistence flags a changed ledger off the base branch', async () => {
-  const offBase = await assessLedgerPersistence({
-    ledgerPath: LEDGER,
-    baseBranch: 'main',
-    cwd: '/repo',
-    git: fakeGit({
-      responses: {
-        status: ` M ${LEDGER}`,
-        remote: 'origin\n',
-        'rev-parse': 'story-1',
-      },
-    }),
+test('AC-2: the summary is annotated and warned for every unpersistable shape', async () => {
+  const warned = [];
+  const logger = { warn: (m) => warned.push(m) };
+  const summarise = (responses, extra = {}) =>
+    resolveLedgerSummary({
+      ledger: { path: LEDGER, suppressed: 0 },
+      ledgerPath: LEDGER,
+      cwd: '/repo',
+      git: fakeGit({ responses }),
+      logger,
+      ...extra,
+    });
+
+  // HEAD parked off the base branch: a commit here reaches no shared state.
+  const offBase = await summarise({
+    status: ` M ${LEDGER}`,
+    remote: 'origin\n',
+    'rev-parse': 'story-1',
   });
   assert.equal(offBase.unpersisted, true);
-  assert.equal(offBase.onBaseBranch, false);
+  assert.equal(offBase.suppressed, 0, 'the plan ledger summary is preserved');
+  assert.match(warned.at(-1), /not the base branch/);
+  assert.ok(warned.at(-1).includes(LEDGER));
 
-  const noOrigin = await assessLedgerPersistence({
-    ledgerPath: LEDGER,
-    baseBranch: 'main',
-    cwd: '/repo',
-    git: fakeGit({
-      responses: { status: ` M ${LEDGER}`, 'rev-parse': 'main' },
-    }),
+  // No remote at all — the ephemeral-clone shape.
+  const noOrigin = await summarise({
+    status: ` M ${LEDGER}`,
+    'rev-parse': 'main',
   });
   assert.equal(noOrigin.unpersisted, true);
-  assert.equal(noOrigin.hasOrigin, false);
+  assert.match(warned.at(-1), /no "origin" remote/);
 
   // Persistable: changed, on the base branch, with a remote to push to.
-  const ok = await assessLedgerPersistence({
-    ledgerPath: LEDGER,
-    baseBranch: 'main',
-    cwd: '/repo',
-    git: fakeGit({ responses: CHANGED_ON_BASE }),
-  });
-  assert.equal(ok.unpersisted, false);
+  const ok = await summarise(CHANGED_ON_BASE);
+  assert.equal(ok.unpersisted, undefined);
 
   // Unchanged is never "unpersisted" — there is nothing to lose.
-  const clean = await assessLedgerPersistence({
-    ledgerPath: LEDGER,
-    baseBranch: 'main',
-    cwd: '/repo',
-    git: fakeGit({ responses: { remote: '', 'rev-parse': 'story-1' } }),
-  });
-  assert.equal(clean.unpersisted, false);
+  const clean = await summarise({ remote: '', 'rev-parse': 'story-1' });
+  assert.equal(clean.unpersisted, undefined);
+
+  // --dry-run wrote nothing and --ledger-commit is about to persist it, so
+  // neither probes git or warns at all.
+  const before = warned.length;
+  for (const extra of [{ dryRun: true }, { ledgerCommit: true }]) {
+    const skipped = await summarise(
+      { status: ` M ${LEDGER}`, 'rev-parse': 'story-1' },
+      extra,
+    );
+    assert.equal(skipped.unpersisted, undefined);
+  }
+  assert.equal(warned.length, before, 'no warning on the skipped arms');
 });
 
 test('AC-3: a failing push or pr.create throws naming the failed step', async () => {
