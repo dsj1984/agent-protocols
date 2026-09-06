@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
-
+import { defaultGateRunner } from '../../.agents/scripts/lib/close-validation/process.js';
 import {
   FULL_SUITE_LOCK_ENV,
   isFullSuiteLockEnabled,
@@ -392,6 +392,45 @@ describe('full-suite lock (Story #5173)', () => {
       holder.release();
       assert.deepEqual(result, { status: 1 });
       assert.equal(spawns, 1);
+    });
+  });
+
+  // The close chain's other end of this contract: the standalone `test` gate
+  // is the one gate that spawns a whole suite, and `gates.js` flags it so the
+  // runner serializes it. What matters here is that the flag routes through
+  // the lock WITHOUT changing the gate's observable result — a lock defect
+  // must never turn a green gate red.
+  describe('defaultGateRunner honours the fullSuiteLock flag', () => {
+    const node = process.execPath;
+
+    it('runs the child and reports its status with the flag set', async () => {
+      const result = await defaultGateRunner(node, ['-e', 'process.exit(0)'], {
+        cwd: dir,
+        gateName: 'test',
+        log: () => {},
+        fullSuiteLock: true,
+      });
+      assert.deepEqual(result, { status: 0 });
+    });
+
+    it('propagates a non-zero child exit with the flag set', async () => {
+      const result = await defaultGateRunner(node, ['-e', 'process.exit(3)'], {
+        cwd: dir,
+        gateName: 'test',
+        log: () => {},
+        fullSuiteLock: true,
+      });
+      assert.deepEqual(result, { status: 3 });
+    });
+
+    it('takes the unwrapped path when the flag is absent', async () => {
+      const result = await defaultGateRunner(node, ['-e', 'process.exit(0)'], {
+        cwd: dir,
+        gateName: 'lint',
+        log: () => {},
+      });
+      assert.deepEqual(result, { status: 0 });
+      assert.equal(fs.existsSync(lockPath), false);
     });
   });
 });

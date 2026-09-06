@@ -158,13 +158,10 @@ function isBiomeNoFilesProcessed(output) {
  */
 export function defaultGateRunner(cmd, args, opts = {}) {
   if (!opts.fullSuiteLock) return spawnGate(cmd, args, opts);
-  const { cwd, log } = opts;
-  return withFullSuiteLockAsync(
-    {
-      cwd,
-      log: typeof log === 'function' ? log : () => {},
-    },
-    () => spawnGate(cmd, args, opts),
+  // `log` is passed through as-is: `withFullSuiteLockAsync` supplies its own
+  // no-op default, so a second fallback here would be an untestable branch.
+  return withFullSuiteLockAsync({ cwd: opts.cwd, log: opts.log }, () =>
+    spawnGate(cmd, args, opts),
   );
 }
 

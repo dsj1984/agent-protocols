@@ -24,6 +24,7 @@ import { afterEach, beforeEach, describe, it } from 'node:test';
 
 import {
   acquireSweepLock,
+  readLockHolderPid,
   resolveSweepLockPath,
 } from '../../.agents/scripts/lib/single-story-sweep/sweep-lock.js';
 import { makeTempDir } from '../../.agents/scripts/lib/test-temp.js';
@@ -386,5 +387,52 @@ describe('sweep-lock — one lock for the merged-branch reap (Story #5112)', () 
       resolveSweepLockPath({ cwd: '/repo' }),
       path.resolve('/repo', 'temp', 'merged-branch-sweep.lock'),
     );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Story #5173 — `readLockHolderPid`, the projection a *waiting* caller uses to
+// name the holder. It is advisory by construction: every unreadable shape
+// resolves to `null` so a wait line can degrade to "unknown" rather than throw
+// on the way to a lock the caller was going to proceed without anyway.
+// ---------------------------------------------------------------------------
+describe('readLockHolderPid (Story #5173)', () => {
+  let dir;
+  let lockPath;
+
+  beforeEach(() => {
+    dir = makeTempDir('sweep-lock-pid-');
+    lockPath = path.join(dir, 'x.lock');
+  });
+
+  afterEach(() => {
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('reads back the pid a real acquire stamped', () => {
+    const lock = acquireSweepLock({ lockPath, timeoutMs: 60_000 });
+    assert.equal(lock.acquired, true);
+    assert.equal(readLockHolderPid(lockPath), process.pid);
+    lock.release();
+  });
+
+  it('returns null for an absent lockfile', () => {
+    assert.equal(readLockHolderPid(lockPath), null);
+  });
+
+  it('returns null when the pid line is missing or unparseable', () => {
+    for (const body of ['owner\n', 'owner\nstamp\n', 'owner\nstamp\nnope\n']) {
+      fs.writeFileSync(lockPath, body);
+      assert.equal(
+        readLockHolderPid(lockPath),
+        null,
+        `expected null for ${JSON.stringify(body)}`,
+      );
+    }
+  });
+
+  it('returns null for a non-positive pid', () => {
+    fs.writeFileSync(lockPath, 'owner\nstamp\n0\n');
+    assert.equal(readLockHolderPid(lockPath), null);
   });
 });
