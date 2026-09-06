@@ -62,12 +62,11 @@ MUSTs) and [`git-conventions.md`](rules/git-conventions.md) (branch
 shapes, commit subjects, push/hygiene MUSTs) — and an **on-demand set**,
 read **before** the matching work (each opens with a one-line "applies
 when…" scope header): `git-conventions-reference.md`,
-`shell-conventions.md`, `testing-standards.md`,
-`orchestration-error-handling.md` (scripts under `.agents/scripts/**`),
-`ci-remediation.md`, `known-tooling-behavior.md`,
-`api-conventions.md`, `gherkin-standards.md`,
-`changelog-style.md`, `test-seams.md`. Read when unsure (on-demand
-loading does not lower a rule's authority — § 1.K).
+`testing-standards.md`, `ci-remediation.md`, `api-conventions.md`,
+`gherkin-standards.md`; plus `orchestration-error-handling.md`,
+`known-tooling-behavior.md`, `test-seams.md`
+(**mandrel contributors only** — consumers skip). Read when unsure;
+on-demand loading does not lower a rule's authority (§ 1.K).
 
 ### G. Structured Configuration
 

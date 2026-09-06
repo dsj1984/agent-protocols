@@ -8,8 +8,8 @@
  * `mandrel doctor` — across {npm, pnpm, yarn} x {ubuntu-latest,
  * windows-latest}. Rather than spread the per-leg invariants across
  * PowerShell-vs-bash shell snippets (which diverge on quoting, `$?`, and
- * separators per `.agents/rules/shell-conventions.md`), every leg shells out
- * to this single Node script so the checks run identically on every OS.
+ * path separators), every leg shells out to this single Node script so the
+ * checks run identically on every OS.
  *
  * It asserts three invariants against a consumer project directory:
  *

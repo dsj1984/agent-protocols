@@ -12,8 +12,8 @@ name: Install Matrix
 # into a throwaway consumer project with the leg's package manager, and then
 # asserts the three golden-path invariants via
 # `.agents/scripts/install-matrix-assert.js` (one cross-platform Node script
-# instead of divergent PowerShell/bash snippets — see
-# `.agents/rules/shell-conventions.md`):
+# instead of divergent PowerShell/bash snippets, which diverge on quoting,
+# `$?`, and path separators):
 #
 #   1. ./.agents/ is materialized after install + `mandrel sync`.
 #   2. The consumer package.json is not mutated with framework runtime deps.

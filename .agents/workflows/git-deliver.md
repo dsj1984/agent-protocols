@@ -19,8 +19,9 @@ explicitly; the interactive choice prompt fires **only** when the detected
 state is genuinely ambiguous, so the common path stays non-interactive and
 scriptable.
 
-> **Persona**: `devops-engineer` · **Skills**:
-> `core/git-workflow-and-versioning`
+> **Persona**: `devops-engineer` — git guidance comes from the always-on
+> [`rules/git-conventions.md`](../rules/git-conventions.md), which needs no
+> skill citation.
 
 ---
 

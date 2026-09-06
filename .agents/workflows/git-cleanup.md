@@ -17,8 +17,9 @@ Reach for it when the automated hygiene left an unusual state behind.
 > **When to run**: after a session that landed several PRs, or before starting a
 > new Story, to put the local checkout into a known tidy state.
 >
-> **Persona**: `devops-engineer` · **Skills**:
-> `core/git-workflow-and-versioning`
+> **Persona**: `devops-engineer` — git guidance comes from the always-on
+> [`rules/git-conventions.md`](../rules/git-conventions.md), which needs no
+> skill citation.
 
 The enumeration + reap logic lives in
 [`git-cleanup.js`](../scripts/git-cleanup.js) — it computes the candidate list,
