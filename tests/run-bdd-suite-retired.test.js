@@ -7,12 +7,16 @@
  *
  * This spec is a structural assertion that:
  *   1. `.agents/workflows/run-bdd-suite.md` no longer exists.
- *   2. `.claude/commands/run-bdd-suite.md` no longer exists. The
- *      `.claude/commands/` tree is generated from `.agents/workflows/` by
- *      `sync-claude-commands.js`, which prunes orphans — so the generated
- *      command disappears once the source workflow is deleted and the sync
- *      re-runs. The assertion tolerates the directory being absent (a fresh
- *      checkout that has not run the sync yet).
+ *   2. `sync-claude-commands.js` reaps `.claude/commands/run-bdd-suite.md` as
+ *      an orphan — the generated command disappears once the source workflow
+ *      is deleted and the sync re-runs.
+ *
+ *      This is asserted against a *fresh* projection into a temp tree seeded
+ *      with the stale command, not against the repo's own
+ *      `.claude/commands/`. That mirror is generated and gitignored, so it is
+ *      empty in any freshly materialized worktree — where the old form of this
+ *      assertion ("the file is not there") passed vacuously, proving nothing.
+ *      See `tests/helpers/projected-commands.js`.
  *   3. No live `.agents/` or `docs/` file references `run-bdd-suite`.
  */
 
@@ -22,12 +26,14 @@ import path from 'node:path';
 import { describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
+import { projectCommands } from './helpers/projected-commands.js';
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const REPO_ROOT = path.resolve(__dirname, '..');
 
 const RETIRED_WORKFLOW = '.agents/workflows/run-bdd-suite.md';
-const RETIRED_COMMAND = '.claude/commands/run-bdd-suite.md';
+const RETIRED_COMMAND = 'run-bdd-suite.md';
 
 const SCAN_ROOTS = [
   path.join(REPO_ROOT, '.agents'),
@@ -79,12 +85,14 @@ describe('run-bdd-suite retirement guard', () => {
     );
   });
 
-  it('removes .claude/commands/run-bdd-suite.md', async () => {
-    const target = path.join(REPO_ROOT, RETIRED_COMMAND);
+  it('reaps .claude/commands/run-bdd-suite.md as an orphan', () => {
+    // Seed the destination with the pre-retirement generated command so the
+    // run exercises the orphan-reap, not just its absence from a fresh tree.
+    const projection = projectCommands({ seedOrphans: [RETIRED_COMMAND] });
     assert.equal(
-      await fileExists(target),
+      projection.has(RETIRED_COMMAND),
       false,
-      `${RETIRED_COMMAND} must be absent — re-run \`npm run sync:commands\` to prune the orphaned generated command`,
+      `.claude/commands/${RETIRED_COMMAND} must be reaped as an orphan — no workflow sources it any more`,
     );
   });
 

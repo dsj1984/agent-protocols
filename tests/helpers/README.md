@@ -114,3 +114,45 @@ const provider = makeMockProvider();
   the helper does not model — keep the local factory.
 - **Contract tests** that need a real ticketing backend. The helper is
   unit-tier only.
+
+---
+
+## `projected-commands.js`
+
+Computes the `.claude/commands/` projection deterministically, by running the
+real `.agents/scripts/sync-claude-commands.js` against the repository's real
+`.agents/workflows/` tree into a managed temp directory.
+
+### Why it exists
+
+`.claude/commands/` is a generated, **gitignored** mirror, materialized by the
+`prepare` lifecycle script (`npm run sync:commands`). A freshly materialized
+git worktree inherits `node_modules/` by clone and never runs `prepare`, so the
+directory is empty there. Structural guards that asserted against it were
+really asserting "somebody ran the sync in this checkout" — which failed in
+every worktree-based delivery (positive assertions) or passed vacuously
+(negative ones).
+
+Projecting into a temp tree makes those guards a function of tracked source
+alone, and strengthens them: they now assert what the sync *would* produce,
+including the orphan-reap, rather than trusting whatever mirror is on disk.
+
+### API
+
+```js
+import {
+  projectCommands,    // fresh projection; `{ seedOrphans: ['old.md'] }` to test the reap
+  projectedCommands,  // memoized default projection — one sync spawn per process
+} from '../helpers/projected-commands.js';
+
+projectedCommands().has('qa-run.md'); // → boolean
+```
+
+Both return `{ dest, files, has(rel) }`, where `rel` is a destination-relative
+path (`qa-run.md`, `loops/<name>.md`) matching the sync script's own keys.
+
+### Users
+
+`tests/qa-run-rename.test.js`, `tests/qa-assist-rename.test.js`,
+`tests/run-bdd-suite-retired.test.js`,
+`tests/audit-suite/audit-fan-out-retirement.test.js`.
