@@ -15,6 +15,13 @@ All notable changes to this project will be documented in this file.
 -->
 <!-- markdownlint-disable-file MD004 MD012 MD037 -->
 
+## [2.47.0](https://github.com/dsj1984/mandrel/compare/mandrel-v2.46.0...mandrel-v2.47.0) (2026-09-07)
+
+
+### Added
+
+* roll a container Epic's board status, assignee and closure up from its child Stories ([#5205](https://github.com/dsj1984/mandrel/issues/5205)) ([#5206](https://github.com/dsj1984/mandrel/issues/5206)) ([38aae8b](https://github.com/dsj1984/mandrel/commit/38aae8bb4c273b258b420b463781970df18f58e1))
+
 ## [2.46.0](https://github.com/dsj1984/mandrel/compare/mandrel-v2.45.0...mandrel-v2.46.0) (2026-09-07)
 
 
