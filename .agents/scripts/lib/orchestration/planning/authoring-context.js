@@ -165,7 +165,15 @@ export async function buildAuthoringContext(
       () => buildPlanningDocsContext({ seedIssueId: epic.id, settings, cwd }),
       () => verifyBddRunnerPendingTag({ cwd: PROJECT_ROOT }),
       () => scanBddScenariosBestEffort(),
-      () => buildMemoryPoolAdvisory({ cwd: PROJECT_ROOT }),
+      () =>
+        buildMemoryPoolAdvisory({
+          cwd: PROJECT_ROOT,
+          // Story #5182 — `planning.memoryPool` thresholds. Spread so an
+          // unset block, or a block setting only one key, leaves the other
+          // on its framework default rather than passing `undefined` in as
+          // a value the builder would have to re-defaults itself.
+          ...(opts.memoryPool ?? {}),
+        }),
       () =>
         fetchPriorFeedback({
           owner: githubCfg?.owner,

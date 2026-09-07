@@ -2,8 +2,8 @@
 description: >-
   Attended consolidation pass over this project's agent memory pool — merge
   duplicates, verify claims against the current tree, prune with operator
-  confirmation, rewrite the index, and stamp the pool so the /mandrel-plan advisory
-  goes quiet.
+  confirmation, rewrite the index, and stamp the pool with the date and entry
+  count the /mandrel-plan advisory measures its next nudge against.
 ---
 
 # /memory-consolidate [--dry-run]
@@ -93,14 +93,26 @@ pointers only, never memory content.
 Then write the receipt to `.consolidation-stamp.json` in the pool root:
 
 ```json
-{ "lastConsolidatedAt": "<ISO-8601 timestamp>" }
+{ "lastConsolidatedAt": "<ISO-8601 timestamp>", "entryCount": 42 }
 ```
 
-The `/mandrel-plan` Phase 0 advisory reads this file; until it is written, the nudge
-keeps firing. Write it **only** after Gate #2 — the stamp asserts an operator
-reviewed the pass, so writing it early makes it a lie.
+`entryCount` is the surviving non-index `*.md` count **after** the rewrite —
+count the directory, never the plan. It is the baseline the next run measures
+growth against, so a wrong number silently mis-arms the nudge.
+
+The `/mandrel-plan` Phase 0 advisory re-arms on exactly two conditions: the
+stamp aging past `planning.memoryPool.staleAfterDays` (30), or
+`planning.memoryPool.growthDelta` (25) entries written since that count. Pool
+size alone never triggers it — a pass that keeps every entry still quiets the
+nudge. A stamp with no `entryCount` leaves growth unmeasured, and only the age
+arm can speak until the next pass writes one.
+
+Write it **only** after Gate #2 — the stamp asserts an operator reviewed the
+pass, so writing it early makes it a lie.
 
 Close with counts: entries read, corrected, merged, pruned, and the new total.
+Then the forecast the operator would otherwise derive by hand: when the
+advisory next fires, and which arm reaches it first.
 
 ## Constraints
 

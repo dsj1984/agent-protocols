@@ -5,6 +5,11 @@
  * memory-freshness scanner: pool resolution (override + cwd-slug), the
  * fail-soft absent path, and each recommend branch.
  *
+ * Story #5182 replaced the absolute entry ceiling with growth since the last
+ * pass, so the arms asserted here are age and growth — and the case that
+ * earns its own test is the pre-#5182 stamp, whose missing `entryCount` must
+ * read as *unmeasured* growth rather than as a never-consolidated pool.
+ *
  * Everything is reached through `buildMemoryPoolAdvisory`, the module's only
  * export — the slug rule and the thresholds are asserted by their observable
  * effect rather than by importing the helpers, because exporting one solely
@@ -71,9 +76,14 @@ function poolWith({ count, stamp, dir = POOL }) {
   return makeFs({ dirs: { [dir]: ['MEMORY.md', ...names] }, files });
 }
 
-const stampedAgo = (days) =>
+/**
+ * A stamp `days` old. `entryCount` is the growth baseline the pass left
+ * behind; omitting it reproduces a pre-#5182 stamp exactly.
+ */
+const stampedAgo = (days, entryCount) =>
   JSON.stringify({
     lastConsolidatedAt: new Date(Date.parse(NOW) - days * DAY_MS).toISOString(),
+    ...(entryCount === undefined ? {} : { entryCount }),
   });
 
 const advisory = (opts) =>
@@ -169,27 +179,51 @@ describe('recommend branches (Story #4919)', () => {
     assert.match(result.reasons.join(' '), /35 days ago/);
   });
 
-  it('recommends when the entry count is over 100 despite a fresh stamp', () => {
+  it('recommends on 25 entries written since the last pass, fresh stamp and all', () => {
     const result = advisory({
-      fsImpl: poolWith({ count: 101, stamp: stampedAgo(1) }),
+      fsImpl: poolWith({ count: 125, stamp: stampedAgo(1, 100) }),
     });
     assert.equal(result.recommend, true);
-    assert.match(result.reasons.join(' '), /101 entries \(over the 100-entry/);
+    assert.equal(result.entriesSinceConsolidation, 25);
+    assert.match(
+      result.reasons.join(' '),
+      /25 entries written since the last consolidation \(at or over the 25-entry/,
+    );
+  });
+
+  it('stays quiet for a large pool a pass just reviewed — size is not the signal', () => {
+    // The defect Story #5182 fixed: a 163-entry pool that a consolidation
+    // pass had just walked still recommended another one, forever, because
+    // the old arm compared the pool's size to a fixed ceiling.
+    const result = advisory({
+      fsImpl: poolWith({ count: 163, stamp: stampedAgo(1, 163) }),
+    });
+    assert.equal(result.present, true);
+    assert.equal(result.recommend, false);
+    assert.equal(result.entriesSinceConsolidation, 0);
   });
 
   it('stays quiet at exactly the thresholds — neither is breached', () => {
     const result = advisory({
-      fsImpl: poolWith({ count: 100, stamp: stampedAgo(30) }),
+      fsImpl: poolWith({ count: 124, stamp: stampedAgo(30, 100) }),
     });
     assert.equal(result.present, true);
     assert.equal(result.recommend, false);
   });
 
+  it('reports a pruning pass as negative growth rather than clamping it', () => {
+    const result = advisory({
+      fsImpl: poolWith({ count: 93, stamp: stampedAgo(1, 100) }),
+    });
+    assert.equal(result.recommend, false);
+    assert.equal(result.entriesSinceConsolidation, -7);
+  });
+
   it('honours caller-supplied thresholds over the defaults', () => {
     const result = advisory({
-      fsImpl: poolWith({ count: 5, stamp: stampedAgo(2) }),
+      fsImpl: poolWith({ count: 5, stamp: stampedAgo(2, 1) }),
       staleAfterDays: 1,
-      entryCountCeiling: 4,
+      growthDelta: 4,
     });
     assert.equal(result.recommend, true);
     assert.equal(result.reasons.length, 2, 'both thresholds should fire');
@@ -213,6 +247,44 @@ describe('recommend branches (Story #4919)', () => {
   });
 });
 
+describe('a stamp with no entry count leaves growth unmeasured (Story #5182)', () => {
+  it('fires neither the growth arm nor the never-consolidated reason', () => {
+    // Every stamp written before #5182 has this shape. An operator DID review
+    // this pool, so reading it as never-consolidated would be a lie — and
+    // scoring growth from a zero baseline would count the whole pool as new.
+    const result = advisory({
+      fsImpl: poolWith({ count: 300, stamp: stampedAgo(1) }),
+    });
+    assert.equal(result.recommend, false);
+    assert.equal(result.entriesSinceConsolidation, null);
+    assert.equal(
+      result.lastConsolidatedAt,
+      JSON.parse(stampedAgo(1)).lastConsolidatedAt,
+    );
+    assert.match(result.reasons.join(' '), /growth is unmeasured/);
+    assert.doesNotMatch(result.reasons.join(' '), /never been consolidated/);
+  });
+
+  it('still lets the age arm fire on such a stamp', () => {
+    const result = advisory({
+      fsImpl: poolWith({ count: 300, stamp: stampedAgo(45) }),
+    });
+    assert.equal(result.recommend, true);
+    assert.equal(result.reasons.length, 1, 'only the age arm may speak');
+    assert.match(result.reasons.join(' '), /45 days ago/);
+  });
+
+  it('treats a malformed entry count as unmeasured, never as zero', () => {
+    const stamp = JSON.stringify({
+      lastConsolidatedAt: new Date(Date.parse(NOW) - DAY_MS).toISOString(),
+      entryCount: 'lots',
+    });
+    const result = advisory({ fsImpl: poolWith({ count: 300, stamp }) });
+    assert.equal(result.recommend, false);
+    assert.equal(result.entriesSinceConsolidation, null);
+  });
+});
+
 describe('the advisory renders no per-entry verdict (Story #4919)', () => {
   it('exposes only counts and the stamp, never a staleness judgement', () => {
     // The retired scanner's defect was semantic: it marked an entry stale when
@@ -220,6 +292,7 @@ describe('the advisory renders no per-entry verdict (Story #4919)', () => {
     // cites. Guard the replacement's shape so that verdict cannot creep back.
     const result = advisory({ fsImpl: poolWith({ count: 5 }) });
     assert.deepEqual(Object.keys(result).sort(), [
+      'entriesSinceConsolidation',
       'entryCount',
       'lastConsolidatedAt',
       'present',

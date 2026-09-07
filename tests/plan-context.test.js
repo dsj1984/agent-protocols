@@ -211,6 +211,7 @@ describe('plan-context envelope schema (design §1 step 1)', () => {
     const advisory = env.memoryPoolAdvisory;
     assert.ok(advisory, 'memoryPoolAdvisory must be present');
     assert.deepEqual(Object.keys(advisory).sort(), [
+      'entriesSinceConsolidation',
       'entryCount',
       'lastConsolidatedAt',
       'present',
@@ -220,6 +221,14 @@ describe('plan-context envelope schema (design §1 step 1)', () => {
     assert.equal(typeof advisory.present, 'boolean');
     assert.equal(typeof advisory.recommend, 'boolean');
     assert.ok(Array.isArray(advisory.reasons));
+    // Story #5182 — the growth measure the /mandrel-plan spine quotes. A number
+    // when the stamp carries a baseline, null when growth is unmeasured;
+    // never absent, so the spine never has to guess which it got.
+    assert.ok(
+      advisory.entriesSinceConsolidation === null ||
+        typeof advisory.entriesSinceConsolidation === 'number',
+      'entriesSinceConsolidation is a number or null',
+    );
   });
 
   it('seed mode emits the seed-mode key set (#4496)', async () => {
