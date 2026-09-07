@@ -1,0 +1,42 @@
+{
+  "$schema": ".agents/schemas/baselines/maintainability.schema.json",
+  "kernelVersion": "0.1.0",
+  "generatedAt": "2026-09-07T11:02:47.905Z",
+  "rollup": {
+    "*": {
+      "min": 58.42,
+      "p50": 72.83,
+      "p95": 80.311
+    }
+  },
+  "rows": [
+    {
+      "path": "news/blocks/canvas-model.ts",
+      "mi": 62.104
+    },
+    {
+      "path": "news/news-view.ts",
+      "mi": 58.42
+    },
+    {
+      "path": "shared/format.ts",
+      "mi": 77.903
+    },
+    {
+      "path": "shared/util.ts",
+      "mi": 80.311
+    },
+    {
+      "path": "site-analytics/chart.ts",
+      "mi": 65.117
+    },
+    {
+      "path": "site-analytics/report.ts",
+      "mi": 72.83
+    },
+    {
+      "path": "site-metrics/collect.ts",
+      "mi": 75.961
+    }
+  ]
+}
