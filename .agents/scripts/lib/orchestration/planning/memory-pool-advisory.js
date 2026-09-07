@@ -110,6 +110,18 @@ function resolveMemoryPoolDir({ cwd, env = process.env, homedir } = {}) {
 }
 
 /**
+ * The growth baseline a stamp records: its entry count, or `null` when it
+ * records none. `null` is *unmeasured*, never zero — a zero baseline would
+ * score every entry in the pool as newly written.
+ *
+ * @param {unknown} count
+ * @returns {number|null}
+ */
+function readBaseline(count) {
+  return Number.isInteger(count) && count >= 0 ? count : null;
+}
+
+/**
  * Read the consolidation stamp.
  *
  * `at` is the ISO timestamp of the last pass, or `null` when there was none:
@@ -130,13 +142,13 @@ function readStamp({ poolDir, fsImpl }) {
   try {
     const raw = fsImpl.readFileSync(path.join(poolDir, STAMP_FILENAME), 'utf8');
     const parsed = JSON.parse(raw);
-    const at = parsed?.lastConsolidatedAt;
-    if (typeof at !== 'string' || at.length === 0) return unstamped;
-    if (Number.isNaN(Date.parse(at))) return unstamped;
-    const count = parsed?.entryCount;
-    const baseline =
-      Number.isInteger(count) && count >= 0 ? Number(count) : null;
-    return { at, baseline };
+    const at = parsed.lastConsolidatedAt;
+    // `Date.parse` rejects the empty string as NaN, so this one test covers
+    // both an absent date and an unusable one.
+    if (typeof at !== 'string' || Number.isNaN(Date.parse(at))) {
+      return unstamped;
+    }
+    return { at, baseline: readBaseline(parsed.entryCount) };
   } catch {
     return unstamped;
   }
