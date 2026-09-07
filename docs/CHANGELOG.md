@@ -15,6 +15,13 @@ All notable changes to this project will be documented in this file.
 -->
 <!-- markdownlint-disable-file MD004 MD012 MD037 -->
 
+## [2.46.0](https://github.com/dsj1984/mandrel/compare/mandrel-v2.45.0...mandrel-v2.46.0) (2026-09-07)
+
+
+### Fixed
+
+* keep every shipped label description under GitHub's 100-char limit, and make a refused ensure legible ([#5201](https://github.com/dsj1984/mandrel/issues/5201)) ([#5202](https://github.com/dsj1984/mandrel/issues/5202)) ([f444ac6](https://github.com/dsj1984/mandrel/commit/f444ac62255b25fc44603f5603f128083ae327fa))
+
 ## [2.45.0](https://github.com/dsj1984/mandrel/compare/mandrel-v2.44.0...mandrel-v2.45.0) (2026-09-07)
 
 
