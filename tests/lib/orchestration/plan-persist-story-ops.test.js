@@ -29,7 +29,10 @@ import {
   parse,
   serialize,
 } from '../../../.agents/scripts/lib/story-body/story-body.js';
-import { LABEL_DESCRIPTION_MAX_LENGTH } from '../../../.agents/scripts/providers/github/labels.js';
+
+// GitHub's published cap on a label description — an external API
+// constraint, pinned as a literal so the assertion is independent of ours.
+const LABEL_DESCRIPTION_MAX_LENGTH = 100;
 
 function storyTicket(slug, overrides = {}) {
   return {

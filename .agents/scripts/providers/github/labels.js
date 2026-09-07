@@ -91,7 +91,10 @@ export function isLabelNotFoundError(err) {
  * provider (Story #5201, where two over-long `plan-persist` descriptions made
  * the `plan-run::<id>` cohort label uncreatable on every run).
  */
-export const LABEL_DESCRIPTION_MAX_LENGTH = 100;
+// Module-private on purpose: nothing in production reads the number outside
+// the guard below, and the suite pins GitHub's published cap as a literal
+// rather than against our own constant.
+const LABEL_DESCRIPTION_MAX_LENGTH = 100;
 
 /**
  * Refuse a label description GitHub will reject anyway, **before** `gh` is

@@ -15,7 +15,10 @@ import {
   VALID_TRANSITIONS,
 } from '../../.agents/scripts/lib/label-constants.js';
 import { LABEL_TAXONOMY } from '../../.agents/scripts/lib/label-taxonomy.js';
-import { LABEL_DESCRIPTION_MAX_LENGTH } from '../../.agents/scripts/providers/github/labels.js';
+
+// GitHub's published cap on a label description — an external API
+// constraint, pinned as a literal so the assertion is independent of ours.
+const LABEL_DESCRIPTION_MAX_LENGTH = 100;
 
 // ── Story #2554 — meta-axis labels for retrospective signal routing ─────
 test('META_LABELS.FRAMEWORK_GAP equals "meta::framework-gap"', () => {

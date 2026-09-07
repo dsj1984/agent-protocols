@@ -29,11 +29,14 @@ const labelsMod = await import(
   ).href
 );
 
-const {
-  LABEL_DESCRIPTION_MAX_LENGTH,
-  LabelGateway,
-  isLabelAlreadyExistsError,
-} = labelsMod;
+const { LabelGateway, isLabelAlreadyExistsError } = labelsMod;
+
+/**
+ * GitHub's published cap on a label description. Pinned here as a literal
+ * rather than imported: it is an external API constraint, so a test that
+ * read it back off our own constant could never catch us moving it.
+ */
+const LABEL_DESCRIPTION_MAX_LENGTH = 100;
 
 /**
  * Minimal gh-exec stand-in exposing only the surfaces `LabelGateway`
