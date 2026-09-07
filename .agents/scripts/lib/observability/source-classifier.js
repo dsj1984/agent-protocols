@@ -131,6 +131,7 @@ const FRAMEWORK_SCRIPT_BASENAMES = Object.freeze([
   'pr-watch-with-update.js',
   'provision-git-hooks.js',
   'prune-baseline-orphans.js',
+  'prune-plan-run-labels.js',
   'quality-preview.js',
   'quality-watch.js',
   'resolve-doc-tiers.js',
