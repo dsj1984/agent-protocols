@@ -1,11 +1,11 @@
 {
   "$schema": ".agents/schemas/baselines/maintainability.schema.json",
   "kernelVersion": "0.1.0",
-  "generatedAt": "2026-09-07T16:30:17.996Z",
+  "generatedAt": "2026-09-07T23:58:12.347Z",
   "rollup": {
     "*": {
       "min": 76.381,
-      "p50": 98.874,
+      "p50": 98.829,
       "p95": 122.902
     }
   },
@@ -368,7 +368,7 @@
     },
     {
       "path": ".agents/scripts/lib/baselines/kernel.js",
-      "mi": 93.439
+      "mi": 92.176
     },
     {
       "path": ".agents/scripts/lib/baselines/kinds/_crap-new-method-gate.js",
@@ -384,7 +384,7 @@
     },
     {
       "path": ".agents/scripts/lib/baselines/kinds/bundle-size.js",
-      "mi": 95.662
+      "mi": 96.907
     },
     {
       "path": ".agents/scripts/lib/baselines/kinds/coverage.js",
@@ -400,7 +400,7 @@
     },
     {
       "path": ".agents/scripts/lib/baselines/kinds/kind-factory.js",
-      "mi": 96.19
+      "mi": 97.12
     },
     {
       "path": ".agents/scripts/lib/baselines/kinds/lighthouse.js",
@@ -408,7 +408,7 @@
     },
     {
       "path": ".agents/scripts/lib/baselines/kinds/lint.js",
-      "mi": 94.44
+      "mi": 95.926
     },
     {
       "path": ".agents/scripts/lib/baselines/kinds/maintainability.js",
@@ -421,6 +421,10 @@
     {
       "path": ".agents/scripts/lib/baselines/maintainability-baseline-io.js",
       "mi": 102.318
+    },
+    {
+      "path": ".agents/scripts/lib/baselines/merge-envelopes.js",
+      "mi": 87.376
     },
     {
       "path": ".agents/scripts/lib/baselines/orphan-pruner.js",
@@ -473,6 +477,10 @@
     {
       "path": ".agents/scripts/lib/bdd-step-index.js",
       "mi": 94.261
+    },
+    {
+      "path": ".agents/scripts/lib/bootstrap/baseline-merge-driver.js",
+      "mi": 97.415
     },
     {
       "path": ".agents/scripts/lib/bootstrap/branch-protection.js",
@@ -1973,6 +1981,10 @@
     {
       "path": ".agents/scripts/mandrel-update-preflight.js",
       "mi": 88.701
+    },
+    {
+      "path": ".agents/scripts/merge-baseline.js",
+      "mi": 98.894
     },
     {
       "path": ".agents/scripts/nav-registry-diff.js",

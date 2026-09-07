@@ -42,6 +42,29 @@ describe('rowIdentity — kind-module protocol', () => {
     });
   }
 
+  it('every kind actually computes an identity from a row of its own shape', () => {
+    // Asserting `typeof` alone leaves the implementations uninvoked — and the
+    // kinds this repo ships no baseline for (lint, mutation, lighthouse,
+    // bundle-size) would then have an identity function nothing ever ran.
+    const sampleRow = {
+      path: 'a/b.js',
+      route: '/a/b',
+      bundle: 'main',
+      method: 'fn',
+      startLine: 7,
+    };
+    for (const kind of listKinds()) {
+      const { rowIdentity, keyField } = getKindModule(kind);
+      const id = rowIdentity(sampleRow);
+      assert.equal(typeof id, 'string', `${kind} identity must be a string`);
+      assert.ok(id.length > 0, `${kind} identity must be non-empty`);
+      assert.ok(
+        id.includes(String(sampleRow[keyField])),
+        `${kind} identity must be derived from the row, not a constant`,
+      );
+    }
+  });
+
   it('crap identity is the composite, strictly finer than its keyField', () => {
     const crap = getKindModule('crap');
     assert.equal(crap.keyField, 'path');
