@@ -28,6 +28,32 @@ function isStoryTicket(issue) {
 }
 
 /**
+ * The error for an Epic that yielded no children.
+ *
+ * The two empty cases have different remedies, so they get different messages:
+ * an operator told to go link Stories that are already linked will do the wrong
+ * thing for what was really a transient API failure (Story #5210).
+ *
+ * @param {number} id
+ * @param {boolean} nativeReadFailed
+ * @returns {Error}
+ */
+function noChildrenError(id, nativeReadFailed) {
+  if (nativeReadFailed) {
+    return new Error(
+      `[resolve-stories] Epic #${id} expanded to no child Stories, but the ` +
+        `native sub-issue read failed — the list is incomplete, not empty. ` +
+        `Re-run once the GitHub API read succeeds.`,
+    );
+  }
+  return new Error(
+    `[resolve-stories] Epic #${id} lists no child Stories. An Epic is a container: ` +
+      `link its Stories (a "- [ ] #N" checklist line or a GitHub sub-issue) ` +
+      `or deliver the Story ids directly.`,
+  );
+}
+
+/**
  * Expand any container-Epic id in the requested set to its open child
  * Stories, leaving every other id untouched.
  *
@@ -96,18 +122,7 @@ export async function expandEpicIds({
       onWarn: warn,
     });
     if (childIds.length === 0) {
-      // The two empty cases have different remedies, so they get different
-      // errors: an operator told to go link Stories that are already linked
-      // will do the wrong thing for a transient API failure (Story #5210).
-      throw new Error(
-        nativeReadFailed
-          ? `[resolve-stories] Epic #${id} expanded to no child Stories, but the ` +
-              `native sub-issue read failed — the list is incomplete, not empty. ` +
-              `Re-run once the GitHub API read succeeds.`
-          : `[resolve-stories] Epic #${id} lists no child Stories. An Epic is a container: ` +
-              `link its Stories (a "- [ ] #N" checklist line or a GitHub sub-issue) ` +
-              `or deliver the Story ids directly.`,
-      );
+      throw noChildrenError(id, nativeReadFailed);
     }
 
     const open = [];

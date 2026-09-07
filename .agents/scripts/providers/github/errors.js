@@ -91,6 +91,20 @@ function matchesAny(haystack, needles) {
 const GH_STDERR_STATUS_RE = /\bHTTP (\d{3})\b/i;
 
 /**
+ * The captured `gh` stderr, or `''` when the error carries none.
+ *
+ * Its own function so {@link extractErrorFields} keeps the cyclomatic weight it
+ * had before stderr became a classification input — the field is read twice
+ * there, and inlining the guard twice is what pushed the CRAP ratchet.
+ *
+ * @param {unknown} err
+ * @returns {string}
+ */
+function stderrText(err) {
+  return typeof err?.stderr === 'string' ? err.stderr : '';
+}
+
+/**
  * Recover the HTTP status from a `gh`-CLI failure's stderr.
  *
  * The `fetch` transport sets `err.status`; the `gh` transport does not — it
@@ -125,11 +139,13 @@ function statusFromStderr(stderr) {
  */
 export function extractErrorFields(err) {
   const message = typeof err.message === 'string' ? err.message : String(err);
-  const stderr = typeof err.stderr === 'string' ? err.stderr : '';
+  const stderr = stderrText(err);
   const lower = message.toLowerCase();
   return {
     lower,
-    detail: stderr ? `${lower} ${stderr.toLowerCase()}` : lower,
+    // Unconditional concatenation: with no stderr this is the message plus a
+    // trailing space, which every `includes` rule below reads identically.
+    detail: `${lower} ${stderr.toLowerCase()}`,
     status:
       typeof err.status === 'number' ? err.status : statusFromStderr(stderr),
     code: typeof err.code === 'string' ? err.code : undefined,
