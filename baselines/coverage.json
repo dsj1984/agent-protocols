@@ -1,11 +1,11 @@
 {
   "$schema": ".agents/schemas/baselines/coverage.schema.json",
   "kernelVersion": "1.0.0",
-  "generatedAt": "2026-09-06T17:59:26.314Z",
+  "generatedAt": "2026-09-07T13:32:53.571Z",
   "rollup": {
     "*": {
       "lines": 96.05,
-      "branches": 86.96,
+      "branches": 86.98,
       "functions": 88.32
     }
   },
@@ -1799,6 +1799,12 @@
       "functions": 90
     },
     {
+      "path": ".agents/scripts/lib/orchestration/git-cleanup/phases/branches-detect.js",
+      "lines": 100,
+      "branches": 100,
+      "functions": 100
+    },
+    {
       "path": ".agents/scripts/lib/orchestration/git-cleanup/phases/branches-reap.js",
       "lines": 98.17,
       "branches": 91.43,
@@ -1807,8 +1813,8 @@
     {
       "path": ".agents/scripts/lib/orchestration/git-cleanup/phases/branches.js",
       "lines": 100,
-      "branches": 97.3,
-      "functions": 78.57
+      "branches": 98.08,
+      "functions": 72.73
     },
     {
       "path": ".agents/scripts/lib/orchestration/git-cleanup/phases/cli.js",
@@ -1836,9 +1842,9 @@
     },
     {
       "path": ".agents/scripts/lib/orchestration/git-cleanup/phases/git-probes.js",
-      "lines": 94.02,
-      "branches": 81.73,
-      "functions": 94.44
+      "lines": 94.3,
+      "branches": 80.91,
+      "functions": 90.48
     },
     {
       "path": ".agents/scripts/lib/orchestration/git-cleanup/phases/merged-tip.js",
@@ -1872,8 +1878,8 @@
     },
     {
       "path": ".agents/scripts/lib/orchestration/git-cleanup/phases/render.js",
-      "lines": 99.45,
-      "branches": 90.07,
+      "lines": 99.46,
+      "branches": 90.21,
       "functions": 100
     },
     {
