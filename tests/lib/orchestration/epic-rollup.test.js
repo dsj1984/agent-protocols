@@ -66,7 +66,12 @@ function child(id, agentLabel, state = 'open') {
  * Provider double. `epics` is what the open-`type::epic` listing returns;
  * `tickets` is the child lookup; every write lands in `updates`.
  */
-function fakeProvider({ epics = [], children = [], nativeChildren } = {}) {
+function fakeProvider({
+  epics = [],
+  children = [],
+  nativeChildren,
+  nativeChildrenError,
+} = {}) {
   const byId = new Map(children.map((c) => [Number(c.number), c]));
   const updates = [];
   const provider = {
@@ -78,7 +83,11 @@ function fakeProvider({ epics = [], children = [], nativeChildren } = {}) {
       updates.push({ id, mutations });
     },
   };
-  if (nativeChildren) {
+  if (nativeChildrenError) {
+    provider._getNativeSubIssues = async () => {
+      throw nativeChildrenError;
+    };
+  } else if (nativeChildren) {
     provider._getNativeSubIssues = async () => nativeChildren;
   }
   return provider;
@@ -324,6 +333,145 @@ describe('rollUpEpicForStory — child discovery', () => {
 
     assert.deepEqual(result.pending, [90], 'unknown never means "landed"');
     assert.equal(result.epics[0].detail, 'child-read-failed');
+    assert.equal(provider.updates.length, 0);
+  });
+});
+
+describe('rollUpEpicForStory — a degraded child read never closes (Story #5210)', () => {
+  /**
+   * The incident shape, reduced. Container #1891 had 58 native sub-issues, 23
+   * of them open. The GraphQL read threw a status-less `gh exited with code 1`,
+   * the reader degraded to the body checklist, and the checklist's only rows in
+   * the then-supported bare form were the three Stories that had just landed —
+   * so "every child Story landed" was true of the list and false of the Epic.
+   */
+  function incident() {
+    return fakeProvider({
+      // The body names only the landed Story; the 23 open siblings exist
+      // solely as native sub-issue edges the failing read would have returned.
+      epics: [container(1891, [2350])],
+      children: [child(2350, 'agent::done')],
+      nativeChildrenError: Object.assign(
+        new Error('gh-exec: gh exited with code 1'),
+        { stderr: 'HTTP 403: You have exceeded a secondary rate limit' },
+      ),
+    });
+  }
+
+  it('leaves the Epic OPEN when the authoritative read failed', async () => {
+    const provider = incident();
+
+    const result = await rollUpEpicForStory({
+      storyId: 2350,
+      provider,
+      config: {},
+      columnSync: fakeColumnSync(),
+    });
+
+    assert.equal(
+      provider.updates.some((u) => u.mutations?.state === 'closed'),
+      false,
+      'closure is the one write that cannot be undone next tick',
+    );
+    assert.deepEqual(result.closed, []);
+    assert.deepEqual(result.pending, [1891]);
+    assert.equal(result.epics[0].closed, false);
+    assert.equal(result.epics[0].detail, 'child-read-degraded');
+  });
+
+  it('still applies the recoverable writes — a blip costs no board accuracy', async () => {
+    const provider = fakeProvider({
+      epics: [container(1891, [2350])],
+      children: [child(2350, 'agent::executing')],
+      nativeChildrenError: new Error('gh-exec: gh exited with code 1'),
+    });
+    const columnSync = fakeColumnSync();
+
+    const result = await rollUpEpicForStory({
+      storyId: 2350,
+      provider,
+      config: { github: { operatorHandle: '@dsj1984' } },
+      columnSync,
+    });
+
+    assert.deepEqual(columnSync.calls, [
+      { issueId: 1891, column: 'In Progress' },
+    ]);
+    assert.deepEqual(provider.updates, [
+      { id: 1891, mutations: { addAssignees: ['dsj1984'] } },
+    ]);
+    assert.equal(result.epics[0].assigned, true);
+  });
+
+  it('applies the Done column but withholds only the close', async () => {
+    const provider = incident();
+    const columnSync = fakeColumnSync();
+
+    const result = await rollUpEpicForStory({
+      storyId: 2350,
+      provider,
+      config: {},
+      columnSync,
+    });
+
+    assert.deepEqual(
+      columnSync.calls,
+      [{ issueId: 1891, column: 'Done' }],
+      'Status recomputes next tick, so a possibly-stale column is acceptable',
+    );
+    assert.equal(result.epics[0].column, 'Done');
+  });
+
+  it('reports the degrade even when a board write also failed', async () => {
+    const provider = incident();
+
+    const result = await rollUpEpicForStory({
+      storyId: 2350,
+      provider,
+      config: {},
+      columnSync: fakeColumnSync('no-board-item'),
+    });
+
+    assert.equal(
+      result.epics[0].detail,
+      'child-read-degraded',
+      'the reason the Epic is still open must not be masked by a column detail',
+    );
+  });
+
+  it('closes exactly as before when the authoritative read SUCCEEDS', async () => {
+    const provider = fakeProvider({
+      epics: [container(1891, [2350])],
+      children: [child(2350, 'agent::done')],
+      nativeChildren: [2350],
+    });
+
+    const result = await rollUpEpicForStory({
+      storyId: 2350,
+      provider,
+      config: {},
+      columnSync: fakeColumnSync(),
+    });
+
+    assert.deepEqual(result.closed, [1891], 'the guard must not be a blanket');
+    assert.equal(result.epics[0].detail, null);
+  });
+
+  it('does not re-close an already-closed Epic on a degraded read', async () => {
+    const provider = fakeProvider({
+      epics: [container(1891, [2350], { state: 'closed' })],
+      children: [child(2350, 'agent::done')],
+      nativeChildrenError: new Error('gh-exec: gh exited with code 1'),
+    });
+
+    const result = await rollUpEpicForStory({
+      storyId: 2350,
+      provider,
+      config: {},
+      columnSync: fakeColumnSync(),
+    });
+
+    assert.deepEqual(result.pending, [], 'a closed container is not pending');
     assert.equal(provider.updates.length, 0);
   });
 });

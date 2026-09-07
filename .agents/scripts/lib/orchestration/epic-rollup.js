@@ -28,9 +28,18 @@
  *   3. **Never throws.** Every step degrades with a reason. A stale
  *      container costs tidiness; a delivery failed on a board mutation
  *      costs a landed Story its terminal envelope.
+ *   4. **Closure requires an authoritative child list.** Invariant 3 makes
+ *      every read degrade rather than fail, which is right for the writes
+ *      that recompute next tick and wrong for the one that does not. When
+ *      the native sub-issue read fails, the body checklist still answers
+ *      "who are the children" — but no longer "are these *all* of them",
+ *      and closing on that difference shut an Epic over 23 open children
+ *      (Story #5210). Degraded reads keep the Status and assignee writes
+ *      and lose only the close.
  *
  * @module lib/orchestration/epic-rollup
  * @see Story #5205
+ * @see Story #5210 — fail closed on a degraded child read.
  */
 
 import { Logger } from '../Logger.js';
@@ -119,6 +128,11 @@ function isClosed(issue) {
  * answer, not a lazy one: `deriveParentState` reads "all children done" off
  * the list it is handed, so a silently dropped child could close a container
  * with work still open under it.
+ *
+ * Note the scope: this validates the **readability of the ids it was given**,
+ * never the **completeness of the id list**. Completeness is
+ * `nativeReadFailed`'s job in {@link rollUpOneEpic} — checking only this one
+ * is what let three readable ids stand in for 58 (Story #5210).
  *
  * @param {{ epicId: number, childIds: number[], provider: object }} opts
  * @returns {Promise<object[]|null>}
@@ -214,10 +228,24 @@ async function applyClosure({ epicId, provider }) {
 /**
  * Roll one Epic up from the children it lists.
  *
- * @param {{ epic: object, childIds: number[], provider: object, columnSync: object, owner: string|null }} opts
+ * `nativeReadFailed` splits the writes by reversibility. Column and assignee
+ * are recomputed from scratch on every later tick, so applying them to a
+ * possibly-truncated list costs at most a stale board cell that self-corrects.
+ * Closure does not: it is the one write no subsequent tick undoes (invariant 2
+ * — a reopened child pulls Status back but MUST NOT reopen the issue), so it
+ * requires a child list we know to be complete.
+ *
+ * @param {{ epic: object, childIds: number[], nativeReadFailed?: boolean, provider: object, columnSync: object, owner: string|null }} opts
  * @returns {Promise<object>} Per-Epic outcome record.
  */
-async function rollUpOneEpic({ epic, childIds, provider, columnSync, owner }) {
+async function rollUpOneEpic({
+  epic,
+  childIds,
+  nativeReadFailed = false,
+  provider,
+  columnSync,
+  owner,
+}) {
   const epicId = Number(epic?.number ?? epic?.id);
   const outcome = {
     epicId,
@@ -261,6 +289,24 @@ async function rollUpOneEpic({ epic, childIds, provider, columnSync, owner }) {
 
   if (isClosed(epic)) return outcome;
 
+  if (nativeReadFailed) {
+    // Every child we could see has landed — but the authoritative read threw,
+    // so "every child" is exactly the claim we cannot make. `readChildren`
+    // above validates that the ids we were handed are *readable*; nothing
+    // there validates that the list is *complete*, which is how an Epic with
+    // 23 open children closed off the three its body happened to spell in the
+    // bare `- [ ] #N` form (Story #5210). Overwrites any column/owner detail
+    // deliberately: this is the reason the Epic is still pending.
+    outcome.pending = true;
+    outcome.detail = 'child-read-degraded';
+    Logger.warn(
+      `[epic-rollup] Epic #${epicId}: every child read looks done, but the ` +
+        'native sub-issue read degraded — refusing to close on a possibly ' +
+        'incomplete child list. Re-run once the API read succeeds.',
+    );
+    return outcome;
+  }
+
   const closure = await applyClosure({ epicId, provider });
   outcome.closed = closure.closed;
   outcome.pending = !closure.closed;
@@ -277,7 +323,7 @@ async function rollUpOneEpic({ epic, childIds, provider, columnSync, owner }) {
  * containers are few, and only one listing this Story is ever read further.
  *
  * @param {{ storyId: number, provider: object, skipEpicIds: Set<number> }} opts
- * @returns {Promise<Array<{ epic: object, childIds: number[] }>>}
+ * @returns {Promise<Array<{ epic: object, childIds: number[], nativeReadFailed: boolean }>>}
  */
 async function findEpicsForStory({ storyId, provider, skipEpicIds }) {
   let epics;
@@ -304,13 +350,25 @@ async function findEpicsForStory({ storyId, provider, skipEpicIds }) {
     // delivery expansion uses. Reading the body alone here is what made an
     // Epic whose children were linked in the GitHub UI expandable but
     // permanently unclosable.
-    const childIds = await readEpicChildIdsFrom({
+    const { ids: childIds, nativeReadFailed } = await readEpicChildIdsFrom({
       epic,
       readNativeChildIds: nativeChildReader(provider),
       onWarn: (message) => Logger.warn(message),
     });
-    if (!childIds.includes(storyId)) continue;
-    matches.push({ epic, childIds });
+    if (!childIds.includes(storyId)) {
+      // A degraded read can truncate this Story out of its own container's
+      // child list, which drops the Epic from the run entirely rather than
+      // rolling it up wrongly. Non-destructive, but silent — say so, since it
+      // is the same root cause as the refusal in `rollUpOneEpic`.
+      if (nativeReadFailed) {
+        Logger.warn(
+          `[epic-rollup] Epic #${epicId}: skipped for Story #${storyId} on a ` +
+            'degraded child read — the Story may in fact be linked to it.',
+        );
+      }
+      continue;
+    }
+    matches.push({ epic, childIds, nativeReadFailed });
   }
   return matches;
 }
@@ -374,11 +432,12 @@ export async function rollUpEpicForStory({
       owner === undefined ? resolveEpicOwner(config) : owner;
 
     const epics = [];
-    for (const { epic, childIds } of matches) {
+    for (const { epic, childIds, nativeReadFailed } of matches) {
       epics.push(
         await rollUpOneEpic({
           epic,
           childIds,
+          nativeReadFailed,
           provider,
           columnSync: sync,
           owner: resolvedOwner,

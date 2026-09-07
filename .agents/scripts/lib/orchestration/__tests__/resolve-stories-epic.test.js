@@ -134,6 +134,23 @@ describe('expandEpicIds', () => {
     );
   });
 
+  it('distinguishes a degraded read from a genuinely empty container (Story #5210)', async () => {
+    const issues = new Map([[1, epic(1, [])]]);
+
+    await assert.rejects(
+      () =>
+        expandEpicIds({
+          ids: [1],
+          getTicket: tableGet(issues),
+          readNativeChildIds: async () => {
+            throw new Error('gh-exec: gh exited with code 1');
+          },
+        }),
+      /incomplete, not empty/,
+      'telling an operator to link Stories that ARE linked sends them the wrong way',
+    );
+  });
+
   it('errors when every child has already landed', async () => {
     const issues = new Map([
       [1, epic(1, [10])],

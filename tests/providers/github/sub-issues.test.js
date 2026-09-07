@@ -35,8 +35,32 @@ const cacheMod = await import(
   ).href
 );
 
+const loggerMod = await import(
+  pathToFileURL(path.join(ROOT, '.agents', 'scripts', 'lib', 'Logger.js')).href
+);
+
 const { SubIssueGateway } = subIssuesMod;
 const { createInlineTicketCache } = cacheMod;
+const { Logger } = loggerMod;
+
+/**
+ * Run `fn` with `Logger.error` captured. Swapping the method rather than
+ * raising the level keeps the assertion independent of `AGENT_LOG_LEVEL`.
+ *
+ * @param {() => Promise<unknown>} fn
+ * @returns {Promise<string[]>}
+ */
+async function captureErrors(fn) {
+  const lines = [];
+  const original = Logger.error;
+  Logger.error = (message) => lines.push(String(message));
+  try {
+    await fn();
+  } finally {
+    Logger.error = original;
+  }
+  return lines;
+}
 
 describe('providers/github/sub-issues.js — SubIssueGateway', () => {
   it('getNativeSubIssues: paginates and primes the cache', async () => {
@@ -74,6 +98,50 @@ describe('providers/github/sub-issues.js — SubIssueGateway', () => {
     assert.deepEqual(seen, [10, 11, 12]);
     assert.equal(cache.has(10), true);
     assert.equal(cache.has(12), true);
+  });
+
+  it("getNativeSubIssues: names gh's own reason, not just the exit code (Story #5210)", async () => {
+    const err = Object.assign(new Error('gh-exec: gh exited with code 1'), {
+      stderr:
+        'HTTP 403: You have exceeded a secondary rate limit\nhttps://api.github.com/graphql',
+    });
+    const gateway = new SubIssueGateway({
+      ghGraphql: async () => {
+        throw err;
+      },
+      // Pin the category so this test asserts the RENDERING, not the
+      // classification (which `errors.test.js` owns).
+      classifyGithubError: () => 'permanent',
+    });
+
+    const lines = await captureErrors(async () => {
+      await assert.rejects(() =>
+        gateway.getNativeSubIssues('parent_node', 1891),
+      );
+    });
+
+    assert.equal(lines.length, 1);
+    assert.match(lines[0], /parent #1891/);
+    assert.match(
+      lines[0],
+      /https:\/\/api\.github\.com\/graphql/,
+      "describeGhFailure appends the LAST stderr line, gh's actionable one",
+    );
+  });
+
+  it('getNativeSubIssues: degrades to the bare message when no stderr was captured', async () => {
+    const gateway = new SubIssueGateway({
+      ghGraphql: async () => {
+        throw new Error('something opaque');
+      },
+      classifyGithubError: () => 'permanent',
+    });
+
+    const lines = await captureErrors(async () => {
+      await assert.rejects(() => gateway.getNativeSubIssues('parent_node', 7));
+    });
+
+    assert.match(lines[0], /something opaque/);
   });
 
   it('getNativeSubIssues: returns [] when the feature is disabled', async () => {

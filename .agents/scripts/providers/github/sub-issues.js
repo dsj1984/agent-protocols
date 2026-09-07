@@ -23,6 +23,7 @@
  * @see Story #2462 — Split GitHubProvider god class into seven composed gateways.
  */
 
+import { describeGhFailure } from '../../lib/gh-exec.js';
 import { Logger } from '../../lib/Logger.js';
 import {
   classifyGithubError as defaultClassifyGithubError,
@@ -104,8 +105,14 @@ export class SubIssueGateway {
         );
         return [];
       }
+      // `describeGhFailure`, not `err.message`: on the gh transport the
+      // message is only the classified summary (`gh exited with code 1`) and
+      // the actionable sentence — the HTTP status, the rate-limit notice — is
+      // on stderr. Three identical opaque lines are what made the Epic-rollup
+      // incident unreadable until the API was queried by hand (Story #5210).
       Logger.error(
-        `[GitHubProvider] sub-issues GraphQL failed (parent #${parentId}, category=${category}): ${err.message}`,
+        `[GitHubProvider] sub-issues GraphQL failed (parent #${parentId}, ` +
+          `category=${category}): ${describeGhFailure(err)}`,
       );
       throw err;
     }

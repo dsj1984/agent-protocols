@@ -12,6 +12,7 @@ import { describe, it } from 'node:test';
 
 import { appendEpicChildIds } from '../epic-checklist.js';
 import {
+  CHECKLIST_ITEM_LINE_RE,
   composeEpicBody,
   isEpicTicket,
   normalizeChildIds,
@@ -109,6 +110,60 @@ describe('readEpicChildIds', () => {
   });
 });
 
+describe('the checklist grammar accepts a real hand-maintained tracker (Story #5210)', () => {
+  // Verbatim shapes from container Epic #1891, whose 70 annotated rows the
+  // old whole-line grammar matched none of. It presented 3 of 58 children to
+  // the rollup, which closed it with 23 still open.
+  const ANNOTATED = [
+    '- [ ] Design & content sign-off (#1897): _pending_',
+    '- [ ] 1.4 #1909 (Part A DONE; Part B blocked on the Infisical ceiling)',
+    '- [x] 1.1 #1874 done',
+  ].join('\n');
+
+  it('reads an id carried anywhere on the row, not only as the whole row', () => {
+    assert.deepEqual(readEpicChildIds(ANNOTATED), [1897, 1909, 1874]);
+  });
+
+  it('still refuses a prose line that is not a checklist row at all', () => {
+    const body = 'Supersedes #99 and relates to #98.\n\n- [ ] #10\n';
+    assert.deepEqual(readEpicChildIds(body), [10]);
+  });
+
+  it('takes the FIRST reference on a row, so one row is one child', () => {
+    assert.deepEqual(
+      readEpicChildIds('- [ ] blocked by #7, tracked as #8'),
+      [7],
+    );
+  });
+
+  it('ignores a row whose "id" is not a whole token', () => {
+    assert.deepEqual(readEpicChildIds('- [ ] see #12abc\n'), []);
+  });
+
+  it('the /g reader and its single-line twin accept the same line set', () => {
+    const lines = [
+      '- [ ] #10',
+      '- [x] #11',
+      '- [X]   #12',
+      '- [ ] Design & content sign-off (#1897): _pending_',
+      '- [ ] 1.4 #1909 (Part B blocked)',
+      '  - [ ] #13',
+      '- [ ] no reference here',
+      '- [ ] see #12abc',
+      'Supersedes #99.',
+      '* [ ] #14',
+      '',
+    ];
+    for (const line of lines) {
+      assert.equal(
+        CHECKLIST_ITEM_LINE_RE.test(line),
+        readEpicChildIds(line).length > 0,
+        `the two grammars disagree on: ${JSON.stringify(line)}`,
+      );
+    }
+  });
+});
+
 describe('normalizeChildIds', () => {
   it('dedupes, preserves first-seen order and drops non-positive integers', () => {
     assert.deepEqual(
@@ -126,20 +181,23 @@ describe('readEpicChildIdsFrom', () => {
   const epic = { number: 5, body: '- [ ] #10\n- [ ] #11\n' };
 
   it('unions the native edges with the body checklist, deduped', async () => {
-    const ids = await readEpicChildIdsFrom({
+    const result = await readEpicChildIdsFrom({
       epic,
       readNativeChildIds: async () => [11, 12],
     });
-    assert.deepEqual(ids, [11, 12, 10]);
+    assert.deepEqual(result, { ids: [11, 12, 10], nativeReadFailed: false });
   });
 
   it('falls back to the checklist alone when there is no native reader', async () => {
-    assert.deepEqual(await readEpicChildIdsFrom({ epic }), [10, 11]);
+    assert.deepEqual(await readEpicChildIdsFrom({ epic }), {
+      ids: [10, 11],
+      nativeReadFailed: false,
+    });
   });
 
   it('degrades to the checklist and warns when the native read throws', async () => {
     const warnings = [];
-    const ids = await readEpicChildIdsFrom({
+    const { ids } = await readEpicChildIdsFrom({
       epic,
       readNativeChildIds: async () => {
         throw new Error('GraphQL unavailable');
@@ -154,6 +212,37 @@ describe('readEpicChildIdsFrom', () => {
     assert.equal(warnings.length, 1);
     assert.match(warnings[0], /Epic #5/);
     assert.match(warnings[0], /GraphQL unavailable/);
+  });
+
+  it('REPORTS the degrade, so a truncated list is not mistaken for a small Epic (Story #5210)', async () => {
+    const { nativeReadFailed } = await readEpicChildIdsFrom({
+      epic,
+      readNativeChildIds: async () => {
+        throw new Error('gh-exec: gh exited with code 1');
+      },
+    });
+    assert.equal(
+      nativeReadFailed,
+      true,
+      'the caller deciding an irreversible close must be able to see this',
+    );
+  });
+
+  it('warns that the list may be incomplete, not merely that a read failed', async () => {
+    const warnings = [];
+    await readEpicChildIdsFrom({
+      epic,
+      readNativeChildIds: async () => {
+        throw new Error('boom');
+      },
+      onWarn: (m) => warnings.push(m),
+    });
+    assert.match(warnings[0], /may be incomplete/);
+  });
+
+  it('is not "degraded" when the caller supplied no reader — it asked for no authority', async () => {
+    const { nativeReadFailed } = await readEpicChildIdsFrom({ epic });
+    assert.equal(nativeReadFailed, false);
   });
 });
 
@@ -214,6 +303,35 @@ describe('appendEpicChildIds — adoption writes into a live body (Story #5155)'
     assert.ok(next.includes('## Stories'));
     assert.deepEqual(readEpicChildIds(next), [3]);
     assert.ok(next.startsWith('Some operator prose, no headings.'));
+  });
+
+  it('appends after the last ANNOTATED row, not the last bare one (Story #5210)', () => {
+    const body = [
+      '## Goal',
+      '',
+      'Group them.',
+      '',
+      '## Stories',
+      '',
+      '- [ ] #1',
+      '- [ ] Design sign-off (#2): _pending_',
+      '',
+    ].join('\n');
+
+    const next = appendEpicChildIds(body, [9]);
+    const lines = next.split('\n');
+
+    assert.ok(
+      lines.indexOf('- [ ] #9') >
+        lines.indexOf('- [ ] Design sign-off (#2): _pending_'),
+      'a new row must land after every existing row, annotated or not',
+    );
+    assert.deepEqual(readEpicChildIds(next), [1, 2, 9]);
+  });
+
+  it('is still idempotent against an annotated row naming the same id', () => {
+    const body = '## Stories\n\n- [ ] Design sign-off (#2): _pending_\n';
+    assert.equal(appendEpicChildIds(body, [2]), body);
   });
 
   it('ignores non-ids and a non-string body without throwing', () => {
