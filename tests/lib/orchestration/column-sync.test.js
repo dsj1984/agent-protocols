@@ -160,6 +160,34 @@ describe('ColumnSync.sync', () => {
     assert.equal(res.reason, 'no-matching-label');
   });
 
+  it('pushes a directly-named column, skipping the label derivation', async () => {
+    // Story #5205 — a container Epic carries no `agent::*` label, so its
+    // column cannot come from `columnForLabels`; the rollup derives it from
+    // the Epic's children and names it here.
+    const provider = providerWithProject();
+    const sync = makeSync({ provider });
+    const res = await sync.setColumn(321, 'In Progress');
+    assert.equal(res.status, 'synced');
+    assert.equal(res.column, 'In Progress');
+    const mutation = provider.graphqlCalls.find((c) =>
+      c.query.includes('updateProjectV2ItemFieldValue'),
+    );
+    assert.equal(mutation.vars.optionId, 'opt-inprog');
+  });
+
+  it('no-ops on an absent column rather than mutating', async () => {
+    const provider = providerWithProject();
+    const sync = makeSync({ provider });
+    const res = await sync.setColumn(321, null);
+    assert.equal(res.status, 'skipped');
+    assert.equal(res.reason, 'no-column');
+    assert.equal(
+      provider.graphqlCalls.length,
+      0,
+      'a caller with nothing to say costs no round-trip',
+    );
+  });
+
   it('degrades gracefully when the Status field is missing', async () => {
     const provider = {
       projectNumber: 42,

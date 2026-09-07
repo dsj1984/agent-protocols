@@ -1084,6 +1084,51 @@ describe('epic-close — the container closes only when its children all landed'
     ]);
   });
 
+  it('ignores a malformed Story id in the delivered set', async () => {
+    const updates = [];
+    const result = await runPlanRunEpilogue({
+      planRunId: 'run-e',
+      stories: ['not-a-number', 0, 1],
+      provider: epicProvider({
+        epics: [container(90, [1])],
+        tickets: new Map([child(1, true)]),
+        updates,
+      }),
+      config: { github: { owner: 'o', repo: 'r' } },
+      cwd: process.cwd(),
+    });
+    const step = result.results.find((r) => r.kind === 'epic-close');
+    assert.deepEqual(step.closed, [90]);
+    assert.deepEqual(
+      updates,
+      [{ id: 90, mutations: { state: 'closed', state_reason: 'completed' } }],
+      'a non-id never contributes a pass of its own',
+    );
+  });
+
+  it('closes a container shared by two delivered siblings exactly once', async () => {
+    // Siblings share a container, so without the per-run withhold the second
+    // Story would re-derive — and re-close — what the first already closed.
+    // The live listing filters to open Epics and would eventually hide it,
+    // but the loop must not depend on a remote read racing its own writes.
+    const updates = [];
+    const result = await runPlanRunEpilogue({
+      planRunId: 'run-e',
+      stories: [1, 2],
+      provider: epicProvider({
+        epics: [container(90, [1, 2])],
+        tickets: new Map([child(1, true), child(2, true)]),
+        updates,
+      }),
+      config: { github: { owner: 'o', repo: 'r' } },
+      cwd: process.cwd(),
+    });
+    const step = result.results.find((r) => r.kind === 'epic-close');
+    assert.deepEqual(step.closed, [90]);
+    assert.deepEqual(step.pending, []);
+    assert.equal(updates.length, 1, 'exactly one close write');
+  });
+
   it('leaves the Epic open while any child is still outstanding', async () => {
     const updates = [];
     const result = await runPlanRunEpilogue({

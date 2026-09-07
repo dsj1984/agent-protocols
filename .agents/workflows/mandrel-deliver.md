@@ -102,9 +102,9 @@ to an attended run.
 
 4. **Close each hand-off** (§ Closing what the workers hand back), then, with
    every Story landed, run the **per-run epilogue (N>1)**:
-   `node .agents/scripts/plan-run-epilogue.js --stories 101,102`, which also
-   closes a container Epic whose children all landed. N=1 skips it
-   ([reference](helpers/deliver-reference.md)).
+   `node .agents/scripts/plan-run-epilogue.js --stories 101,102`; N=1 has none
+   ([reference](helpers/deliver-reference.md)). Every close rolls its container
+   Epic up from its children.
 
 5. **Correct what the change invalidated.** If a memory you recalled this
    session is now wrong — a trap this landed, a budget it moved — fix that entry

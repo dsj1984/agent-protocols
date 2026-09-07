@@ -1749,6 +1749,7 @@ describe('runSingleStoryClose — the lease is held until the merge confirms (St
         baseFastForward: true,
         tempPurge: true,
         leaseRelease: true,
+        epicRollup: true,
         details: {},
       },
       prProbe: { checksStatus: 'success' },

@@ -40,6 +40,7 @@ import {
 } from '../../../observability/runtime-friction.js';
 import { acquireLockWithWait as defaultAcquireLockWithWait } from '../../../single-story-sweep/sweep-lock.js';
 import { purgeStoryTempArtifacts as defaultPurgeStoryTempArtifacts } from '../../../temp-retention.js';
+import { rollUpEpicForStory as defaultRollUpEpicForStory } from '../../epic-rollup.js';
 import {
   executeFastForward as defaultExecuteFastForward,
   planFastForward as defaultPlanFastForward,
@@ -299,6 +300,45 @@ async function stepLeaseRelease({
 const REAP_SWEEP_REMEDY = 'node .agents/scripts/prune-plan-run-labels.js';
 
 /**
+ * Roll the closing Story's container Epic up from its children (Story #5205).
+ *
+ * Wired here for the same reason the cohort-label reap is: this is the only
+ * seam both a single- and a multi-Story run reach. The run epilogue that used
+ * to own the Epic close runs at N>1 only, so a container whose last open
+ * child was one Story stayed open forever.
+ *
+ * Unlike the reap, the outcome IS reported in the returned `tail`. The
+ * distinction is what an operator can act on: a stale cohort label is read by
+ * nothing, whereas an Epic left open or showing the wrong column is a visible
+ * board state someone will otherwise correct by hand, so a false here earns
+ * its line in the envelope.
+ *
+ * @returns {Promise<{ ok: boolean, detail: string|null }>}
+ */
+async function stepEpicRollup({
+  storyId,
+  provider,
+  config,
+  progress,
+  rollUpEpicForStoryFn,
+}) {
+  const outcome = await rollUpEpicForStoryFn({ storyId, provider, config });
+  for (const epicId of outcome?.closed ?? []) {
+    progress?.(
+      'POST-LAND',
+      `🗃️  Closed container Epic #${epicId} — every child Story landed.`,
+    );
+  }
+  const failures = (outcome?.epics ?? []).filter((e) => e?.detail);
+  return {
+    ok: failures.length === 0,
+    detail: failures.length
+      ? failures.map((e) => `#${e.epicId}: ${e.detail}`).join('; ')
+      : null,
+  };
+}
+
+/**
  * Reap the cohort labels the closing Story carried (Story #5189).
  *
  * This seam is chosen deliberately. It is the only one that fires for both
@@ -396,7 +436,8 @@ async function stepPlanRunLabelReap({
  * @param {Function} [args.purgeStoryTempArtifactsFn] Test seam.
  * @param {Function} [args.releaseStoryLeaseFn]     Test seam.
  * @param {Function} [args.reapPlanRunLabelsForStoryFn] Test seam.
- * @returns {Promise<{ followUps: boolean, statusResync: boolean, refCleanup: boolean, baseFastForward: boolean, tempPurge: boolean, leaseRelease: boolean, details: Record<string, string|null> }>}
+ * @param {Function} [args.rollUpEpicForStoryFn]     Test seam.
+ * @returns {Promise<{ followUps: boolean, statusResync: boolean, refCleanup: boolean, baseFastForward: boolean, tempPurge: boolean, leaseRelease: boolean, epicRollup: boolean, details: Record<string, string|null> }>}
  */
 export async function runPostLandTail({
   storyId,
@@ -417,6 +458,7 @@ export async function runPostLandTail({
   purgeStoryTempArtifactsFn = defaultPurgeStoryTempArtifacts,
   releaseStoryLeaseFn = defaultReleaseStoryLease,
   reapPlanRunLabelsForStoryFn = defaultReapPlanRunLabelsForStory,
+  rollUpEpicForStoryFn = defaultRollUpEpicForStory,
 }) {
   progress?.('POST-LAND', `🧾 Running land tail for Story #${storyId}...`);
 
@@ -481,6 +523,21 @@ export async function runPostLandTail({
         reapPlanRunLabelsForStoryFn,
       }),
     { name: 'plan-run label reap', progress },
+  );
+
+  // Story #5205 — the container Epic's state is derived from its children, so
+  // the child reaching `agent::done` is the edge that can close it. Runs with
+  // the other GitHub-touching steps, outside the checkout lock.
+  const epicRollup = await step(
+    () =>
+      stepEpicRollup({
+        storyId,
+        provider,
+        config,
+        progress,
+        rollUpEpicForStoryFn,
+      }),
+    { name: 'epic rollup', progress },
   );
 
   // Local-checkout mutations: serialized behind a best-effort cross-process
@@ -555,6 +612,7 @@ export async function runPostLandTail({
     baseFastForward: baseFastForward.ok,
     tempPurge: tempPurge.ok,
     leaseRelease: leaseRelease.ok,
+    epicRollup: epicRollup.ok,
     details: {
       followUps: followUps.detail,
       statusResync: statusResync.detail,
@@ -562,6 +620,7 @@ export async function runPostLandTail({
       baseFastForward: baseFastForward.detail,
       tempPurge: tempPurge.detail,
       leaseRelease: leaseRelease.detail,
+      epicRollup: epicRollup.detail,
     },
   };
   const degraded = Object.entries(tail)

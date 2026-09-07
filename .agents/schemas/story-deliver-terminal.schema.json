@@ -88,7 +88,8 @@
         "refCleanup",
         "baseFastForward",
         "tempPurge",
-        "leaseRelease"
+        "leaseRelease",
+        "epicRollup"
       ],
       "properties": {
         "followUps": { "type": "boolean" },
@@ -102,6 +103,10 @@
         "leaseRelease": {
           "type": "boolean",
           "description": "Story #4860 — the operator's assignee-lease on the Story was released now that the merge is confirmed. The close deliberately no longer releases it at PR creation, so the ticket stays assigned for the whole time its PR is open; every non-merged ending (merge.unlanded block, exhausted wait budget, --no-wait-merge, --no-auto-merge) retains the claim and never reaches this step. A no-op release — the operator is no longer the recorded owner, as on a re-run or a belated manual confirm — reports true: an already-unassigned ticket is the desired end state. Only a throw reports false, and like every tail step that degrades the report, never the land."
+        },
+        "epicRollup": {
+          "type": "boolean",
+          "description": "Story #5205 — the container Epic listing this Story was rolled up from its children: Status column derived from their composition, the operator recorded as its owner while any child is in flight, and the Epic closed once every child landed. A Story under no container reports true — there was nothing to roll up, which IS the correct outcome. Only a real failure — an unreadable child, a refused board or issue mutation — reports false, and like every tail step that degrades the report, never the land."
         },
         "details": {
           "type": "object",

@@ -145,6 +145,7 @@ describe('single-story-confirm-merge --wait', () => {
           baseFastForward: true,
           tempPurge: true,
           leaseRelease: true,
+          epicRollup: true,
           details: {},
         },
         prProbe: { state: 'MERGED', checksStatus: 'success' },
