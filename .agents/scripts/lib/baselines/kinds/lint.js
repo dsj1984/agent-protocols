@@ -67,6 +67,18 @@ export function projectRow(row) {
   };
 }
 
+/**
+ * Canonical row identity (Story #5215). This kind does not use the shared
+ * factory scaffold, so it declares the protocol member itself; `path` is
+ * unique per row here, which a shipped-baseline injectivity test pins.
+ *
+ * @param {{path: string, errorCount: number, warningCount: number}} row
+ * @returns {string}
+ */
+export function rowIdentity(row) {
+  return row.path;
+}
+
 export function sortRows(rows) {
   return [...rows].sort((a, b) => a.path.localeCompare(b.path));
 }

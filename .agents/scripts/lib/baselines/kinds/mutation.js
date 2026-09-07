@@ -178,6 +178,7 @@ function aggregate(rows) {
 
 export const {
   kernelVersion,
+  rowIdentity,
   sortRows,
   rollup,
   compare,

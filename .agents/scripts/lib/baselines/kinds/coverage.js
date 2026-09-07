@@ -61,6 +61,7 @@ function perfectCoverageRow(path) {
 
 export const {
   kernelVersion,
+  rowIdentity,
   sortRows,
   rollup,
   compare,
