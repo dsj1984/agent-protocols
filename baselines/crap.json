@@ -1,7 +1,7 @@
 {
   "$schema": ".agents/schemas/baselines/crap.schema.json",
   "kernelVersion": "0.1.0",
-  "generatedAt": "2026-09-07T14:01:46.606Z",
+  "generatedAt": "2026-09-07T15:22:19.617Z",
   "scoringSemantics": "method-identity-v3",
   "tsTranspilerVersion": "6.0.3",
   "provenanceStamped": true,
@@ -10946,239 +10946,252 @@
     },
     {
       "path": ".agents/scripts/lib/gh-exec.js",
+      "method": "describeGhFailure",
+      "startLine": 180,
+      "crap": 2
+    },
+    {
+      "path": ".agents/scripts/lib/gh-exec.js",
+      "method": "<anon describeGhFailure/(line)#0>",
+      "startLine": 184,
+      "crap": 1,
+      "anonymous": true
+    },
+    {
+      "path": ".agents/scripts/lib/gh-exec.js",
       "method": "<anon (d)#0>",
-      "startLine": 204,
+      "startLine": 233,
       "crap": 1.216,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/gh-exec.js",
       "method": "<anon (d)#1>",
-      "startLine": 212,
+      "startLine": 241,
       "crap": 1,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/gh-exec.js",
       "method": "<anon (d)#2>",
-      "startLine": 220,
+      "startLine": 249,
       "crap": 1,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/gh-exec.js",
       "method": "<anon (d)#3>",
-      "startLine": 226,
+      "startLine": 255,
       "crap": 1,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/gh-exec.js",
       "method": "<anon (d)#4>",
-      "startLine": 234,
+      "startLine": 263,
       "crap": 1,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/gh-exec.js",
       "method": "<anon (d)#5>",
-      "startLine": 238,
+      "startLine": 267,
       "crap": 1,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/gh-exec.js",
       "method": "classifySpawnError",
-      "startLine": 242,
+      "startLine": 271,
       "crap": 3
     },
     {
       "path": ".agents/scripts/lib/gh-exec.js",
       "method": "classify",
-      "startLine": 252,
+      "startLine": 281,
       "crap": 5
     },
     {
       "path": ".agents/scripts/lib/gh-exec.js",
       "method": "exec",
-      "startLine": 293,
-      "crap": 4.000432
+      "startLine": 322,
+      "crap": 4.001024
     },
     {
       "path": ".agents/scripts/lib/gh-exec.js",
       "method": "<anon exec/(resolve,reject)#0>",
-      "startLine": 315,
+      "startLine": 344,
       "crap": 4.001024,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/gh-exec.js",
       "method": "<anon exec/(resolve,reject)#0/(chunk)#0>",
-      "startLine": 333,
+      "startLine": 362,
       "crap": 1.000064,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/gh-exec.js",
       "method": "<anon exec/(resolve,reject)#0/(chunk)#1>",
-      "startLine": 336,
+      "startLine": 365,
       "crap": 1.000064,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/gh-exec.js",
       "method": "<anon exec/(resolve,reject)#0/(err)#0>",
-      "startLine": 340,
+      "startLine": 369,
       "crap": 2.000256,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/gh-exec.js",
       "method": "<anon exec/(resolve,reject)#0/(code,signal)#0>",
-      "startLine": 346,
+      "startLine": 375,
       "crap": 8.004096,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/gh-exec.js",
       "method": "createGh",
-      "startLine": 415,
-      "crap": 1.0000960815198316
+      "startLine": 444,
+      "crap": 1.0000804283854112
     },
     {
       "path": ".agents/scripts/lib/gh-exec.js",
       "method": "<anon createGh/(opts)#0>",
-      "startLine": 419,
+      "startLine": 448,
       "crap": 1,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/gh-exec.js",
       "method": "api",
-      "startLine": 436,
+      "startLine": 465,
       "crap": 8.032768
     },
     {
       "path": ".agents/scripts/lib/gh-exec.js",
       "method": "<anon createGh/api/(f)#0>",
-      "startLine": 452,
+      "startLine": 481,
       "crap": 1.000512,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/gh-exec.js",
       "method": "jsonFlag",
-      "startLine": 466,
+      "startLine": 495,
       "crap": 3
     },
     {
       "path": ".agents/scripts/lib/gh-exec.js",
       "method": "idStr",
-      "startLine": 475,
+      "startLine": 504,
       "crap": 2
     },
     {
       "path": ".agents/scripts/lib/gh-exec.js",
       "method": "<anon createGh/(id,fields)#0>",
-      "startLine": 480,
+      "startLine": 509,
       "crap": 1,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/gh-exec.js",
       "method": "<anon createGh/(id,flags)#0>",
-      "startLine": 484,
+      "startLine": 513,
       "crap": 1,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/gh-exec.js",
       "method": "<anon createGh/(id,bodyText)#0>",
-      "startLine": 486,
+      "startLine": 515,
       "crap": 1,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/gh-exec.js",
       "method": "<anon createGh/(flags,fields)#0>",
-      "startLine": 491,
+      "startLine": 520,
       "crap": 1,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/gh-exec.js",
       "method": "<anon createGh/(id,fields)#1>",
-      "startLine": 498,
-      "crap": 1,
-      "anonymous": true
-    },
-    {
-      "path": ".agents/scripts/lib/gh-exec.js",
-      "method": "<anon createGh/(flags)#0>",
-      "startLine": 502,
-      "crap": 1,
-      "anonymous": true
-    },
-    {
-      "path": ".agents/scripts/lib/gh-exec.js",
-      "method": "<anon createGh/(id,flags)#1>",
-      "startLine": 504,
-      "crap": 1,
-      "anonymous": true
-    },
-    {
-      "path": ".agents/scripts/lib/gh-exec.js",
-      "method": "<anon createGh/(id,flags)#2>",
-      "startLine": 506,
-      "crap": 1,
-      "anonymous": true
-    },
-    {
-      "path": ".agents/scripts/lib/gh-exec.js",
-      "method": "<anon createGh/(id,flags)#3>",
-      "startLine": 514,
-      "crap": 1,
-      "anonymous": true
-    },
-    {
-      "path": ".agents/scripts/lib/gh-exec.js",
-      "method": "<anon createGh/(flags,fields)#1>",
-      "startLine": 516,
-      "crap": 1,
-      "anonymous": true
-    },
-    {
-      "path": ".agents/scripts/lib/gh-exec.js",
-      "method": "<anon createGh/(name,flags)#0>",
-      "startLine": 523,
-      "crap": 1,
-      "anonymous": true
-    },
-    {
-      "path": ".agents/scripts/lib/gh-exec.js",
-      "method": "<anon createGh/(name,flags)#1>",
-      "startLine": 525,
-      "crap": 1,
-      "anonymous": true
-    },
-    {
-      "path": ".agents/scripts/lib/gh-exec.js",
-      "method": "<anon createGh/(flags,fields)#2>",
       "startLine": 527,
       "crap": 1,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/gh-exec.js",
+      "method": "<anon createGh/(flags)#0>",
+      "startLine": 531,
+      "crap": 1,
+      "anonymous": true
+    },
+    {
+      "path": ".agents/scripts/lib/gh-exec.js",
+      "method": "<anon createGh/(id,flags)#1>",
+      "startLine": 533,
+      "crap": 1,
+      "anonymous": true
+    },
+    {
+      "path": ".agents/scripts/lib/gh-exec.js",
+      "method": "<anon createGh/(id,flags)#2>",
+      "startLine": 535,
+      "crap": 1,
+      "anonymous": true
+    },
+    {
+      "path": ".agents/scripts/lib/gh-exec.js",
+      "method": "<anon createGh/(id,flags)#3>",
+      "startLine": 543,
+      "crap": 1,
+      "anonymous": true
+    },
+    {
+      "path": ".agents/scripts/lib/gh-exec.js",
+      "method": "<anon createGh/(flags,fields)#1>",
+      "startLine": 545,
+      "crap": 1,
+      "anonymous": true
+    },
+    {
+      "path": ".agents/scripts/lib/gh-exec.js",
+      "method": "<anon createGh/(name,flags)#0>",
+      "startLine": 552,
+      "crap": 1,
+      "anonymous": true
+    },
+    {
+      "path": ".agents/scripts/lib/gh-exec.js",
+      "method": "<anon createGh/(name,flags)#1>",
+      "startLine": 554,
+      "crap": 1,
+      "anonymous": true
+    },
+    {
+      "path": ".agents/scripts/lib/gh-exec.js",
+      "method": "<anon createGh/(flags,fields)#2>",
+      "startLine": 556,
+      "crap": 1,
+      "anonymous": true
+    },
+    {
+      "path": ".agents/scripts/lib/gh-exec.js",
       "method": "<anon createGh/(target,fields)#0>",
-      "startLine": 534,
+      "startLine": 563,
       "crap": 2,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/gh-exec.js",
       "method": "<anon createGh/(target,flags)#0>",
-      "startLine": 540,
+      "startLine": 569,
       "crap": 3.1851851851851856,
       "anonymous": true
     },
@@ -15498,78 +15511,78 @@
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/epic-ops.js",
       "method": "epicFingerprint",
-      "startLine": 50,
+      "startLine": 51,
       "crap": 1
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/epic-ops.js",
       "method": "<anon epicFingerprint/(a,b)#0>",
-      "startLine": 51,
+      "startLine": 52,
       "crap": 1,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/epic-ops.js",
       "method": "epicFingerprintMarker",
-      "startLine": 64,
+      "startLine": 65,
       "crap": 1
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/epic-ops.js",
       "method": "ensureEpicLabel",
-      "startLine": 82,
+      "startLine": 83,
       "crap": 4
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/epic-ops.js",
       "method": "findExistingEpic",
-      "startLine": 123,
+      "startLine": 125,
       "crap": 6
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/epic-ops.js",
       "method": "<anon findExistingEpic/(issue)#0>",
-      "startLine": 131,
+      "startLine": 133,
       "crap": 1,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/epic-ops.js",
       "method": "mirrorSubIssueEdges",
-      "startLine": 160,
+      "startLine": 162,
       "crap": 4.025155017797175
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/epic-ops.js",
       "method": "<anon mirrorSubIssueEdges/(issueNumber)#0>",
-      "startLine": 177,
+      "startLine": 179,
       "crap": 1,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/epic-ops.js",
       "method": "createContainerEpic",
-      "startLine": 231,
+      "startLine": 233,
       "crap": 12
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/epic-ops.js",
       "method": "<anon createContainerEpic/(s)#0>",
-      "startLine": 249,
+      "startLine": 251,
       "crap": 1,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/epic-ops.js",
       "method": "<anon createContainerEpic/(id)#0>",
-      "startLine": 250,
+      "startLine": 252,
       "crap": 2,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/epic-ops.js",
       "method": "<anon createContainerEpic/(s)#1>",
-      "startLine": 259,
+      "startLine": 261,
       "crap": 1,
       "anonymous": true
     },
@@ -15873,364 +15886,364 @@
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/run-plan-persist.js",
       "method": "logPersistEpilogue",
-      "startLine": 638,
-      "crap": 2
+      "startLine": 643,
+      "crap": 3
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/run-plan-persist.js",
       "method": "<anon logPersistEpilogue/(story)#0>",
-      "startLine": 639,
+      "startLine": 649,
       "crap": 1,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/run-plan-persist.js",
       "method": "<anon logPersistEpilogue/(s2)#0>",
-      "startLine": 643,
+      "startLine": 653,
       "crap": 1,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/run-plan-persist.js",
       "method": "<anon logPersistEpilogue/(s2)#1>",
-      "startLine": 651,
+      "startLine": 661,
       "crap": 1,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/run-plan-persist.js",
       "method": "runPlanPersist",
-      "startLine": 691,
+      "startLine": 706,
       "crap": 4
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/run-plan-persist.js",
       "method": "<anon runPlanPersist/(s)#0>",
-      "startLine": 811,
+      "startLine": 827,
       "crap": 1,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/story-ops.js",
       "method": "normalizePlanRunId",
-      "startLine": 79,
+      "startLine": 80,
       "crap": 2
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/story-ops.js",
       "method": "planRunLabel",
-      "startLine": 101,
+      "startLine": 102,
       "crap": 1
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/story-ops.js",
       "method": "derivePlanRunId",
-      "startLine": 120,
+      "startLine": 121,
       "crap": 2
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/story-ops.js",
       "method": "planStoryFingerprint",
-      "startLine": 185,
+      "startLine": 186,
       "crap": 1
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/story-ops.js",
       "method": "planFingerprintMarker",
-      "startLine": 200,
+      "startLine": 201,
       "crap": 1
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/story-ops.js",
       "method": "extractPlanFingerprint",
-      "startLine": 218,
+      "startLine": 219,
       "crap": 3
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/story-ops.js",
       "method": "sanitizeAuthoredLabels",
-      "startLine": 258,
+      "startLine": 259,
       "crap": 7
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/story-ops.js",
       "method": "<anon sanitizeAuthoredLabels/(p)#0>",
-      "startLine": 268,
+      "startLine": 269,
       "crap": 1,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/story-ops.js",
       "method": "bodyObjectFromTicket",
-      "startLine": 283,
+      "startLine": 284,
       "crap": 4
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/story-ops.js",
       "method": "normalizeDependsOn",
-      "startLine": 307,
+      "startLine": 308,
       "crap": 3
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/story-ops.js",
       "method": "<anon normalizeDependsOn/(d)#0>",
-      "startLine": 309,
+      "startLine": 310,
       "crap": 1,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/story-ops.js",
       "method": "arraysEqual",
-      "startLine": 314,
+      "startLine": 315,
       "crap": 2
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/story-ops.js",
       "method": "<anon arraysEqual/(value,index)#0>",
-      "startLine": 315,
+      "startLine": 316,
       "crap": 1,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/story-ops.js",
       "method": "syncContractFieldFromTopLevel",
-      "startLine": 328,
+      "startLine": 329,
       "crap": 5
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/story-ops.js",
       "method": "normalizeStoryTicket",
-      "startLine": 357,
+      "startLine": 358,
       "crap": 8.216
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/story-ops.js",
       "method": "foldSpecIntoStoryBody",
-      "startLine": 411,
+      "startLine": 412,
       "crap": 7
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/story-ops.js",
       "method": "resolveProvenanceSource",
-      "startLine": 459,
+      "startLine": 460,
       "crap": 2
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/story-ops.js",
       "method": "assembleOnePlanStory",
-      "startLine": 464,
+      "startLine": 465,
       "crap": 2
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/story-ops.js",
       "method": "assertSharedSpecAllowed",
-      "startLine": 515,
+      "startLine": 516,
       "crap": 4
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/story-ops.js",
       "method": "assemblePlanStories",
-      "startLine": 539,
+      "startLine": 540,
       "crap": 3.072
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/story-ops.js",
       "method": "<anon assemblePlanStories/(ticket)#0>",
-      "startLine": 549,
+      "startLine": 550,
       "crap": 1.008,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/story-ops.js",
       "method": "orderStoriesByDependencies",
-      "startLine": 560,
+      "startLine": 561,
       "crap": 5.034293552812072
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/story-ops.js",
       "method": "<anon orderStoriesByDependencies/(story)#0>",
-      "startLine": 562,
+      "startLine": 563,
       "crap": 1.0013717421124828,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/story-ops.js",
       "method": "<anon orderStoriesByDependencies/(slug)#0>",
-      "startLine": 565,
+      "startLine": 566,
       "crap": 2.0054869684499312,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/story-ops.js",
       "method": "<anon orderStoriesByDependencies/(story)#1>",
-      "startLine": 580,
+      "startLine": 581,
       "crap": 1.0013717421124828,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/story-ops.js",
       "method": "<anon orderStoriesByDependencies/(story)#1/(slug)#0>",
-      "startLine": 582,
-      "crap": 1.0013717421124828,
-      "anonymous": true
-    },
-    {
-      "path": ".agents/scripts/lib/orchestration/plan-persist/story-ops.js",
-      "method": "<anon orderStoriesByDependencies/(story)#1/(slug)#1>",
       "startLine": 583,
       "crap": 1.0013717421124828,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/story-ops.js",
+      "method": "<anon orderStoriesByDependencies/(story)#1/(slug)#1>",
+      "startLine": 584,
+      "crap": 1.0013717421124828,
+      "anonymous": true
+    },
+    {
+      "path": ".agents/scripts/lib/orchestration/plan-persist/story-ops.js",
       "method": "<anon orderStoriesByDependencies/(story)#2>",
-      "startLine": 587,
+      "startLine": 588,
       "crap": 1.0013717421124828,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/story-ops.js",
       "method": "indexExistingStories",
-      "startLine": 620,
+      "startLine": 621,
       "crap": 5
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/story-ops.js",
       "method": "findOpenStoryByPlanFingerprint",
-      "startLine": 680,
+      "startLine": 681,
       "crap": 5
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/story-ops.js",
       "method": "warnOnDivergentSameTitleStory",
-      "startLine": 712,
+      "startLine": 713,
       "crap": 2
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/story-ops.js",
       "method": "<anon warnOnDivergentSameTitleStory/(id)#0>",
-      "startLine": 717,
+      "startLine": 718,
       "crap": 1,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/story-ops.js",
       "method": "renderStoryBodyForCreate",
-      "startLine": 733,
+      "startLine": 734,
       "crap": 2
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/story-ops.js",
       "method": "<anon renderStoryBodyForCreate/(slug)#0>",
-      "startLine": 734,
+      "startLine": 735,
       "crap": 2,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/story-ops.js",
       "method": "mirrorNativeDependencyEdges",
-      "startLine": 794,
+      "startLine": 795,
       "crap": 6.036
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/story-ops.js",
       "method": "<anon mirrorNativeDependencyEdges/(story)#0>",
-      "startLine": 795,
+      "startLine": 796,
       "crap": 1.001,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/story-ops.js",
       "method": "<anon mirrorNativeDependencyEdges/(story)#1>",
-      "startLine": 823,
+      "startLine": 824,
       "crap": 1.001,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/story-ops.js",
       "method": "<anon mirrorNativeDependencyEdges/(issueNumber)#0>",
-      "startLine": 828,
+      "startLine": 829,
       "crap": 1,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/story-ops.js",
       "method": "ensurePersistLabel",
-      "startLine": 880,
+      "startLine": 881,
       "crap": 4.16748046875
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/story-ops.js",
       "method": "createStoryIssues",
-      "startLine": 984,
-      "crap": 13.035961870309846
+      "startLine": 986,
+      "crap": 13.029590244466277
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/story-ops.js",
       "method": "<anon createStoryIssues/(story)#0>",
-      "startLine": 1001,
-      "crap": 1.000212792132011,
+      "startLine": 1003,
+      "crap": 1.0001750902039426,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/story-ops.js",
       "method": "<anon createStoryIssues/(s,i)#0>",
-      "startLine": 1006,
-      "crap": 1.000212792132011,
+      "startLine": 1008,
+      "crap": 1.0001750902039426,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/story-ops.js",
       "method": "<anon createStoryIssues/()#0>",
-      "startLine": 1078,
+      "startLine": 1084,
       "crap": 1,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/story-ops.js",
       "method": "markStoriesReady",
-      "startLine": 1145,
+      "startLine": 1156,
       "crap": 3.013206705484598
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/story-ops.js",
       "method": "<anon markStoriesReady/(story)#0>",
-      "startLine": 1154,
+      "startLine": 1165,
       "crap": 1,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/story-ops.js",
       "method": "<anon markStoriesReady/(outcome)#0>",
-      "startLine": 1173,
+      "startLine": 1184,
       "crap": 1.001467411720511,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/story-ops.js",
       "method": "<anon markStoriesReady/(outcome)#1>",
-      "startLine": 1174,
+      "startLine": 1185,
       "crap": 1.001467411720511,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/story-ops.js",
       "method": "<anon markStoriesReady/(outcome)#2>",
-      "startLine": 1176,
+      "startLine": 1187,
       "crap": 1.001467411720511,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/story-ops.js",
       "method": "<anon markStoriesReady/(outcome)#3>",
-      "startLine": 1177,
+      "startLine": 1188,
       "crap": 1.001467411720511,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-persist/story-ops.js",
       "method": "<anon markStoriesReady/(f)#0>",
-      "startLine": 1182,
+      "startLine": 1193,
       "crap": 1.001467411720511,
       "anonymous": true
     },
@@ -25387,6 +25400,12 @@
       "method": "isLabelNotFoundError",
       "startLine": 78,
       "crap": 4
+    },
+    {
+      "path": ".agents/scripts/providers/github/labels.js",
+      "method": "assertLabelDescriptionWithinCap",
+      "startLine": 114,
+      "crap": 2
     },
     {
       "path": ".agents/scripts/providers/github/mappers.js",
