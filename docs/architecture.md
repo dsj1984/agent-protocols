@@ -31,8 +31,16 @@ GitHub Issues, Labels, and Projects V2 serve as the Single Source of Truth
 (SSOT). `/mandrel-plan` authors one or more `type::story` tickets; `/mandrel-deliver` runs
 each Story on `story-<id>` → PR → `main` via `helpers/deliver-story`, with
 optional `depends_on` edges ordering rare multi-Story runs — resolved
-from live state, so they order Stories across plan runs and over time. An Epic is at most an optional untyped human umbrella issue outside
-orchestration — there is no `type::epic` delivery path.
+from live state, so they order Stories across plan runs and over time.
+A `type::epic` issue is a **pure container**: a `## Goal` paragraph plus a
+`- [ ] #N` child checklist, with no `## Spec`, no `acceptance[]` /
+`verify[]`, and no `agent::*` label. `/mandrel-plan` Gate #3 creates or
+adopts one; `/mandrel-deliver <epicId>` expands it to its open children and
+delivers those; its board Status, assignee and closure are derived from
+those children rather than labelled on it. The container is never branched,
+never implemented and never delivered — **delivery is Story-only**, and the
+retired `Epic: #N` body footer stays refused because linkage is
+parent→child only.
 
 ```mermaid
 graph TB
@@ -236,6 +244,9 @@ graph TB
 | `lib/orchestration/code-review.js`       | Inline review companion to `helpers/code-review.md`; persists results as a `code-review` structured comment. |
 | `lib/orchestration/change-set.js`        | The **one** Story change-set enumerator (`computeChangeSet`): computed once per delivery and injected into ceremony routing, review depth, and every acceptance critic, so no consumer re-derives a different set. Total — an unenumerable diff yields `{ files: null }`. |
 | `lib/duplicate-search.js`                | `/mandrel-plan` ideation entry — title + body keyword search across open Stories; returns a ranked list or `[]`. |
+| `lib/orchestration/epic-container.js`    | The **one** description of a container Epic — the `## Goal` + child-checklist shape, rendered by `plan-persist` and read back by expansion, so the written and read shapes cannot drift. Companions: `epic-checklist.js` (surgical in-place child insertion on adoption, preserving ticked rows) and `epic-candidates.js` (ranks the open Epics a new plan could join, for Gate #3). |
+| `lib/orchestration/epic-expansion.js`    | Turns a container-Epic id into the open Story ids under it, strictly before `resolve-stories.js` runs — so `/mandrel-deliver <epicId>` hands the Story-only engine an ordinary id list. |
+| `lib/orchestration/epic-rollup.js`       | Derives the container's Projects v2 Status, assignee and closure from its children and writes them directly (the Epic never gains an `agent::*` label). Invoked from both per-Story lifecycle edges, so the rollup holds at N=1; Status recomputes both ways, closure is one-way, and every step degrades rather than throwing. |
 
 #### Ready-set / DAG helpers
 
@@ -548,7 +559,7 @@ sequenceDiagram
     P->>EP: Emit the authoring envelope (all GitHub reads)
     P->>P: Author Story body (+ optional N>1 siblings)
     P->>TD: Persist (all gates, all GitHub writes)
-    TD->>GH: Create type::story issue(s); no type::epic
+    TD->>GH: Create type::story issue(s) + optional container type::epic
 
     H->>D: /mandrel-deliver <storyId...>
     D->>DS: story-<id> from main (no epic/<id> branch)
@@ -714,9 +725,11 @@ Story escalates: `agent::blocked`, a `friction` comment naming the unmet
 criteria, and a non-zero exit. The single prose home for the mechanic is
 [`helpers/acceptance-self-eval.md`](../.agents/workflows/helpers/acceptance-self-eval.md).
 
-### Multi-Story delivery (no Epic)
+### Multi-Story delivery (no Epic wave)
 
-Stories without an `Epic: #N` reference are the only valid `/mandrel-deliver` inputs.
+Stories are the only thing `/mandrel-deliver` ever delivers; a container
+`<epicId>` is accepted only as shorthand, expanded to its open children
+before resolution, and an `Epic: #N` body footer on a Story is still refused.
 `/mandrel-deliver <id> [<id>...]` routes them through
 [`helpers/deliver-story.md`](../.agents/workflows/helpers/deliver-story.md),
 building a dependency-aware plan and running one Story delivery worker per ready
