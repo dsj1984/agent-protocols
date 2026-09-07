@@ -456,7 +456,7 @@ const GITHUB_SCHEMA = {
 const PLANNING_SCHEMA = {
   type: 'object',
   description:
-    'Inputs to `/mandrel-plan`: risk escalation heuristics, ceremony-lite routing, and the cross-Story conflict-finding severity gates.',
+    'Inputs to `/mandrel-plan`: risk escalation heuristics, ceremony-lite routing, the memory-hygiene advisory thresholds, and the cross-Story conflict-finding severity gates.',
   properties: {
     riskHeuristics: {
       ...LIST_OR_EXTENDER_OF_STRINGS,
@@ -498,6 +498,34 @@ const PLANNING_SCHEMA = {
       },
       additionalProperties: false,
     },
+    // Story #5182 — the `/mandrel-plan` Phase 0 memory-hygiene advisory's two
+    // arms. The count arm this replaced was an absolute ceiling, which no
+    // consolidation pass could ever bring a pool back under; `growthDelta`
+    // measures entries written since the last pass instead, which a pass
+    // does reset. Both are advisory thresholds — nothing here gates a plan.
+    memoryPool: {
+      type: 'object',
+      description:
+        'Thresholds for the memory-hygiene advisory `/mandrel-plan` surfaces at Gate #1. Advisory only: it recommends `/memory-consolidate` and never gates, reroutes, or mutates the memory pool.',
+      properties: {
+        staleAfterDays: {
+          type: 'integer',
+          minimum: 1,
+          description:
+            "Recommend a consolidation pass once the pool's stamp is older than this many days. Default 30.",
+          default: 30,
+        },
+        growthDelta: {
+          type: 'integer',
+          minimum: 1,
+          description:
+            'Recommend a consolidation pass once this many entries have been written since the last one. Measured against the entry count the last pass stamped, so a stamp predating that field leaves growth unmeasured and only the age threshold applies. Default 25.',
+          default: 25,
+        },
+      },
+      additionalProperties: false,
+    },
+
     // Cross-Story conflict-finding severity gates. Off by default so
     // existing repos keep advisory-only behaviour; flipping either to
     // `true` upgrades the matching finding class to `'hard'`, which routes

@@ -118,7 +118,7 @@ GitHub provider identity plus the remote stance the bootstrap enforces. `owner`,
 
 ### `planning` (optional)
 
-Inputs to `/mandrel-plan`: risk escalation heuristics, ceremony-lite routing, and the cross-Story conflict-finding severity gates.
+Inputs to `/mandrel-plan`: risk escalation heuristics, ceremony-lite routing, the memory-hygiene advisory thresholds, and the cross-Story conflict-finding severity gates.
 
 | Key | Required | Type | Default | Description |
 | --- | --- | --- | --- | --- |
@@ -126,6 +126,9 @@ Inputs to `/mandrel-plan`: risk escalation heuristics, ceremony-lite routing, an
 | `complexityGate` | No | `object` | — | Shape-derived ceremony-lite complexity routing. A lite claim is validated against the authored Story shape at persist and re-derived from the Story body at dispatch; conservative (full on any doubt). Never relaxes the Story-ticket / PR-to-main / repo-gates / security-baseline non-negotiables. |
 | `complexityGate.enabled` | No | `boolean` | — | Master switch. When false, lite routing is disabled everywhere: persist refuses lite claims and dispatch always takes the sub-agent path. Default true. |
 | `complexityGate.maxArtifacts` | No | `integer` | — | Enumerated-artifact threshold reported by the plan-context complexity signals. An input signal for the planner verdict — carries no routing authority. Default 1. |
+| `memoryPool` | No | `object` | — | Thresholds for the memory-hygiene advisory `/mandrel-plan` surfaces at Gate #1. Advisory only: it recommends `/memory-consolidate` and never gates, reroutes, or mutates the memory pool. |
+| `memoryPool.staleAfterDays` | No | `integer` | `30` | Recommend a consolidation pass once the pool's stamp is older than this many days. Default 30. |
+| `memoryPool.growthDelta` | No | `integer` | `25` | Recommend a consolidation pass once this many entries have been written since the last one. Measured against the entry count the last pass stamped, so a stamp predating that field leaves growth unmeasured and only the age threshold applies. Default 25. |
 | `failOnSharedEditors` | No | `boolean` | `false` | When true, upgrade shared-editor conflict findings to hard errors (default false — advisory soft findings only). |
 | `requireExplicitCrossStoryDeps` | No | `boolean` | `false` | When true, upgrade implicit cross-Story dependency findings to hard errors (default false — advisory soft findings only). |
 | `crossCuttingRegistries` | No | `string[]` or `{ append?, prepend? }` | `["lib/orchestration/lifecycle/listeners/index.js","**/listeners/index.js","**/handlers/index.js"]` | Registry path patterns whose concurrent edits across Stories are flagged as conflicts. Defaults to the framework listener/handler index patterns when omitted. |

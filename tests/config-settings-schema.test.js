@@ -232,6 +232,45 @@ describe('planning.* shape', () => {
     );
   });
 
+  it('accepts planning.memoryPool thresholds (Story #5182)', () => {
+    assert.equal(
+      validate({
+        ...REQ,
+        planning: { memoryPool: { staleAfterDays: 45, growthDelta: 10 } },
+      }),
+      true,
+    );
+  });
+
+  it('accepts planning.memoryPool setting only one threshold', () => {
+    // Each leaf carries its own default, so a half-configured block leaves
+    // the other arm on the framework value rather than disabling it.
+    assert.equal(
+      validate({ ...REQ, planning: { memoryPool: { growthDelta: 10 } } }),
+      true,
+    );
+  });
+
+  it('rejects a non-integer or out-of-range memoryPool threshold', () => {
+    expectErrors(
+      { ...REQ, planning: { memoryPool: { growthDelta: 2.5 } } },
+      /must be integer/,
+    );
+    expectErrors(
+      { ...REQ, planning: { memoryPool: { staleAfterDays: 0 } } },
+      /must be >= 1/,
+    );
+  });
+
+  it('rejects an unknown memoryPool key (typo guard)', () => {
+    // `additionalProperties: false` on the block, so a near-miss spelling of
+    // a threshold fails loudly instead of sitting inert on the default.
+    expectErrors(
+      { ...REQ, planning: { memoryPool: { growthDeltaEntries: 25 } } },
+      /must NOT have additional properties/,
+    );
+  });
+
   it('rejects unknown planning property', () => {
     expectErrors(
       { ...REQ, planning: { unknownProp: true } },

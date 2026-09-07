@@ -19,12 +19,28 @@
  * only the attended `/memory-consolidate` pass, reading content, can tell the
  * difference. This module counts and stats; it never judges an entry.
  *
+ * **Growth, never size (Story #5182).** The second arm used to be an absolute
+ * ceiling of a hundred entries. A consolidation pass prefers `correct` over
+ * `dead` by design, so a pool that crosses a fixed ceiling stays over it
+ * forever: the nudge then fired on every plan however fresh the stamp, and a
+ * permanent recommendation is one the operator learns to ignore. The arm now
+ * measures **entries written since the last pass** — the one quantity a pass
+ * actually resets, because Step 6 records the post-rewrite entry count in the
+ * stamp as the next run's growth baseline.
+ *
+ * A stamp carrying a date but no usable `entryCount` (every stamp written
+ * before that Story) leaves growth **unmeasured**. That is not
+ * "never consolidated" — an operator did review the pool — so the growth arm
+ * simply stays silent and only the age arm can speak, until the next pass
+ * writes a baseline.
+ *
  * Detection is filesystem-only — no child processes, no `gh` probes, no
  * network. Every failure path fails soft to "no pool, no recommendation": the
  * advisory can degrade the nudge, never a plan.
  *
  * Test seams: `cwd`, `env`, `fsImpl` (node:fs-compatible `statSync` /
- * `readdirSync` / `readFileSync`), `now`, and the two thresholds.
+ * `readdirSync` / `readFileSync`), `now`, and the two thresholds
+ * (`staleAfterDays`, `growthDelta`).
  *
  * `buildMemoryPoolAdvisory` is the **only** export: the helpers below have no
  * caller outside this module, and exporting one solely for a test would add a
@@ -40,8 +56,8 @@ import * as path from 'node:path';
 /** Recommend a consolidation pass once the stamp is this old. */
 const STALE_AFTER_DAYS = 30;
 
-/** Recommend a consolidation pass once the pool holds more entries than this. */
-const ENTRY_COUNT_CEILING = 100;
+/** Recommend a pass once this many entries were written since the last one. */
+const GROWTH_DELTA = 25;
 
 /** Stamp file written by `/memory-consolidate` after its operator gate. */
 const STAMP_FILENAME = '.consolidation-stamp.json';
@@ -94,21 +110,47 @@ function resolveMemoryPoolDir({ cwd, env = process.env, homedir } = {}) {
 }
 
 /**
- * Read the consolidation stamp, returning its ISO timestamp or `null`.
- * A missing, unreadable, unparseable, or malformed stamp is indistinguishable
- * from "never consolidated" — all four mean the same thing to the advisory.
+ * The growth baseline a stamp records: its entry count, or `null` when it
+ * records none. `null` is *unmeasured*, never zero — a zero baseline would
+ * score every entry in the pool as newly written.
  *
- * @returns {string|null}
+ * @param {unknown} count
+ * @returns {number|null}
+ */
+function readBaseline(count) {
+  return Number.isInteger(count) && count >= 0 ? count : null;
+}
+
+/**
+ * Read the consolidation stamp.
+ *
+ * `at` is the ISO timestamp of the last pass, or `null` when there was none:
+ * a missing, unreadable, unparseable or date-less stamp is indistinguishable
+ * from "never consolidated" — all four mean the same thing to the advisory.
+ * A stamp whose date is unusable carries no baseline either, so `baseline`
+ * follows it to `null` rather than describing a pass that cannot be dated.
+ *
+ * `baseline` is the entry count that pass left behind — the growth arm's
+ * reference point. It is `null` on a stamp that predates Story #5182 (date
+ * only) and on a malformed count, which reads as *unmeasured growth*, never
+ * as zero growth: a `0` baseline would score the whole pool as new.
+ *
+ * @returns {{ at: string|null, baseline: number|null }}
  */
 function readStamp({ poolDir, fsImpl }) {
+  const unstamped = { at: null, baseline: null };
   try {
     const raw = fsImpl.readFileSync(path.join(poolDir, STAMP_FILENAME), 'utf8');
     const parsed = JSON.parse(raw);
-    const value = parsed?.lastConsolidatedAt;
-    if (typeof value !== 'string' || value.length === 0) return null;
-    return Number.isNaN(Date.parse(value)) ? null : value;
+    const at = parsed.lastConsolidatedAt;
+    // `Date.parse` rejects the empty string as NaN, so this one test covers
+    // both an absent date and an unusable one.
+    if (typeof at !== 'string' || Number.isNaN(Date.parse(at))) {
+      return unstamped;
+    }
+    return { at, baseline: readBaseline(parsed.entryCount) };
   } catch {
-    return null;
+    return unstamped;
   }
 }
 
@@ -128,6 +170,83 @@ function countEntries({ poolDir, fsImpl }) {
 }
 
 /**
+ * The advisory's field set, defaulted to the fail-soft "no usable pool"
+ * reading. Every return path spreads its own findings over this, so the
+ * envelope's shape is declared once — a new field cannot reach some callers
+ * and not others, which is the failure mode a per-branch object literal has.
+ *
+ * @param {object} fields
+ * @returns {{ present: boolean, entryCount: number, lastConsolidatedAt: string|null,
+ *            entriesSinceConsolidation: number|null, recommend: boolean,
+ *            reasons: string[] }}
+ */
+function envelope(fields) {
+  return {
+    present: false,
+    entryCount: 0,
+    lastConsolidatedAt: null,
+    entriesSinceConsolidation: null,
+    recommend: false,
+    reasons: [],
+    ...fields,
+  };
+}
+
+/**
+ * Collect the reasons a pool wants a consolidation pass. An empty array is
+ * the quiet verdict; the caller turns it into `recommend` and supplies the
+ * standing-down sentence, so every arm lives in one place.
+ *
+ * The two arms are independent and both are reported when both fire.
+ *
+ * @param {{ stamp: { at: string|null, baseline: number|null },
+ *           growth: number|null, now: Date|string|number,
+ *           staleAfterDays: number, growthDelta: number }} args
+ * @returns {string[]}
+ */
+function collectReasons({ stamp, growth, now, staleAfterDays, growthDelta }) {
+  const reasons = [];
+
+  if (stamp.at === null) {
+    reasons.push(
+      'no consolidation stamp — this pool has never been consolidated',
+    );
+  } else {
+    const ageDays =
+      (new Date(now).getTime() - Date.parse(stamp.at)) / MS_PER_DAY;
+    if (ageDays > staleAfterDays) {
+      reasons.push(
+        `last consolidated ${Math.floor(ageDays)} days ago (over the ${staleAfterDays}-day threshold)`,
+      );
+    }
+  }
+
+  // `growth === null` is unmeasured, not zero — a pre-#5182 stamp carries no
+  // baseline, and guessing one would re-invent the ceiling this arm replaced.
+  if (growth !== null && growth >= growthDelta) {
+    reasons.push(
+      `${growth} entries written since the last consolidation (at or over the ${growthDelta}-entry growth delta)`,
+    );
+  }
+
+  return reasons;
+}
+
+/**
+ * The sentence a quiet pool explains itself with — one per reason it is quiet,
+ * so "nothing to do" never reads the same as "nothing measurable".
+ *
+ * @param {{ growth: number|null, growthDelta: number }} args
+ * @returns {string}
+ */
+function quietReason({ growth, growthDelta }) {
+  if (growth === null) {
+    return 'memory pool is within the freshness threshold; growth is unmeasured until the next /memory-consolidate stamps an entry count';
+  }
+  return `memory pool is within both thresholds — ${growth} entries written since the last consolidation (under the ${growthDelta}-entry growth delta)`;
+}
+
+/**
  * Build the `memoryPoolAdvisory` envelope field.
  *
  * Advisory only — it carries **no routing authority**, mirroring
@@ -141,9 +260,10 @@ function countEntries({ poolDir, fsImpl }) {
  * @param {string} [opts.homedir]
  * @param {Date|string|number} [opts.now]
  * @param {number} [opts.staleAfterDays]
- * @param {number} [opts.entryCountCeiling]
+ * @param {number} [opts.growthDelta]
  * @returns {{ present: boolean, entryCount: number, lastConsolidatedAt: string|null,
- *            recommend: boolean, reasons: string[] }}
+ *            entriesSinceConsolidation: number|null, recommend: boolean,
+ *            reasons: string[] }}
  */
 export function buildMemoryPoolAdvisory({
   cwd = process.cwd(),
@@ -152,15 +272,9 @@ export function buildMemoryPoolAdvisory({
   homedir,
   now = new Date(),
   staleAfterDays = STALE_AFTER_DAYS,
-  entryCountCeiling = ENTRY_COUNT_CEILING,
+  growthDelta = GROWTH_DELTA,
 } = {}) {
-  const absent = (reason) => ({
-    present: false,
-    entryCount: 0,
-    lastConsolidatedAt: null,
-    recommend: false,
-    reasons: [reason],
-  });
+  const absent = (reason) => envelope({ reasons: [reason] });
 
   const poolDir = resolveMemoryPoolDir({ cwd, env, homedir });
   if (!poolDir) {
@@ -184,48 +298,38 @@ export function buildMemoryPoolAdvisory({
     return absent(`memory pool at ${poolDir} could not be listed`);
   }
 
-  const lastConsolidatedAt = readStamp({ poolDir, fsImpl });
-  const reasons = [];
+  const stamp = readStamp({ poolDir, fsImpl });
+  // Reported raw: a pruning pass can leave this negative, and saying the pool
+  // shrank by 7 is more use to the operator than clamping it to zero.
+  const growth = stamp.baseline === null ? null : entryCount - stamp.baseline;
+
+  const found = {
+    present: true,
+    entryCount,
+    lastConsolidatedAt: stamp.at,
+    entriesSinceConsolidation: growth,
+  };
 
   // An empty pool has nothing to consolidate, whatever the stamp says.
   if (entryCount === 0) {
-    return {
-      present: true,
-      entryCount: 0,
-      lastConsolidatedAt,
-      recommend: false,
+    return envelope({
+      ...found,
       reasons: ['memory pool is empty — nothing to consolidate'],
-    };
+    });
   }
 
-  if (lastConsolidatedAt === null) {
-    reasons.push(
-      'no consolidation stamp — this pool has never been consolidated',
-    );
-  } else {
-    const ageDays =
-      (new Date(now).getTime() - Date.parse(lastConsolidatedAt)) / MS_PER_DAY;
-    if (ageDays > staleAfterDays) {
-      reasons.push(
-        `last consolidated ${Math.floor(ageDays)} days ago (over the ${staleAfterDays}-day threshold)`,
-      );
-    }
-  }
+  const reasons = collectReasons({
+    stamp,
+    growth,
+    now,
+    staleAfterDays,
+    growthDelta,
+  });
 
-  if (entryCount > entryCountCeiling) {
-    reasons.push(
-      `${entryCount} entries (over the ${entryCountCeiling}-entry threshold)`,
-    );
-  }
-
-  return {
-    present: true,
-    entryCount,
-    lastConsolidatedAt,
+  return envelope({
+    ...found,
     recommend: reasons.length > 0,
     reasons:
-      reasons.length > 0
-        ? reasons
-        : ['memory pool is within both freshness thresholds'],
-  };
+      reasons.length > 0 ? reasons : [quietReason({ growth, growthDelta })],
+  });
 }
