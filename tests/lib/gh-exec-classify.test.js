@@ -4,6 +4,7 @@ import { describe, it } from 'node:test';
 
 import exec, {
   classify,
+  describeGhFailure,
   GhAuthError,
   GhExecError,
   GhGraphqlError,
@@ -161,5 +162,39 @@ describe('gh-exec exec() — non-zero exit routing', () => {
       exec({ args: ['--version'], spawnImpl: fakeThrows }),
       (err) => err instanceof GhNotInstalledError,
     );
+  });
+});
+
+describe('describeGhFailure', () => {
+  it("appends gh's own last stderr line to the classified message", () => {
+    // Story #5201: the classified message keeps only the exit status, so the
+    // 422 reason GitHub returned was lost at every degrade site. `gh` puts the
+    // actionable sentence last, under the HTTP banner and the API URL.
+    const err = new GhExecError('gh-exec: gh exited with code 1', {
+      args: ['label', 'create'],
+      stderr:
+        'HTTP 422: Validation Failed (https://api.github.com/repos/o/r/labels)\n' +
+        'description is too long (maximum is 100 characters)\n',
+    });
+    assert.equal(
+      describeGhFailure(err),
+      'gh-exec: gh exited with code 1: description is too long (maximum is 100 characters)',
+    );
+  });
+
+  it('degrades to the bare message when nothing was captured', () => {
+    assert.equal(describeGhFailure(new Error('boom')), 'boom');
+    assert.equal(
+      describeGhFailure(new GhExecError('exit 1', { stderr: '  \n \n' })),
+      'exit 1',
+      'whitespace-only stderr adds nothing',
+    );
+  });
+
+  it('is safe on non-Error inputs', () => {
+    // Every call site is a catch block, which can receive anything.
+    assert.equal(describeGhFailure('a thrown string'), 'a thrown string');
+    assert.equal(describeGhFailure(null), 'unknown error');
+    assert.equal(describeGhFailure(undefined), 'unknown error');
   });
 });

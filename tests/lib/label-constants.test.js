@@ -1,6 +1,7 @@
 import { strict as assert } from 'node:assert';
 import test from 'node:test';
 
+import { AUDIT_LABEL_TAXONOMY } from '../../.agents/scripts/lib/audit-to-stories/audit-label-taxonomy.js';
 import * as labelConstants from '../../.agents/scripts/lib/label-constants.js';
 import {
   ACCEPTANCE_LABELS,
@@ -13,6 +14,11 @@ import {
   PLANNING_LABELS,
   VALID_TRANSITIONS,
 } from '../../.agents/scripts/lib/label-constants.js';
+import { LABEL_TAXONOMY } from '../../.agents/scripts/lib/label-taxonomy.js';
+
+// GitHub's published cap on a label description — an external API
+// constraint, pinned as a literal so the assertion is independent of ours.
+const LABEL_DESCRIPTION_MAX_LENGTH = 100;
 
 // ── Story #2554 — meta-axis labels for retrospective signal routing ─────
 test('META_LABELS.FRAMEWORK_GAP equals "meta::framework-gap"', () => {
@@ -201,4 +207,25 @@ test('done is terminal — no outbound transitions', () => {
     isValidTransition(AGENT_LABELS.DONE, AGENT_LABELS.EXECUTING),
     false,
   );
+});
+
+// ── Story #5201 — GitHub's label-description cap ────────────────────────
+test('every shipped label description fits inside the cap', () => {
+  // A description over the cap is not truncated — the create fails outright
+  // with an HTTP 422, and `gh` reports it as a bare exit 1. Two ad-hoc
+  // plan-persist descriptions shipped that way for the life of the cohort
+  // label; this asserts the static taxonomies never join them.
+  const rows = [
+    ...LABEL_TAXONOMY.map((row) => ['LABEL_TAXONOMY', row]),
+    ...AUDIT_LABEL_TAXONOMY.map((row) => ['AUDIT_LABEL_TAXONOMY', row]),
+  ];
+  assert.ok(rows.length > 0, 'the taxonomies are non-empty');
+  for (const [source, row] of rows) {
+    const length = (row.description ?? '').length;
+    assert.ok(
+      length <= LABEL_DESCRIPTION_MAX_LENGTH,
+      `${source} row "${row.name}" description is ${length} characters, over ` +
+        `the ${LABEL_DESCRIPTION_MAX_LENGTH} cap`,
+    );
+  }
 });

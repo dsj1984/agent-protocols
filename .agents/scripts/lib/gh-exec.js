@@ -159,6 +159,35 @@ export class GhGraphqlError extends GhExecError {
 }
 
 /**
+ * Render a `gh` failure as one operator-legible line: the error message plus
+ * the reason `gh` itself printed.
+ *
+ * Every `GhExecError` carries the captured `stderr`, but the classified
+ * message keeps only the exit status — so a caller that logs `err.message`
+ * alone flattens every unclassified failure to `gh-exec: gh exited with code
+ * 1`. That is exactly what hid an HTTP 422 `description is too long` behind
+ * three identical "label ensure failed" warnings (Story #5201). `gh` prints
+ * the actionable sentence on the *last* stderr line — the leading lines are
+ * the `HTTP 422:` banner and the API URL — so that line is what is appended.
+ *
+ * Non-`GhExecError` inputs (a plain `Error` from a provider fake, a thrown
+ * string) degrade to their own message, so this is safe on any catch path.
+ *
+ * @param {unknown} err
+ * @returns {string} `"<message>: <gh stderr detail>"`, or just the message
+ *   when no stderr was captured.
+ */
+export function describeGhFailure(err) {
+  const message = String(err?.message ?? err ?? 'unknown error');
+  const lines = String(err?.stderr ?? '')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const detail = lines.at(-1);
+  return detail ? `${message}: ${detail}` : message;
+}
+
+/**
  * Classify a non-zero `gh` invocation into the most specific typed error
  * subclass available. Pure function — no side effects, no I/O.
  *

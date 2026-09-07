@@ -83,6 +83,46 @@ export function isLabelNotFoundError(err) {
   );
 }
 
+/**
+ * GitHub's cap on a label description. A longer one is refused with an HTTP
+ * 422 that `gh label create` reports as a bare exit 1 — a deterministic
+ * create failure, never a truncation. Lives here rather than in the
+ * provider-agnostic label vocabulary because it is an API constraint of this
+ * provider (Story #5201, where two over-long `plan-persist` descriptions made
+ * the `plan-run::<id>` cohort label uncreatable on every run).
+ */
+// Module-private on purpose: nothing in production reads the number outside
+// the guard below, and the suite pins GitHub's published cap as a literal
+// rather than against our own constant.
+const LABEL_DESCRIPTION_MAX_LENGTH = 100;
+
+/**
+ * Refuse a label description GitHub will reject anyway, **before** `gh` is
+ * spawned.
+ *
+ * The API caps a description at {@link LABEL_DESCRIPTION_MAX_LENGTH}
+ * characters and answers a longer one with an HTTP 422 that `gh label create`
+ * surfaces as a bare exit 1 — legible only to a caller that digs the reason
+ * out of stderr. Failing at the call site instead names the label and its
+ * actual length, so the fix is obvious from the message alone.
+ *
+ * Deliberately a throw rather than a silent truncation: a truncated
+ * description is a label whose text nobody chose, and every `ensureLabels`
+ * caller already handles a throw — the bootstrap paths surface it, and
+ * `plan-persist` degrades to creating its Stories without the cosmetic label.
+ *
+ * @param {{ name?: string, description?: string }} def
+ * @throws {Error} when the description exceeds the cap.
+ */
+function assertLabelDescriptionWithinCap(def) {
+  const description = def?.description ?? '';
+  if (description.length <= LABEL_DESCRIPTION_MAX_LENGTH) return;
+  throw new Error(
+    `label "${def?.name}" description is ${description.length} characters; ` +
+      `GitHub rejects anything over ${LABEL_DESCRIPTION_MAX_LENGTH}`,
+  );
+}
+
 export class LabelGateway {
   /**
    * @param {{ gh: object, owner: string, repo: string }} deps
@@ -94,7 +134,10 @@ export class LabelGateway {
   }
 
   /**
-   * Idempotent label creation. For each labelDef, attempt `gh label create
+   * Idempotent label creation. Each def's description is checked against
+   * GitHub's length cap first (`assertLabelDescriptionWithinCap`) so a
+   * guaranteed-422 create never reaches the network. Then, for each labelDef,
+   * attempt `gh label create
    * <name> --color <hex> --description <text>`. The CLI prints
    * "label already exists" (or the API surfaces a 422 "already_exists"
    * error) when the name is taken; we swallow that and count it as
@@ -114,6 +157,7 @@ export class LabelGateway {
     const created = [];
     const skipped = [];
     for (const def of labelDefs) {
+      assertLabelDescriptionWithinCap(def);
       const color = (def.color ?? '').replace(/^#/, '');
       try {
         await withTransientRetry(() =>

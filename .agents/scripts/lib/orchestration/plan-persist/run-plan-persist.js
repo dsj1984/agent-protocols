@@ -632,10 +632,20 @@ function logEffectiveRoute(route, isLiteRoute) {
  * Log the operator-facing persist epilogue: adoption, the ready primary, the
  * deliver command, and the cohort grouping label.
  *
- * @param {{ created: object[], primary: object, planRunLabel: string }} args
+ * @param {{
+ *   created: object[],
+ *   primary: object,
+ *   planRunLabel: string,
+ *   planRunLabelApplied: boolean,
+ * }} args
  * @returns {void}
  */
-function logPersistEpilogue({ created, primary, planRunLabel }) {
+function logPersistEpilogue({
+  created,
+  primary,
+  planRunLabel,
+  planRunLabelApplied,
+}) {
   const adopted = created.filter((story) => story.adopted);
   if (adopted.length > 0) {
     Logger.info(
@@ -652,10 +662,15 @@ function logPersistEpilogue({ created, primary, planRunLabel }) {
   );
   // Metadata only — a GitHub filter for the cohort this run authored, never
   // a delivery-resolution input (/mandrel-deliver stays ids-only, Story #4540).
-  Logger.info(
-    `[plan-persist] Cohort grouping label: ${planRunLabel} — filter with ` +
-      `label:${planRunLabel}`,
-  );
+  // Gated on the ensure result: the label ensure degrades non-fatally, and
+  // advertising a filter GitHub just refused to create is worse than saying
+  // nothing (Story #5201). The derived id survives in the result envelope.
+  if (planRunLabelApplied) {
+    Logger.info(
+      `[plan-persist] Cohort grouping label: ${planRunLabel} — filter with ` +
+        `label:${planRunLabel}`,
+    );
+  }
 }
 
 /**
@@ -800,11 +815,12 @@ export async function runPlanPersist({
   const isLiteRoute = route?.route === 'lite';
   logEffectiveRoute(route, isLiteRoute);
 
-  const { created, planRunLabel } = await createStoryIssues({
-    provider,
-    stories,
-    opts: { dryRun, routeLabel: isLiteRoute ? LITE_ROUTE_LABEL : null },
-  });
+  const { created, planRunLabel, planRunLabelApplied } =
+    await createStoryIssues({
+      provider,
+      stories,
+      opts: { dryRun, routeLabel: isLiteRoute ? LITE_ROUTE_LABEL : null },
+    });
 
   const primary = created[0];
   const waveTable = buildWaveTable(
@@ -883,7 +899,12 @@ export async function runPlanPersist({
   supersede.sourceTicketOrigin = sourceTicketOrigin;
 
   await cleanupPlanDirs({ config, planDir, skipCleanup });
-  logPersistEpilogue({ created, primary, planRunLabel });
+  logPersistEpilogue({
+    created,
+    primary,
+    planRunLabel,
+    planRunLabelApplied,
+  });
 
   return {
     stories: created,

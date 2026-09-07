@@ -423,6 +423,102 @@ describe('runPlanPersist — flat Story ops', () => {
     void PLAN_SUMMARY_COMMENT_TYPE;
   });
 
+  it('omits the cohort-filter epilogue line when the label ensure was refused', async () => {
+    // Story #5201: both descriptions persist shipped exceeded GitHub's
+    // 100-character cap, so `gh label create` 422'd on every run — and the
+    // epilogue advertised `filter with label:plan-run::…` for a label that
+    // does not exist. Two facts, one of which was being dropped: the derived
+    // id (still reported) and whether it actually landed (now gating the
+    // line).
+    const refusal = new GhExecError('gh-exec: gh exited with code 1', {
+      args: ['label', 'create'],
+      stderr:
+        'HTTP 422: Validation Failed (https://api.github.com/repos/o/r/labels)\n' +
+        'description is too long (maximum is 100 characters)',
+    });
+    const provider = fakeProvider();
+    provider.ensureLabels = async () => {
+      throw refusal;
+    };
+
+    const lines = [];
+    const { log, error, warn } = console;
+    // Logger fans out across all three sinks (`info` → log, `warn` → warn,
+    // and `routeAllOutputToStderr` → error), so capture every one or the
+    // assertion depends on which sink a level happens to use today.
+    console.log = (msg) => lines.push(String(msg));
+    console.error = (msg) => lines.push(String(msg));
+    console.warn = (msg) => lines.push(String(msg));
+    let result;
+    try {
+      result = await runPlanPersist({
+        provider,
+        artifacts: { stories: [ticket('solo')] },
+        config: {},
+        opts: { skipCleanup: true },
+      });
+    } finally {
+      console.log = log;
+      console.error = error;
+      console.warn = warn;
+    }
+
+    const output = lines.join('\n');
+    assert.doesNotMatch(
+      output,
+      /Cohort grouping label:/,
+      'a refused label must not be advertised as a filter',
+    );
+    assert.match(
+      output,
+      /description is too long \(maximum is 100 characters\)/,
+      "the degrade warning carries gh's own reason, not just the exit status",
+    );
+    // The derived id survives in the envelope either way — a resumed persist
+    // re-derives the identical label, so callers still need to see it.
+    assert.match(result.planRunLabel, /^plan-run::[0-9a-f]{8}$/);
+    assert.equal(result.stories.length, 1, 'the Stories are still created');
+  });
+
+  it('prints the cohort-filter epilogue line when the ensure succeeded', async () => {
+    // The other half of the gate: a label that really exists is still
+    // advertised, so the fix suppresses a false claim rather than the
+    // affordance.
+    const provider = fakeProvider();
+    provider.ensureLabels = async (defs) => ({
+      created: defs.map((d) => d.name),
+      skipped: [],
+      missing: [],
+    });
+
+    const lines = [];
+    const { log, error, warn } = console;
+    // Logger fans out across all three sinks (`info` → log, `warn` → warn,
+    // and `routeAllOutputToStderr` → error), so capture every one or the
+    // assertion depends on which sink a level happens to use today.
+    console.log = (msg) => lines.push(String(msg));
+    console.error = (msg) => lines.push(String(msg));
+    console.warn = (msg) => lines.push(String(msg));
+    let result;
+    try {
+      result = await runPlanPersist({
+        provider,
+        artifacts: { stories: [ticket('solo')] },
+        config: {},
+        opts: { skipCleanup: true },
+      });
+    } finally {
+      console.log = log;
+      console.error = error;
+      console.warn = warn;
+    }
+
+    assert.match(
+      lines.join('\n'),
+      new RegExp(`Cohort grouping label: ${result.planRunLabel}`),
+    );
+  });
+
   it('creates Stories WITHOUT agent::ready and flips them only after the checkpoints land', async () => {
     // Story #4541: issues used to be born agent::ready in the creating POST
     // while story-plan-state was upserted afterwards, so a /mandrel-deliver that picked
