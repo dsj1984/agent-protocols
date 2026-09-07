@@ -1,11 +1,11 @@
 {
   "$schema": ".agents/schemas/baselines/coverage.schema.json",
   "kernelVersion": "1.0.0",
-  "generatedAt": "2026-09-07T13:54:38.973Z",
+  "generatedAt": "2026-09-07T13:58:57.657Z",
   "rollup": {
     "*": {
       "lines": 96.07,
-      "branches": 87.02,
+      "branches": 87.03,
       "functions": 88.3
     }
   },
@@ -3085,7 +3085,7 @@
     {
       "path": ".agents/scripts/providers/github/labels.js",
       "lines": 98.88,
-      "branches": 85.71,
+      "branches": 91.25,
       "functions": 100
     },
     {

@@ -25,7 +25,10 @@ import {
   sweepCohortLabels,
 } from '../.agents/scripts/lib/orchestration/plan-run-labels/reap.js';
 import { runPostLandTail } from '../.agents/scripts/lib/orchestration/single-story-close/phases/post-land.js';
-import { LabelGateway } from '../.agents/scripts/providers/github/labels.js';
+import {
+  isLabelNotFoundError,
+  LabelGateway,
+} from '../.agents/scripts/providers/github/labels.js';
 import {
   formatReport,
   parseArgs,
@@ -638,6 +641,44 @@ describe('label listing and delete ports (AC-8)', () => {
       repo: 'r',
     });
     await assert.rejects(() => gateway.deleteLabel(COHORT_A), /403/);
+  });
+
+  it('classifies the not-found signal on every surface it arrives on', () => {
+    assert.equal(isLabelNotFoundError(null), false);
+    assert.equal(isLabelNotFoundError({ status: 404 }), true);
+    assert.equal(isLabelNotFoundError({ statusCode: 404 }), true);
+    assert.equal(isLabelNotFoundError({ stderr: 'gh: Not Found' }), true);
+    assert.equal(isLabelNotFoundError({ message: 'HTTP 404' }), true);
+    assert.equal(isLabelNotFoundError({}), false);
+    assert.equal(isLabelNotFoundError({ message: 'HTTP 500' }), false);
+  });
+
+  it("preserves a label row's colour and description when present", async () => {
+    const gh = {
+      api: () => ({
+        stdout: JSON.stringify([
+          { name: COHORT_A, color: 'C5DEF5', description: 'plan run' },
+        ]),
+      }),
+    };
+    const listed = await new LabelGateway({
+      gh,
+      owner: 'o',
+      repo: 'r',
+    }).listLabels();
+    assert.deepEqual(listed, [
+      { name: COHORT_A, color: 'C5DEF5', description: 'plan run' },
+    ]);
+  });
+
+  it('returns an empty vocabulary when the API body is not a list', async () => {
+    const gh = { api: () => ({ stdout: JSON.stringify({ message: 'nope' }) }) };
+    const listed = await new LabelGateway({
+      gh,
+      owner: 'o',
+      repo: 'r',
+    }).listLabels();
+    assert.deepEqual(listed, []);
   });
 
   it('refuses an empty label name', async () => {
