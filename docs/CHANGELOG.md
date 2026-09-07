@@ -15,6 +15,19 @@ All notable changes to this project will be documented in this file.
 -->
 <!-- markdownlint-disable-file MD004 MD012 MD037 -->
 
+## [2.44.0](https://github.com/dsj1984/mandrel/compare/mandrel-v2.43.0...mandrel-v2.44.0) (2026-09-07)
+
+
+### Added
+
+* reap a plan-run cohort label once every Story carrying it is closed ([#5189](https://github.com/dsj1984/mandrel/issues/5189)) ([#5194](https://github.com/dsj1984/mandrel/issues/5194)) ([43ecacb](https://github.com/dsj1984/mandrel/commit/43ecacb7e2fa8469813174623307149cfe59a60a))
+
+
+### Fixed
+
+* **git-cleanup:** record an outcome for every remote-only branch, including the no-PR ones ([#5188](https://github.com/dsj1984/mandrel/issues/5188)) ([#5190](https://github.com/dsj1984/mandrel/issues/5190)) ([8016137](https://github.com/dsj1984/mandrel/commit/8016137e0c5e3b06fb608674cbb68a8fbf212ca8))
+* **review:** disk-probe the scoped-lint code runner so an absent biome degrades by name (refs [#5193](https://github.com/dsj1984/mandrel/issues/5193)) ([#5195](https://github.com/dsj1984/mandrel/issues/5195)) ([cc4bb41](https://github.com/dsj1984/mandrel/commit/cc4bb41a5877366f7e4e488d6d522fcfa3c2f8cd))
+
 ## [2.43.0](https://github.com/dsj1984/mandrel/compare/mandrel-v2.42.0...mandrel-v2.43.0) (2026-09-07)
 
 
