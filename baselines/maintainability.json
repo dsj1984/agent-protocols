@@ -1,7 +1,7 @@
 {
   "$schema": ".agents/schemas/baselines/maintainability.schema.json",
   "kernelVersion": "0.1.0",
-  "generatedAt": "2026-09-07T13:54:39.183Z",
+  "generatedAt": "2026-09-07T16:30:17.996Z",
   "rollup": {
     "*": {
       "min": 76.381,
@@ -1116,7 +1116,7 @@
     },
     {
       "path": ".agents/scripts/lib/orchestration/column-sync.js",
-      "mi": 81.585
+      "mi": 83.477
     },
     {
       "path": ".agents/scripts/lib/orchestration/complexity-gate.js",
@@ -1165,6 +1165,10 @@
     {
       "path": ".agents/scripts/lib/orchestration/epic-expansion.js",
       "mi": 96.096
+    },
+    {
+      "path": ".agents/scripts/lib/orchestration/epic-rollup.js",
+      "mi": 94.522
     },
     {
       "path": ".agents/scripts/lib/orchestration/file-assumption-enum.js",
@@ -1448,7 +1452,7 @@
     },
     {
       "path": ".agents/scripts/lib/orchestration/run-epilogue.js",
-      "mi": 86.484
+      "mi": 85.666
     },
     {
       "path": ".agents/scripts/lib/orchestration/run-scoped-config.js",

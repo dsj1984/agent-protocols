@@ -1,7 +1,7 @@
 {
   "$schema": "https://mandrel.dev/baselines/dead-exports.schema.json",
   "kernelVersion": "6.17.1",
-  "generatedAt": "2026-09-07T14:10:21.747Z",
+  "generatedAt": "2026-09-07T16:25:32.843Z",
   "mode": "production",
   "rows": [
     {
@@ -1177,10 +1177,6 @@
       "symbol": "*"
     },
     {
-      "file": ".agents/scripts/lib/orchestration/column-sync.js",
-      "symbol": "LABEL_TO_COLUMN"
-    },
-    {
       "file": ".agents/scripts/lib/orchestration/deliver-recover.js",
       "symbol": "decideRecovery"
     },
@@ -1851,10 +1847,6 @@
     {
       "file": ".agents/scripts/lib/orchestration/ticketing/bulk.js",
       "symbol": "__setCascadeRetryDelays"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/ticketing/bulk.js",
-      "symbol": "deriveParentState"
     },
     {
       "file": ".agents/scripts/lib/orchestration/ticketing/reads.js",
