@@ -1,14 +1,14 @@
 {
   "$schema": ".agents/schemas/baselines/crap.schema.json",
   "kernelVersion": "0.1.0",
-  "generatedAt": "2026-09-06T17:59:26.624Z",
+  "generatedAt": "2026-09-07T13:32:54.067Z",
   "scoringSemantics": "method-identity-v3",
   "tsTranspilerVersion": "6.0.3",
   "provenanceStamped": true,
   "rollup": {
     "*": {
       "p50": 2,
-      "p95": 9.021751535698701,
+      "p95": 9.021064696647178,
       "max": 29.000120920774684,
       "methodsAbove20": 5
     }
@@ -14018,6 +14018,36 @@
       "crap": 12.186027190112403
     },
     {
+      "path": ".agents/scripts/lib/orchestration/git-cleanup/phases/branches-detect.js",
+      "method": "skipEntryFromVerdict",
+      "startLine": 19,
+      "crap": 2
+    },
+    {
+      "path": ".agents/scripts/lib/orchestration/git-cleanup/phases/branches-detect.js",
+      "method": "evaluateContentEquivalence",
+      "startLine": 44,
+      "crap": 3
+    },
+    {
+      "path": ".agents/scripts/lib/orchestration/git-cleanup/phases/branches-detect.js",
+      "method": "evaluateRemoteOnlyNoPr",
+      "startLine": 86,
+      "crap": 2
+    },
+    {
+      "path": ".agents/scripts/lib/orchestration/git-cleanup/phases/branches-detect.js",
+      "method": "resolveRemoteOnlyBranch",
+      "startLine": 116,
+      "crap": 4
+    },
+    {
+      "path": ".agents/scripts/lib/orchestration/git-cleanup/phases/branches-detect.js",
+      "method": "collectRemoteOnlyCandidates",
+      "startLine": 127,
+      "crap": 5
+    },
+    {
       "path": ".agents/scripts/lib/orchestration/git-cleanup/phases/branches-reap.js",
       "method": "reapWorktree",
       "startLine": 56,
@@ -14055,98 +14085,80 @@
     },
     {
       "path": ".agents/scripts/lib/orchestration/git-cleanup/phases/branches.js",
-      "method": "skipEntryFromVerdict",
-      "startLine": 44,
-      "crap": 4
-    },
-    {
-      "path": ".agents/scripts/lib/orchestration/git-cleanup/phases/branches.js",
-      "method": "evaluateContentEquivalence",
-      "startLine": 60,
-      "crap": 3
-    },
-    {
-      "path": ".agents/scripts/lib/orchestration/git-cleanup/phases/branches.js",
       "method": "evaluateLocalBranch",
-      "startLine": 80,
+      "startLine": 53,
       "crap": 7
     },
     {
       "path": ".agents/scripts/lib/orchestration/git-cleanup/phases/branches.js",
-      "method": "collectRemoteOnlyCandidates",
-      "startLine": 141,
-      "crap": 6
-    },
-    {
-      "path": ".agents/scripts/lib/orchestration/git-cleanup/phases/branches.js",
       "method": "buildGuardedPrProbe",
-      "startLine": 221,
+      "startLine": 170,
       "crap": 1
     },
     {
       "path": ".agents/scripts/lib/orchestration/git-cleanup/phases/branches.js",
       "method": "<anon buildGuardedPrProbe/(branch,c)#0>",
-      "startLine": 229,
+      "startLine": 178,
       "crap": 2,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/orchestration/git-cleanup/phases/branches.js",
       "method": "planCleanup",
-      "startLine": 240,
-      "crap": 4
+      "startLine": 189,
+      "crap": 3
     },
     {
       "path": ".agents/scripts/lib/orchestration/git-cleanup/phases/branches.js",
       "method": "<anon planCleanup/()#0>",
-      "startLine": 256,
+      "startLine": 206,
       "crap": 1,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/orchestration/git-cleanup/phases/branches.js",
       "method": "<anon planCleanup/(err)#0>",
-      "startLine": 263,
+      "startLine": 214,
       "crap": 2,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/orchestration/git-cleanup/phases/branches.js",
       "method": "<anon planCleanup/(branch)#0>",
-      "startLine": 275,
+      "startLine": 226,
       "crap": 1,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/orchestration/git-cleanup/phases/branches.js",
       "method": "worktreeRootFor",
-      "startLine": 335,
+      "startLine": 297,
       "crap": 2
     },
     {
       "path": ".agents/scripts/lib/orchestration/git-cleanup/phases/branches.js",
       "method": "executeCleanup",
-      "startLine": 353,
+      "startLine": 315,
       "crap": 5
     },
     {
       "path": ".agents/scripts/lib/orchestration/git-cleanup/phases/branches.js",
       "method": "<anon executeCleanup/(b,c)#0>",
-      "startLine": 359,
+      "startLine": 321,
       "crap": 1,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/orchestration/git-cleanup/phases/branches.js",
       "method": "<anon executeCleanup/(b,c)#1>",
-      "startLine": 360,
+      "startLine": 322,
       "crap": 1,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/orchestration/git-cleanup/phases/branches.js",
       "method": "<anon executeCleanup/(c,r)#0>",
-      "startLine": 361,
+      "startLine": 323,
       "crap": 1,
       "anonymous": true
     },
@@ -14342,166 +14354,184 @@
     {
       "path": ".agents/scripts/lib/orchestration/git-cleanup/phases/git-probes.js",
       "method": "listLocalBranches",
-      "startLine": 33,
+      "startLine": 34,
       "crap": 2
     },
     {
       "path": ".agents/scripts/lib/orchestration/git-cleanup/phases/git-probes.js",
       "method": "<anon listLocalBranches/(l)#0>",
-      "startLine": 43,
+      "startLine": 44,
       "crap": 1,
+      "anonymous": true
+    },
+    {
+      "path": ".agents/scripts/lib/orchestration/git-cleanup/phases/git-probes.js",
+      "method": "shortRemoteNames",
+      "startLine": 61,
+      "crap": 2
+    },
+    {
+      "path": ".agents/scripts/lib/orchestration/git-cleanup/phases/git-probes.js",
+      "method": "<anon shortRemoteNames/(l)#0>",
+      "startLine": 65,
+      "crap": 2,
+      "anonymous": true
+    },
+    {
+      "path": ".agents/scripts/lib/orchestration/git-cleanup/phases/git-probes.js",
+      "method": "<anon shortRemoteNames/(l)#1>",
+      "startLine": 67,
+      "crap": 6,
+      "anonymous": true
+    },
+    {
+      "path": ".agents/scripts/lib/orchestration/git-cleanup/phases/git-probes.js",
+      "method": "<anon shortRemoteNames/(b)#0>",
+      "startLine": 68,
+      "crap": 6,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/orchestration/git-cleanup/phases/git-probes.js",
       "method": "listRemoteBranches",
-      "startLine": 48,
-      "crap": 5.2958984375
+      "startLine": 72,
+      "crap": 4.916
     },
     {
       "path": ".agents/scripts/lib/orchestration/git-cleanup/phases/git-probes.js",
-      "method": "<anon listRemoteBranches/(l)#0>",
-      "startLine": 59,
-      "crap": 1.823974609375,
-      "anonymous": true
-    },
-    {
-      "path": ".agents/scripts/lib/orchestration/git-cleanup/phases/git-probes.js",
-      "method": "<anon listRemoteBranches/(l)#1>",
-      "startLine": 61,
-      "crap": 5.2958984375,
-      "anonymous": true
-    },
-    {
-      "path": ".agents/scripts/lib/orchestration/git-cleanup/phases/git-probes.js",
-      "method": "<anon listRemoteBranches/(b)#0>",
-      "startLine": 62,
-      "crap": 5.2958984375,
-      "anonymous": true
+      "method": "listRemoteMergedBranches",
+      "startLine": 104,
+      "crap": 2.002314814814815
     },
     {
       "path": ".agents/scripts/lib/orchestration/git-cleanup/phases/git-probes.js",
       "method": "listMergedBranches",
-      "startLine": 66,
+      "startLine": 118,
       "crap": 2
     },
     {
       "path": ".agents/scripts/lib/orchestration/git-cleanup/phases/git-probes.js",
       "method": "<anon listMergedBranches/(l)#0>",
-      "startLine": 77,
+      "startLine": 129,
       "crap": 1,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/orchestration/git-cleanup/phases/git-probes.js",
+      "method": "freshAnchoredMergedSet",
+      "startLine": 148,
+      "crap": 2
+    },
+    {
+      "path": ".agents/scripts/lib/orchestration/git-cleanup/phases/git-probes.js",
       "method": "currentBranch",
-      "startLine": 82,
+      "startLine": 164,
       "crap": 3
     },
     {
       "path": ".agents/scripts/lib/orchestration/git-cleanup/phases/git-probes.js",
       "method": "readProtectedConfig",
-      "startLine": 89,
+      "startLine": 171,
       "crap": 2.5
     },
     {
       "path": ".agents/scripts/lib/orchestration/git-cleanup/phases/git-probes.js",
       "method": "<anon readProtectedConfig/(s)#0>",
-      "startLine": 94,
+      "startLine": 176,
       "crap": 1.125,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/orchestration/git-cleanup/phases/git-probes.js",
       "method": "worktreesByBranch",
-      "startLine": 99,
+      "startLine": 181,
       "crap": 4
     },
     {
       "path": ".agents/scripts/lib/orchestration/git-cleanup/phases/git-probes.js",
       "method": "defaultGhRunner",
-      "startLine": 118,
-      "crap": 1.2962962962962963
+      "startLine": 200,
+      "crap": 1
     },
     {
       "path": ".agents/scripts/lib/orchestration/git-cleanup/phases/git-probes.js",
       "method": "probeMergedPr",
-      "startLine": 132,
+      "startLine": 214,
       "crap": 5
     },
     {
       "path": ".agents/scripts/lib/orchestration/git-cleanup/phases/git-probes.js",
       "method": "probeLatestPr",
-      "startLine": 185,
+      "startLine": 267,
       "crap": 6
     },
     {
       "path": ".agents/scripts/lib/orchestration/git-cleanup/phases/git-probes.js",
       "method": "probeAllPrs",
-      "startLine": 248,
+      "startLine": 330,
       "crap": 8
     },
     {
       "path": ".agents/scripts/lib/orchestration/git-cleanup/phases/git-probes.js",
       "method": "validSha",
-      "startLine": 299,
+      "startLine": 381,
       "crap": 2
     },
     {
       "path": ".agents/scripts/lib/orchestration/git-cleanup/phases/git-probes.js",
       "method": "firstLsRemoteSha",
-      "startLine": 312,
+      "startLine": 394,
       "crap": 2
     },
     {
       "path": ".agents/scripts/lib/orchestration/git-cleanup/phases/git-probes.js",
       "method": "<anon firstLsRemoteSha/(l)#0>",
-      "startLine": 315,
+      "startLine": 397,
       "crap": 1,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/orchestration/git-cleanup/phases/git-probes.js",
       "method": "branchTipSha",
-      "startLine": 333,
+      "startLine": 415,
       "crap": 16.584433318161132
     },
     {
       "path": ".agents/scripts/lib/orchestration/git-cleanup/phases/git-probes.js",
       "method": "refExists",
-      "startLine": 353,
+      "startLine": 435,
       "crap": 1
     },
     {
       "path": ".agents/scripts/lib/orchestration/git-cleanup/phases/git-probes.js",
       "method": "branchLastCommitAt",
-      "startLine": 361,
-      "crap": 3
+      "startLine": 456,
+      "crap": 4
     },
     {
       "path": ".agents/scripts/lib/orchestration/git-cleanup/phases/git-probes.js",
       "method": "firstStdoutLine",
-      "startLine": 381,
+      "startLine": 473,
       "crap": 1
     },
     {
       "path": ".agents/scripts/lib/orchestration/git-cleanup/phases/git-probes.js",
       "method": "<anon firstStdoutLine/(l)#0>",
-      "startLine": 384,
+      "startLine": 476,
       "crap": 1,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/orchestration/git-cleanup/phases/git-probes.js",
       "method": "probeContentEquivalent",
-      "startLine": 408,
+      "startLine": 500,
       "crap": 5
     },
     {
       "path": ".agents/scripts/lib/orchestration/git-cleanup/phases/git-probes.js",
       "method": "classifyLatestPr",
-      "startLine": 465,
-      "crap": 9
+      "startLine": 570,
+      "crap": 6
     },
     {
       "path": ".agents/scripts/lib/orchestration/git-cleanup/phases/parse-args.js",
@@ -14688,87 +14718,117 @@
     {
       "path": ".agents/scripts/lib/orchestration/git-cleanup/phases/render.js",
       "method": "renderNotMergedSkipLine",
-      "startLine": 45,
-      "crap": 3
+      "startLine": 52,
+      "crap": 4
     },
     {
       "path": ".agents/scripts/lib/orchestration/git-cleanup/phases/render.js",
       "method": "contentMergedNote",
-      "startLine": 58,
+      "startLine": 66,
       "crap": 2
     },
     {
       "path": ".agents/scripts/lib/orchestration/git-cleanup/phases/render.js",
+      "method": "behindMergeNote",
+      "startLine": 83,
+      "crap": 2
+    },
+    {
+      "path": ".agents/scripts/lib/orchestration/git-cleanup/phases/render.js",
+      "method": "candidateNotes",
+      "startLine": 90,
+      "crap": 1
+    },
+    {
+      "path": ".agents/scripts/lib/orchestration/git-cleanup/phases/render.js",
+      "method": "renderCandidateRow",
+      "startLine": 100,
+      "crap": 4
+    },
+    {
+      "path": ".agents/scripts/lib/orchestration/git-cleanup/phases/render.js",
       "method": "renderDryRun",
-      "startLine": 65,
-      "crap": 10
+      "startLine": 122,
+      "crap": 8
     },
     {
       "path": ".agents/scripts/lib/orchestration/git-cleanup/phases/render.js",
       "method": "<anon renderDryRun/(s)#0>",
-      "startLine": 83,
+      "startLine": 136,
       "crap": 1,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/orchestration/git-cleanup/phases/render.js",
+      "method": "renderCandidateList",
+      "startLine": 176,
+      "crap": 1
+    },
+    {
+      "path": ".agents/scripts/lib/orchestration/git-cleanup/phases/render.js",
+      "method": "shortShaPair",
+      "startLine": 184,
+      "crap": 3
+    },
+    {
+      "path": ".agents/scripts/lib/orchestration/git-cleanup/phases/render.js",
       "method": "renderLatestPrSkipLine",
-      "startLine": 118,
-      "crap": 9.060856498873028
+      "startLine": 201,
+      "crap": 9.029518950437318
     },
     {
       "path": ".agents/scripts/lib/orchestration/git-cleanup/phases/render.js",
       "method": "renderExecutionLine",
-      "startLine": 142,
+      "startLine": 231,
       "crap": 6
     },
     {
       "path": ".agents/scripts/lib/orchestration/git-cleanup/phases/render.js",
       "method": "renderPruneLine",
-      "startLine": 156,
+      "startLine": 245,
       "crap": 4
     },
     {
       "path": ".agents/scripts/lib/orchestration/git-cleanup/phases/render.js",
       "method": "<anon renderPruneLine/(n)#0>",
-      "startLine": 164,
+      "startLine": 253,
       "crap": 1,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/orchestration/git-cleanup/phases/render.js",
       "method": "renderDeferredLine",
-      "startLine": 179,
+      "startLine": 268,
       "crap": 3
     },
     {
       "path": ".agents/scripts/lib/orchestration/git-cleanup/phases/render.js",
       "method": "renderExecutionSummary",
-      "startLine": 188,
+      "startLine": 277,
       "crap": 4
     },
     {
       "path": ".agents/scripts/lib/orchestration/git-cleanup/phases/render.js",
       "method": "buildJsonEnvelope",
-      "startLine": 214,
+      "startLine": 303,
       "crap": 1
     },
     {
       "path": ".agents/scripts/lib/orchestration/git-cleanup/phases/render.js",
       "method": "legacyExitCode",
-      "startLine": 242,
+      "startLine": 331,
       "crap": 4
     },
     {
       "path": ".agents/scripts/lib/orchestration/git-cleanup/phases/render.js",
       "method": "computeExitCode",
-      "startLine": 256,
+      "startLine": 345,
       "crap": 18
     },
     {
       "path": ".agents/scripts/lib/orchestration/git-cleanup/phases/render.js",
       "method": "<anon computeExitCode/(a)#0>",
-      "startLine": 278,
+      "startLine": 367,
       "crap": 2,
       "anonymous": true
     },

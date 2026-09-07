@@ -410,16 +410,27 @@ describe('git-cleanup.planCleanup', () => {
     assert.deepEqual(branches, ['fix/ok']);
   });
 
-  it('remote-only pass skips branches without a merged PR', () => {
+  it('remote-only pass records — never drops — a branch without a merged PR', () => {
+    // Story #5188: a `no-pr` verdict used to `continue` with no record at
+    // all. It now falls through the ancestry / content-equivalence cascade
+    // and lands in `skipped[]` when neither signal fires.
     const plan = planCleanup(
       baseCtx({
         includeRemoteOnly: true,
         localLister: () => [],
         remoteLister: () => ['fix/no-pr'],
+        remoteMergedLister: () => [],
+        contentEquivalentFn: () => ({ supported: true, equivalent: false }),
+        branchLastCommitFn: () => null,
+        refExistsFn: () => false,
         prProbe: () => null,
       }),
     );
     assert.deepEqual(plan.candidates, []);
+    assert.deepEqual(
+      plan.skipped.map((s) => ({ branch: s.branch, reason: s.reason })),
+      [{ branch: 'fix/no-pr', reason: 'not-merged' }],
+    );
   });
 });
 
@@ -2878,4 +2889,302 @@ describe('git-cleanup.renderDryRun behind-merge annotation', () => {
       'expected the unverifiable skip line in the dry-run block',
     );
   });
+});
+
+describe('git-cleanup remote-only no-PR cascade (Story #5188)', () => {
+  // The remote-only walk used to `continue` on a `no-pr` verdict, recording
+  // neither a candidate nor a skip. Every case below pins one arm of the
+  // cascade that replaced it: ancestry, content-equivalence, unmerged.
+  const remoteCtx = (overrides) => ({
+    cwd: '/repo',
+    baseBranch: 'main',
+    includeRemoteOnly: true,
+    localLister: () => [],
+    mergedLister: () => [],
+    remoteMergedLister: () => [],
+    currentBranchFn: () => 'main',
+    protectedConfigFn: () => [],
+    worktreesFn: () => new Map(),
+    prProbe: () => null,
+    branchTipShaFn: () => null,
+    ancestryFn: () => ({ outcome: 'error', reason: 'not probed' }),
+    contentEquivalentFn: () => ({ supported: true, equivalent: false }),
+    branchLastCommitFn: () => '2026-06-01T00:00:00Z',
+    refExistsFn: () => false,
+    filter: () => true,
+    ...overrides,
+  });
+
+  it('AC-1: an ancestor of the base with no PR becomes a candidate whose detectedBy differs from the PR-detected one', () => {
+    const plan = planCleanup(
+      remoteCtx({
+        remoteLister: () => ['fix/orphan'],
+        remoteMergedLister: () => ['fix/orphan'],
+      }),
+    );
+    assert.equal(plan.candidates.length, 1);
+    const cand = plan.candidates[0];
+    assert.equal(cand.branch, 'fix/orphan');
+    assert.equal(cand.detectedBy, 'remote-git-merged');
+    assert.notEqual(
+      cand.detectedBy,
+      'remote-only',
+      'ancestry detection must be distinguishable from PR detection',
+    );
+    assert.equal(cand.localExists, false);
+    assert.equal(cand.prNumber, null);
+    assert.equal(cand.hasWorktree, false);
+    assert.deepEqual(plan.skipped, []);
+  });
+
+  it('a content-equivalent branch with no PR becomes a content-merged candidate', () => {
+    const plan = planCleanup(
+      remoteCtx({
+        remoteLister: () => ['fix/squashed'],
+        contentEquivalentFn: () => ({ supported: true, equivalent: true }),
+      }),
+    );
+    assert.equal(plan.candidates.length, 1);
+    assert.equal(plan.candidates[0].detectedBy, 'content-merged');
+    assert.equal(plan.candidates[0].localExists, false);
+    assert.notEqual(plan.candidates[0].detectedBy, 'remote-only');
+  });
+
+  it('AC-2: a genuinely-unmerged branch with no PR is recorded as a not-merged skip', () => {
+    const plan = planCleanup(
+      remoteCtx({
+        remoteLister: () => ['fix/live-work'],
+      }),
+    );
+    assert.deepEqual(plan.candidates, []);
+    assert.equal(plan.skipped.length, 1);
+    const skip = plan.skipped[0];
+    assert.equal(skip.branch, 'fix/live-work');
+    assert.equal(skip.reason, 'not-merged');
+    assert.equal(skip.localExists, false);
+    assert.equal(skip.lastCommitAt, '2026-06-01T00:00:00Z');
+  });
+
+  it('AC-2: the dry-run render prints a visible line for that skip, marked remote-only', () => {
+    const plan = planCleanup(
+      remoteCtx({ remoteLister: () => ['fix/live-work'] }),
+    );
+    const lines = renderDryRun(plan, {
+      now: Date.parse('2026-06-15T00:00:00Z'),
+    });
+    const line = lines.find((l) => l.includes('fix/live-work'));
+    assert.ok(line, 'expected a visible skip line for the remote-only ref');
+    assert.match(line, /not merged/);
+    assert.match(line, /\(remote-only\)/);
+    assert.match(line, /14 days ago/);
+  });
+
+  it('an inconclusive content probe keeps the branch as a not-merged skip, never silent', () => {
+    const plan = planCleanup(
+      remoteCtx({
+        remoteLister: () => ['fix/unknown'],
+        contentEquivalentFn: () => ({ supported: false }),
+      }),
+    );
+    assert.deepEqual(plan.candidates, []);
+    assert.equal(plan.skipped[0].reason, 'not-merged');
+  });
+
+  it('AC-3: the walk is total — every enumerated branch lands in exactly one collection', () => {
+    const remoteBranches = [
+      'fix/pr-merged',
+      'fix/pr-open',
+      'fix/ancestor',
+      'fix/squashed',
+      'fix/unmerged',
+    ];
+    const plan = planCleanup(
+      remoteCtx({
+        remoteLister: () => remoteBranches,
+        remoteMergedLister: () => ['fix/ancestor'],
+        prProbe: (b) => {
+          if (b === 'fix/pr-merged') return { number: 7, state: 'MERGED' };
+          if (b === 'fix/pr-open') return { number: 8, state: 'OPEN' };
+          return null;
+        },
+        contentEquivalentFn: ({ branch }) => ({
+          supported: true,
+          equivalent: branch === 'origin/fix/squashed',
+        }),
+      }),
+    );
+    const seen = [
+      ...plan.candidates.map((c) => c.branch),
+      ...plan.skipped.map((s) => s.branch),
+    ];
+    assert.deepEqual(
+      seen.slice().sort(),
+      remoteBranches.slice().sort(),
+      'no enumerated branch may be absent from both collections',
+    );
+    assert.equal(
+      new Set(seen).size,
+      seen.length,
+      'no branch may be recorded twice',
+    );
+    assert.deepEqual(plan.candidates.map((c) => c.detectedBy).sort(), [
+      'content-merged',
+      'remote-git-merged',
+      'remote-only',
+    ]);
+  });
+
+  it('AC-3: protected and filtered remote refs stay out of both collections', () => {
+    const plan = planCleanup(
+      remoteCtx({
+        remoteLister: () => ['main', 'chore/excluded', 'fix/unmerged'],
+        filter: buildGlobFilter({ exclude: ['chore/*'] }),
+      }),
+    );
+    assert.deepEqual(plan.candidates, []);
+    assert.deepEqual(
+      plan.skipped.map((s) => s.branch),
+      ['fix/unmerged'],
+    );
+  });
+
+  it('AC-4: git probes are handed the qualified origin/<branch> rev, not the bare short name', () => {
+    const probedRevs = [];
+    const lastCommitCalls = [];
+    const plan = planCleanup(
+      remoteCtx({
+        remoteLister: () => ['fix/squashed', 'fix/unmerged'],
+        // A fixture in which the bare short-name lookup fails, exactly as it
+        // does in a real repo: only the qualified rev resolves.
+        contentEquivalentFn: ({ branch }) => {
+          probedRevs.push(branch);
+          if (!branch.startsWith('origin/')) return { supported: false };
+          return {
+            supported: true,
+            equivalent: branch === 'origin/fix/squashed',
+          };
+        },
+        branchLastCommitFn: (_cwd, branch, opts) => {
+          lastCommitCalls.push({ branch, opts });
+          return '2026-06-01T00:00:00Z';
+        },
+      }),
+    );
+    assert.deepEqual(probedRevs, [
+      'origin/fix/squashed',
+      'origin/fix/unmerged',
+    ]);
+    assert.deepEqual(
+      plan.candidates.map((c) => c.detectedBy),
+      ['content-merged'],
+      'the qualified rev must yield the content-equivalent verdict, not an inconclusive one',
+    );
+    assert.deepEqual(lastCommitCalls, [
+      {
+        branch: 'fix/unmerged',
+        opts: { localExists: false, remoteName: 'origin' },
+      },
+    ]);
+  });
+
+  it('AC-4: the ancestry source is the remote listing, and honours the fresh origin/<base> anchor', () => {
+    const anchors = [];
+    const plan = planCleanup(
+      remoteCtx({
+        remoteLister: () => ['fix/remote-merged'],
+        refExistsFn: (_cwd, ref) => ref === 'origin/main',
+        remoteMergedLister: (_cwd, base, remoteName) => {
+          anchors.push({ base, remoteName });
+          return base === 'origin/main' ? ['fix/remote-merged'] : [];
+        },
+      }),
+    );
+    assert.deepEqual(anchors, [
+      { base: 'main', remoteName: 'origin' },
+      { base: 'origin/main', remoteName: 'origin' },
+    ]);
+    assert.equal(plan.candidates.length, 1);
+    assert.equal(plan.candidates[0].detectedBy, 'remote-git-merged');
+  });
+
+  it('the local merged listing is never consulted for a remote-only branch', () => {
+    // `git branch --merged` has no `-r`, so it can only ever hold local
+    // names: a remote branch reaching the local set would be a false match.
+    const plan = planCleanup(
+      remoteCtx({
+        remoteLister: () => ['fix/orphan'],
+        mergedLister: () => ['fix/orphan'],
+      }),
+    );
+    assert.deepEqual(plan.candidates, []);
+    assert.equal(plan.skipped[0].reason, 'not-merged');
+  });
+
+  it('a custom remote name propagates to the rev, the listing and the skip', () => {
+    const probedRevs = [];
+    const plan = planCleanup(
+      remoteCtx({
+        remoteName: 'upstream',
+        remoteLister: () => ['fix/orphan'],
+        contentEquivalentFn: ({ branch }) => {
+          probedRevs.push(branch);
+          return { supported: false };
+        },
+        branchLastCommitFn: (_cwd, _branch, opts) => {
+          assert.equal(opts.remoteName, 'upstream');
+          return null;
+        },
+      }),
+    );
+    assert.deepEqual(probedRevs, ['upstream/fix/orphan']);
+    assert.equal(plan.skipped[0].reason, 'not-merged');
+  });
+});
+
+describe('git-cleanup remote-only --remote gate (Story #5188 AC-5)', () => {
+  const cand = (detectedBy) => ({
+    branch: 'fix/orphan',
+    detectedBy,
+    localExists: false,
+    hasWorktree: false,
+    worktreePath: null,
+  });
+  const run = (detectedBy, remote) => {
+    const calls = { local: 0, remote: 0 };
+    const result = executeCleanup({
+      candidates: [cand(detectedBy)],
+      cwd: '/repo',
+      remote,
+      deleteLocalFn: () => {
+        calls.local += 1;
+        return { deleted: false, reason: 'not-found' };
+      },
+      deleteRemoteFn: () => {
+        calls.remote += 1;
+        return { deleted: true, reason: 'deleted' };
+      },
+      pruneRemoteFn: () => ({ ok: true, pruned: [] }),
+      logger: { info() {}, warn() {}, error() {} },
+    });
+    return { calls, result };
+  };
+
+  for (const detectedBy of ['remote-git-merged', 'content-merged']) {
+    it(`no-ops on a ${detectedBy} remote-only candidate without --remote`, () => {
+      const { calls, result } = run(detectedBy, false);
+      assert.equal(calls.local, 0);
+      assert.equal(calls.remote, 0, 'deletion still requires --remote');
+      assert.equal(result.local.length, 0);
+      assert.equal(result.remote.length, 0);
+      assert.equal(result.ok, true);
+    });
+
+    it(`deletes the ${detectedBy} remote-only candidate once --remote is set`, () => {
+      const { calls, result } = run(detectedBy, true);
+      assert.equal(calls.local, 0);
+      assert.equal(calls.remote, 1);
+      assert.equal(result.remote.length, 1);
+      assert.equal(result.ok, true);
+    });
+  }
 });

@@ -1,11 +1,11 @@
 {
   "$schema": ".agents/schemas/baselines/maintainability.schema.json",
   "kernelVersion": "0.1.0",
-  "generatedAt": "2026-09-06T17:59:26.044Z",
+  "generatedAt": "2026-09-07T13:32:53.781Z",
   "rollup": {
     "*": {
       "min": 76.381,
-      "p50": 98.874,
+      "p50": 98.829,
       "p95": 122.902
     }
   },
@@ -1173,6 +1173,10 @@
     {
       "path": ".agents/scripts/lib/orchestration/file-assumptions.js",
       "mi": 83.433
+    },
+    {
+      "path": ".agents/scripts/lib/orchestration/git-cleanup/phases/branches-detect.js",
+      "mi": 90.195
     },
     {
       "path": ".agents/scripts/lib/orchestration/git-cleanup/phases/branches-reap.js",
