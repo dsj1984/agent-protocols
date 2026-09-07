@@ -23,9 +23,9 @@
  * @module lib/bootstrap/baseline-merge-driver
  */
 
-import { spawnSync as defaultSpawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
+import { spawnCapture } from '../child-exec.js';
 
 /** Driver name, as it appears on both sides of the registration. */
 export const BASELINE_MERGE_DRIVER_NAME = 'mandrel-baseline';
@@ -95,13 +95,10 @@ export function ensureGitattributesLine(projectRoot, fsImpl = fs) {
  * Point `merge.mandrel-baseline.driver` at the driver in THIS clone.
  *
  * @param {string} projectRoot
- * @param {typeof defaultSpawnSync} [spawnImpl]
+ * @param {typeof spawnCapture} [spawnImpl]
  * @returns {{ action: 'set'|'already-present'|'not-a-repo'|'failed' }}
  */
-export function ensureDriverGitConfig(
-  projectRoot,
-  spawnImpl = defaultSpawnSync,
-) {
+export function ensureDriverGitConfig(projectRoot, spawnImpl = spawnCapture) {
   const opts = {
     cwd: projectRoot,
     encoding: 'utf-8',
@@ -152,7 +149,7 @@ export function ensureDriverGitConfig(
  *
  * @param {object} ctx
  * @param {string} ctx.projectRoot
- * @param {typeof defaultSpawnSync} [ctx.spawnImpl]
+ * @param {typeof spawnCapture} [ctx.spawnImpl]
  * @param {typeof fs} [ctx.fsImpl]
  * @returns {{
  *   action: 'already-present'|'updated',

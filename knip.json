@@ -47,6 +47,7 @@
     ".agents/scripts/lint-issue-body.js!",
     ".agents/scripts/lint-label-vocabulary.js!",
     ".agents/scripts/mandrel-update-preflight.js!",
+    ".agents/scripts/merge-baseline.js!",
     ".agents/scripts/nav-registry-diff.js!",
     ".agents/scripts/notify.js!",
     ".agents/scripts/plan-context.js!",

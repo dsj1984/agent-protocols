@@ -121,6 +121,7 @@ const FRAMEWORK_SCRIPT_BASENAMES = Object.freeze([
   'lint-issue-body.js',
   'lint-label-vocabulary.js',
   'mandrel-update-preflight.js',
+  'merge-baseline.js',
   'nav-registry-diff.js',
   'notify.js',
   'plan-context.js',

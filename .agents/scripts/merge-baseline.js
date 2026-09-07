@@ -43,7 +43,6 @@
  * change their behaviour.
  */
 
-import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -53,6 +52,7 @@ import {
   mergeEnvelopes,
 } from './lib/baselines/merge-envelopes.js';
 import { writeFile as writeEnvelopeFile } from './lib/baselines/writer.js';
+import { spawnChild } from './lib/child-exec.js';
 import { runAsCli } from './lib/cli-utils.js';
 
 /** Indent one row's canonical JSON to its position inside `rows`. */
@@ -126,12 +126,14 @@ function readSide(file) {
  * @returns {number} git merge-file's own exit code.
  */
 function delegateToGit(basePath, oursPath, theirsPath) {
-  const result = spawnSync(
+  // `stdio: 'inherit'` so git's own conflict reporting reaches the operator
+  // exactly as it would have with no driver registered. `spawnChild` returns
+  // the RAW result deliberately: a `status` of null means the child was
+  // killed, and that must never be read as a clean merge.
+  const result = spawnChild(
     'git',
     ['merge-file', oursPath, basePath, theirsPath],
-    {
-      stdio: 'inherit',
-    },
+    { stdio: 'inherit' },
   );
   if (result.error) {
     process.stderr.write(
