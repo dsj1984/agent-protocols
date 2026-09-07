@@ -15,7 +15,8 @@ import {
 } from '../../../.agents/scripts/lib/orchestration/git-cleanup/phases/git-probes.js';
 import { decideStashAnswer } from '../../../.agents/scripts/lib/orchestration/git-cleanup/phases/prompts.js';
 
-const { validSha, firstLsRemoteSha, firstStdoutLine } = probeTesting;
+const { validSha, firstLsRemoteSha, firstStdoutLine, shortRemoteNames } =
+  probeTesting;
 
 describe('validSha', () => {
   it('returns the trimmed SHA when it matches the 7-40 hex shape', () => {
@@ -179,5 +180,38 @@ describe('decideStashAnswer', () => {
     for (const ans of ['', 'k', 'keep', 'maybe', null, undefined]) {
       assert.equal(decideStashAnswer(ans), 'keep', `answer=${ans}`);
     }
+  });
+});
+
+describe('shortRemoteNames', () => {
+  it('strips the remote prefix off every listed ref', () => {
+    const stdout = 'origin/main\norigin/story-5188\n';
+    assert.deepEqual(shortRemoteNames(stdout, 'origin'), [
+      'main',
+      'story-5188',
+    ]);
+  });
+
+  it('drops the symbolic HEAD under both of its spellings', () => {
+    // `%(refname:short)` renders refs/remotes/origin/HEAD as the bare
+    // remote name; `%(refname:lstrip=3)` renders it as the literal HEAD.
+    const stdout = 'origin\nHEAD\norigin/main\n';
+    assert.deepEqual(shortRemoteNames(stdout, 'origin'), ['main']);
+  });
+
+  it('keeps a real branch named after the remote', () => {
+    // Git leaves this one ambiguous ref long, so it survives the filter.
+    const stdout = 'origin/origin\n';
+    assert.deepEqual(shortRemoteNames(stdout, 'origin'), ['origin']);
+  });
+
+  it('honours a non-default remote name', () => {
+    const stdout = 'upstream\nupstream/main\n';
+    assert.deepEqual(shortRemoteNames(stdout, 'upstream'), ['main']);
+  });
+
+  it('ignores blank and whitespace-only lines', () => {
+    const stdout = '\n   \norigin/main\n\n';
+    assert.deepEqual(shortRemoteNames(stdout, 'origin'), ['main']);
   });
 });

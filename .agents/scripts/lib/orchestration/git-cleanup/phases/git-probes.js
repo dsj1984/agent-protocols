@@ -49,6 +49,19 @@ export function listLocalBranches(cwd) {
  * Pure: strip the `<remote>/` prefix off a remote-ref listing and drop the
  * symbolic `HEAD` entry.
  *
+ * `HEAD` arrives under two spellings. `%(refname:lstrip=3)` renders
+ * `refs/remotes/origin/HEAD` as the literal `HEAD`, but
+ * `%(refname:short)` — what both callers ask for — shortens it to the bare
+ * remote name `origin`, because git keeps the remote segment only when the
+ * result would otherwise be ambiguous. Missing that second spelling leaked
+ * a phantom `origin` candidate into the remote-only sweep, which the reap
+ * phase then reported as `already gone`.
+ *
+ * Both spellings are rejected **before** the prefix strip, because the
+ * strip is what makes them ambiguous: a real branch named `origin` lists
+ * as `origin/origin` and strips to `origin` too. Discriminating on the raw
+ * line keeps that branch reapable while still dropping the symbolic ref.
+ *
  * Shared by {@link listRemoteBranches} and {@link listRemoteMergedBranches}
  * so both enumerations speak the same short-name vocabulary the planner's
  * remote-only walk keys on — a divergence there would make the ancestry
@@ -64,8 +77,9 @@ function shortRemoteNames(stdout, remoteName) {
     .split('\n')
     .map((l) => l.trim())
     .filter(Boolean)
+    .filter((l) => l !== 'HEAD' && l !== remoteName)
     .map((l) => (l.startsWith(prefix) ? l.slice(prefix.length) : l))
-    .filter((b) => b && b !== 'HEAD');
+    .filter(Boolean);
 }
 
 /* node:coverage ignore next */
