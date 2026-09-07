@@ -45,6 +45,29 @@ export function listLocalBranches(cwd) {
     .filter(Boolean);
 }
 
+/**
+ * Pure: strip the `<remote>/` prefix off a remote-ref listing and drop the
+ * symbolic `HEAD` entry.
+ *
+ * Shared by {@link listRemoteBranches} and {@link listRemoteMergedBranches}
+ * so both enumerations speak the same short-name vocabulary the planner's
+ * remote-only walk keys on — a divergence there would make the ancestry
+ * signal miss every branch by name (Story #5188).
+ *
+ * @param {string} stdout
+ * @param {string} remoteName
+ * @returns {string[]}
+ */
+function shortRemoteNames(stdout, remoteName) {
+  const prefix = `${remoteName}/`;
+  return stdout
+    .split('\n')
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .map((l) => (l.startsWith(prefix) ? l.slice(prefix.length) : l))
+    .filter((b) => b && b !== 'HEAD');
+}
+
 /* node:coverage ignore next */
 export function listRemoteBranches(cwd, remoteName = 'origin') {
   const res = gitSpawn(
@@ -54,13 +77,41 @@ export function listRemoteBranches(cwd, remoteName = 'origin') {
     `refs/remotes/${remoteName}/`,
   );
   if (res.status !== 0) return [];
-  const prefix = `${remoteName}/`;
-  return res.stdout
-    .split('\n')
-    .map((l) => l.trim())
-    .filter(Boolean)
-    .map((l) => (l.startsWith(prefix) ? l.slice(prefix.length) : l))
-    .filter((b) => b && b !== 'HEAD');
+  return shortRemoteNames(res.stdout, remoteName);
+}
+
+/**
+ * The remote-only walk's ancestry source (Story #5188).
+ *
+ * {@link listMergedBranches} runs `git branch --merged` with no `-r`, so it
+ * enumerates **local** heads only and can never contain a remote branch
+ * name — feeding it the remote-only walk classified every orphaned remote
+ * ref as unmerged no matter how thoroughly it had landed. This is the `-r`
+ * twin: `git branch -r --merged <base>`, with the `<remote>/` prefix
+ * stripped so its names match the short names {@link listRemoteBranches}
+ * enumerates.
+ *
+ * Answered entirely from the local object database against the
+ * already-fetched remote-tracking refs — the sweep stays offline and adds
+ * no per-branch network call.
+ *
+ * @param {string} cwd
+ * @param {string} base  Rev the ancestry is taken against (`main`, `origin/main`).
+ * @param {string} [remoteName]
+ * @returns {string[]}  Short branch names, remote prefix stripped.
+ */
+/* node:coverage ignore next */
+export function listRemoteMergedBranches(cwd, base, remoteName = 'origin') {
+  const res = gitSpawn(
+    cwd,
+    'branch',
+    '-r',
+    '--merged',
+    base,
+    '--format=%(refname:short)',
+  );
+  if (res.status !== 0) return [];
+  return shortRemoteNames(res.stdout, remoteName);
 }
 
 /* node:coverage ignore next */
@@ -77,6 +128,36 @@ export function listMergedBranches(cwd, base) {
     .split('\n')
     .map((l) => l.trim())
     .filter(Boolean);
+}
+
+/**
+ * Story #4395's fresh ancestry anchor, factored out here so the local and
+ * remote-only walks cannot drift apart on it (Story #5188): the merged
+ * listing taken against the local base is unioned with the one taken
+ * against `<remote>/<base>` whenever that ref exists, so a stale local
+ * base cannot hide a branch already merged on the remote.
+ *
+ * `lister` picks the namespace — {@link listMergedBranches} (local heads)
+ * for the local walk, {@link listRemoteMergedBranches} (remote-tracking
+ * refs) for the remote-only one. `remoteName` is forwarded as the listers'
+ * third argument, which the local lister ignores.
+ *
+ * @param {{ lister: Function, cwd: string, baseBranch: string, remoteBaseRef: string, refExistsFn: Function, remoteName?: string }} args
+ * @returns {Set<string>}
+ */
+export function freshAnchoredMergedSet({
+  lister,
+  cwd,
+  baseBranch,
+  remoteBaseRef,
+  refExistsFn,
+  remoteName,
+}) {
+  const set = new Set(lister(cwd, baseBranch, remoteName));
+  if (refExistsFn(cwd, remoteBaseRef)) {
+    for (const b of lister(cwd, remoteBaseRef, remoteName)) set.add(b);
+  }
+  return set;
 }
 
 /* node:coverage ignore next */
@@ -356,18 +437,28 @@ export function refExists(cwd, ref) {
   return res.status === 0;
 }
 
+/**
+ * Story #4395: last-commit timestamp for the dry-run `not-merged`
+ * skip-visibility line (branch name + last-commit age).
+ *
+ * Story #5188 adds the remote-only arm. Remote branches are enumerated
+ * with the `<remote>/` prefix stripped, so the short name resolves to no
+ * `refs/heads/` ref at all: passing `localExists: false` reads
+ * `refs/remotes/<remote>/<branch>` instead, so an orphaned remote ref's
+ * skip line carries a real age rather than a silent `unknown`.
+ *
+ * @param {string} cwd
+ * @param {string} branch  Short branch name, remote prefix stripped.
+ * @param {{ localExists?: boolean, remoteName?: string }} [opts]
+ * @returns {string | null}
+ */
 /* node:coverage ignore next */
-// Story #4395: last-commit timestamp for the dry-run `not-merged`
-// skip-visibility line (branch name + last-commit age).
-export function branchLastCommitAt(cwd, branch) {
-  const res = gitSpawn(
-    cwd,
-    'log',
-    '-1',
-    '--format=%cI',
-    `refs/heads/${branch}`,
-    '--',
-  );
+export function branchLastCommitAt(cwd, branch, opts = {}) {
+  const { localExists = true, remoteName = 'origin' } = opts;
+  const ref = localExists
+    ? `refs/heads/${branch}`
+    : `refs/remotes/${remoteName}/${branch}`;
+  const res = gitSpawn(cwd, 'log', '-1', '--format=%cI', ref, '--');
   if (res.status !== 0) return null;
   return res.stdout.trim() || null;
 }
@@ -429,7 +520,12 @@ export function probeContentEquivalent({
   return { supported: true, equivalent: mergedTree === baseTree };
 }
 
-export const __testing = { validSha, firstLsRemoteSha, firstStdoutLine };
+export const __testing = {
+  validSha,
+  firstLsRemoteSha,
+  firstStdoutLine,
+  shortRemoteNames,
+};
 
 /**
  * Pure-ish: classify a latest-PR probe row into a planner verdict.

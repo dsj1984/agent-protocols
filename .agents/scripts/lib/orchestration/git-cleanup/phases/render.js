@@ -38,7 +38,14 @@ function formatCommitAge(iso, now) {
  * surfaces each one with its last-commit age so the operator can see why
  * a leftover branch isn't reaped instead of hunting for it by hand.
  *
- * @param {{ branch: string, reason: string, lastCommitAt?: string|null }} skip
+ * Story #5188 routes the remote-only walk's genuinely-unmerged survivors
+ * through here too. A `localExists: false` skip is marked `(remote-only)`
+ * — the same marker {@link renderCandidateRow} puts on a remote-only
+ * candidate — because the short name it prints has no local ref behind
+ * it: without the marker the operator reads the line as a local branch and
+ * hunts for a ref that `git branch` will never list.
+ *
+ * @param {{ branch: string, reason: string, lastCommitAt?: string|null, localExists?: boolean }} skip
  * @param {{ now?: number }} [opts]
  * @returns {string | null}
  */
@@ -46,7 +53,8 @@ export function renderNotMergedSkipLine(skip, opts = {}) {
   if (!skip || skip.reason !== 'not-merged') return null;
   const now = opts.now ?? Date.now();
   const age = formatCommitAge(skip.lastCommitAt, now);
-  return `${TAG} ⏭️  ${skip.branch} skipped — not merged (last commit: ${age})`;
+  const scope = skip.localExists === false ? ' (remote-only)' : '';
+  return `${TAG} ⏭️  ${skip.branch}${scope} skipped — not merged (last commit: ${age})`;
 }
 
 /**

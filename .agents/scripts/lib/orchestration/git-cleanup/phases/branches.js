@@ -1,7 +1,8 @@
 /**
  * branches.js — branch-reap phase of git-cleanup (Story #2466).
  * Owns `planCleanup` + `executeCleanup`. Reap helpers live in
- * `branches-reap.js`.
+ * `branches-reap.js`; the non-PR detection signals and the remote-only
+ * walk live in `branches-detect.js`.
  * @module lib/orchestration/git-cleanup/phases/branches
  */
 
@@ -14,6 +15,11 @@ import {
 import { Logger } from '../../../Logger.js';
 import { recordPendingCleanup } from '../../../worktree/lifecycle/pending-cleanup.js';
 import {
+  collectRemoteOnlyCandidates,
+  evaluateContentEquivalence,
+  skipEntryFromVerdict,
+} from './branches-detect.js';
+import {
   buildPruneSummary,
   reapLocalRef,
   reapRemoteRef,
@@ -25,9 +31,11 @@ import {
   branchTipSha,
   classifyLatestPr,
   currentBranch as defaultCurrentBranch,
+  freshAnchoredMergedSet,
   listLocalBranches,
   listMergedBranches,
   listRemoteBranches,
+  listRemoteMergedBranches,
   probeAllPrs,
   probeContentEquivalent,
   probeLatestPr,
@@ -41,45 +49,6 @@ import { probeAncestry } from './merged-tip.js';
 import { parsePrunedRefs } from './prune.js';
 
 const TAG = '[git-cleanup]';
-
-/** Fields a planner verdict forwards onto its `skipped[]` entry. */
-const SKIP_DETAIL_FIELDS = ['prNumber', 'tipSha', 'mergedSha', 'detail'];
-
-function skipEntryFromVerdict(branch, verdict) {
-  const entry = { branch, reason: verdict.reason };
-  for (const field of SKIP_DETAIL_FIELDS) {
-    if (verdict[field] != null) entry[field] = verdict[field];
-  }
-  return entry;
-}
-
-/**
- * Story #4395 — the third detection signal. Reached only when the branch
- * has no reapable PR verdict and is not an ancestor of `<base>` (or
- * `origin/<base>`). Probes content-equivalence via `git merge-tree
- * --write-tree` and, when the probe is conclusive and the merge is a
- * no-op, classifies the branch as `content-merged` instead of falling
- * through to the `not-merged` skip.
- */
-function evaluateContentEquivalence({
-  branch,
-  baseBranch,
-  cwd,
-  contentEquivalentFn,
-  branchLastCommitFn,
-}) {
-  const verdict = contentEquivalentFn({ cwd, base: baseBranch, branch });
-  if (verdict?.supported && verdict.equivalent) {
-    return { detectedBy: 'content-merged' };
-  }
-  return {
-    skip: {
-      branch,
-      reason: 'not-merged',
-      lastCommitAt: branchLastCommitFn(cwd, branch),
-    },
-  };
-}
 
 function evaluateLocalBranch({
   branch,
@@ -145,52 +114,6 @@ function evaluateLocalBranch({
   };
 }
 
-function collectRemoteOnlyCandidates({
-  remoteLister,
-  remoteName,
-  cwd,
-  localSet,
-  classify,
-  filter,
-  prProbe,
-  branchTipShaFn,
-  ancestryFn,
-  skipped,
-}) {
-  const out = [];
-  for (const branch of remoteLister(cwd, remoteName)) {
-    if (localSet.has(branch)) continue;
-    if (classify(branch)) continue;
-    if (!filter(branch)) continue;
-    const prInfo = prProbe(branch, cwd);
-    const verdict = classifyLatestPr({
-      prInfo,
-      branch,
-      cwd,
-      remoteName,
-      localExists: false,
-      branchTipShaFn,
-      ancestryFn,
-    });
-    if (verdict.kind === 'no-pr') continue;
-    if (verdict.kind === 'skip') {
-      skipped.push(skipEntryFromVerdict(branch, verdict));
-      continue;
-    }
-    out.push({
-      branch,
-      prNumber: verdict.prInfo.number ?? null,
-      mergedAt: verdict.prInfo.mergedAt ?? null,
-      hasWorktree: false,
-      worktreePath: null,
-      detectedBy: 'remote-only',
-      localExists: false,
-      behindMerge: verdict.reason === 'tip-behind-merge',
-    });
-  }
-  return out;
-}
-
 /**
  * Pure-ish: enumerate merged-branch candidates.
  *
@@ -229,6 +152,20 @@ function collectRemoteOnlyCandidates({
  *     git-only signals (ancestry + content-equivalence) rather than
  *     aborting the whole plan. The returned envelope's `ghDegraded` flag
  *     records whether this happened.
+ *
+ * Story #5188 makes the **remote-only** walk total (it now lives in
+ * `branches-detect.js`). It used to classify by
+ * the latest-PR verdict alone and return early on a `no-pr` verdict,
+ * recording neither a candidate nor a skip — so a remote ref no PR record
+ * covered was absent from `candidates[]`, `skipped[]`, the rendered log
+ * and the `--json` envelope alike. It now runs the same three-signal
+ * cascade the local walk does (PR verdict → ancestry → content
+ * -equivalence → `not-merged` skip), over its own remote-namespace
+ * ancestry source and with every git probe handed the qualified
+ * `<remote>/<branch>` rev. Every enumerated branch that passes the
+ * protected and filter checks therefore lands in exactly one of the two
+ * collections. Deletion is unchanged: a remote-only candidate still needs
+ * `--remote`, whichever signal detected it.
  */
 function buildGuardedPrProbe({ cwd, prIndexFn, prFallback, onDegrade }) {
   let prIndex;
@@ -269,6 +206,7 @@ export function planCleanup(ctx) {
     filter = () => true,
     includeRemoteOnly = false,
     remoteLister = listRemoteBranches,
+    remoteMergedLister = listRemoteMergedBranches,
     remoteName = 'origin',
     logger = Logger,
   } = ctx;
@@ -293,11 +231,12 @@ export function planCleanup(ctx) {
       branch,
     });
   const wtMap = worktreesFn(cwd);
-  const mergedByGit = new Set(mergedLister(cwd, baseBranch));
   const remoteBaseRef = `${remoteName}/${baseBranch}`;
-  if (refExistsFn(cwd, remoteBaseRef)) {
-    for (const b of mergedLister(cwd, remoteBaseRef)) mergedByGit.add(b);
-  }
+  const mergedSetArgs = { cwd, baseBranch, remoteBaseRef, refExistsFn };
+  const mergedByGit = freshAnchoredMergedSet({
+    ...mergedSetArgs,
+    lister: mergedLister,
+  });
   const localBranches = localLister(cwd);
   const localSet = new Set(localBranches);
   const candidates = [];
@@ -327,12 +266,20 @@ export function planCleanup(ctx) {
         remoteLister,
         remoteName,
         cwd,
+        baseBranch,
         localSet,
         classify,
         filter,
         prProbe,
         branchTipShaFn,
         ancestryFn,
+        mergedRemote: freshAnchoredMergedSet({
+          ...mergedSetArgs,
+          lister: remoteMergedLister,
+          remoteName,
+        }),
+        contentEquivalentFn,
+        branchLastCommitFn,
         skipped,
       }),
     );
