@@ -59,7 +59,7 @@ export const REAP_REASONS = Object.freeze({
  * @param {unknown} name
  * @returns {boolean}
  */
-export function isPlanRunLabel(name) {
+function isPlanRunLabel(name) {
   return typeof name === 'string' && name.startsWith(PLAN_RUN_LABEL_PREFIX);
 }
 
@@ -72,7 +72,7 @@ export function isPlanRunLabel(name) {
  * @param {Array<string|{ name?: string }>} [names]
  * @returns {string[]}
  */
-export function selectCohortLabels(names) {
+function selectCohortLabels(names) {
   const seen = new Set();
   for (const raw of Array.isArray(names) ? names : []) {
     const name = typeof raw === 'string' ? raw : raw?.name;
@@ -99,7 +99,7 @@ export function selectCohortLabels(names) {
  *   openIssues: number[],
  * }>}
  */
-export async function decideCohortLabel({
+async function decideCohortLabel({
   provider,
   label,
   includeUnreferenced = false,
@@ -156,7 +156,7 @@ export async function decideCohortLabel({
  * }} args
  * @returns {Promise<Array<object>>} one decision per cohort label, name-sorted.
  */
-export async function evaluateCohortLabels({
+async function evaluateCohortLabels({
   provider,
   labels,
   includeUnreferenced = false,
@@ -194,7 +194,7 @@ export async function evaluateCohortLabels({
  *   failed: Array<{ label: string, detail: string }>,
  * }>}
  */
-export async function reapCohortLabels({
+async function reapCohortLabels({
   provider,
   labels,
   includeUnreferenced = false,
@@ -308,3 +308,20 @@ export async function sweepCohortLabels({
   });
   return { totalLabels: rows.length, evaluated: labels.length, ...outcome };
 }
+
+/**
+ * Test-only surface. The five helpers below compose the two exported entry
+ * points (`reapPlanRunLabelsForStory`, `sweepCohortLabels`) and have no
+ * production consumer outside this module, so exporting each one individually
+ * would advertise five API surfaces nothing imports — and `dead-exports
+ * --production` correctly reports each as dead. They are still worth unit
+ * testing per arm, which is what this barrel is for; it follows the same
+ * `__testing` idiom `git-probes.js` and `source-classifier.js` use.
+ */
+export const __testing = {
+  isPlanRunLabel,
+  selectCohortLabels,
+  decideCohortLabel,
+  evaluateCohortLabels,
+  reapCohortLabels,
+};

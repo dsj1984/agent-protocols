@@ -1,7 +1,7 @@
 {
   "$schema": "https://mandrel.dev/baselines/dead-exports.schema.json",
   "kernelVersion": "6.17.1",
-  "generatedAt": "2026-09-06T17:13:35.536Z",
+  "generatedAt": "2026-09-07T14:10:21.747Z",
   "mode": "production",
   "rows": [
     {
@@ -1358,10 +1358,6 @@
     },
     {
       "file": ".agents/scripts/lib/orchestration/plan-persist/story-ops.js",
-      "symbol": "PLAN_RUN_LABEL_PREFIX"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/plan-persist/story-ops.js",
       "symbol": "planRunLabel"
     },
     {
@@ -1387,6 +1383,10 @@
     {
       "file": ".agents/scripts/lib/orchestration/plan-persist/supersede-ops.js",
       "symbol": "SUPERSEDE_CLOSE_REASON"
+    },
+    {
+      "file": ".agents/scripts/lib/orchestration/plan-run-labels/reap.js",
+      "symbol": "__testing"
     },
     {
       "file": ".agents/scripts/lib/orchestration/plan-runner/worktree-sweep.js",
@@ -2303,6 +2303,10 @@
     {
       "file": ".agents/scripts/providers/github/labels.js",
       "symbol": "isLabelAlreadyExistsError"
+    },
+    {
+      "file": ".agents/scripts/providers/github/labels.js",
+      "symbol": "isLabelNotFoundError"
     },
     {
       "file": ".agents/scripts/providers/github/mappers.js",

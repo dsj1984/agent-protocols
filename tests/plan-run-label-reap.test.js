@@ -15,13 +15,9 @@ import { fileURLToPath } from 'node:url';
 import { ITicketingProvider } from '../.agents/scripts/lib/ITicketingProvider.js';
 import { PLAN_RUN_LABEL_PREFIX } from '../.agents/scripts/lib/orchestration/plan-persist/story-ops.js';
 import {
-  decideCohortLabel,
-  evaluateCohortLabels,
-  isPlanRunLabel,
   REAP_REASONS,
-  reapCohortLabels,
   reapPlanRunLabelsForStory,
-  selectCohortLabels,
+  __testing as reapTesting,
   sweepCohortLabels,
 } from '../.agents/scripts/lib/orchestration/plan-run-labels/reap.js';
 import { runPostLandTail } from '../.agents/scripts/lib/orchestration/single-story-close/phases/post-land.js';
@@ -34,6 +30,14 @@ import {
   parseArgs,
   runSweep,
 } from '../.agents/scripts/prune-plan-run-labels.js';
+
+const {
+  decideCohortLabel,
+  evaluateCohortLabels,
+  isPlanRunLabel,
+  reapCohortLabels,
+  selectCohortLabels,
+} = reapTesting;
 
 const REPO_ROOT = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
