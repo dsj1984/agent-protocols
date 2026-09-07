@@ -135,6 +135,105 @@ describe('providers/github/errors.js — classifyGithubError', () => {
   });
 });
 
+describe("classifyGithubError reads the gh transport's stderr (Story #5210)", () => {
+  /**
+   * The `gh` CLI has no `.status` to set — it exits non-zero and prints the
+   * HTTP status and reason on stderr. Before #5210 the keyword rules read
+   * `err.message` alone, which on this transport is only the classified
+   * summary, so every unclassified `gh` failure fell through to 'permanent'
+   * and `withTransientRetry` never fired. That is what turned a rate-limit
+   * burst into a permanent answer and closed an Epic over 23 open children.
+   */
+  function ghFailure(stderr, message = 'gh-exec: gh exited with code 1') {
+    return Object.assign(new Error(message), { stderr });
+  }
+
+  it('retries a secondary rate limit delivered as HTTP 403', () => {
+    assert.strictEqual(
+      classifyGithubError(
+        ghFailure(
+          'HTTP 403: You have exceeded a secondary rate limit and have been temporarily blocked',
+        ),
+      ),
+      'transient',
+      'the incident error must now be retry-eligible',
+    );
+  });
+
+  it('still refuses to retry a genuine denial carrying the same status', () => {
+    assert.strictEqual(
+      classifyGithubError(
+        ghFailure('HTTP 403: Resource not accessible by integration'),
+      ),
+      'permission',
+      'a real 403 must not be retried six times before failing',
+    );
+  });
+
+  it('recovers the status from stderr for 401, 429 and 5xx alike', () => {
+    assert.strictEqual(
+      classifyGithubError(ghFailure('HTTP 401: Bad credentials')),
+      'permission',
+    );
+    assert.strictEqual(
+      classifyGithubError(ghFailure('HTTP 429: Too Many Requests')),
+      'transient',
+    );
+    assert.strictEqual(
+      classifyGithubError(ghFailure('HTTP 503: Service Unavailable')),
+      'transient',
+    );
+  });
+
+  it('detects a disabled sub-issues feature announced only on stderr', () => {
+    assert.strictEqual(
+      classifyGithubError(
+        ghFailure(
+          "GraphQL: Field 'subIssues' doesn't exist on type 'Issue'",
+          'gh-exec: GraphQL error from gh api',
+        ),
+      ),
+      'feature-disabled',
+      'otherwise the sub-issues read throws instead of degrading to []',
+    );
+  });
+
+  it('leaves an explicit err.status authoritative over the stderr text', () => {
+    const err = Object.assign(new Error('gh-exec: gh exited with code 1'), {
+      status: 502,
+      stderr: 'HTTP 403: Resource not accessible by integration',
+    });
+    assert.strictEqual(classifyGithubError(err), 'transient');
+  });
+
+  it('is unchanged for an error carrying no stderr at all', () => {
+    assert.strictEqual(
+      classifyGithubError(new Error('gh-exec: gh exited with code 1')),
+      'permanent',
+    );
+    assert.strictEqual(
+      classifyGithubError(Object.assign(new Error('boom'), { stderr: 42 })),
+      'permanent',
+    );
+  });
+
+  it('drives withTransientRetry — the incident error now retries', async () => {
+    let calls = 0;
+    const result = await withTransientRetry(
+      async () => {
+        calls += 1;
+        if (calls < 2) {
+          throw ghFailure('HTTP 403: You have exceeded a secondary rate limit');
+        }
+        return 'ok';
+      },
+      { baseDelayMs: 0, jitterMs: 0, sleep: async () => {} },
+    );
+    assert.strictEqual(result, 'ok');
+    assert.strictEqual(calls, 2, 'a single attempt means it never retried');
+  });
+});
+
 describe('providers/github/errors.js — GraphQL constants', () => {
   it('SUB_ISSUES_QUERY queries the subIssues paginated connection', () => {
     assert.match(SUB_ISSUES_QUERY, /subIssues\(first: 100, after: \$cursor\)/);

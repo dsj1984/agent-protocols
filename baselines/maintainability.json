@@ -1160,15 +1160,15 @@
     },
     {
       "path": ".agents/scripts/lib/orchestration/epic-container.js",
-      "mi": 106.267
+      "mi": 104.654
     },
     {
       "path": ".agents/scripts/lib/orchestration/epic-expansion.js",
-      "mi": 96.096
+      "mi": 95.313
     },
     {
       "path": ".agents/scripts/lib/orchestration/epic-rollup.js",
-      "mi": 94.522
+      "mi": 93.58
     },
     {
       "path": ".agents/scripts/lib/orchestration/file-assumption-enum.js",
@@ -2040,7 +2040,7 @@
     },
     {
       "path": ".agents/scripts/providers/github/errors.js",
-      "mi": 98.526
+      "mi": 97.838
     },
     {
       "path": ".agents/scripts/providers/github/issues.js",

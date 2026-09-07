@@ -33,23 +33,35 @@
 import { TYPE_LABELS } from '../label-constants.js';
 
 /**
- * The checklist grammar. `getSubTickets` (`providers/github/issues.js`)
- * already parses this exact form as its strategy-2 child source, so the
- * checklist is a durable mirror of the native sub-issue edges rather than a
- * second, competing representation: when the sub-issues API is unavailable
- * — an older GHES, a revoked scope, a partial write — the children are still
- * discoverable from the body alone.
+ * The checklist grammar: a checklist row, and the **first** issue reference
+ * anywhere on it. The checklist is a durable mirror of the native sub-issue
+ * edges rather than a second, competing representation — when the sub-issues
+ * API is unavailable (an older GHES, a revoked scope, a rate-limit burst) the
+ * children are still discoverable from the body alone.
  *
- * Kept in sync with `_getChecklistChildren` deliberately; a divergence here
- * would strand children the writer believes it linked.
+ * Deliberately the **loosest** of the three grammars that read this shape, and
+ * looser than it was: it used to require the id to be the whole row
+ * (`- [ ] #123`), which matched none of the annotated rows a hand-maintained
+ * rollout tracker actually carries — `- [ ] Design sign-off (#1897): pending`,
+ * `- [ ] 1.4 #1909 (Part B blocked)`. An Epic with 58 children presented three
+ * to the rollup, which closed it with 23 still open (Story #5210).
+ *
+ * It is NOT in sync with `_getChecklistChildren` (`providers/github/issues.js`)
+ * and no longer claims to be: that one is a general parent→child strategy for
+ * any issue and still requires `#N` immediately after the checkbox. Reading a
+ * superset here is safe in the direction that matters — a spurious id costs a
+ * skipped non-Story child, while a missed id costs a container closed over open
+ * work. The union with the native edges keeps both honest, and after #5210
+ * nothing irreversible is decided on this grammar alone.
  */
-const CHECKLIST_ITEM_RE = /^-\s*\[[ xX]\]\s+#(\d+)\s*$/gm;
+const CHECKLIST_ITEM_RE = /^-\s*\[[ xX]\]\s+.*?#(\d+)\b/gm;
 
 /**
  * The same grammar, unanchored to a global cursor — for callers testing one
- * line at a time. Kept beside its `/g` twin so the two cannot drift.
+ * line at a time. Kept beside its `/g` twin so the two cannot drift; the pair
+ * MUST accept the same line set, which `epic-container.test.js` pins.
  */
-export const CHECKLIST_ITEM_LINE_RE = /^-\s*\[[ xX]\]\s+#\d+\s*$/;
+export const CHECKLIST_ITEM_LINE_RE = /^-\s*\[[ xX]\]\s+.*?#\d+\b/;
 
 /** Heading the container's one prose section renders under. */
 const GOAL_HEADING = '## Goal';
@@ -180,12 +192,23 @@ export function readEpicChildIds(body) {
  * degrades to the checklist rather than propagating, since a body-derived
  * child list is a strictly better answer than an error.
  *
+ * **The degrade is reported, not hidden.** The result carries
+ * `nativeReadFailed`, because a truncated list and a genuinely small Epic are
+ * otherwise indistinguishable downstream — and one caller
+ * (`epic-rollup.js`) decides an irreversible close on the difference. A caller
+ * that only needs "who are the children" reads `ids` and ignores the flag;
+ * a caller about to do something it cannot undo MUST NOT.
+ *
+ * `nativeReadFailed` is false when no reader was injected: a caller that
+ * supplied none never asked for authority and is not degraded relative to what
+ * it requested.
+ *
  * @param {{
  *   epic: { number?: number, id?: number, body?: string, nodeId?: string },
  *   readNativeChildIds?: (epic: object) => Promise<number[]>,
  *   onWarn?: (message: string) => void,
  * }} opts
- * @returns {Promise<number[]>}
+ * @returns {Promise<{ ids: number[], nativeReadFailed: boolean }>}
  */
 export async function readEpicChildIdsFrom({
   epic,
@@ -193,18 +216,22 @@ export async function readEpicChildIdsFrom({
   onWarn,
 } = {}) {
   const fromBody = readEpicChildIds(epic?.body);
-  if (typeof readNativeChildIds !== 'function') return fromBody;
-
-  let native = [];
-  try {
-    native = normalizeChildIds(await readNativeChildIds(epic));
-  } catch (err) {
-    const id = epic?.number ?? epic?.id ?? '?';
-    onWarn?.(
-      `[epic-container] native sub-issue read failed for Epic #${id} ` +
-        `(${err?.message ?? String(err)}); using the body checklist alone.`,
-    );
+  if (typeof readNativeChildIds !== 'function') {
+    return { ids: fromBody, nativeReadFailed: false };
   }
 
-  return normalizeChildIds([...native, ...fromBody]);
+  try {
+    const native = normalizeChildIds(await readNativeChildIds(epic));
+    return {
+      ids: normalizeChildIds([...native, ...fromBody]),
+      nativeReadFailed: false,
+    };
+  } catch (err) {
+    onWarn?.(
+      `[epic-container] native sub-issue read failed for Epic ` +
+        `#${epic?.number ?? epic?.id ?? '?'} (${err?.message ?? String(err)}); ` +
+        'using the body checklist alone — the child list may be incomplete.',
+    );
+    return { ids: fromBody, nativeReadFailed: true };
+  }
 }
