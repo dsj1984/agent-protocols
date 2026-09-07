@@ -15,6 +15,13 @@ All notable changes to this project will be documented in this file.
 -->
 <!-- markdownlint-disable-file MD004 MD012 MD037 -->
 
+## [2.43.0](https://github.com/dsj1984/mandrel/compare/mandrel-v2.42.0...mandrel-v2.43.0) (2026-09-07)
+
+
+### Added
+
+* memory-pool advisory measures growth since the last consolidation instead of an absolute entry ceiling ([#5182](https://github.com/dsj1984/mandrel/issues/5182)) ([#5183](https://github.com/dsj1984/mandrel/issues/5183)) ([cccdd69](https://github.com/dsj1984/mandrel/commit/cccdd69546e5dfb4c6d1e205423ff52f07982ade))
+
 ## [2.42.0](https://github.com/dsj1984/mandrel/compare/mandrel-v2.41.0...mandrel-v2.42.0) (2026-09-06)
 
 
