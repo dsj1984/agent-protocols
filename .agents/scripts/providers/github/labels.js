@@ -17,6 +17,7 @@
  */
 
 import { withTransientRetry } from './errors.js';
+import { paginateRest } from './request-helpers.js';
 
 /**
  * Detect the "label already exists" signal across the surfaces `gh label
@@ -58,6 +59,28 @@ export function isLabelAlreadyExistsError(err) {
     return true;
   }
   return false;
+}
+
+/**
+ * Detect the "label does not exist" signal on the delete path. `gh api` exits
+ * non-zero on a 404 with `gh: Not Found (HTTP 404)` on stderr; the REST body
+ * carries `"message": "Not Found"`. Both are matched, and the numeric status
+ * is matched on its own so a transport that surfaces only `err.status` still
+ * classifies.
+ *
+ * Deliberately narrow: only a 404 counts. A 403 (scope) or a 422 must stay
+ * loud, because reading either as "already gone" would let a sweep report
+ * labels as reaped that are all still there.
+ *
+ * @param {unknown} err
+ * @returns {boolean}
+ */
+export function isLabelNotFoundError(err) {
+  if (!err) return false;
+  if (err.status === 404 || err.statusCode === 404) return true;
+  return /\bHTTP\s+404\b|\bnot found\b/i.test(
+    `${err.message ?? ''} ${err.stderr ?? ''}`,
+  );
 }
 
 export class LabelGateway {
@@ -160,6 +183,71 @@ export class LabelGateway {
       if (def?.name && !liveNames.has(def.name)) missing.push(def.name);
     }
     return missing;
+  }
+
+  /**
+   * List the repository's whole label vocabulary, paginated.
+   *
+   * Deliberately NOT modelled on `_reconcileLabelsPresence`'s
+   * `gh label list --limit 500`. That hard cap is fine for its own job —
+   * "are these 20 bootstrap labels present?" — and fatal for this one: a
+   * caller deciding which labels to delete from a truncated view would skip
+   * exactly the labels that sort after an accumulated pile, which is the
+   * failure Story #5189 exists to stop reproducing. `paginateRest` walks
+   * pages until a short one lands and throws (loudly) rather than truncating
+   * if the repository somehow exceeds its ceiling.
+   *
+   * Rows are projected to the fields a caller can rely on; a row without a
+   * usable `name` is dropped rather than passed on as a deletable target.
+   *
+   * @returns {Promise<Array<{ name: string, color: string|null, description: string|null }>>}
+   * @field-manifest /repos/{owner}/{repo}/labels: name, color, description
+   */
+  async listLabels() {
+    const endpoint = `/repos/${this.owner}/${this.repo}/labels`;
+    const rows = await paginateRest(this._gh, endpoint, {
+      label: `listLabels ${this.owner}/${this.repo}`,
+    });
+    return (Array.isArray(rows) ? rows : [])
+      .filter((row) => typeof row?.name === 'string')
+      .map((row) => ({
+        name: row.name,
+        color: row.color ?? null,
+        description: row.description ?? null,
+      }));
+  }
+
+  /**
+   * Delete one label by name.
+   *
+   * Goes through the REST surface (`DELETE /repos/{owner}/{repo}/labels/{name}`)
+   * rather than `gh label delete`, so the "already gone" signal arrives as a
+   * structured 404 on the same facade every other read here uses instead of
+   * as CLI prose — and so this gateway needs no new verb on the `gh` facade.
+   *
+   * A missing label resolves as a successful no-op. That is not leniency: the
+   * sweep this port exists for is expected to run repeatedly and concurrently
+   * with the close-path reap, so "someone else already deleted it" is the
+   * normal case, not an error.
+   *
+   * @param {string} name
+   * @returns {Promise<{ deleted: boolean, reason: string|null }>}
+   */
+  async deleteLabel(name) {
+    if (typeof name !== 'string' || name.trim().length === 0) {
+      throw new Error('deleteLabel: a non-empty label name is required');
+    }
+    const endpoint = `/repos/${this.owner}/${this.repo}/labels/${encodeURIComponent(name)}`;
+    try {
+      await withTransientRetry(() =>
+        this._gh.api({ method: 'DELETE', endpoint }),
+      );
+      return { deleted: true, reason: null };
+    } catch (err) {
+      if (isLabelNotFoundError(err))
+        return { deleted: false, reason: 'not-found' };
+      throw err;
+    }
   }
 
   _normalizeLabelListResult(result) {

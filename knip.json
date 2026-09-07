@@ -55,6 +55,7 @@
     ".agents/scripts/plan-run-epilogue.js!",
     ".agents/scripts/pr-watch-with-update.js!",
     ".agents/scripts/prune-baseline-orphans.js!",
+    ".agents/scripts/prune-plan-run-labels.js!",
     ".agents/scripts/quality-preview.js!",
     ".agents/scripts/quality-watch.js!",
     ".agents/scripts/resolve-doc-tiers.js!",

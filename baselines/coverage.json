@@ -1,12 +1,12 @@
 {
   "$schema": ".agents/schemas/baselines/coverage.schema.json",
   "kernelVersion": "1.0.0",
-  "generatedAt": "2026-09-07T13:32:53.571Z",
+  "generatedAt": "2026-09-07T13:58:57.657Z",
   "rollup": {
     "*": {
-      "lines": 96.05,
-      "branches": 86.98,
-      "functions": 88.32
+      "lines": 96.07,
+      "branches": 87.03,
+      "functions": 88.3
     }
   },
   "rows": [
@@ -1494,9 +1494,9 @@
     },
     {
       "path": ".agents/scripts/lib/ITicketingProvider.js",
-      "lines": 96.35,
+      "lines": 96.68,
       "branches": 100,
-      "functions": 70.59
+      "functions": 73.68
     },
     {
       "path": ".agents/scripts/lib/json-utils.js",
@@ -2051,6 +2051,12 @@
       "functions": 100
     },
     {
+      "path": ".agents/scripts/lib/orchestration/plan-run-labels/reap.js",
+      "lines": 100,
+      "branches": 88.64,
+      "functions": 100
+    },
+    {
       "path": ".agents/scripts/lib/orchestration/plan-runner/worktree-sweep.js",
       "lines": 99.53,
       "branches": 75.51,
@@ -2274,9 +2280,9 @@
     },
     {
       "path": ".agents/scripts/lib/orchestration/single-story-close/phases/post-land.js",
-      "lines": 97.58,
-      "branches": 72.37,
-      "functions": 84.21
+      "lines": 98.96,
+      "branches": 87.91,
+      "functions": 86.36
     },
     {
       "path": ".agents/scripts/lib/orchestration/single-story-close/phases/pull-request.js",
@@ -3078,8 +3084,8 @@
     },
     {
       "path": ".agents/scripts/providers/github/labels.js",
-      "lines": 98.32,
-      "branches": 89.66,
+      "lines": 98.88,
+      "branches": 91.25,
       "functions": 100
     },
     {
@@ -3153,6 +3159,12 @@
       "lines": 95.58,
       "branches": 81.4,
       "functions": 100
+    },
+    {
+      "path": ".agents/scripts/prune-plan-run-labels.js",
+      "lines": 98.62,
+      "branches": 95.24,
+      "functions": 57.14
     },
     {
       "path": ".agents/scripts/quality-preview.js",

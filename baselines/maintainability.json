@@ -1,11 +1,11 @@
 {
   "$schema": ".agents/schemas/baselines/maintainability.schema.json",
   "kernelVersion": "0.1.0",
-  "generatedAt": "2026-09-07T13:32:53.781Z",
+  "generatedAt": "2026-09-07T13:54:39.183Z",
   "rollup": {
     "*": {
       "min": 76.381,
-      "p50": 98.829,
+      "p50": 98.874,
       "p95": 122.902
     }
   },
@@ -1343,6 +1343,10 @@
       "mi": 104.129
     },
     {
+      "path": ".agents/scripts/lib/orchestration/plan-run-labels/reap.js",
+      "mi": 99.914
+    },
+    {
       "path": ".agents/scripts/lib/orchestration/plan-runner/worktree-sweep.js",
       "mi": 82.927
     },
@@ -1492,7 +1496,7 @@
     },
     {
       "path": ".agents/scripts/lib/orchestration/single-story-close/phases/post-land.js",
-      "mi": 99.003
+      "mi": 99.603
     },
     {
       "path": ".agents/scripts/lib/orchestration/single-story-close/phases/pull-request.js",
@@ -2040,7 +2044,7 @@
     },
     {
       "path": ".agents/scripts/providers/github/labels.js",
-      "mi": 97.652
+      "mi": 99.689
     },
     {
       "path": ".agents/scripts/providers/github/mappers.js",
@@ -2089,6 +2093,10 @@
     {
       "path": ".agents/scripts/prune-baseline-orphans.js",
       "mi": 94.372
+    },
+    {
+      "path": ".agents/scripts/prune-plan-run-labels.js",
+      "mi": 93.491
     },
     {
       "path": ".agents/scripts/quality-preview.js",

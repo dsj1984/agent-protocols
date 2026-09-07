@@ -44,6 +44,7 @@ import {
   executeFastForward as defaultExecuteFastForward,
   planFastForward as defaultPlanFastForward,
 } from '../../git-cleanup/phases/fast-forward.js';
+import { reapPlanRunLabelsForStory as defaultReapPlanRunLabelsForStory } from '../../plan-run-labels/reap.js';
 import { reassertStatusColumn as defaultReassertStatusColumn } from '../../reassert-status-column.js';
 import { releaseStoryLease as defaultReleaseStoryLease } from '../../single-story-lease-guard.js';
 import { captureStoryFollowUps as defaultCaptureStoryFollowUps } from '../../story-follow-ups.js';
@@ -291,6 +292,70 @@ async function stepLeaseRelease({
 }
 
 /**
+ * The whole-repository sweep an operator runs when the automatic reap could
+ * not finish its job. Named in the warning itself so the next step is in the
+ * message rather than in a runbook nobody opens mid-incident.
+ */
+const REAP_SWEEP_REMEDY = 'node .agents/scripts/prune-plan-run-labels.js';
+
+/**
+ * Reap the cohort labels the closing Story carried (Story #5189).
+ *
+ * This seam is chosen deliberately. It is the only one that fires for both
+ * single- and multi-Story runs: the multi-Story run epilogue is keyed on a
+ * synthesized ad-hoc id, never sees the cohort label, and reports
+ * `applicable: false` at N=1 — which is the planning default, so wiring the
+ * reap there would leave the common case unreaped forever.
+ *
+ * Best-effort in the strongest sense the tail offers: the outcome is
+ * deliberately NOT reported in the returned `tail` envelope. A per-step
+ * boolean is the right shape for a step whose failure degrades the *report of
+ * the land* — a missed follow-up, an unresynced status column. Label
+ * vocabulary hygiene is not that: nothing downstream reads a cohort label as
+ * an input, so a failed reap costs one stale label. Surfacing it in the
+ * envelope would make a close whose label read flaked terminate differently
+ * from one where no label was reapable, for no difference an operator can act
+ * on. The failure is named in a warning instead, and the whole-repository
+ * sweep (`node .agents/scripts/prune-plan-run-labels.js`) collects whatever
+ * the automatic path misses.
+ *
+ * Never reaps a zero-issue label: that shape is indistinguishable from a label
+ * an in-flight persist has just minted, so the opt-in stays off here.
+ */
+async function stepPlanRunLabelReap({
+  storyId,
+  provider,
+  progress,
+  reapPlanRunLabelsForStoryFn,
+}) {
+  const warn = (message) =>
+    progress?.(
+      'POST-LAND',
+      `⚠️ plan-run label reap: ${message} — sweep the pile with ` +
+        `"${REAP_SWEEP_REMEDY}".`,
+    );
+  const outcome = await reapPlanRunLabelsForStoryFn({
+    storyId,
+    provider,
+    onWarn: warn,
+  });
+  const reaped = outcome?.deleted?.length ?? 0;
+  if (reaped > 0) {
+    progress?.(
+      'POST-LAND',
+      `🏷️  Reaped ${reaped} spent plan-run label(s): ` +
+        `${outcome.deleted.map((d) => d.label).join(', ')}.`,
+    );
+  }
+  return {
+    ok: (outcome?.failed?.length ?? 0) === 0,
+    detail: outcome?.failed?.length
+      ? outcome.failed.map((f) => f.label).join(', ')
+      : null,
+  };
+}
+
+/**
  * Run the whole post-land tail. Never throws.
  *
  * Steps run **sequentially** and in this order deliberately: follow-up
@@ -330,6 +395,7 @@ async function stepLeaseRelease({
  * @param {Function} [args.acquireLockWithWaitFn]   Test seam.
  * @param {Function} [args.purgeStoryTempArtifactsFn] Test seam.
  * @param {Function} [args.releaseStoryLeaseFn]     Test seam.
+ * @param {Function} [args.reapPlanRunLabelsForStoryFn] Test seam.
  * @returns {Promise<{ followUps: boolean, statusResync: boolean, refCleanup: boolean, baseFastForward: boolean, tempPurge: boolean, leaseRelease: boolean, details: Record<string, string|null> }>}
  */
 export async function runPostLandTail({
@@ -350,6 +416,7 @@ export async function runPostLandTail({
   acquireLockWithWaitFn = defaultAcquireLockWithWait,
   purgeStoryTempArtifactsFn = defaultPurgeStoryTempArtifacts,
   releaseStoryLeaseFn = defaultReleaseStoryLease,
+  reapPlanRunLabelsForStoryFn = defaultReapPlanRunLabelsForStory,
 }) {
   progress?.('POST-LAND', `🧾 Running land tail for Story #${storyId}...`);
 
@@ -402,6 +469,20 @@ export async function runPostLandTail({
       }),
     { name: 'status-column resync', progress },
   );
+  // Story #5189 — the cohort label's end of life. Runs with the other
+  // GitHub-touching steps (outside the checkout lock) and contributes nothing
+  // to `tail`; see `stepPlanRunLabelReap` for why that omission is the point.
+  await step(
+    () =>
+      stepPlanRunLabelReap({
+        storyId,
+        provider,
+        progress,
+        reapPlanRunLabelsForStoryFn,
+      }),
+    { name: 'plan-run label reap', progress },
+  );
+
   // Local-checkout mutations: serialized behind a best-effort cross-process
   // lock (Story #4622). Acquire once, run both steps, release in `finally`.
   const lockCfg = config?.delivery?.postLandLock ?? {};
