@@ -15,6 +15,13 @@ All notable changes to this project will be documented in this file.
 -->
 <!-- markdownlint-disable-file MD004 MD012 MD037 -->
 
+## [2.45.0](https://github.com/dsj1984/mandrel/compare/mandrel-v2.44.0...mandrel-v2.45.0) (2026-09-07)
+
+
+### Fixed
+
+* **git-cleanup:** drop the symbolic HEAD ref under its short spelling ([#5197](https://github.com/dsj1984/mandrel/issues/5197)) ([98802f6](https://github.com/dsj1984/mandrel/commit/98802f6ee49b699560ab7362815e054751f3024b))
+
 ## [2.44.0](https://github.com/dsj1984/mandrel/compare/mandrel-v2.43.0...mandrel-v2.44.0) (2026-09-07)
 
 
