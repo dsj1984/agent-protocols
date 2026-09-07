@@ -9,12 +9,17 @@
  * explicitly, and always state them (as `none` when healthy) so an absent line
  * can never be mistaken for a clean gate.
  *
- * A degraded gate is **reported, not blocking**: the canonical `npm run lint`
- * close-validation gate has already covered this diff before the review phase
- * runs, so failing the merge on a secondary read of an already-gated surface
- * would cost delivery without buying coverage. The rationale for that posture
- * lives with the channel itself in
+ * A degraded gate is **reported, not blocking**: this review is a secondary
+ * read, and the close does not gate the merge on it. The rationale for that
+ * posture lives with the channel itself in
  * [`review-providers/degraded-gates.js`](../../review-providers/degraded-gates.js).
+ *
+ * What this module must **not** do (Story #5193) is tell the operator that the
+ * canonical `npm run lint` close gate covered the surface instead. A stub
+ * `lint` script is a supported consumer shape, so that claim is unverifiable
+ * from here — and asserting it talks the operator out of the exact concern the
+ * degradation was raised to surface. State the posture; never vouch for
+ * coverage this module cannot see.
  */
 
 import { summarizeDegradations } from '../../review-providers/degraded-gates.js';
@@ -58,8 +63,8 @@ export function formatReviewOutcomeLines({
   if (summarizeDegradations(degradations) !== 'none') {
     lines.push(
       '⚠️ Review ran DEGRADED — the surface(s) above were not reviewed. The close ' +
-        'is not blocked (the canonical `npm run lint` close gate already covered ' +
-        'this diff), but this review does not vouch for them.',
+        'is not blocked — a secondary review does not gate the merge — but ' +
+        'nothing here vouches for those surfaces.',
     );
   }
   return lines;

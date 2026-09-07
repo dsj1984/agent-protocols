@@ -45,6 +45,28 @@
  * and that intent stands). It additionally reports a `degradations[]` array
  * naming **which** surface could not run and **why**, so the review outcome can
  * say "this gate did not run" instead of silently reading clean.
+ *
+ * ## The code surface never got the same treatment (Story #5193)
+ *
+ * Story #4839 gave the *markdown* surface a disk probe and left the code
+ * surface spawning `npx --no biome` and classifying the exit code. On npm 11.x
+ * that spawn exits **0 with empty output** when biome is absent, so
+ * `parseLintOutput` saw no failure, produced no degradation, and the surface
+ * contributed `errors: 0, warnings: 0` — a *silent false clean*, which is
+ * strictly worse than a degradation: a degraded surface announces itself, a
+ * falsely-clean one is trusted. Since nothing in the framework requires either
+ * runner, "absent" is the default state of a consumer checkout.
+ *
+ * Fix: runner resolution is a **precondition** for every surface, not an
+ * outcome inferred from an exit code. Both surfaces now resolve through
+ * {@link resolveRunner}, and an unresolved runner is never spawned.
+ *
+ * The same measurement invalidated the `NPX_UNRESOLVABLE` sentinel: current npm
+ * answers an unresolvable bin with `npm error code E404`, not `could not
+ * determine executable to run`, so every genuinely-unresolvable runner was
+ * being labelled `unparseable-output`. The sentinel now recognises both shapes.
+ * It still earns its keep after the disk probe: the probe only sees
+ * `node_modules/.bin`, so a runner resolvable some other way can still fail.
  */
 
 import { spawnSync } from 'node:child_process';
@@ -54,8 +76,14 @@ import path from 'node:path';
 /** Paths these extensions land on the biome (code) runner. */
 const CODE_EXTENSIONS = /\.(js|mjs|cjs|jsx|ts|tsx|json|jsonc)$/i;
 
-/** npx's message when the requested bin cannot be resolved. */
-const NPX_UNRESOLVABLE = /could not determine executable to run/i;
+/**
+ * npx's output when the requested bin cannot be resolved. Two shapes: the
+ * legacy message, and the `E404` current npm answers with instead (measured
+ * 2026-09-07 on npm 11.13.0). Matching the E404 *code* rather than any
+ * `npm error` line keeps a genuine runner error out of this classification.
+ */
+const NPX_UNRESOLVABLE =
+  /could not determine executable to run|npm (?:error|ERR!)\s+code\s+E404/i;
 
 /** Biome's exit-1 message when every supplied path is config-excluded. */
 const BIOME_EMPTY_SCOPE = /No files were processed in the specified paths/i;
@@ -72,6 +100,15 @@ const MARKDOWN_RUNNERS = Object.freeze([
     bin: 'markdownlint',
     extraArgs: Object.freeze(['--ignore', 'node_modules']),
   }),
+]);
+
+/**
+ * Code runners in preference order. `@biomejs/biome` installs a bare `biome`
+ * bin, which is also the canonical name this surface reports itself under when
+ * nothing resolves.
+ */
+const CODE_RUNNERS = Object.freeze([
+  Object.freeze({ bin: 'biome', extraArgs: Object.freeze([]) }),
 ]);
 
 /** Reason codes carried on a degradation record. */
@@ -103,24 +140,30 @@ function spawnLintRunner(bin, args, cwd) {
 }
 
 /**
- * Pure-ish: pick the first markdown runner whose bin is actually installed
- * under `<cwd>/node_modules/.bin`. Returns `null` when none is — an honest
- * "this surface has no runner" that the caller reports rather than silently
- * folding into a generic parse failure.
+ * Pure-ish: pick the first candidate whose bin is actually installed under
+ * `<cwd>/node_modules/.bin`. Returns `null` when none is — an honest "this
+ * surface has no runner" that the caller reports rather than silently folding
+ * into a generic parse failure.
  *
  * The disk probe (rather than "spawn and see") is what makes the failure
- * *nameable*: `npx --no <missing-bin>` yields only a generic npm error, which
- * is precisely how the defect hid for months.
+ * *nameable*, and — since Story #5193 — what makes it *visible at all* on the
+ * code surface: `npx --no <missing-bin>` answers with a generic npm error at
+ * best and an empty exit 0 at worst, which is precisely how both defects hid.
+ *
+ * Probing `node_modules/.bin` only is a deliberate bound: a globally-installed
+ * runner reads as absent here, which degrades the gate honestly rather than
+ * trusting a spawn nobody resolved.
  *
  * Not exported: it is reachable — and asserted — through {@link runScopedLint},
  * whose `existsFn` seam drives every resolution branch.
  *
+ * @param {ReadonlyArray<{ bin: string, extraArgs: ReadonlyArray<string> }>} candidates
  * @param {string} cwd
- * @param {(p: string) => boolean} [existsFn]  Injected for testing.
+ * @param {(p: string) => boolean} existsFn  Injected for testing.
  * @returns {{ bin: string, extraArgs: ReadonlyArray<string> }|null}
  */
-function resolveMarkdownRunner(cwd, existsFn = existsSync) {
-  for (const candidate of MARKDOWN_RUNNERS) {
+function resolveRunner(candidates, cwd, existsFn) {
+  for (const candidate of candidates) {
     const base = path.join(cwd, 'node_modules', '.bin', candidate.bin);
     if (existsFn(base)) return candidate;
     if (
@@ -131,6 +174,49 @@ function resolveMarkdownRunner(cwd, existsFn = existsSync) {
     }
   }
   return null;
+}
+
+/**
+ * Pure: the summary a surface reports when it has no runner to spawn. Counts
+ * are zero *and* `executionFailed` is true, so the row can never be read as a
+ * clean result — the invariant Story #5193 restored.
+ *
+ * @returns {ReturnType<typeof parseLintOutput>}
+ */
+function unresolvedRunnerSummary() {
+  return {
+    errors: 0,
+    warnings: 0,
+    parsed: false,
+    executionFailed: true,
+    emptyScope: false,
+    reason: DEGRADATION_REASONS.RUNNER_NOT_INSTALLED,
+  };
+}
+
+/**
+ * Resolve one surface's runner and, only if it resolved, spawn and classify it.
+ * Shared by both surfaces so neither can drift back into spawn-and-see.
+ *
+ * @param {{
+ *   label: string,
+ *   candidates: ReadonlyArray<{ bin: string, extraArgs: ReadonlyArray<string> }>,
+ *   buildArgs: (runner: { bin: string, extraArgs: ReadonlyArray<string> }) => string[],
+ *   cwd: string,
+ *   runnerFn: typeof spawnLintRunner,
+ *   existsFn: (p: string) => boolean,
+ * }} args
+ * @returns {{ surface: string, summary: ReturnType<typeof parseLintOutput> }}
+ */
+function runSurface({ label, candidates, buildArgs, cwd, runnerFn, existsFn }) {
+  const runner = resolveRunner(candidates, cwd, existsFn);
+  if (runner === null) {
+    return { surface: label, summary: unresolvedRunnerSummary() };
+  }
+  return {
+    surface: runner.bin,
+    summary: parseLintOutput(runnerFn(runner.bin, buildArgs(runner), cwd)),
+  };
 }
 
 /**
@@ -267,33 +353,28 @@ export function runScopedLint(
 
   const surfaces = [];
   if (code.length > 0) {
-    surfaces.push({
-      surface: 'biome',
-      summary: parseLintOutput(runnerFn('biome', ['lint', ...code], cwd)),
-    });
+    surfaces.push(
+      runSurface({
+        label: 'biome',
+        candidates: CODE_RUNNERS,
+        buildArgs: (runner) => ['lint', ...code, ...runner.extraArgs],
+        cwd,
+        runnerFn,
+        existsFn,
+      }),
+    );
   }
   if (md.length > 0) {
-    const runner = resolveMarkdownRunner(cwd, existsFn);
-    if (runner === null) {
-      surfaces.push({
-        surface: 'markdownlint',
-        summary: {
-          errors: 0,
-          warnings: 0,
-          parsed: false,
-          executionFailed: true,
-          emptyScope: false,
-          reason: DEGRADATION_REASONS.RUNNER_NOT_INSTALLED,
-        },
-      });
-    } else {
-      surfaces.push({
-        surface: runner.bin,
-        summary: parseLintOutput(
-          runnerFn(runner.bin, [...md, ...runner.extraArgs], cwd),
-        ),
-      });
-    }
+    surfaces.push(
+      runSurface({
+        label: 'markdownlint',
+        candidates: MARKDOWN_RUNNERS,
+        buildArgs: (runner) => [...md, ...runner.extraArgs],
+        cwd,
+        runnerFn,
+        existsFn,
+      }),
+    );
   }
 
   return mergeSurfaceSummaries(surfaces);

@@ -788,7 +788,7 @@ test('runScopedLint: a clean biome run plus a working markdown runner is not deg
   });
 
   const out = runScopedLint(['a.js', 'README.md'], '/repo', runner, {
-    existsFn: binsInstalled('markdownlint-cli2'),
+    existsFn: binsInstalled('markdownlint-cli2', 'biome'),
   });
 
   assert.equal(out.executionFailed, false);
@@ -821,6 +821,89 @@ test('parseLintOutput: an unresolvable npx bin is reported as runner-not-resolva
 
   assert.equal(out.executionFailed, true);
   assert.equal(out.reason, 'runner-not-resolvable');
+});
+
+test('runScopedLint: an absent code runner degrades by name instead of reading clean (Story #5193)', () => {
+  const { calls, runner } = recordingRunner({});
+
+  const out = runScopedLint(['a.js', 'b.mjs'], '/repo', runner, {
+    existsFn: binsInstalled('markdownlint-cli2'),
+  });
+
+  assert.equal(
+    calls.length,
+    0,
+    'a runner that did not resolve must never be spawned',
+  );
+  assert.equal(out.executionFailed, true);
+  assert.deepEqual(out.degradations, [
+    { surface: 'biome', reason: 'runner-not-installed' },
+  ]);
+});
+
+test('runScopedLint: a zero-exit empty-output spawn can no longer read as a clean code surface (Story #5193 root cause)', () => {
+  // Exactly what `npx --no biome lint <file>` does on npm 11.x when biome is
+  // absent: exit 0, no output. Pre-fix this merged as errors:0 / warnings:0
+  // with an empty degradations[] — indistinguishable from a genuine clean.
+  const { runner } = recordingRunner({
+    biome: { status: 0, stdout: '', stderr: '' },
+  });
+
+  const out = runScopedLint(['a.js'], '/repo', runner, {
+    existsFn: binsInstalled(),
+  });
+
+  assert.equal(out.errors, 0);
+  assert.equal(out.warnings, 0);
+  assert.notDeepEqual(
+    out.degradations,
+    [],
+    'a surface whose runner never resolved must declare itself, not report clean',
+  );
+  assert.equal(out.executionFailed, true);
+});
+
+test('runScopedLint: an installed code runner still lints and reports its counts (Story #5193 regression guard)', () => {
+  const { calls, runner } = recordingRunner({
+    biome: { status: 1, stdout: 'Found 2 error(s).\n', stderr: '' },
+  });
+
+  const out = runScopedLint(['a.js'], '/repo', runner, {
+    existsFn: binsInstalled('biome'),
+  });
+
+  assert.deepEqual(calls, [{ bin: 'biome', args: ['lint', 'a.js'] }]);
+  assert.equal(out.errors, 2);
+  assert.equal(out.parsed, true);
+  assert.equal(out.executionFailed, false);
+  assert.deepEqual(out.degradations, []);
+});
+
+test("parseLintOutput: npm's current E404 answer is runner-not-resolvable, not unparseable-output (Story #5193)", () => {
+  const out = parseLintOutput({
+    status: 1,
+    stdout: '',
+    stderr:
+      'npm error code E404\nnpm error 404 Not Found - GET https://registry.npmjs.org/nope\n',
+  });
+
+  assert.equal(out.executionFailed, true);
+  assert.equal(
+    out.reason,
+    'runner-not-resolvable',
+    'the reason code is the whole point of the degradation record',
+  );
+});
+
+test('parseLintOutput: a non-E404 npm failure stays unparseable-output (the sentinel is not a blanket npm matcher)', () => {
+  const out = parseLintOutput({
+    status: 1,
+    stdout: '',
+    stderr: 'npm error code ELIFECYCLE\nnpm error errno 1\n',
+  });
+
+  assert.equal(out.executionFailed, true);
+  assert.equal(out.reason, 'unparseable-output');
 });
 
 test('runScopedLint: falls back to markdownlint (cli v1) with its own --ignore arg shape', () => {
