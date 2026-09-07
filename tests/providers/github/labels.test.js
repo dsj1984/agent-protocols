@@ -29,7 +29,11 @@ const labelsMod = await import(
   ).href
 );
 
-const { LabelGateway, isLabelAlreadyExistsError } = labelsMod;
+const {
+  LABEL_DESCRIPTION_MAX_LENGTH,
+  LabelGateway,
+  isLabelAlreadyExistsError,
+} = labelsMod;
 
 /**
  * Minimal gh-exec stand-in exposing only the surfaces `LabelGateway`
@@ -159,6 +163,68 @@ describe('providers/github/labels.js — LabelGateway', () => {
     ]);
     assert.deepEqual(out.created, ['type::task']);
     assert.deepEqual(out.missing, []);
+  });
+
+  it('ensureLabels: refuses an over-long description before gh is spawned', async () => {
+    // Story #5201: GitHub caps a label description at 100 characters and
+    // answers a longer one with an HTTP 422 that `gh label create` surfaces
+    // as a bare exit 1. Catching it here — before the spawn — is what makes
+    // the length the message instead of an exit status.
+    let spawned = 0;
+    const gh = makeFakeGh({
+      onCreate: () => {
+        spawned += 1;
+      },
+    });
+    const gw = new LabelGateway({ gh, owner: 'o', repo: 'r' });
+    const tooLong = 'x'.repeat(LABEL_DESCRIPTION_MAX_LENGTH + 8);
+    await assert.rejects(
+      () =>
+        gw.ensureLabels([
+          { name: 'plan-run::abc', color: '#C5DEF5', description: tooLong },
+        ]),
+      (err) => {
+        assert.match(err.message, /plan-run::abc/, 'names the label');
+        assert.match(
+          err.message,
+          new RegExp(String(LABEL_DESCRIPTION_MAX_LENGTH + 8)),
+          'names the actual length',
+        );
+        assert.match(err.message, /100/, 'names the cap');
+        return true;
+      },
+    );
+    assert.equal(spawned, 0, 'no gh process is spawned for a doomed create');
+  });
+
+  it('ensureLabels: a description exactly at the cap still creates', async () => {
+    // The boundary is inclusive — 100 is legal, 101 is not — so a def sitting
+    // exactly on it must not be refused by an off-by-one guard.
+    const gh = makeFakeGh({
+      onCreate: () => {},
+      listResult: { stdout: JSON.stringify([{ name: 'area::docs' }]) },
+    });
+    const gw = new LabelGateway({ gh, owner: 'o', repo: 'r' });
+    const out = await gw.ensureLabels([
+      {
+        name: 'area::docs',
+        color: '#abcdef',
+        description: 'x'.repeat(LABEL_DESCRIPTION_MAX_LENGTH),
+      },
+    ]);
+    assert.deepEqual(out.created, ['area::docs']);
+  });
+
+  it('ensureLabels: a def with no description is accepted', async () => {
+    // `description` is optional on the def shape (the loop already defaults
+    // it to ''), so the guard must not turn an absent one into a rejection.
+    const gh = makeFakeGh({
+      onCreate: () => {},
+      listResult: { stdout: JSON.stringify([{ name: 'x' }]) },
+    });
+    const gw = new LabelGateway({ gh, owner: 'o', repo: 'r' });
+    const out = await gw.ensureLabels([{ name: 'x', color: '#fff' }]);
+    assert.deepEqual(out.created, ['x']);
   });
 
   it('ensureLabels: rethrows non-"already exists" errors', async () => {

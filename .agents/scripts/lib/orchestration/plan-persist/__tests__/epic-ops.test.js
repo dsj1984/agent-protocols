@@ -15,6 +15,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
+import { GhExecError } from '../../../gh-exec.js';
 import { createContainerEpic, EPIC_SUGGESTION_THRESHOLD } from '../epic-ops.js';
 
 const EPIC = { title: 'Auth hardening', goal: 'Group the auth work.' };
@@ -187,6 +188,37 @@ describe('createContainerEpic — degradation', () => {
       await createContainerEpic({ provider, epic: EPIC, created: THREE }),
       null,
     );
+  });
+
+  it("warns with gh's own reason when the label ensure throws", async () => {
+    // Story #5201: the degrade warning logged `err.message` only, which for a
+    // classified gh failure is just the exit status — the sentence GitHub
+    // actually returned never reached the operator. The Epic-skip posture is
+    // unchanged; only the warning gained the reason.
+    const provider = providerDouble({
+      ensure: async () => {
+        throw new GhExecError('gh-exec: gh exited with code 1', {
+          stderr: 'HTTP 422: Validation Failed\ndescription is too long',
+        });
+      },
+    });
+    const warnings = [];
+    const { warn, error, log } = console;
+    console.warn = (msg) => warnings.push(String(msg));
+    console.error = (msg) => warnings.push(String(msg));
+    console.log = (msg) => warnings.push(String(msg));
+    try {
+      assert.equal(
+        await createContainerEpic({ provider, epic: EPIC, created: THREE }),
+        null,
+        'the fail-closed skip is unchanged',
+      );
+    } finally {
+      console.warn = warn;
+      console.error = error;
+      console.log = log;
+    }
+    assert.match(warnings.join('\n'), /description is too long/);
   });
 
   it('still creates the Epic when sub-issue linking fails outright', async () => {

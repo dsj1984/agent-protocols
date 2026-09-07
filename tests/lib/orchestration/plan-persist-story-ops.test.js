@@ -9,6 +9,7 @@ import {
   AGENT_LABELS,
   TYPE_LABELS,
 } from '../../../.agents/scripts/lib/label-constants.js';
+import { LITE_ROUTE_LABEL } from '../../../.agents/scripts/lib/orchestration/complexity-gate.js';
 import {
   assemblePlanStories,
   createStoryIssues,
@@ -28,6 +29,7 @@ import {
   parse,
   serialize,
 } from '../../../.agents/scripts/lib/story-body/story-body.js';
+import { LABEL_DESCRIPTION_MAX_LENGTH } from '../../../.agents/scripts/providers/github/labels.js';
 
 function storyTicket(slug, overrides = {}) {
   return {
@@ -343,6 +345,88 @@ describe('createStoryIssues', () => {
       ok.planRunLabel,
       'the derived label is still reported',
     );
+  });
+
+  it("sends both persist label descriptions within GitHub's length cap", async () => {
+    // Story #5201: the cohort description was 108 characters and the
+    // route::lite one 138, so `gh label create` answered HTTP 422
+    // `description is too long` and the cohort label was never once created.
+    // Asserted through the defs the gateway actually receives, so a future
+    // edit to either literal is caught here rather than at persist time.
+    const defs = [];
+    const provider = {
+      ensureLabels: async (given) => {
+        defs.push(...given);
+        return { created: given.map((d) => d.name), skipped: [], missing: [] };
+      },
+      createIssue: async () => ({ id: 700 + defs.length }),
+    };
+    const { stories } = assemblePlanStories([storyTicket('a')]);
+    await createStoryIssues({
+      provider,
+      stories,
+      opts: { routeLabel: LITE_ROUTE_LABEL },
+    });
+
+    assert.equal(
+      defs.length,
+      2,
+      'both the cohort and route labels are ensured',
+    );
+    for (const def of defs) {
+      assert.ok(
+        def.description.length > 0,
+        `${def.name} still says what the label is for`,
+      );
+      assert.ok(
+        def.description.length <= LABEL_DESCRIPTION_MAX_LENGTH,
+        `${def.name} description is ${def.description.length} characters, ` +
+          `over the ${LABEL_DESCRIPTION_MAX_LENGTH} cap`,
+      );
+    }
+  });
+
+  it('separates the derived cohort id from whether it was applied', async () => {
+    // The epilogue reads `planRunLabelApplied` to decide whether to advertise
+    // a `label:` filter; `planRunLabel` keeps reporting the derived id on
+    // every path, including the ones where nothing carries it.
+    const applied = await createStoryIssues({
+      provider: {
+        ensureLabels: async (defs) => ({
+          created: defs.map((d) => d.name),
+          skipped: [],
+          missing: [],
+        }),
+        createIssue: async () => ({ id: 801 }),
+      },
+      stories: assemblePlanStories([storyTicket('a')]).stories,
+    });
+    assert.equal(applied.planRunLabelApplied, true);
+
+    const refused = await createStoryIssues({
+      provider: {
+        ensureLabels: async () => {
+          throw new Error('HTTP 422');
+        },
+        createIssue: async () => ({ id: 802 }),
+      },
+      stories: assemblePlanStories([storyTicket('a')]).stories,
+    });
+    assert.equal(refused.planRunLabelApplied, false);
+    assert.equal(refused.planRunLabel, applied.planRunLabel);
+
+    // A dry run writes nothing, so it claims nothing was applied while still
+    // reporting the id it derived.
+    const dry = await createStoryIssues({
+      provider: {
+        ensureLabels: async () => ({ created: [], skipped: [], missing: [] }),
+        createIssue: async () => ({ id: 803 }),
+      },
+      stories: assemblePlanStories([storyTicket('a')]).stories,
+      opts: { dryRun: true },
+    });
+    assert.equal(dry.planRunLabelApplied, false);
+    assert.equal(dry.planRunLabel, applied.planRunLabel);
   });
 
   it('reports the derived plan-run label under dryRun without any write', async () => {

@@ -16,6 +16,7 @@
 
 import { createHash } from 'node:crypto';
 import { linkStoriesToEpic } from '../../../providers/github/sub-issue-add.js';
+import { describeGhFailure } from '../../gh-exec.js';
 import { Logger } from '../../Logger.js';
 import { LABEL_COLORS, TYPE_LABELS } from '../../label-constants.js';
 import { composeEpicBody } from '../epic-container.js';
@@ -103,8 +104,9 @@ async function ensureEpicLabel({ provider }) {
     return true;
   } catch (err) {
     Logger.warn(
-      `[plan-persist] "${TYPE_LABELS.EPIC}" label ensure failed (${err.message}) — ` +
-        'skipping the container Epic. The Stories are unaffected and deliver by id.',
+      `[plan-persist] "${TYPE_LABELS.EPIC}" label ensure failed ` +
+        `(${describeGhFailure(err)}) — skipping the container Epic. ` +
+        'The Stories are unaffected and deliver by id.',
     );
     return false;
   }

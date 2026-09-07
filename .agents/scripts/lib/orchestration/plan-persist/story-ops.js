@@ -22,6 +22,7 @@ import {
   ownedProvenanceSource,
 } from '../../findings/provenance-field.js';
 import { carryProvenanceFooters } from '../../findings/route-finding.js';
+import { describeGhFailure } from '../../gh-exec.js';
 import { Logger } from '../../Logger.js';
 import { AGENT_LABELS, TYPE_LABELS } from '../../label-constants.js';
 import {
@@ -902,8 +903,8 @@ async function ensurePersistLabel({
     return true;
   } catch (err) {
     Logger.warn(
-      `[plan-persist] ${role} label ensure failed (${err.message}) — ` +
-        'creating the Stories without it. Add the label by hand if you ' +
+      `[plan-persist] ${role} label ensure failed (${describeGhFailure(err)})` +
+        ' — creating the Stories without it. Add the label by hand if you ' +
         'want it.',
     );
     return false;
@@ -978,6 +979,7 @@ async function ensurePersistLabel({
  *   created: Array<{ slug: string, id: number, url?: string, title: string, adopted: boolean }>,
  *   dependencyEdges: { edgesAdded: number, edgesSkipped: number, edgesFailed: number, storiesProcessed: number }|null,
  *   planRunLabel: string,
+ *   planRunLabelApplied: boolean,
  *   routeLabel: string|null,
  * }>}
  */
@@ -1012,6 +1014,10 @@ export async function createStoryIssues({ provider, stories, opts = {} }) {
       })),
       dependencyEdges: null,
       planRunLabel: cohortLabel,
+      // A dry run writes nothing, so nothing was ensured and nothing carries
+      // the label — the derived id is still reported, the application is not
+      // claimed.
+      planRunLabelApplied: false,
       routeLabel,
     };
   }
@@ -1021,8 +1027,8 @@ export async function createStoryIssues({ provider, stories, opts = {} }) {
     label: cohortLabel,
     color: PLAN_RUN_LABEL_COLOR,
     description:
-      'Groups the Stories one /mandrel-plan persist run authored (metadata ' +
-      'only — /mandrel-deliver stays ids-only).',
+      'Groups the Stories one /mandrel-plan persist run authored — ' +
+      'metadata only, never a deliver input.',
     role: 'cohort',
   });
   const applyRouteLabel =
@@ -1032,8 +1038,8 @@ export async function createStoryIssues({ provider, stories, opts = {} }) {
       label: routeLabel,
       color: LITE_ROUTE_LABEL_COLOR,
       description:
-        'Ceremony-lite hint (human-visible only): /mandrel-deliver re-derives the ' +
-        'route from the Story body shape; every close gate runs unchanged.',
+        'Ceremony-lite hint only: /mandrel-deliver re-derives the route; ' +
+        'every close gate still runs.',
       role: 'route-marker',
     }));
 
@@ -1111,7 +1117,12 @@ export async function createStoryIssues({ provider, stories, opts = {} }) {
   return {
     created,
     dependencyEdges,
+    // The derived id and whether it actually landed are separate facts. The id
+    // is reported either way (a resumed persist re-derives it, and the
+    // dry-run path reports it write-free); the flag is what an epilogue must
+    // consult before advertising a `label:` filter that may match nothing.
     planRunLabel: cohortLabel,
+    planRunLabelApplied: applyCohortLabel,
     routeLabel: applyRouteLabel ? routeLabel : null,
   };
 }
