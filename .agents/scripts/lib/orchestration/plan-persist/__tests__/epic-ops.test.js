@@ -16,6 +16,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import { GhExecError } from '../../../gh-exec.js';
+import { Logger } from '../../../Logger.js';
 import { createContainerEpic, EPIC_SUGGESTION_THRESHOLD } from '../epic-ops.js';
 
 const EPIC = { title: 'Auth hardening', goal: 'Group the auth work.' };
@@ -190,11 +191,13 @@ describe('createContainerEpic — degradation', () => {
     );
   });
 
-  it("warns with gh's own reason when the label ensure throws", async () => {
+  it("warns with gh's own reason when the label ensure throws", async (t) => {
     // Story #5201: the degrade warning logged `err.message` only, which for a
     // classified gh failure is just the exit status — the sentence GitHub
     // actually returned never reached the operator. The Epic-skip posture is
     // unchanged; only the warning gained the reason.
+    const warnings = [];
+    t.mock.method(Logger, 'warn', (msg) => warnings.push(String(msg)));
     const provider = providerDouble({
       ensure: async () => {
         throw new GhExecError('gh-exec: gh exited with code 1', {
@@ -202,22 +205,11 @@ describe('createContainerEpic — degradation', () => {
         });
       },
     });
-    const warnings = [];
-    const { warn, error, log } = console;
-    console.warn = (msg) => warnings.push(String(msg));
-    console.error = (msg) => warnings.push(String(msg));
-    console.log = (msg) => warnings.push(String(msg));
-    try {
-      assert.equal(
-        await createContainerEpic({ provider, epic: EPIC, created: THREE }),
-        null,
-        'the fail-closed skip is unchanged',
-      );
-    } finally {
-      console.warn = warn;
-      console.error = error;
-      console.log = log;
-    }
+    assert.equal(
+      await createContainerEpic({ provider, epic: EPIC, created: THREE }),
+      null,
+      'the fail-closed skip is unchanged',
+    );
     assert.match(warnings.join('\n'), /description is too long/);
   });
 
