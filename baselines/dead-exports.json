@@ -1,7 +1,7 @@
 {
   "$schema": "https://mandrel.dev/baselines/dead-exports.schema.json",
   "kernelVersion": "6.17.1",
-  "generatedAt": "2026-09-07T14:10:21.307Z",
+  "generatedAt": "2026-09-07T16:25:32.380Z",
   "rows": [
     {
       "file": ".agents/scripts/lib/baseline-schema-registry.js",
@@ -110,10 +110,6 @@
     {
       "file": ".agents/scripts/lib/onboard/init-tail.js",
       "symbol": "*"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/column-sync.js",
-      "symbol": "LABEL_TO_COLUMN"
     },
     {
       "file": ".agents/scripts/lib/orchestration/git-cleanup/phases/git-probes.js",

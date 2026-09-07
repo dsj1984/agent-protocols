@@ -35,6 +35,7 @@ const TAIL = Object.freeze({
   baseFastForward: true,
   tempPurge: true,
   leaseRelease: true,
+  epicRollup: true,
   details: {},
 });
 

@@ -55,6 +55,7 @@ import { getStoryBranch, gitSpawn, gitSync } from './lib/git-utils.js';
 import { Logger } from './lib/Logger.js';
 import { TYPE_LABELS } from './lib/label-constants.js';
 import { emitTerseResult } from './lib/observability/terse-result.js';
+import { rollUpEpicForStory } from './lib/orchestration/epic-rollup.js';
 import {
   executeFastForward,
   planFastForward,
@@ -219,6 +220,34 @@ async function flipStoryToExecuting(provider, storyId, story) {
   } catch (err) {
     Logger.error(
       `[single-story-init] ⚠️ Failed to flip Story labels: ${err?.message ?? err}`,
+    );
+  }
+}
+
+/**
+ * Roll any container Epic listing this Story up from its children.
+ *
+ * A container carries no `agent::*` label, so the Status sync that follows
+ * the flip above cannot reach it — its column is derived from its children
+ * instead. This is the edge where the first child of an Epic starts moving,
+ * which is what puts the Epic on the board as In Progress with an owner.
+ *
+ * Best-effort by construction: the rollup never throws, and a container left
+ * at a stale column must never cost the Story its init.
+ *
+ * @param {object} provider
+ * @param {number} storyId
+ * @param {object} config
+ * @returns {Promise<void>}
+ */
+async function rollUpContainerEpic(provider, storyId, config) {
+  const outcome = await rollUpEpicForStory({ storyId, provider, config });
+  for (const epic of outcome.epics) {
+    if (!epic.column) continue;
+    progress(
+      'EPIC',
+      `🗃️  Epic #${epic.epicId} → ${epic.column}` +
+        (epic.assigned ? ' (assigned)' : ''),
     );
   }
 }
@@ -674,6 +703,12 @@ export async function runSingleStoryInit({
     // install (not after), so a concurrent operator's probe sees it during the
     // install window instead of reading agent::ready and double-dispatching.
     await flipStoryToExecuting(provider, storyId, story);
+
+    // Story #5205 — the child is now in flight, so any container Epic listing
+    // it is too. Fired here rather than after provisioning so the board shows
+    // In Progress for the whole install window, and after the flip so the
+    // rollup reads the state it derives from.
+    await rollUpContainerEpic(provider, storyId, config);
 
     // Any failure from here on leaves a claimed, executing-labelled Story with
     // no live run behind it — revert the label and release the lease so the

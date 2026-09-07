@@ -292,17 +292,39 @@ This executes, in order:
   (files issues when auto-file is on; posts `follow-ups`).
 - `sibling-coherence` — Spec/Acceptance coherence check across sibling bodies
   (`plan-run-sibling-coherence`).
-- `epic-close` — closes a container Epic once **every** child Story is
-  `agent::done`, as `completed`. This is the only completion cascade v2 has:
-  it closes the container and nothing else — no child status roll-up, no label
-  inheritance, no reopening. Because linkage is parent→child only, the parent
-  is found by scanning open `type::epic` issues, and only an Epic containing
-  one of *this run's* Stories is considered, so an unrelated container is
-  never swept. An Epic with an outstanding child is reported `pending` and
-  left open.
+- `epic-close` — **reports** which container Epics this run closed and which
+  are still pending. It derives nothing itself: every step here and the
+  per-Story land tail alike delegate to `epic-rollup.js`, so one rule decides
+  a container's state.
 
 A single-Story run skips the epilogue — follow-ups are captured on merge
 confirm instead (`captureStoryFollowUps`).
+
+## Container-Epic rollup (every N)
+
+A container Epic is never delivered, so nothing used to write to it during
+the run it was the subject of. `epic-rollup.js` derives its state from its
+children at both per-Story lifecycle edges — the `agent::executing` flip in
+`single-story-init.js` and the post-land tail (reported as the tail's
+`epicRollup` step) — which is why it holds at **N=1**, where no epilogue runs.
+
+- **Status** follows the children's composition (`deriveParentState` mapped
+  onto the board's three options): any child executing or blocked → `In
+  Progress`, every child `agent::done` or closed → `Done`. It is written
+  **directly**, never via a label: the container carries no `agent::*` label
+  by construction, which is what keeps it out of the bare `/mandrel-deliver`
+  ready list.
+- **Owner** — `github.operatorHandle` is added to the Epic while any child is
+  in flight, through the additive assignees endpoint, and is never removed.
+- **Closure** is one-way: every child landed closes the container as
+  `completed`; a reopened child moves Status back to `In Progress` and does
+  **not** reopen it.
+- The parent lookup scans open `type::epic` issues, because linkage is
+  parent→child only, and reads children as the body checklist **union** the
+  native sub-issue edges — the same reader `/mandrel-deliver`'s expansion
+  uses, so an Epic can never be expandable but unclosable.
+- Every step is best-effort and never throws: a stale container costs
+  tidiness, not a landed Story's envelope.
 
 ## Ceremony (profiles + two scopes)
 
@@ -323,7 +345,7 @@ sensitive-path classes in `audit-rules.json`
 | **Per-Story (always)** | Gates, branch discipline, close-and-land | `deliver-story` / `single-story-close` |
 | **Per-Story (profile + derived level)** | Acceptance critic mode; review depth | `ceremony-routing.js` + `review-depth.js` + `code-review.js` |
 | **Per-run (N>1)** | Audit roster · follow-up roll-up · sibling coherence | `plan-run-epilogue.js` once at run end |
-| **Per-Story land tail** | Follow-up capture · status resync · ref cleanup · base fast-forward | `single-story-close/phases/post-land.js` (in-process, per-step reported) |
+| **Per-Story land tail** | Follow-up capture · status resync · Epic rollup · ref cleanup · base fast-forward | `single-story-close/phases/post-land.js` (in-process, per-step reported) |
 
 ## Async merge-confirm mode (`delivery.mergeWatch.mode: "async"`)
 

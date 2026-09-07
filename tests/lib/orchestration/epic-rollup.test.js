@@ -1,0 +1,447 @@
+/**
+ * Unit tests for the container-Epic rollup (Story #5205).
+ *
+ * The rollup is the only writer to a container Epic, so these tests police
+ * both what it writes and — just as load-bearing — what it must never write:
+ * an `agent::*` label on the container, or an issue-state write reopening one.
+ */
+
+import assert from 'node:assert/strict';
+import { describe, it } from 'node:test';
+
+import { rollUpEpicForStory } from '../../../.agents/scripts/lib/orchestration/epic-rollup.js';
+
+/** A column sync that records every push instead of touching a board. */
+function fakeColumnSync(status = 'synced') {
+  const calls = [];
+  return {
+    calls,
+    setColumn: async (issueId, column) => {
+      calls.push({ issueId, column });
+      return status === 'synced'
+        ? { status: 'synced', column }
+        : { status: 'skipped', reason: status };
+    },
+  };
+}
+
+/**
+ * A container Epic whose children live in the body checklist.
+ *
+ * @param {number} number
+ * @param {number[]} childIds
+ * @param {{ state?: string, assignees?: unknown[] }} [extra]
+ */
+function container(number, childIds, extra = {}) {
+  return {
+    number,
+    labels: ['type::epic'],
+    state: 'open',
+    body: `## Goal\n\nGroup them.\n\n## Stories\n\n${childIds
+      .map((c) => `- [ ] #${c}`)
+      .join('\n')}\n`,
+    ...extra,
+  };
+}
+
+/**
+ * A child Story at a given lifecycle label.
+ *
+ * @param {number} id
+ * @param {string|null} agentLabel
+ * @param {string} [state]
+ */
+function child(id, agentLabel, state = 'open') {
+  return {
+    id,
+    number: id,
+    title: `Story ${id}`,
+    body: '',
+    labels: agentLabel ? ['type::story', agentLabel] : ['type::story'],
+    state,
+  };
+}
+
+/**
+ * Provider double. `epics` is what the open-`type::epic` listing returns;
+ * `tickets` is the child lookup; every write lands in `updates`.
+ */
+function fakeProvider({ epics = [], children = [], nativeChildren } = {}) {
+  const byId = new Map(children.map((c) => [Number(c.number), c]));
+  const updates = [];
+  const provider = {
+    updates,
+    listIssuesByLabel: async ({ labels }) =>
+      labels === 'type::epic' ? epics : [],
+    getTicket: async (id) => byId.get(Number(id)) ?? null,
+    updateTicket: async (id, mutations) => {
+      updates.push({ id, mutations });
+    },
+  };
+  if (nativeChildren) {
+    provider._getNativeSubIssues = async () => nativeChildren;
+  }
+  return provider;
+}
+
+describe('rollUpEpicForStory — status derived from the children', () => {
+  it('moves the Epic to In Progress and records the owner when a child starts', async () => {
+    const provider = fakeProvider({
+      epics: [container(90, [1, 2])],
+      children: [child(1, 'agent::executing'), child(2, 'agent::ready')],
+    });
+    const columnSync = fakeColumnSync();
+
+    const result = await rollUpEpicForStory({
+      storyId: 1,
+      provider,
+      config: { github: { operatorHandle: '@dsj1984' } },
+      columnSync,
+    });
+
+    assert.deepEqual(columnSync.calls, [
+      { issueId: 90, column: 'In Progress' },
+    ]);
+    assert.deepEqual(provider.updates, [
+      { id: 90, mutations: { addAssignees: ['dsj1984'] } },
+    ]);
+    assert.equal(result.epics[0].assigned, true);
+    assert.deepEqual(result.closed, []);
+    assert.deepEqual(result.pending, [90]);
+  });
+
+  it('closes the Epic as completed and marks it Done once every child landed', async () => {
+    const provider = fakeProvider({
+      epics: [container(90, [1, 2])],
+      children: [child(1, 'agent::done'), child(2, null, 'closed')],
+    });
+    const columnSync = fakeColumnSync();
+
+    const result = await rollUpEpicForStory({
+      storyId: 1,
+      provider,
+      config: {},
+      columnSync,
+    });
+
+    assert.deepEqual(columnSync.calls, [{ issueId: 90, column: 'Done' }]);
+    assert.deepEqual(provider.updates, [
+      { id: 90, mutations: { state: 'closed', state_reason: 'completed' } },
+    ]);
+    assert.deepEqual(result.closed, [90]);
+    assert.deepEqual(result.pending, []);
+  });
+
+  it('leaves an Epic with an outstanding child open and reports it pending', async () => {
+    const provider = fakeProvider({
+      epics: [container(90, [1, 2, 3])],
+      children: [
+        child(1, 'agent::done'),
+        child(2, 'agent::done'),
+        child(3, 'agent::ready'),
+      ],
+    });
+
+    const result = await rollUpEpicForStory({
+      storyId: 1,
+      provider,
+      config: {},
+      columnSync: fakeColumnSync(),
+    });
+
+    assert.deepEqual(result.closed, []);
+    assert.deepEqual(result.pending, [90]);
+    assert.equal(provider.updates.length, 0, 'a pending Epic takes no write');
+  });
+
+  it('surfaces a blocked child as In Progress and keeps the owner on the Epic', async () => {
+    const provider = fakeProvider({
+      epics: [container(90, [1])],
+      children: [child(1, 'agent::blocked')],
+    });
+    const columnSync = fakeColumnSync();
+
+    await rollUpEpicForStory({
+      storyId: 1,
+      provider,
+      config: { github: { operatorHandle: 'dsj1984' } },
+      columnSync,
+    });
+
+    assert.deepEqual(columnSync.calls, [
+      { issueId: 90, column: 'In Progress' },
+    ]);
+    assert.deepEqual(provider.updates, [
+      { id: 90, mutations: { addAssignees: ['dsj1984'] } },
+    ]);
+  });
+});
+
+describe('rollUpEpicForStory — the container invariants', () => {
+  it('never writes an agent:: label on the Epic across a full child lifecycle', async () => {
+    for (const label of [
+      'agent::ready',
+      'agent::executing',
+      'agent::closing',
+      'agent::blocked',
+      'agent::done',
+    ]) {
+      const provider = fakeProvider({
+        epics: [container(90, [1])],
+        children: [child(1, label)],
+      });
+      await rollUpEpicForStory({
+        storyId: 1,
+        provider,
+        config: { github: { operatorHandle: 'dsj1984' } },
+        columnSync: fakeColumnSync(),
+      });
+      for (const { mutations } of provider.updates) {
+        assert.equal(
+          JSON.stringify(mutations).includes('agent::'),
+          false,
+          `a container must never be labelled (child at ${label})`,
+        );
+      }
+    }
+  });
+
+  it('recomputes a closed Epic back to In Progress without reopening it', async () => {
+    const provider = fakeProvider({
+      epics: [container(90, [1, 2], { state: 'closed' })],
+      children: [child(1, 'agent::executing'), child(2, 'agent::done')],
+    });
+    const columnSync = fakeColumnSync();
+
+    const result = await rollUpEpicForStory({
+      storyId: 1,
+      provider,
+      config: {},
+      columnSync,
+    });
+
+    assert.deepEqual(columnSync.calls, [
+      { issueId: 90, column: 'In Progress' },
+    ]);
+    assert.equal(
+      provider.updates.some((u) => 'state' in u.mutations),
+      false,
+      'closure is one-way — a reopened child never reopens the container',
+    );
+    assert.deepEqual(result.pending, [], 'a closed Epic is not pending');
+  });
+
+  it('does not re-close an already-closed Epic whose children all landed', async () => {
+    const provider = fakeProvider({
+      epics: [container(90, [1], { state: 'closed' })],
+      children: [child(1, 'agent::done')],
+    });
+
+    const result = await rollUpEpicForStory({
+      storyId: 1,
+      provider,
+      config: {},
+      columnSync: fakeColumnSync(),
+    });
+
+    assert.deepEqual(result.closed, []);
+    assert.equal(provider.updates.length, 0);
+  });
+
+  it('does not re-add an owner the Epic already carries', async () => {
+    const provider = fakeProvider({
+      epics: [container(90, [1], { assignees: [{ login: 'dsj1984' }] })],
+      children: [child(1, 'agent::executing')],
+    });
+
+    await rollUpEpicForStory({
+      storyId: 1,
+      provider,
+      config: { github: { operatorHandle: '@dsj1984' } },
+      columnSync: fakeColumnSync(),
+    });
+
+    assert.equal(provider.updates.length, 0, 'the assign is idempotent');
+  });
+});
+
+describe('rollUpEpicForStory — child discovery', () => {
+  it('rolls up an Epic whose children are only native sub-issues', async () => {
+    // The body checklist is empty — the children exist solely as GitHub
+    // sub-issue edges, the shape that used to be expandable but unclosable.
+    const provider = fakeProvider({
+      epics: [container(90, [])],
+      children: [child(1, 'agent::done'), child(2, 'agent::done')],
+      nativeChildren: [1, 2],
+    });
+
+    const result = await rollUpEpicForStory({
+      storyId: 1,
+      provider,
+      config: {},
+      columnSync: fakeColumnSync(),
+    });
+
+    assert.deepEqual(result.closed, [90]);
+    assert.deepEqual(provider.updates, [
+      { id: 90, mutations: { state: 'closed', state_reason: 'completed' } },
+    ]);
+  });
+
+  it('ignores an Epic that does not list this Story', async () => {
+    const provider = fakeProvider({
+      epics: [container(91, [7, 8])],
+      children: [child(7, 'agent::done'), child(8, 'agent::done')],
+    });
+
+    const result = await rollUpEpicForStory({
+      storyId: 1,
+      provider,
+      config: {},
+      columnSync: fakeColumnSync(),
+    });
+
+    assert.equal(result.reason, 'no-container-epic');
+    assert.equal(provider.updates.length, 0);
+  });
+
+  it('leaves the Epic untouched when a child cannot be read', async () => {
+    const provider = fakeProvider({
+      epics: [container(90, [1, 2])],
+      children: [child(1, 'agent::done')],
+    });
+    provider.getTicket = async (id) => {
+      if (Number(id) === 2) throw new Error('403 forbidden');
+      return child(1, 'agent::done');
+    };
+
+    const result = await rollUpEpicForStory({
+      storyId: 1,
+      provider,
+      config: {},
+      columnSync: fakeColumnSync(),
+    });
+
+    assert.deepEqual(result.pending, [90], 'unknown never means "landed"');
+    assert.equal(result.epics[0].detail, 'child-read-failed');
+    assert.equal(provider.updates.length, 0);
+  });
+});
+
+describe('rollUpEpicForStory — degradation', () => {
+  it('never throws when every provider call rejects', async () => {
+    const boom = async () => {
+      throw new Error('network down');
+    };
+    const result = await rollUpEpicForStory({
+      storyId: 1,
+      provider: {
+        listIssuesByLabel: boom,
+        getTicket: boom,
+        updateTicket: boom,
+      },
+      config: {},
+    });
+    assert.deepEqual(result.epics, []);
+    assert.equal(result.reason, 'no-container-epic');
+  });
+
+  it('reports the Epic pending when the close write is refused', async () => {
+    const provider = fakeProvider({
+      epics: [container(90, [1])],
+      children: [child(1, 'agent::done')],
+    });
+    provider.updateTicket = async () => {
+      throw new Error('422 unprocessable');
+    };
+
+    const result = await rollUpEpicForStory({
+      storyId: 1,
+      provider,
+      config: {},
+      columnSync: fakeColumnSync(),
+    });
+
+    assert.deepEqual(result.closed, []);
+    assert.deepEqual(result.pending, [90]);
+    assert.match(result.epics[0].detail, /422/);
+  });
+
+  it('records a refused board mutation without failing the rollup', async () => {
+    const provider = fakeProvider({
+      epics: [container(90, [1])],
+      children: [child(1, 'agent::done')],
+    });
+
+    const result = await rollUpEpicForStory({
+      storyId: 1,
+      provider,
+      config: {},
+      columnSync: fakeColumnSync('not-on-project'),
+    });
+
+    assert.deepEqual(result.closed, [90], 'the close still happens');
+    assert.equal(result.epics[0].column, null);
+  });
+
+  it('refuses a provider missing the surface it needs', async () => {
+    const result = await rollUpEpicForStory({
+      storyId: 1,
+      provider: { getTicket: async () => null },
+      config: {},
+    });
+    assert.equal(result.reason, 'provider-unsupported');
+  });
+
+  it('refuses a non-positive Story id', async () => {
+    const result = await rollUpEpicForStory({
+      storyId: 0,
+      provider: fakeProvider(),
+      config: {},
+    });
+    assert.equal(result.reason, 'invalid-story-id');
+  });
+});
+
+describe('rollUpEpicForStory — owner resolution', () => {
+  it('strips a leading @ so the assignees API gets a bare login', async () => {
+    const provider = fakeProvider({
+      epics: [container(90, [1])],
+      children: [child(1, 'agent::executing')],
+    });
+
+    await rollUpEpicForStory({
+      storyId: 1,
+      provider,
+      config: { github: { operatorHandle: '@dsj1984' } },
+      columnSync: fakeColumnSync(),
+    });
+
+    assert.deepEqual(provider.updates, [
+      { id: 90, mutations: { addAssignees: ['dsj1984'] } },
+    ]);
+  });
+
+  it('records no owner rather than throwing when none is configured', async () => {
+    for (const config of [{}, { github: { operatorHandle: '@[USERNAME]' } }]) {
+      const provider = fakeProvider({
+        epics: [container(90, [1])],
+        children: [child(1, 'agent::executing')],
+      });
+
+      const result = await rollUpEpicForStory({
+        storyId: 1,
+        provider,
+        config,
+        columnSync: fakeColumnSync(),
+      });
+
+      assert.equal(
+        provider.updates.length,
+        0,
+        'the shipped placeholder is not an owner',
+      );
+      assert.equal(result.epics[0].detail, 'no-operator-handle');
+    }
+  });
+});

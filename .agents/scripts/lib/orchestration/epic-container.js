@@ -18,6 +18,14 @@
  * `resolve-stories` (which expands one) — import from here so the written
  * shape and the read shape cannot drift apart.
  *
+ * **The container's lifecycle is derived, never labelled.** It still carries
+ * no `agent::*` label — that absence is what keeps it out of the bare
+ * `/mandrel-deliver` ready list and outside `lint-issue-body.js`. What it does
+ * carry is a Projects v2 Status column, an owner while its children run, and
+ * eventually a closed state, all computed from the children by
+ * `epic-rollup.js` and written directly (Story #5205). Deriving rather than
+ * labelling is the whole reason those two facts can coexist.
+ *
  * @module lib/orchestration/epic-container
  * @see Story #5139
  */

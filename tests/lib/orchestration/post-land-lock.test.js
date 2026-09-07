@@ -78,6 +78,13 @@ function baseSeams(trace) {
       trace?.push('leaseRelease');
       return { released: true, owner: 'tester', reason: 'released' };
     },
+    // Stubbed for the same isolation reason (Story #5205): the real rollup
+    // lists open Epics and PATCHes a container, so an unstubbed call would
+    // reach GitHub. Its own engine suite is `epic-rollup.test.js`.
+    rollUpEpicForStoryFn: async () => {
+      trace?.push('epicRollup');
+      return { epics: [], closed: [], pending: [], reason: null };
+    },
   };
 }
 
@@ -124,6 +131,7 @@ describe('runPostLandTail — lock scope (Story #4622)', () => {
       baseFastForward: true,
       tempPurge: true,
       leaseRelease: true,
+      epicRollup: true,
       details: {
         followUps: null,
         statusResync: null,
@@ -131,6 +139,7 @@ describe('runPostLandTail — lock scope (Story #4622)', () => {
         baseFastForward: null,
         tempPurge: null,
         leaseRelease: null,
+        epicRollup: null,
       },
     });
     assert.ok(released, 'the lock is released');
@@ -148,6 +157,7 @@ describe('runPostLandTail — lock scope (Story #4622)', () => {
       'closeRecovered',
       'followUps',
       'statusResync',
+      'epicRollup',
       'acquire',
       'refCleanup',
       'baseFastForward',

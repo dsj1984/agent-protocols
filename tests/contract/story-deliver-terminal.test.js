@@ -71,6 +71,7 @@ const CLEAN_TAIL = {
   baseFastForward: true,
   tempPurge: true,
   leaseRelease: true,
+  epicRollup: true,
 };
 
 describe('story-deliver-terminal — the status contract', () => {
@@ -273,6 +274,7 @@ describe('story-deliver-terminal — landed', () => {
         .sort(),
       [
         'baseFastForward',
+        'epicRollup',
         'followUps',
         'leaseRelease',
         'refCleanup',

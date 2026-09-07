@@ -1,12 +1,12 @@
 {
   "$schema": ".agents/schemas/baselines/coverage.schema.json",
   "kernelVersion": "1.0.0",
-  "generatedAt": "2026-09-07T13:58:57.657Z",
+  "generatedAt": "2026-09-07T16:30:17.523Z",
   "rollup": {
     "*": {
       "lines": 96.07,
-      "branches": 87.03,
-      "functions": 88.3
+      "branches": 87.04,
+      "functions": 88.31
     }
   },
   "rows": [
@@ -1710,8 +1710,8 @@
     },
     {
       "path": ".agents/scripts/lib/orchestration/column-sync.js",
-      "lines": 97.69,
-      "branches": 86.05,
+      "lines": 97.84,
+      "branches": 86.52,
       "functions": 100
     },
     {
@@ -1785,6 +1785,12 @@
       "lines": 96.62,
       "branches": 88.24,
       "functions": 100
+    },
+    {
+      "path": ".agents/scripts/lib/orchestration/epic-rollup.js",
+      "lines": 96.01,
+      "branches": 83.96,
+      "functions": 91.67
     },
     {
       "path": ".agents/scripts/lib/orchestration/file-assumption-enum.js",
@@ -2208,8 +2214,8 @@
     },
     {
       "path": ".agents/scripts/lib/orchestration/run-epilogue.js",
-      "lines": 97.84,
-      "branches": 80,
+      "lines": 97.7,
+      "branches": 84.04,
       "functions": 100
     },
     {
@@ -2280,9 +2286,9 @@
     },
     {
       "path": ".agents/scripts/lib/orchestration/single-story-close/phases/post-land.js",
-      "lines": 98.96,
-      "branches": 87.91,
-      "functions": 86.36
+      "lines": 99.06,
+      "branches": 90.57,
+      "functions": 87.5
     },
     {
       "path": ".agents/scripts/lib/orchestration/single-story-close/phases/pull-request.js",

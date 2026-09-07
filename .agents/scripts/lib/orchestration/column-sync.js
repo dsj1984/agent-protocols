@@ -108,8 +108,9 @@ export class ColumnSync {
   }
 
   /**
-   * Sync a single issue to its target column. Returns a result descriptor
-   * (`synced | skipped | failed`) so callers can log without parsing errors.
+   * Sync a single issue to the column its `agent::*` labels imply. Returns a
+   * result descriptor (`synced | skipped | failed`) so callers can log
+   * without parsing errors.
    *
    * @param {number} issueId
    * @param {string[]} labels
@@ -117,6 +118,29 @@ export class ColumnSync {
   async sync(issueId, labels) {
     const column = columnForLabels(labels);
     if (!column) return { status: 'skipped', reason: 'no-matching-label' };
+    return this.setColumn(issueId, column);
+  }
+
+  /**
+   * Push one issue to a column named **directly**, skipping the label
+   * derivation {@link sync} performs.
+   *
+   * Split out for the one caller whose target column cannot come from labels:
+   * a container Epic carries no `agent::*` label by construction, so
+   * {@link columnForLabels} returns `null` for it and `sync` can never move
+   * it. The Epic's column is derived from its children instead
+   * (`epic-rollup.js`) and handed here — which keeps that derivation from
+   * having to fabricate a label on the container just to reach the board, the
+   * one thing the container invariant forbids.
+   *
+   * Every skip path, the metadata cache and the stale-cache self-heal are
+   * shared with `sync` because they live here rather than in it.
+   *
+   * @param {number} issueId
+   * @param {string} column Board column name (`Todo` | `In Progress` | `Done`).
+   */
+  async setColumn(issueId, column) {
+    if (!column) return { status: 'skipped', reason: 'no-column' };
     if (!this.projectNumber) {
       return { status: 'skipped', reason: 'no-project' };
     }
