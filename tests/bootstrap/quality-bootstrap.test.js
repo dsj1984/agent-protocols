@@ -24,6 +24,10 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 
 import {
+  BASELINE_MERGE_ATTRIBUTE,
+  ensureBaselineMergeDriver,
+} from '../../.agents/scripts/lib/bootstrap/baseline-merge-driver.js';
+import {
   applyQualityBootstrap,
   DOWNSTREAM_PRE_COMMIT,
   ensureGuardrailsHelper,
@@ -266,5 +270,111 @@ describe('quality-bootstrap — degraded environments', () => {
     const result = ensureQualityConfigDefaults({ projectRoot });
     assert.equal(result.action, 'missing-config');
     assert.deepEqual(result.addedKeys, []);
+  });
+});
+
+describe('quality-bootstrap — baselines merge driver (AC-6)', () => {
+  // The git half is stubbed everywhere here: these assertions are about the
+  // tracked `.gitattributes` line, and a real `git config` would write into
+  // whatever repo the suite happens to run inside.
+  const noGit = () => ({ status: 1, stdout: '', stderr: '' });
+
+  const PRE_EXISTING = [
+    '* text=auto eol=lf',
+    '*.png binary',
+    'docs/** linguist-documentation',
+  ].join('\n');
+
+  it('creates a .gitattributes carrying only the attribute line', () => {
+    const projectRoot = makeProject();
+    const result = ensureBaselineMergeDriver({ projectRoot, spawnImpl: noGit });
+
+    assert.equal(result.attributes, 'created');
+    assert.equal(
+      fs.readFileSync(path.join(projectRoot, '.gitattributes'), 'utf8'),
+      `${BASELINE_MERGE_ATTRIBUTE}\n`,
+    );
+  });
+
+  it('appends to an existing file, leaving every prior line untouched', () => {
+    const projectRoot = makeProject();
+    const target = path.join(projectRoot, '.gitattributes');
+    fs.writeFileSync(target, `${PRE_EXISTING}\n`);
+
+    const result = ensureBaselineMergeDriver({ projectRoot, spawnImpl: noGit });
+    assert.equal(result.attributes, 'appended');
+
+    const lines = fs.readFileSync(target, 'utf8').split('\n').filter(Boolean);
+    assert.deepEqual(lines.slice(0, 3), PRE_EXISTING.split('\n'));
+    assert.equal(
+      lines.filter((l) => l === BASELINE_MERGE_ATTRIBUTE).length,
+      1,
+      'the attribute line appears exactly once',
+    );
+  });
+
+  it('is idempotent — a second run reports already-present and changes no bytes', () => {
+    const projectRoot = makeProject();
+    const target = path.join(projectRoot, '.gitattributes');
+    fs.writeFileSync(target, `${PRE_EXISTING}\n`);
+
+    ensureBaselineMergeDriver({ projectRoot, spawnImpl: noGit });
+    const afterFirst = fs.readFileSync(target);
+
+    const second = ensureBaselineMergeDriver({ projectRoot, spawnImpl: noGit });
+    assert.equal(second.action, 'already-present');
+    assert.equal(second.attributes, 'already-present');
+    assert.ok(fs.readFileSync(target).equals(afterFirst));
+  });
+
+  it('does not glue its line onto a file with no trailing newline', () => {
+    const projectRoot = makeProject();
+    const target = path.join(projectRoot, '.gitattributes');
+    fs.writeFileSync(target, '*.png binary'); // no trailing \n
+    ensureBaselineMergeDriver({ projectRoot, spawnImpl: noGit });
+    const lines = fs.readFileSync(target, 'utf8').split('\n').filter(Boolean);
+    assert.deepEqual(lines, ['*.png binary', BASELINE_MERGE_ATTRIBUTE]);
+  });
+
+  it('ignores a commented-out registration', () => {
+    const projectRoot = makeProject();
+    const target = path.join(projectRoot, '.gitattributes');
+    fs.writeFileSync(target, `# ${BASELINE_MERGE_ATTRIBUTE}\n`);
+    const result = ensureBaselineMergeDriver({ projectRoot, spawnImpl: noGit });
+    assert.equal(result.attributes, 'appended');
+  });
+
+  it('registers the per-clone driver config inside a git repo', () => {
+    const projectRoot = makeProject();
+    const calls = [];
+    const spawnImpl = (_cmd, args) => {
+      calls.push(args.join(' '));
+      if (args[0] === 'rev-parse') return { status: 0, stdout: '.git' };
+      if (args.includes('--get')) return { status: 1, stdout: '' };
+      return { status: 0, stdout: '' };
+    };
+    const result = ensureBaselineMergeDriver({ projectRoot, spawnImpl });
+    assert.equal(result.config, 'set');
+    assert.ok(
+      calls.some((c) => c.includes('merge.mandrel-baseline.driver')),
+      'sets the driver command for this clone',
+    );
+  });
+
+  it('reports not-a-repo rather than failing outside a git repository', () => {
+    const projectRoot = makeProject();
+    const result = ensureBaselineMergeDriver({ projectRoot, spawnImpl: noGit });
+    assert.equal(result.config, 'not-a-repo');
+  });
+
+  it('is wired into applyQualityBootstrap', () => {
+    const projectRoot = makeProject();
+    const result = applyQualityBootstrap({
+      projectRoot,
+      frameworkRoot,
+      spawnImpl: noGit,
+    });
+    assert.ok(result.mergeDriver, 'the merge-driver step reports an outcome');
+    assert.equal(result.mergeDriver.attributes, 'created');
   });
 });
