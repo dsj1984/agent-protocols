@@ -262,11 +262,11 @@ describe('planning.* shape', () => {
     );
   });
 
-  it('rejects an unknown memoryPool key — including the retired ceiling', () => {
-    // Story #5182 replaced the absolute entry ceiling with growth since the
-    // last pass; a config still naming it must fail loudly, not sit inert.
+  it('rejects an unknown memoryPool key (typo guard)', () => {
+    // `additionalProperties: false` on the block, so a near-miss spelling of
+    // a threshold fails loudly instead of sitting inert on the default.
     expectErrors(
-      { ...REQ, planning: { memoryPool: { entryCountCeiling: 100 } } },
+      { ...REQ, planning: { memoryPool: { growthDeltaEntries: 25 } } },
       /must NOT have additional properties/,
     );
   });

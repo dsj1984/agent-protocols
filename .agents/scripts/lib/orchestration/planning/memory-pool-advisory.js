@@ -20,7 +20,7 @@
  * difference. This module counts and stats; it never judges an entry.
  *
  * **Growth, never size (Story #5182).** The second arm used to be an absolute
- * `ENTRY_COUNT_CEILING = 100`. A consolidation pass prefers `correct` over
+ * ceiling of a hundred entries. A consolidation pass prefers `correct` over
  * `dead` by design, so a pool that crosses a fixed ceiling stays over it
  * forever: the nudge then fired on every plan however fresh the stamp, and a
  * permanent recommendation is one the operator learns to ignore. The arm now
