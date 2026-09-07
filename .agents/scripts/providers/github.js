@@ -133,6 +133,8 @@ const DELEGATIONS = [
   ['getBranchProtection', 'branchProtection.getBranchProtection'],
   ['setBranchProtection', 'branchProtection.setBranchProtection'],
   ['ensureLabels', 'labels.ensureLabels'],
+  ['listLabels', 'labels.listLabels'],
+  ['deleteLabel', 'labels.deleteLabel'],
   ['_reconcileLabelsPresence', 'labels._reconcileLabelsPresence'],
   ['getMergeMethods', 'mergeMethods.getMergeMethods'],
   ['setMergeMethods', 'mergeMethods.setMergeMethods'],

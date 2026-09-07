@@ -181,6 +181,33 @@ export class ITicketingProvider {
   }
 
   /**
+   * List the repository's whole label vocabulary.
+   *
+   * Implementations MUST paginate rather than take a fixed page cap: a cap is
+   * silent truncation, and a caller deciding what to delete from a truncated
+   * view is the exact failure Story #5189 exists to stop reproducing.
+   *
+   * @returns {Promise<Array<{ name: string, color: string|null, description: string|null }>>}
+   */
+  async listLabels() {
+    throw new Error('Not implemented: listLabels');
+  }
+
+  /**
+   * Delete one label by name.
+   *
+   * A label that is already gone MUST resolve as a successful no-op
+   * (`{ deleted: false, reason: 'not-found' }`) rather than throwing, so a
+   * re-run of any sweep built on this port is idempotent.
+   *
+   * @param {string} _name
+   * @returns {Promise<{ deleted: boolean, reason: string|null }>}
+   */
+  async deleteLabel(_name) {
+    throw new Error('Not implemented: deleteLabel');
+  }
+
+  /**
    * Idempotent custom field creation on the Project board.
    * Only applicable when `projectNumber` is configured.
    *
