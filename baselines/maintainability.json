@@ -1,11 +1,11 @@
 {
   "$schema": ".agents/schemas/baselines/maintainability.schema.json",
   "kernelVersion": "0.1.0",
-  "generatedAt": "2026-09-07T23:58:12.347Z",
+  "generatedAt": "2026-09-08T10:28:49.101Z",
   "rollup": {
     "*": {
       "min": 76.381,
-      "p50": 98.829,
+      "p50": 98.874,
       "p95": 122.902
     }
   },
@@ -1172,7 +1172,7 @@
     },
     {
       "path": ".agents/scripts/lib/orchestration/epic-expansion.js",
-      "mi": 95.313
+      "mi": 97.629
     },
     {
       "path": ".agents/scripts/lib/orchestration/epic-rollup.js",
@@ -1356,7 +1356,7 @@
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-run-labels/reap.js",
-      "mi": 99.914
+      "mi": 99.048
     },
     {
       "path": ".agents/scripts/lib/orchestration/plan-runner/worktree-sweep.js",
@@ -1376,7 +1376,7 @@
     },
     {
       "path": ".agents/scripts/lib/orchestration/planning/memory-pool-advisory.js",
-      "mi": 94.165
+      "mi": 96.811
     },
     {
       "path": ".agents/scripts/lib/orchestration/pr-watch.js",
@@ -1444,7 +1444,7 @@
     },
     {
       "path": ".agents/scripts/lib/orchestration/review-providers/scoped-lint.js",
-      "mi": 84.325
+      "mi": 90.382
     },
     {
       "path": ".agents/scripts/lib/orchestration/review-providers/security-review.js",
@@ -2052,7 +2052,7 @@
     },
     {
       "path": ".agents/scripts/providers/github/errors.js",
-      "mi": 97.838
+      "mi": 99.119
     },
     {
       "path": ".agents/scripts/providers/github/issues.js",
