@@ -106,8 +106,14 @@ Dispatch it in the **background**: it routinely outruns the host's
 synchronous Bash ceiling, and its completion re-invokes you — that
 notification is the signal. Never spawn a task to poll or `sleep`-loop
 against it; a waiter whose condition is wrong outlives the agent. Share
-`lint` / `typecheck` evidence with close via `evidence-gate.js` if you like;
-never stamp coverage / CRAP fresh any other way.
+`lint` / `typecheck` evidence with close via `evidence-gate.js`; never
+stamp coverage / CRAP fresh any other way.
+
+**It can legitimately run nothing.** A change set touching no CRAP
+`targetDirs` path skips capture, exiting 0 with no test run. An exit code is
+never evidence a gate did work — its **output** is: a `skipping capture`
+line means no credit was deposited, so run the full suite yourself before
+handing off.
 
 Before trusting a gate's output read
 [`known-tooling-behavior.md`](../rules/known-tooling-behavior.md); for that

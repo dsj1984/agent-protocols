@@ -24,6 +24,7 @@ import { describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 import initCheck from '../../.agents/scripts/lib/checks/story-init-not-backgrounded.js';
+import { assertDocMentions } from '../helpers/doc-assert.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, '..', '..');
@@ -94,6 +95,52 @@ describe('story-worker carries a reachable long-command dispatch contract', () =
     );
   });
 
+  it('names the skip as a legitimate outcome of the credited run', () => {
+    // `coverage-capture.js` delegates to the incremental path, which by design
+    // runs nothing when the change set touches no crap `targetDirs` entry — a
+    // docs- or tests-only Story hits it every time. Unstated, the worker reads
+    // the zero exit as a green suite it never ran.
+    const section = creditedRunSection(read(WORKER));
+    assertDocMentions(
+      section,
+      /legitimately run nothing/i,
+      'the credited-run section must say the command can run no test at all',
+    );
+    assertDocMentions(
+      section,
+      /skips capture/i,
+      'the section must name the skip in the shape the command announces it',
+    );
+  });
+
+  it('routes that verdict through the output, never the exit status', () => {
+    const section = creditedRunSection(read(WORKER));
+    assertDocMentions(
+      section,
+      /exit code is never evidence a gate did work/i,
+      'the section must generalise past this one command: a zero exit is not evidence the gate did any work',
+    );
+    assertDocMentions(
+      section,
+      /\*\*output\*\*/,
+      'the section must name the output as what says whether the run deposited credit',
+    );
+  });
+
+  it('sends an uncredited run back through the suite before the hand-off', () => {
+    const section = creditedRunSection(read(WORKER));
+    assertDocMentions(
+      section,
+      /no credit was deposited/i,
+      'the section must name the no-credit outcome the worker has to act on',
+    );
+    assertDocMentions(
+      section,
+      /run the full suite yourself before handing off/i,
+      'a skip must end in the worker running the suite itself — a hand-off is a claim the branch was verified',
+    );
+  });
+
   it('keeps the boot context inside its per-agent ceiling', () => {
     const bytes = Buffer.byteLength(read(WORKER), 'utf8');
     assert.ok(
@@ -147,6 +194,30 @@ describe('the bundled delivery read pins the same dispatch shape', () => {
       section,
       /background/i,
       'digest § 5 must name background dispatch — it is the one bundled read every delivery performs, so it covers the path where role-scoped agents are disabled',
+    );
+  });
+
+  it('names the legitimate skip in the credited-full-suite section', () => {
+    const src = read(DIGEST);
+    const start = src.indexOf('## 5.');
+    assert.notEqual(start, -1, `${DIGEST} has no "## 5." section`);
+    const rest = src.slice(start + 3);
+    const end = rest.indexOf('\n## ');
+    const section = end === -1 ? rest : rest.slice(0, end);
+    assertDocMentions(
+      section,
+      /capture skips/i,
+      'digest § 5 must name the skip — the digest is the only delivery read on the path where role-scoped agents are disabled',
+    );
+    assertDocMentions(
+      section,
+      /output.*not the exit code/i,
+      'digest § 5 must route the verdict through the output rather than the exit code',
+    );
+    assertDocMentions(
+      section,
+      /run the suite yourself before handing off/i,
+      'digest § 5 must send an uncredited run back through the suite before the hand-off',
     );
   });
 });
