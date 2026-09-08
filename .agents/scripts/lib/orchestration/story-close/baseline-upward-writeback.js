@@ -19,7 +19,7 @@
  * Shape borrowed from {@link ../story-close/format-autofix.js#runScopedFormatAutofix}:
  * scope to the branch's changed-file set, fold the writes into one dedicated
  * commit ahead of the gates, log the paths touched, and inject every
- * filesystem / git / scoring collaborator so the unit tests never spawn git
+ * git / baseline / scoring collaborator so the unit tests never spawn git
  * (`.agents/rules/test-seams.md`).
  *
  * Four constraints bind the design, and every one of them is a "must not":
@@ -47,7 +47,6 @@
  * commitlint accepts it.
  */
 
-import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 
 import {
@@ -63,6 +62,7 @@ import {
   resolveDefaultScorer,
 } from '../../baselines/refresh-service.js';
 import { getQuality } from '../../config-resolver.js';
+import { gitSync as defaultGitSync } from '../../git-utils.js';
 import { Logger as DefaultLogger } from '../../Logger.js';
 import { currentBranch, listChangedFiles } from './format-autofix.js';
 
@@ -318,8 +318,7 @@ function precheck({ gate, workTree, storyBranch, git, changed }) {
  *   storyBranch: string,
  *   config?: object,
  *   logger?: object,
- *   spawnSync?: typeof execFileSync,
- *   gitSync?: (args: string[], opts: object) => string,
+ *   gitSync?: (cwd: string, ...args: string[]) => string,
  *   loadBaselineRows?: (opts: { cwd: string }) => Array<object>|null,
  *   scoreFiles?: (files: string[], opts: object) => Promise<Array<object>>|Array<object>,
  *   refreshBaseline?: typeof defaultRefreshBaseline,
@@ -341,8 +340,7 @@ export async function runBaselineUpwardWriteback({
   storyBranch,
   config,
   logger = DefaultLogger,
-  spawnSync = execFileSync,
-  gitSync,
+  gitSync = defaultGitSync,
   loadBaselineRows = defaultLoadBaselineRows,
   scoreFiles,
   refreshBaseline = defaultRefreshBaseline,
@@ -355,7 +353,13 @@ export async function runBaselineUpwardWriteback({
     throw new Error('runBaselineUpwardWriteback: storyBranch is required');
 
   const workTree = worktreePath || cwd;
-  const git = gitSync ?? ((args, opts) => spawnSync('git', args, opts));
+  // The two format-autofix helpers below take git as `(args, opts) => stdout`;
+  // `git-utils.gitSync` is `(cwd, ...args) => trimmed stdout` and throws on a
+  // non-zero exit. Adapt rather than reach for `node:child_process` directly —
+  // the shared surface owns the stdout ceiling, `shell: false` and error
+  // normalisation, and `tests/enforcement/child-process-imports.test.js`
+  // enforces that.
+  const git = (args, opts = {}) => gitSync(opts.cwd ?? workTree, ...args);
   const gate = resolveGate(config);
 
   const changed = listChangedFiles({

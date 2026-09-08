@@ -39,7 +39,9 @@ function makeGit({
   commitFails = false,
 } = {}) {
   const calls = [];
-  const git = (args, _opts) => {
+  // Matches `git-utils.gitSync`: `(cwd, ...args) => trimmed stdout`, throwing
+  // on a non-zero exit.
+  const git = (_cwd, ...args) => {
     calls.push(args);
     const [cmd] = args;
     if (cmd === 'diff') return `${changedFiles.join('\n')}\n`;
