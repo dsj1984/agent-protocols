@@ -1,7 +1,7 @@
 {
   "$schema": "https://mandrel.dev/baselines/dead-exports.schema.json",
   "kernelVersion": "6.17.1",
-  "generatedAt": "2026-09-07T16:25:32.380Z",
+  "generatedAt": "2026-09-08T11:06:06.262Z",
   "rows": [
     {
       "file": ".agents/scripts/lib/baseline-schema-registry.js",
@@ -14,10 +14,6 @@
     {
       "file": ".agents/scripts/lib/baselines/duplication-scanner.js",
       "symbol": "readLineCount"
-    },
-    {
-      "file": ".agents/scripts/lib/baselines/envelope.js",
-      "symbol": "KNOWN_KINDS"
     },
     {
       "file": ".agents/scripts/lib/baselines/reader.js",
@@ -134,10 +130,6 @@
     {
       "file": ".agents/scripts/lib/orchestration/story-close/format-autofix.js",
       "symbol": "commitDirtyPaths"
-    },
-    {
-      "file": ".agents/scripts/lib/orchestration/story-close/format-autofix.js",
-      "symbol": "currentBranch"
     },
     {
       "file": ".agents/scripts/lib/orchestration/ticket-lease.js",

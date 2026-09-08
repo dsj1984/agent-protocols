@@ -17,12 +17,12 @@
  * `temp/standalone/stories/story-<id>/validation-evidence.json`, so a
  * second close at unchanged HEAD short-circuits the already-passed gates.
  *
- * Format-autofix self-heal (Story #4250). The Epic path runs
- * `runScopedFormatAutofix` before the check-only gates so benign JSON/YAML
- * drift the formatter can fix is folded into a `fix(story-close):` commit
- * rather than hard-failing the format gate. The standalone path now does
- * the same, with `baseBranch` as the diff anchor and the Story worktree as
- * the commit target.
+ * Pre-gate self-heal (Stories #4250, #5224). Two best-effort steps run on the
+ * Story branch before the check-only gates score it — the scoped format
+ * autofix and the upward maintainability write-back — so whatever they commit
+ * is part of what the gates see and part of the branch's own PR. Both live in
+ * [`pre-gate-steps.js`](pre-gate-steps.js); neither can fail a close, because
+ * an authoritative gate for each runs immediately below.
  *
  * Bounded gate output (Story #4736). Every gate line goes to the run's
  * `gate-log.js` sink — an artifact under the gitignored temp tree — instead
@@ -40,25 +40,24 @@
  * `*:update` + `baseline-refresh:` remedy — advisory only, so the close
  * verdict is unchanged.
  *
- * `runCloseValidation`, `buildDefaultGates`, and `runScopedFormatAutofix`
- * are accepted as injected dependencies so the parent CLI's cache-busted
- * bindings win in tests that mock the upstream module URLs.
+ * `runCloseValidation`, `buildDefaultGates` and the pre-gate steps (whole, or
+ * their two individual collaborators) are accepted as injected dependencies so
+ * the parent CLI's cache-busted bindings win in tests that mock the upstream
+ * module URLs.
  */
 
 import { buildDefaultGates as defaultBuildDefaultGates } from '../../../close-validation/gates.js';
 import { runCloseValidation as defaultRunCloseValidation } from '../../../close-validation/runner.js';
-import { Logger } from '../../../Logger.js';
-import { runScopedFormatAutofix as defaultRunScopedFormatAutofix } from '../../story-close/format-autofix.js';
 import { createGateLogSink as defaultCreateGateLogSink } from '../gate-log.js';
+import { runPreGateSteps as defaultRunPreGateSteps } from './pre-gate-steps.js';
 
 /**
  * Run the close-validation gate chain. Throws on first gate failure.
  *
- * Order (Story #4250): format-autofix self-heal → close-validation gates.
- * The autofix step scopes the formatter to the `baseBranch...storyBranch`
- * diff, commits any fix on the Story branch inside the Story worktree, and
- * is best-effort — a missing `storyBranch` (resume/legacy callers) skips it
- * with a log line rather than failing.
+ * Order: pre-gate self-heal steps → close-validation gates. The steps scope
+ * to the `baseBranch...storyBranch` diff, commit inside the Story worktree,
+ * and are best-effort — a missing `storyBranch` (resume/legacy callers) skips
+ * them with a log line rather than failing.
  *
  * Gates are built from the canonical resolved config (`buildDefaultGates`
  * reads `project.commands` and `delivery.quality.gates.crap.enabled`); the
@@ -76,7 +75,9 @@ import { createGateLogSink as defaultCreateGateLogSink } from '../gate-log.js';
  *   progress: (tag: string, msg: string) => void,
  *   runCloseValidation?: typeof defaultRunCloseValidation,
  *   buildDefaultGates?: typeof defaultBuildDefaultGates,
- *   runScopedFormatAutofix?: typeof defaultRunScopedFormatAutofix,
+ *   runPreGateSteps?: typeof defaultRunPreGateSteps,
+ *   runScopedFormatAutofix?: Function,
+ *   runBaselineUpwardWriteback?: Function,
  *   createGateLogSink?: typeof defaultCreateGateLogSink,
  * }} args
  * @returns {Promise<{ gates: Record<string, 'passed'|'skipped'> }>} Per-gate
@@ -94,52 +95,22 @@ export async function runCloseValidationPhase({
   progress,
   runCloseValidation = defaultRunCloseValidation,
   buildDefaultGates = defaultBuildDefaultGates,
-  runScopedFormatAutofix = defaultRunScopedFormatAutofix,
+  runPreGateSteps = defaultRunPreGateSteps,
+  runScopedFormatAutofix,
+  runBaselineUpwardWriteback,
   createGateLogSink = defaultCreateGateLogSink,
 }) {
-  // Story #4250 — format-autofix self-heal before the check-only gates.
-  // Mirrors the Epic path (story-close/phases/gates.js): the formatter is
-  // scoped to the baseBranch...storyBranch diff, and any fix is committed on
-  // the Story branch in the Story worktree. Skipped (with a log) when no
-  // storyBranch is available so resume/legacy callers don't trip a throw.
-  if (storyBranch) {
-    progress(
-      'FORMAT',
-      `Running scoped format-autofix on ${baseBranch}...${storyBranch}${worktreePath ? ` in ${worktreePath}` : ''}...`,
-    );
-    // Best-effort self-heal: a failure to even compute the diff (e.g. a
-    // missing ref) must never abort close — the format check gate downstream
-    // is the source of truth for "is the tree formatted". We log and proceed.
-    try {
-      const autofix = runScopedFormatAutofix({
-        cwd,
-        worktreePath,
-        storyId,
-        baseBranch,
-        storyBranch,
-        config,
-        logger: Logger,
-      });
-      if (autofix?.committed) {
-        progress(
-          'FORMAT',
-          `✅ Auto-applied format fix committed as ${autofix.sha} on ${storyBranch}.`,
-        );
-      } else {
-        progress(
-          'FORMAT',
-          `⏭ No format-autofix commit (${autofix?.reason ?? 'clean'}).`,
-        );
-      }
-    } catch (err) {
-      progress(
-        'FORMAT',
-        `⚠️ scoped format-autofix failed (close continues; format gate is authoritative): ${err?.message ?? err}`,
-      );
-    }
-  } else {
-    progress('FORMAT', '⏭ Skipped scoped format-autofix (no story branch).');
-  }
+  await runPreGateSteps({
+    cwd,
+    worktreePath,
+    storyId,
+    baseBranch,
+    storyBranch,
+    config,
+    progress,
+    runScopedFormatAutofix,
+    runBaselineUpwardWriteback,
+  });
 
   progress(
     'VALIDATE',

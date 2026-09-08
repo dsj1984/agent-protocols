@@ -15,6 +15,10 @@ import { makeTempDir } from '../../../../.agents/scripts/lib/test-temp.js';
  *      consulted instead of the structurally-disabled Epic-keyed path.
  *   2. The phase runs `runScopedFormatAutofix` (with `baseBranch` as the diff
  *      anchor and the worktree as the commit target) BEFORE the gate chain.
+ *
+ * Story #5224 adds a third: the upward baseline write-back runs alongside the
+ * format self-heal, ahead of the gates, on the same branch pair and worktree —
+ * and, like the self-heal, can never fail the close.
  */
 
 function noopProgress() {}
@@ -37,6 +41,11 @@ describe('runCloseValidationPhase — standalone parity (Story #4250)', () => {
       buildDefaultGates: () => [
         { name: 'lint', cmd: 'npm', args: ['run', 'lint'] },
       ],
+      runBaselineUpwardWriteback: () => ({
+        ran: false,
+        committed: false,
+        reason: 'stub',
+      }),
       runScopedFormatAutofix: () => ({ ran: false, committed: false }),
     });
     assert.equal(observed.standalone, true);
@@ -64,6 +73,11 @@ describe('runCloseValidationPhase — standalone parity (Story #4250)', () => {
         return { ok: true, failed: [], skipped: [] };
       },
       buildDefaultGates: () => [],
+      runBaselineUpwardWriteback: () => ({
+        ran: false,
+        committed: false,
+        reason: 'stub',
+      }),
       runScopedFormatAutofix: (args) => {
         order.push('autofix');
         autofixArgs.push(args);
@@ -96,6 +110,11 @@ describe('runCloseValidationPhase — standalone parity (Story #4250)', () => {
       progress: noopProgress,
       runCloseValidation: () => ({ ok: true, failed: [], skipped: [] }),
       buildDefaultGates: () => [],
+      runBaselineUpwardWriteback: () => ({
+        ran: false,
+        committed: false,
+        reason: 'stub',
+      }),
       runScopedFormatAutofix: () => {
         autofixCalled = true;
         return { ran: false, committed: false };
@@ -123,6 +142,11 @@ describe('runCloseValidationPhase — standalone parity (Story #4250)', () => {
         return { ok: true, failed: [], skipped: [] };
       },
       buildDefaultGates: () => [],
+      runBaselineUpwardWriteback: () => ({
+        ran: false,
+        committed: false,
+        reason: 'stub',
+      }),
       runScopedFormatAutofix: () => {
         throw new Error('git diff failed: missing ref');
       },
@@ -157,6 +181,11 @@ describe('runCloseValidationPhase — standalone parity (Story #4250)', () => {
             skipped: [],
           }),
           buildDefaultGates: () => [],
+          runBaselineUpwardWriteback: () => ({
+            ran: false,
+            committed: false,
+            reason: 'stub',
+          }),
           runScopedFormatAutofix: () => ({ ran: false, committed: false }),
         }),
       (err) =>
@@ -236,6 +265,11 @@ describe('runCloseValidationPhase — bounded gate output (Story #4736)', () => 
               };
         },
         buildDefaultGates: () => [],
+        runBaselineUpwardWriteback: () => ({
+          ran: false,
+          committed: false,
+          reason: 'stub',
+        }),
         runScopedFormatAutofix: () => ({ ran: false, committed: false }),
       };
       if (ok) await runCloseValidationPhase(args);
@@ -284,6 +318,102 @@ describe('runCloseValidationPhase — bounded gate output (Story #4736)', () => 
     assert.ok(
       Buffer.byteLength(captured, 'utf8') > STDOUT_BOUND_BYTES,
       'the size bound is deliberately success-path-only — the diagnostic tail is not truncated to fit it',
+    );
+  });
+});
+
+describe('runCloseValidationPhase — upward baseline write-back (Story #5224)', () => {
+  it('runs the write-back before the gate chain, on the story worktree', async () => {
+    const order = [];
+    const seen = [];
+    await runCloseValidationPhase({
+      cwd: '/main/repo',
+      worktreePath: '/main/repo/.worktrees/story-5224',
+      config: { marker: 'resolved-config' },
+      baseBranch: 'main',
+      storyBranch: 'story-5224',
+      storyId: 5224,
+      progress: noopProgress,
+      runCloseValidation: () => {
+        order.push('validate');
+        return { ok: true, failed: [], skipped: [] };
+      },
+      buildDefaultGates: () => [],
+      runScopedFormatAutofix: () => {
+        order.push('autofix');
+        return { ran: false, committed: false };
+      },
+      runBaselineUpwardWriteback: (args) => {
+        order.push('writeback');
+        seen.push(args);
+        return {
+          ran: true,
+          committed: true,
+          sha: 'abc1234',
+          improvedPaths: [],
+        };
+      },
+    });
+    assert.deepEqual(
+      order,
+      ['autofix', 'writeback', 'validate'],
+      'the write-back must land its commit before the gates score the tree',
+    );
+    assert.equal(seen[0].baseBranch, 'main');
+    assert.equal(seen[0].storyBranch, 'story-5224');
+    assert.equal(seen[0].worktreePath, '/main/repo/.worktrees/story-5224');
+    assert.equal(seen[0].config.marker, 'resolved-config');
+  });
+
+  it('swallows a write-back throw — check-baselines stays authoritative', async () => {
+    let validated = false;
+    await runCloseValidationPhase({
+      cwd: '/main/repo',
+      worktreePath: '/main/repo/.worktrees/story-5224',
+      config: {},
+      baseBranch: 'main',
+      storyBranch: 'story-5224',
+      storyId: 5224,
+      progress: noopProgress,
+      runCloseValidation: () => {
+        validated = true;
+        return { ok: true, failed: [], skipped: [] };
+      },
+      buildDefaultGates: () => [],
+      runScopedFormatAutofix: () => ({ ran: false, committed: false }),
+      runBaselineUpwardWriteback: () => {
+        throw new Error('scorer exploded');
+      },
+    });
+    assert.equal(
+      validated,
+      true,
+      'a write-back throw must not abort the close-validation phase',
+    );
+  });
+
+  it('skips the write-back when no storyBranch is supplied', async () => {
+    let called = false;
+    await runCloseValidationPhase({
+      cwd: '/main/repo',
+      worktreePath: null,
+      config: {},
+      baseBranch: 'main',
+      storyBranch: undefined,
+      storyId: 5224,
+      progress: noopProgress,
+      runCloseValidation: () => ({ ok: true, failed: [], skipped: [] }),
+      buildDefaultGates: () => [],
+      runScopedFormatAutofix: () => ({ ran: false, committed: false }),
+      runBaselineUpwardWriteback: () => {
+        called = true;
+        return { ran: false, committed: false };
+      },
+    });
+    assert.equal(
+      called,
+      false,
+      'without a story branch there is no branch to commit a refreshed row on',
     );
   });
 });
