@@ -129,6 +129,11 @@ node <main-repo>/.agents/scripts/evidence-gate.js --standalone \
   --scope-id <storyId> --gate test --worktree <workCwd> -- npm test
 ```
 
+Dispatch this run in the **background** — it routinely outruns the host's
+synchronous Bash ceiling, and its completion re-invokes you. Never spawn a
+task to poll or `sleep`-loop against it
+([`parallel-tooling.md`](parallel-tooling.md) Rule 2).
+
 `verify[]` is scoped entries **plus** this one run: an entry that is itself a
 full-suite command is reported credited against the same stamp, never
 respawned.

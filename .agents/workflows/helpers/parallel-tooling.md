@@ -47,6 +47,23 @@ the full duration and blocks every other parallel opportunity.
 - **Don't poll with `sleep`:** `Monitor` returns on each stdout line. Loop
   on `until <condition>; do sleep 2; done` only when no event stream is
   available — never as a substitute for the event channel.
+- **A hand-rolled waiter outlives the agent that spawned it.** Prefer the
+  completion notification: it is the signal, and needs no waiter at all. Two
+  measured failure shapes, both from one delivery run whose waiters were
+  still listed running nearly eight hours after their agent had finished and
+  its worktree had been deleted:
+  - An `until` guard that inverts to permanently-false the moment the run
+    **succeeds** — `until [ -n "$(grep -l 'Test Files' $LOG)" ] && ! grep -q
+    'Test Files' $LOG` exits only while the log both has and lacks the same
+    marker.
+  - `pgrep -f <literal>` matching the waiter's **own** command line, so it
+    finds itself and concludes the work is still running. Forever.
+
+  The tell is a task file of **0 bytes** with no backing process. If you must
+  wait, hold the PID and test `kill -0 "$PID"`, or break the self-match with
+  a bracketed pattern (`pgrep -f "[m]y-script.js"`) — and always bound the
+  loop with a maximum iteration count so a wrong condition ends the wait
+  instead of the agent.
 
 ## Rule 3 — N parallel `Agent` calls in one turn for N independent units
 
