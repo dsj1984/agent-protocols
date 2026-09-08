@@ -1,0 +1,163 @@
+/**
+ * tests/bootstrap/story-worker-dispatch-guidance.test.js — the worker's
+ * long-command dispatch contract.
+ *
+ * A `story-worker` boots on its own system prompt with no `CLAUDE.md` /
+ * `instructions.md` closure, so anything it is not told — or cannot reach
+ * from its own boot context — it improvises. The credited full-suite run is
+ * the longest command in a worker's life and routinely outruns the host's
+ * synchronous Bash ceiling, and improvised waiters are buggy in ways that
+ * outlive the agent that spawned them.
+ *
+ * `parallel-tooling.md` Rule 2 has always carried the correct pattern, but
+ * it sat outside the worker's reachable closure: `story-worker.md` cited no
+ * dispatch guidance at all, and `deliver-story.md` declares `deliver-digest.md`
+ * as its only mandatoryRead. This test pins the reachability — the citation
+ * is the durable fix, so a later edit that deletes it fails here rather than
+ * silently returning every worker to improvising.
+ */
+
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
+import { describe, it } from 'node:test';
+import { fileURLToPath } from 'node:url';
+
+import initCheck from '../../.agents/scripts/lib/checks/story-init-not-backgrounded.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const REPO_ROOT = path.resolve(__dirname, '..', '..');
+
+const read = (rel) => readFileSync(path.join(REPO_ROOT, rel), 'utf8');
+
+const WORKER = '.agents/agents/story-worker.md';
+const RULE2 = '.agents/workflows/helpers/parallel-tooling.md';
+const DIGEST = '.agents/workflows/helpers/deliver-digest.md';
+
+/** The per-agent boot ceiling `check-context-budget.js` enforces. */
+const AGENT_BOOT_CEILING_BYTES = 8192;
+
+/**
+ * The worker's credited-run section: from its `## Close gates` heading to the
+ * next `##` heading. Scoping the assertions to this section is what makes
+ * them meaningful — guidance parked in an unrelated section would not reach
+ * a worker at the moment it is about to launch the suite.
+ */
+function creditedRunSection(src) {
+  const start = src.indexOf('## Close gates');
+  assert.notEqual(start, -1, `${WORKER} has no "## Close gates" section`);
+  const rest = src.slice(start + 3);
+  const end = rest.indexOf('\n## ');
+  return end === -1 ? rest : rest.slice(0, end);
+}
+
+describe('story-worker carries a reachable long-command dispatch contract', () => {
+  it('tells the worker to dispatch the credited suite in the background', () => {
+    const section = creditedRunSection(read(WORKER));
+    assert.match(
+      section,
+      /background/i,
+      'the credited-run section must name background dispatch — without it a worker holds the turn open until the host kills it',
+    );
+    assert.match(
+      section,
+      /re-invokes you|notification is the signal/i,
+      'the credited-run section must say the completion notification is the proceed signal',
+    );
+  });
+
+  it('forbids spawning a second task to wait on that run', () => {
+    const section = creditedRunSection(read(WORKER));
+    assert.match(
+      section,
+      /never spawn a task to poll/i,
+      'the credited-run section must forbid spawning a waiter task',
+    );
+    assert.match(
+      section,
+      /`sleep`-loop/i,
+      'the credited-run section must name the `sleep`-loop shape specifically',
+    );
+  });
+
+  it('reaches parallel-tooling Rule 2 from the boot context itself', () => {
+    const section = creditedRunSection(read(WORKER));
+    assert.match(
+      section,
+      /parallel-tooling\.md/,
+      'the credited-run section must cite parallel-tooling.md — the reachability gap, not the absent prose, is what made every worker re-solve this',
+    );
+    assert.match(
+      section,
+      /Rule 2/,
+      'the citation must name Rule 2, the long-shell dispatch rule',
+    );
+  });
+
+  it('keeps the boot context inside its per-agent ceiling', () => {
+    const bytes = Buffer.byteLength(read(WORKER), 'utf8');
+    assert.ok(
+      bytes <= AGENT_BOOT_CEILING_BYTES,
+      `${WORKER} is ${bytes} bytes, over the ${AGENT_BOOT_CEILING_BYTES}-byte per-agent ceiling`,
+    );
+  });
+});
+
+describe('Rule 2 records the waiter traps a worker would otherwise re-discover', () => {
+  const rule2 = () => read(RULE2);
+
+  it('records the inverted-until and pgrep self-match shapes', () => {
+    const src = rule2();
+    assert.match(
+      src,
+      /until/,
+      'Rule 2 must record the `until` guard that inverts to permanently-false on success',
+    );
+    assert.match(
+      src,
+      /pgrep -f/,
+      "Rule 2 must record `pgrep -f` matching the waiter's own command line",
+    );
+  });
+
+  it('names a safe form for a wait that genuinely must happen', () => {
+    const src = rule2();
+    assert.match(
+      src,
+      /kill -0/,
+      'Rule 2 must name holding the PID and testing `kill -0` as the safe alternative',
+    );
+    assert.match(
+      src,
+      /\[[a-z]\][a-z-]*\.js/,
+      'Rule 2 must name the bracketed-pattern form that breaks the self-match',
+    );
+  });
+});
+
+describe('the bundled delivery read pins the same dispatch shape', () => {
+  it('names background dispatch in the credited-full-suite section', () => {
+    const src = read(DIGEST);
+    const start = src.indexOf('## 5.');
+    assert.notEqual(start, -1, `${DIGEST} has no "## 5." section`);
+    const rest = src.slice(start + 3);
+    const end = rest.indexOf('\n## ');
+    const section = end === -1 ? rest : rest.slice(0, end);
+    assert.match(
+      section,
+      /background/i,
+      'digest § 5 must name background dispatch — it is the one bundled read every delivery performs, so it covers the path where role-scoped agents are disabled',
+    );
+  });
+});
+
+describe('the new guidance does not trip the init-backgrounding guard', () => {
+  it('reports no story-init-not-backgrounded finding for .agents/', () => {
+    const finding = initCheck.detect({ cwd: REPO_ROOT });
+    assert.equal(
+      finding,
+      null,
+      `the guard flags a backgrounding token within 20 lines of a story-init.js reference; it reported: ${JSON.stringify(finding)}`,
+    );
+  });
+});
