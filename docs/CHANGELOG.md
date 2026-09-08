@@ -15,6 +15,18 @@ All notable changes to this project will be documented in this file.
 -->
 <!-- markdownlint-disable-file MD004 MD012 MD037 -->
 
+## [2.48.0](https://github.com/dsj1984/mandrel/compare/mandrel-v2.47.0...mandrel-v2.48.0) (2026-09-08)
+
+
+### Added
+
+* baselines: merge concurrent refreshes by row identity with a git merge driver ([#5215](https://github.com/dsj1984/mandrel/issues/5215)) ([#5216](https://github.com/dsj1984/mandrel/issues/5216)) ([bcc7057](https://github.com/dsj1984/mandrel/commit/bcc7057d8aad647ec4dae0dc859dd35865fe40a5))
+
+
+### Fixed
+
+* never close a container Epic on a degraded child read, and stop flattening gh transport failures to permanent ([#5210](https://github.com/dsj1984/mandrel/issues/5210)) ([#5212](https://github.com/dsj1984/mandrel/issues/5212)) ([08520d7](https://github.com/dsj1984/mandrel/commit/08520d7b5ca0962f98042ca4b103cf0c295516cf))
+
 ## [2.47.0](https://github.com/dsj1984/mandrel/compare/mandrel-v2.46.0...mandrel-v2.47.0) (2026-09-07)
 
 
