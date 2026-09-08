@@ -28,10 +28,10 @@ import path from 'node:path';
 import { spawnCapture } from '../child-exec.js';
 
 /** Driver name, as it appears on both sides of the registration. */
-export const BASELINE_MERGE_DRIVER_NAME = 'mandrel-baseline';
+const BASELINE_MERGE_DRIVER_NAME = 'mandrel-baseline';
 
 /** The `.gitattributes` line that routes baselines through the driver. */
-export const BASELINE_MERGE_ATTRIBUTE = `baselines/*.json merge=${BASELINE_MERGE_DRIVER_NAME}`;
+const BASELINE_MERGE_ATTRIBUTE = `baselines/*.json merge=${BASELINE_MERGE_DRIVER_NAME}`;
 
 /** Git config key holding the driver command. */
 export const BASELINE_MERGE_DRIVER_CONFIG_KEY = `merge.${BASELINE_MERGE_DRIVER_NAME}.driver`;
@@ -40,7 +40,7 @@ export const BASELINE_MERGE_DRIVER_CONFIG_KEY = `merge.${BASELINE_MERGE_DRIVER_N
  * The driver command. Relative to the worktree root, which is where git runs
  * a merge driver from, and where `mandrel sync` materializes `.agents/`.
  */
-export const BASELINE_MERGE_DRIVER_COMMAND =
+const BASELINE_MERGE_DRIVER_COMMAND =
   'node .agents/scripts/merge-baseline.js %O %A %B %P';
 
 /** The exact command an operator runs to complete registration. */
@@ -70,7 +70,7 @@ export function declaresBaselineMergeDriver(gitattributes) {
  * @param {typeof fs} [fsImpl]
  * @returns {{ action: 'created'|'appended'|'already-present', path: string }}
  */
-export function ensureGitattributesLine(projectRoot, fsImpl = fs) {
+function ensureGitattributesLine(projectRoot, fsImpl = fs) {
   const target = path.join(projectRoot, '.gitattributes');
   if (!fsImpl.existsSync(target)) {
     fsImpl.writeFileSync(target, `${BASELINE_MERGE_ATTRIBUTE}\n`, 'utf8');
@@ -98,7 +98,7 @@ export function ensureGitattributesLine(projectRoot, fsImpl = fs) {
  * @param {typeof spawnCapture} [spawnImpl]
  * @returns {{ action: 'set'|'already-present'|'not-a-repo'|'failed' }}
  */
-export function ensureDriverGitConfig(projectRoot, spawnImpl = spawnCapture) {
+function ensureDriverGitConfig(projectRoot, spawnImpl = spawnCapture) {
   const opts = {
     cwd: projectRoot,
     encoding: 'utf-8',
@@ -156,6 +156,7 @@ export function ensureDriverGitConfig(projectRoot, spawnImpl = spawnCapture) {
  *   attributes: string,
  *   config: string,
  *   path: string,
+ *   line: string,
  * }}
  */
 export function ensureBaselineMergeDriver(ctx) {
@@ -169,5 +170,6 @@ export function ensureBaselineMergeDriver(ctx) {
     attributes: attributes.action,
     config: config.action,
     path: attributes.path,
+    line: BASELINE_MERGE_ATTRIBUTE,
   };
 }

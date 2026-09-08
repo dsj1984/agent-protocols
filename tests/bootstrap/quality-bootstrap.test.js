@@ -23,10 +23,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 
-import {
-  BASELINE_MERGE_ATTRIBUTE,
-  ensureBaselineMergeDriver,
-} from '../../.agents/scripts/lib/bootstrap/baseline-merge-driver.js';
+import { ensureBaselineMergeDriver } from '../../.agents/scripts/lib/bootstrap/baseline-merge-driver.js';
 import {
   applyQualityBootstrap,
   DOWNSTREAM_PRE_COMMIT,
@@ -274,6 +271,11 @@ describe('quality-bootstrap — degraded environments', () => {
 });
 
 describe('quality-bootstrap — baselines merge driver (AC-6)', () => {
+  // Asserted as a literal, not imported: this string is the contract a
+  // consumer's `.gitattributes` must end up carrying, so the test should
+  // fail if the installer changes it.
+  const BASELINE_MERGE_ATTRIBUTE = 'baselines/*.json merge=mandrel-baseline';
+
   // The git half is stubbed everywhere here: these assertions are about the
   // tracked `.gitattributes` line, and a real `git config` would write into
   // whatever repo the suite happens to run inside.

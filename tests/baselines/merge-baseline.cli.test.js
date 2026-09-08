@@ -350,9 +350,17 @@ describe('merge-baseline — registered in a real repository (AC-5)', () => {
 
     git('init', '-q', '-b', 'main');
     seedGitIdentity(dir);
-    fs.appendFileSync(
-      path.join(dir, '.git', 'config'),
-      `[merge "mandrel-baseline"]\n\tname = mandrel baseline merge\n\tdriver = ${process.execPath} ${DRIVER} %O %A %B %P\n`,
+    // Register through `git config` rather than by appending INI: a
+    // backslash is an ESCAPE character in a git config value, so writing a
+    // native Windows path by hand yields `fatal: bad config line`. Both
+    // paths are also forward-slashed and quoted — git runs a merge driver
+    // through a shell, where backslashes are escapes too and a path may
+    // contain spaces.
+    const posix = (p) => p.replaceAll('\\', '/');
+    git(
+      'config',
+      'merge.mandrel-baseline.driver',
+      `"${posix(process.execPath)}" "${posix(DRIVER)}" %O %A %B %P`,
     );
     fs.writeFileSync(
       path.join(dir, '.gitattributes'),
