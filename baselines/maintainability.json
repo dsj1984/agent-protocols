@@ -1,7 +1,7 @@
 {
   "$schema": ".agents/schemas/baselines/maintainability.schema.json",
   "kernelVersion": "0.1.0",
-  "generatedAt": "2026-09-08T10:28:49.101Z",
+  "generatedAt": "2026-09-08T10:54:53.193Z",
   "rollup": {
     "*": {
       "min": 76.381,
@@ -1484,7 +1484,7 @@
     },
     {
       "path": ".agents/scripts/lib/orchestration/single-story-close/phases/close-validation.js",
-      "mi": 84.468
+      "mi": 88.169
     },
     {
       "path": ".agents/scripts/lib/orchestration/single-story-close/phases/code-review.js",
