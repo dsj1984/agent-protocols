@@ -1,7 +1,7 @@
 {
   "$schema": ".agents/schemas/baselines/maintainability.schema.json",
   "kernelVersion": "0.1.0",
-  "generatedAt": "2026-09-08T10:54:53.193Z",
+  "generatedAt": "2026-09-08T10:55:34.920Z",
   "rollup": {
     "*": {
       "min": 76.381,
@@ -1511,6 +1511,10 @@
       "mi": 99.603
     },
     {
+      "path": ".agents/scripts/lib/orchestration/single-story-close/phases/pre-gate-steps.js",
+      "mi": 106.98
+    },
+    {
       "path": ".agents/scripts/lib/orchestration/single-story-close/phases/pull-request.js",
       "mi": 84.113
     },
@@ -1561,6 +1565,10 @@
     {
       "path": ".agents/scripts/lib/orchestration/story-body-gate.js",
       "mi": 103.587
+    },
+    {
+      "path": ".agents/scripts/lib/orchestration/story-close/baseline-upward-writeback.js",
+      "mi": 97.791
     },
     {
       "path": ".agents/scripts/lib/orchestration/story-close/format-autofix.js",

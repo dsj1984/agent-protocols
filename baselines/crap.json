@@ -1,14 +1,14 @@
 {
   "$schema": ".agents/schemas/baselines/crap.schema.json",
   "kernelVersion": "0.1.0",
-  "generatedAt": "2026-09-07T23:58:12.686Z",
+  "generatedAt": "2026-09-08T10:55:35.381Z",
   "scoringSemantics": "method-identity-v3",
   "tsTranspilerVersion": "6.0.3",
   "provenanceStamped": true,
   "rollup": {
     "*": {
       "p50": 2,
-      "p95": 9.011809301647471,
+      "p95": 9.009402069035563,
       "max": 27.003399884259263,
       "methodsAbove20": 4
     }
@@ -18463,8 +18463,14 @@
     {
       "path": ".agents/scripts/lib/orchestration/single-story-close/phases/close-validation.js",
       "method": "runCloseValidationPhase",
-      "startLine": 83,
-      "crap": 9.004002999160637
+      "startLine": 88,
+      "crap": 6
+    },
+    {
+      "path": ".agents/scripts/lib/orchestration/single-story-close/phases/close-validation.js",
+      "method": "gateOutcomes",
+      "startLine": 188,
+      "crap": 1
     },
     {
       "path": ".agents/scripts/lib/orchestration/single-story-close/phases/code-review.js",
@@ -18993,6 +18999,44 @@
       "anonymous": true
     },
     {
+      "path": ".agents/scripts/lib/orchestration/single-story-close/phases/pre-gate-steps.js",
+      "method": "formatAutofixStep",
+      "startLine": 40,
+      "crap": 3
+    },
+    {
+      "path": ".agents/scripts/lib/orchestration/single-story-close/phases/pre-gate-steps.js",
+      "method": "baselineWritebackStep",
+      "startLine": 77,
+      "crap": 2
+    },
+    {
+      "path": ".agents/scripts/lib/orchestration/single-story-close/phases/pre-gate-steps.js",
+      "method": "bestEffort",
+      "startLine": 116,
+      "crap": 1
+    },
+    {
+      "path": ".agents/scripts/lib/orchestration/single-story-close/phases/pre-gate-steps.js",
+      "method": "runPreGateSteps",
+      "startLine": 148,
+      "crap": 2
+    },
+    {
+      "path": ".agents/scripts/lib/orchestration/single-story-close/phases/pre-gate-steps.js",
+      "method": "<anon runPreGateSteps/()#0>",
+      "startLine": 163,
+      "crap": 1,
+      "anonymous": true
+    },
+    {
+      "path": ".agents/scripts/lib/orchestration/single-story-close/phases/pre-gate-steps.js",
+      "method": "<anon runPreGateSteps/()#1>",
+      "startLine": 169,
+      "crap": 1,
+      "anonymous": true
+    },
+    {
       "path": ".agents/scripts/lib/orchestration/single-story-close/phases/pull-request.js",
       "method": "pickHeadPullRequest",
       "startLine": 69,
@@ -19426,6 +19470,121 @@
       "crap": 3
     },
     {
+      "path": ".agents/scripts/lib/orchestration/story-close/baseline-upward-writeback.js",
+      "method": "resolveTolerance",
+      "startLine": 108,
+      "crap": 3
+    },
+    {
+      "path": ".agents/scripts/lib/orchestration/story-close/baseline-upward-writeback.js",
+      "method": "resolveGate",
+      "startLine": 133,
+      "crap": 1.0233236151603498
+    },
+    {
+      "path": ".agents/scripts/lib/orchestration/story-close/baseline-upward-writeback.js",
+      "method": "projectRows",
+      "startLine": 150,
+      "crap": 2.0185185185185186
+    },
+    {
+      "path": ".agents/scripts/lib/orchestration/story-close/baseline-upward-writeback.js",
+      "method": "selectImprovedRows",
+      "startLine": 186,
+      "crap": 5
+    },
+    {
+      "path": ".agents/scripts/lib/orchestration/story-close/baseline-upward-writeback.js",
+      "method": "<anon selectImprovedRows/(row)#0>",
+      "startLine": 187,
+      "crap": 1,
+      "anonymous": true
+    },
+    {
+      "path": ".agents/scripts/lib/orchestration/story-close/baseline-upward-writeback.js",
+      "method": "<anon selectImprovedRows/(row)#1>",
+      "startLine": 188,
+      "crap": 1,
+      "anonymous": true
+    },
+    {
+      "path": ".agents/scripts/lib/orchestration/story-close/baseline-upward-writeback.js",
+      "method": "buildCommitBody",
+      "startLine": 218,
+      "crap": 1
+    },
+    {
+      "path": ".agents/scripts/lib/orchestration/story-close/baseline-upward-writeback.js",
+      "method": "<anon buildCommitBody/(row)#0>",
+      "startLine": 220,
+      "crap": 1,
+      "anonymous": true
+    },
+    {
+      "path": ".agents/scripts/lib/orchestration/story-close/baseline-upward-writeback.js",
+      "method": "buildCommitSubject",
+      "startLine": 245,
+      "crap": 1
+    },
+    {
+      "path": ".agents/scripts/lib/orchestration/story-close/baseline-upward-writeback.js",
+      "method": "commitBaseline",
+      "startLine": 262,
+      "crap": 1
+    },
+    {
+      "path": ".agents/scripts/lib/orchestration/story-close/baseline-upward-writeback.js",
+      "method": "precheck",
+      "startLine": 295,
+      "crap": 4
+    },
+    {
+      "path": ".agents/scripts/lib/orchestration/story-close/baseline-upward-writeback.js",
+      "method": "runBaselineUpwardWriteback",
+      "startLine": 335,
+      "crap": 11
+    },
+    {
+      "path": ".agents/scripts/lib/orchestration/story-close/baseline-upward-writeback.js",
+      "method": "<anon runBaselineUpwardWriteback/(args,opts)#0>",
+      "startLine": 362,
+      "crap": 1,
+      "anonymous": true
+    },
+    {
+      "path": ".agents/scripts/lib/orchestration/story-close/baseline-upward-writeback.js",
+      "method": "<anon runBaselineUpwardWriteback/(file)#0>",
+      "startLine": 370,
+      "crap": 1,
+      "anonymous": true
+    },
+    {
+      "path": ".agents/scripts/lib/orchestration/story-close/baseline-upward-writeback.js",
+      "method": "persist",
+      "startLine": 415,
+      "crap": 2
+    },
+    {
+      "path": ".agents/scripts/lib/orchestration/story-close/baseline-upward-writeback.js",
+      "method": "<anon persist/(row)#0>",
+      "startLine": 425,
+      "crap": 1,
+      "anonymous": true
+    },
+    {
+      "path": ".agents/scripts/lib/orchestration/story-close/baseline-upward-writeback.js",
+      "method": "<anon persist/()#0>",
+      "startLine": 432,
+      "crap": 1,
+      "anonymous": true
+    },
+    {
+      "path": ".agents/scripts/lib/orchestration/story-close/baseline-upward-writeback.js",
+      "method": "defaultLoadBaselineRows",
+      "startLine": 472,
+      "crap": 2
+    },
+    {
       "path": ".agents/scripts/lib/orchestration/story-close/format-autofix.js",
       "method": "listDirtyPaths",
       "startLine": 66,
@@ -19485,26 +19644,26 @@
     {
       "path": ".agents/scripts/lib/orchestration/story-close/format-autofix.js",
       "method": "listChangedFiles",
-      "startLine": 339,
+      "startLine": 344,
       "crap": 1
     },
     {
       "path": ".agents/scripts/lib/orchestration/story-close/format-autofix.js",
       "method": "<anon listChangedFiles/(_cwd,args)#0>",
-      "startLine": 341,
+      "startLine": 346,
       "crap": 1,
       "anonymous": true
     },
     {
       "path": ".agents/scripts/lib/orchestration/story-close/format-autofix.js",
       "method": "runScopedFormatAutofix",
-      "startLine": 416,
+      "startLine": 421,
       "crap": 9.004884998982291
     },
     {
       "path": ".agents/scripts/lib/orchestration/story-close/format-autofix.js",
       "method": "<anon runScopedFormatAutofix/(args,opts)#0>",
-      "startLine": 438,
+      "startLine": 443,
       "crap": 1.000060308629411,
       "anonymous": true
     },

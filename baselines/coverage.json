@@ -1,12 +1,12 @@
 {
   "$schema": ".agents/schemas/baselines/coverage.schema.json",
   "kernelVersion": "1.0.0",
-  "generatedAt": "2026-09-07T23:58:12.119Z",
+  "generatedAt": "2026-09-08T10:55:35.776Z",
   "rollup": {
     "*": {
-      "lines": 96.07,
+      "lines": 96.09,
       "branches": 87.01,
-      "functions": 88.37
+      "functions": 88.39
     }
   },
   "rows": [
@@ -2262,8 +2262,8 @@
     },
     {
       "path": ".agents/scripts/lib/orchestration/single-story-close/phases/close-validation.js",
-      "lines": 97.91,
-      "branches": 78.95,
+      "lines": 100,
+      "branches": 84.62,
       "functions": 100
     },
     {
@@ -2301,6 +2301,12 @@
       "lines": 99.06,
       "branches": 90.57,
       "functions": 87.5
+    },
+    {
+      "path": ".agents/scripts/lib/orchestration/single-story-close/phases/pre-gate-steps.js",
+      "lines": 100,
+      "branches": 81.82,
+      "functions": 100
     },
     {
       "path": ".agents/scripts/lib/orchestration/single-story-close/phases/pull-request.js",
@@ -2379,6 +2385,12 @@
       "lines": 100,
       "branches": 62.5,
       "functions": 100
+    },
+    {
+      "path": ".agents/scripts/lib/orchestration/story-close/baseline-upward-writeback.js",
+      "lines": 97.08,
+      "branches": 84.93,
+      "functions": 85.71
     },
     {
       "path": ".agents/scripts/lib/orchestration/story-close/format-autofix.js",
