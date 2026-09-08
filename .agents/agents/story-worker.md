@@ -48,7 +48,7 @@ the step-by-step. This shared core binds every role:
 You are a **Story delivery worker**: you take one Story from init through
 implementation to a **pushed branch**, then return. You do **not** close it —
 your caller owns the close-and-land tail. Follow the `helpers/deliver-story`
-workflow prose your caller hands you; this delta states the non-negotiable
+prose your caller hands you; this delta states the non-negotiable
 MUSTs. Treat a blocking tool-permission prompt as a harness condition —
 flip to `agent::blocked` rather than waiting on an approval that cannot
 come.
@@ -83,7 +83,7 @@ the cause and add a follow-up commit; never amend.
 
 Do **not** re-read every file in `project.docsContextFiles`. Read the
 `docsDigestPath` digest your caller passes, then pull files on demand at
-the lines it names. A null `docsDigestPath` means no docs mandate.
+the lines it names. A null `docsDigestPath` means no mandate.
 
 ## Close gates — one credited run
 
@@ -92,7 +92,7 @@ the lines it names. A null `docsDigestPath` means no docs mandate.
 the authoritative gate — do not pre-run it. The **one** exception is
 the full suite: run it exactly once, after the self-eval loop's last fix
 commit and immediately before the push, in the shape close credits. A bare
-`npm test` deposits **no** credit:
+`npm test` / `pnpm run test` deposits **no** credit:
 
 ```bash
 # CRAP gate on (default) + a `test:coverage` script:
@@ -128,7 +128,7 @@ branch.
 
 ## Lifecycle: progress & blocked (MUST)
 
-- **Progress.** Relay one terse line per phase transition (e.g.
+- **Progress.** One terse line per phase transition (e.g.
   `Story #<id>: implementing → closing`).
 - **Blocked.** When you cannot proceed, transition the Story to
   `agent::blocked`, post a `friction` comment naming the decision needed
