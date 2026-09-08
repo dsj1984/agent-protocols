@@ -15,6 +15,19 @@ All notable changes to this project will be documented in this file.
 -->
 <!-- markdownlint-disable-file MD004 MD012 MD037 -->
 
+## [2.49.0](https://github.com/dsj1984/mandrel/compare/mandrel-v2.48.0...mandrel-v2.49.0) (2026-09-08)
+
+
+### Added
+
+* give story-worker a reachable long-command dispatch contract so the credited suite run stops growing hand-rolled waiters ([#5219](https://github.com/dsj1984/mandrel/issues/5219)) ([#5220](https://github.com/dsj1984/mandrel/issues/5220)) ([e2bb9eb](https://github.com/dsj1984/mandrel/commit/e2bb9eba8aaaf49ecf0d8069f36fc4438edf5e40))
+* write improved maintainability rows back at land time so upward baseline drift stops accumulating ([#5224](https://github.com/dsj1984/mandrel/issues/5224)) ([#5227](https://github.com/dsj1984/mandrel/issues/5227)) ([95d2e38](https://github.com/dsj1984/mandrel/commit/95d2e38db7fe87c410dbb40d43818e31ee80a497))
+
+
+### Fixed
+
+* tell the worker what to do when the credited full-suite command legitimately skips ([#5225](https://github.com/dsj1984/mandrel/issues/5225)) ([#5226](https://github.com/dsj1984/mandrel/issues/5226)) ([330ecaf](https://github.com/dsj1984/mandrel/commit/330ecaf6001755a515c45f69a495310d8b65643a))
+
 ## [2.48.0](https://github.com/dsj1984/mandrel/compare/mandrel-v2.47.0...mandrel-v2.48.0) (2026-09-08)
 
 
