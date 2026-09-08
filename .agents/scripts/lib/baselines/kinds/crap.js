@@ -242,14 +242,30 @@ export const rollup = makeRollup({ aggregate });
  * No I/O. No process exit. No friction emission.
  */
 export const compare = makeCompare({
-  identity: crapRowKey,
+  identity: rowIdentity,
   betterIsHigher: false,
   metricField: 'crap',
   // Removed methods whose crap > 0 are improvements (the debt is gone).
   removedIsImprovement: (b) => (b.crap ?? 0) > 0,
 });
 
-function crapRowKey(row) {
+/**
+ * Canonical CRAP row identity (Story #5215) — the composite
+ * `path::method@startLine`, exported under the protocol name every kind
+ * module answers to.
+ *
+ * This kind is the reason identity is a separate concept from `keyField`.
+ * `keyField` is `'path'` because the rollup groups by file, but a file
+ * ships one row per method, so a merge keyed on `keyField` would collapse
+ * every method in a file to one row and drop the rest. `compare`,
+ * `applyEpsilon` and `mergeRows` have always keyed on this composite;
+ * exporting it makes the same identity available to callers that used to
+ * have no choice but to guess from `keyField`.
+ *
+ * @param {{path: string, method: string, startLine: number}} row
+ * @returns {string}
+ */
+export function rowIdentity(row) {
   return `${row.path}::${row.method}@${row.startLine}`;
 }
 
@@ -258,7 +274,7 @@ function crapRowKey(row) {
 // absorbed the per-file queue wiring, both callers are inside it, so the
 // exports — and the re-export that used to live here — were reachable from
 // tests alone. `resolveIncrementalContext` is the production door to the
-// index; `crapRowKey` above is the composite key it halves.
+// index; `rowIdentity` above is the composite key it halves.
 
 /**
  * Pure stabilizer for s-stability-epsilon (Story #1964). CRAP rows match
@@ -271,7 +287,7 @@ function crapRowKey(row) {
  * @returns {Array<object>}
  */
 export const applyEpsilon = makeEpsilon({
-  identity: crapRowKey,
+  identity: rowIdentity,
   metricField: 'crap',
 });
 
@@ -294,7 +310,7 @@ export function mergeRows(prior, regenerated, scope) {
     regenerated,
     scope,
     scopeKey: (row) => row.path,
-    identity: (row) => crapRowKey(row),
+    identity: (row) => rowIdentity(row),
   });
 }
 

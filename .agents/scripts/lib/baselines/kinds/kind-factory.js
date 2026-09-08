@@ -38,7 +38,10 @@ import { mergeRowsByScope } from '../scope.js';
  *     | { kind: 'improvement-when', when: (row: object) => boolean },
  *   perfectRow?: (key: string) => object,
  * }} opts
- *   - `keyField`          — row identity property (`'path'` or `'route'`)
+ *   - `keyField`          — row grouping property (`'path'` or `'route'`):
+ *                           the rollup/scope key. The generated
+ *                           `rowIdentity` derives from it, but the two are
+ *                           distinct concepts — see `rowIdentity` below.
  *   - `kernelVersion`     — static semver, or a thunk for kinds that pin
  *                           to another kind's kernel (MI → CRAP)
  *   - `axes`              — metric property names compared per row
@@ -57,6 +60,7 @@ import { mergeRowsByScope } from '../scope.js';
  *   - `perfectRow`        — builds the perfect row for the policies above
  * @returns {{
  *   kernelVersion: () => string,
+ *   rowIdentity: (row: object) => string,
  *   sortRows: (rows: object[]) => object[],
  *   rollup: (rows: object[], components?: object[]) => Record<string, object>,
  *   compare: (head: object, base: object) => object,
@@ -77,6 +81,26 @@ export function makeBaselineKind({
   const keyOf = (row) => row[keyField];
   const kernelVersionFn =
     typeof kernelVersion === 'function' ? kernelVersion : () => kernelVersion;
+
+  /**
+   * Canonical row identity (Story #5215) — the string a 3-way merge keys a
+   * row on, and the contract every kind module must satisfy.
+   *
+   * Deliberately a separate concept from `keyField`, even though the five
+   * scaffold kinds derive one from the other. `keyField` answers "which
+   * component does this row roll up into", so a kind is free to declare a
+   * grouping key coarser than a row (CRAP declares `'path'` while shipping
+   * one row per method). Identity answers "is this the same row", and a
+   * merge that confuses the two silently drops every sibling sharing a key.
+   * Callers therefore read `rowIdentity` off the kind module and never
+   * rebuild a key from `keyField` themselves.
+   *
+   * @param {object} row
+   * @returns {string}
+   */
+  function rowIdentity(row) {
+    return String(keyOf(row));
+  }
 
   function sortRows(rows) {
     return [...rows].sort((a, b) => keyOf(a).localeCompare(keyOf(b)));
@@ -183,6 +207,7 @@ export function makeBaselineKind({
 
   return {
     kernelVersion: kernelVersionFn,
+    rowIdentity,
     sortRows,
     rollup,
     compare,

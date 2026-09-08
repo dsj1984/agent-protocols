@@ -35,6 +35,7 @@ import {
   name as bundleSizeName,
   projectRow as bundleSizeProjectRow,
   rollup as bundleSizeRollup,
+  rowIdentity as bundleSizeRowIdentity,
   sortRows as bundleSizeSortRows,
 } from './kinds/bundle-size.js';
 import {
@@ -46,6 +47,7 @@ import {
   name as coverageName,
   projectRow as coverageProjectRow,
   rollup as coverageRollup,
+  rowIdentity as coverageRowIdentity,
   sortRows as coverageSortRows,
 } from './kinds/coverage.js';
 import {
@@ -59,6 +61,7 @@ import {
   name as crapName,
   projectRow as crapProjectRow,
   rollup as crapRollup,
+  rowIdentity as crapRowIdentity,
   sortRows as crapSortRows,
 } from './kinds/crap.js';
 import {
@@ -70,6 +73,7 @@ import {
   name as duplicationName,
   projectRow as duplicationProjectRow,
   rollup as duplicationRollup,
+  rowIdentity as duplicationRowIdentity,
   sortRows as duplicationSortRows,
 } from './kinds/duplication.js';
 import {
@@ -81,6 +85,7 @@ import {
   name as lighthouseName,
   projectRow as lighthouseProjectRow,
   rollup as lighthouseRollup,
+  rowIdentity as lighthouseRowIdentity,
   sortRows as lighthouseSortRows,
 } from './kinds/lighthouse.js';
 import {
@@ -92,6 +97,7 @@ import {
   name as lintName,
   projectRow as lintProjectRow,
   rollup as lintRollup,
+  rowIdentity as lintRowIdentity,
   sortRows as lintSortRows,
 } from './kinds/lint.js';
 import {
@@ -103,6 +109,7 @@ import {
   name as maintainabilityName,
   projectRow as maintainabilityProjectRow,
   rollup as maintainabilityRollup,
+  rowIdentity as maintainabilityRowIdentity,
   sortRows as maintainabilitySortRows,
 } from './kinds/maintainability.js';
 import {
@@ -115,6 +122,7 @@ import {
   name as mutationName,
   projectRow as mutationProjectRow,
   rollup as mutationRollup,
+  rowIdentity as mutationRowIdentity,
   sortRows as mutationSortRows,
 } from './kinds/mutation.js';
 
@@ -135,6 +143,9 @@ function bindKindModule(members) {
   return Object.freeze({
     name: members.name,
     keyField: members.keyField,
+    // Story #5215: the merge identity, distinct from the `keyField`
+    // grouping key above — CRAP groups by file and identifies by method.
+    rowIdentity: members.rowIdentity,
     kernelVersion: members.kernelVersion,
     projectRow: members.projectRow,
     sortRows: members.sortRows,
@@ -159,6 +170,7 @@ const KIND_MODULES = Object.freeze({
   lint: bindKindModule({
     name: lintName,
     keyField: lintKeyField,
+    rowIdentity: lintRowIdentity,
     kernelVersion: lintKernelVersion,
     projectRow: lintProjectRow,
     sortRows: lintSortRows,
@@ -170,6 +182,7 @@ const KIND_MODULES = Object.freeze({
   coverage: bindKindModule({
     name: coverageName,
     keyField: coverageKeyField,
+    rowIdentity: coverageRowIdentity,
     kernelVersion: coverageKernelVersion,
     projectRow: coverageProjectRow,
     sortRows: coverageSortRows,
@@ -181,6 +194,7 @@ const KIND_MODULES = Object.freeze({
   crap: bindKindModule({
     name: crapName,
     keyField: crapKeyField,
+    rowIdentity: crapRowIdentity,
     kernelVersion: crapKernelVersion,
     projectRow: crapProjectRow,
     sortRows: crapSortRows,
@@ -194,6 +208,7 @@ const KIND_MODULES = Object.freeze({
   maintainability: bindKindModule({
     name: maintainabilityName,
     keyField: maintainabilityKeyField,
+    rowIdentity: maintainabilityRowIdentity,
     kernelVersion: maintainabilityKernelVersion,
     projectRow: maintainabilityProjectRow,
     sortRows: maintainabilitySortRows,
@@ -205,6 +220,7 @@ const KIND_MODULES = Object.freeze({
   mutation: bindKindModule({
     name: mutationName,
     keyField: mutationKeyField,
+    rowIdentity: mutationRowIdentity,
     kernelVersion: mutationKernelVersion,
     projectRow: mutationProjectRow,
     sortRows: mutationSortRows,
@@ -217,6 +233,7 @@ const KIND_MODULES = Object.freeze({
   lighthouse: bindKindModule({
     name: lighthouseName,
     keyField: lighthouseKeyField,
+    rowIdentity: lighthouseRowIdentity,
     kernelVersion: lighthouseKernelVersion,
     projectRow: lighthouseProjectRow,
     sortRows: lighthouseSortRows,
@@ -228,6 +245,7 @@ const KIND_MODULES = Object.freeze({
   'bundle-size': bindKindModule({
     name: bundleSizeName,
     keyField: bundleSizeKeyField,
+    rowIdentity: bundleSizeRowIdentity,
     kernelVersion: bundleSizeKernelVersion,
     projectRow: bundleSizeProjectRow,
     sortRows: bundleSizeSortRows,
@@ -239,6 +257,7 @@ const KIND_MODULES = Object.freeze({
   duplication: bindKindModule({
     name: duplicationName,
     keyField: duplicationKeyField,
+    rowIdentity: duplicationRowIdentity,
     kernelVersion: duplicationKernelVersion,
     projectRow: duplicationProjectRow,
     sortRows: duplicationSortRows,

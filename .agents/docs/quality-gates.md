@@ -889,6 +889,54 @@ The schemas live under [`.agents/schemas/baselines/`](../schemas/baselines/).
 The shared AJV instance is built by `buildBaselineSchemaAjv()` in
 [`.agents/scripts/lib/baseline-schema-registry.js`](../scripts/lib/baseline-schema-registry.js).
 
+### Concurrent refreshes — the baseline merge driver
+
+`generatedAt` sits on line 4 of every envelope, so two branches that each
+refresh a baseline **always** differ there, even when they moved completely
+disjoint rows. Git merges JSON as text, and whether it can separate that hunk
+from the moved rows is an accident of proximity. Both outcomes are wrong:
+
+- it cannot → a conflict on work that never overlapped (the `coverage.json` /
+  `maintainability.json` "always conflicts" pattern);
+- it can → it splices both sides' row lines into a row set **neither side
+  scored** (the `crap.json` "silently auto-merges" pattern). The ratchet then
+  guards a number no scorer ever produced.
+
+A baseline is a set of rows keyed by identity plus a rollup derived from them,
+so [`merge-baseline.js`](../scripts/merge-baseline.js) merges it as that. Per
+row identity the standard 3-way rule applies; only a genuine double move
+conflicts, and then markers wrap that row alone. The rollup is always
+**recomputed** from the merged rows — merging two rollups is the same splice
+hazard compressed into one number — and `generatedAt` resolves to the later of
+the two stamps rather than conflicting.
+
+Row identity comes from the kind module's `rowIdentity(row)`, which is
+deliberately not `keyField`: CRAP groups by file (`keyField: 'path'`) but
+ships one row per method, so keying on `keyField` would drop every method in a
+file but one. Any `baselines/*.json` whose `$schema` is not a known per-kind
+envelope — `arch-cycles`, `cyclomatic`, `dead-exports`, `audit-ledger`,
+`context-budget`, `workflow-citations` — is handed straight back to
+`git merge-file`, so registering the driver cannot change their behaviour.
+
+Registration has two halves:
+
+```bash
+# 1. tracked, installed by `node .agents/scripts/apply-quality-bootstrap.js`
+#    → .gitattributes:  baselines/*.json merge=mandrel-baseline
+# 2. per clone — git will not run a command chosen by whoever wrote the repo
+git config merge.mandrel-baseline.driver "node .agents/scripts/merge-baseline.js %O %A %B %P"
+```
+
+Only the first ships with the repository, and a clone missing the second
+degrades **silently** back to the text merge. `mandrel doctor`'s
+`merge-driver` check is the guard: it prints the exact `git config` line
+above, and passes as skipped when `.gitattributes` does not declare the
+driver at all.
+
+`MANDREL_BASELINE_GENERATED_AT` pins the stamp for a reproducible build (see
+the environment table in [configuration.md](configuration.md)). It is no
+longer needed to dodge merge conflicts.
+
 ### Per-kind shapes
 
 Each kind contributes a `rows[]` schema and a `rollup` axis set. The

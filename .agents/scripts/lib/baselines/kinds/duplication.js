@@ -89,6 +89,7 @@ function roundTo2(value) {
 
 export const {
   kernelVersion,
+  rowIdentity,
   sortRows,
   rollup,
   compare,

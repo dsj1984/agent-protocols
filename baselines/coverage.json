@@ -1,12 +1,12 @@
 {
   "$schema": ".agents/schemas/baselines/coverage.schema.json",
   "kernelVersion": "1.0.0",
-  "generatedAt": "2026-09-07T16:30:17.523Z",
+  "generatedAt": "2026-09-07T23:58:12.119Z",
   "rollup": {
     "*": {
       "lines": 96.07,
-      "branches": 87.04,
-      "functions": 88.31
+      "branches": 87.01,
+      "functions": 88.37
     }
   },
   "rows": [
@@ -528,8 +528,8 @@
     },
     {
       "path": ".agents/scripts/lib/baselines/kernel.js",
-      "lines": 99.39,
-      "branches": 91.67,
+      "lines": 99.45,
+      "branches": 92.31,
       "functions": 100
     },
     {
@@ -552,8 +552,8 @@
     },
     {
       "path": ".agents/scripts/lib/baselines/kinds/bundle-size.js",
-      "lines": 92.99,
-      "branches": 60,
+      "lines": 93.49,
+      "branches": 60.71,
       "functions": 100
     },
     {
@@ -564,8 +564,8 @@
     },
     {
       "path": ".agents/scripts/lib/baselines/kinds/crap.js",
-      "lines": 95.79,
-      "branches": 83.03,
+      "lines": 95.88,
+      "branches": 83.23,
       "functions": 90.32
     },
     {
@@ -576,9 +576,9 @@
     },
     {
       "path": ".agents/scripts/lib/baselines/kinds/kind-factory.js",
-      "lines": 98.44,
-      "branches": 88.24,
-      "functions": 90
+      "lines": 100,
+      "branches": 88.73,
+      "functions": 90.91
     },
     {
       "path": ".agents/scripts/lib/baselines/kinds/lighthouse.js",
@@ -588,26 +588,32 @@
     },
     {
       "path": ".agents/scripts/lib/baselines/kinds/lint.js",
-      "lines": 98.84,
-      "branches": 58.33,
+      "lines": 98.91,
+      "branches": 59.02,
       "functions": 100
     },
     {
       "path": ".agents/scripts/lib/baselines/kinds/maintainability.js",
-      "lines": 95.89,
-      "branches": 85.29,
+      "lines": 95.91,
+      "branches": 84.85,
       "functions": 100
     },
     {
       "path": ".agents/scripts/lib/baselines/kinds/mutation.js",
       "lines": 100,
-      "branches": 45.45,
+      "branches": 75.76,
       "functions": 100
     },
     {
       "path": ".agents/scripts/lib/baselines/maintainability-baseline-io.js",
       "lines": 100,
       "branches": 100,
+      "functions": 100
+    },
+    {
+      "path": ".agents/scripts/lib/baselines/merge-envelopes.js",
+      "lines": 96.69,
+      "branches": 81.48,
       "functions": 100
     },
     {
@@ -689,6 +695,12 @@
       "functions": 90.91
     },
     {
+      "path": ".agents/scripts/lib/bootstrap/baseline-merge-driver.js",
+      "lines": 98.27,
+      "branches": 78.13,
+      "functions": 100
+    },
+    {
       "path": ".agents/scripts/lib/bootstrap/branch-protection.js",
       "lines": 98.2,
       "branches": 91.78,
@@ -762,8 +774,8 @@
     },
     {
       "path": ".agents/scripts/lib/bootstrap/quality-bootstrap.js",
-      "lines": 99.07,
-      "branches": 84.29,
+      "lines": 99.08,
+      "branches": 83.33,
       "functions": 100
     },
     {
@@ -2993,6 +3005,12 @@
       "functions": 50
     },
     {
+      "path": ".agents/scripts/merge-baseline.js",
+      "lines": 92.02,
+      "branches": 55.88,
+      "functions": 100
+    },
+    {
       "path": ".agents/scripts/nav-registry-diff.js",
       "lines": 100,
       "branches": 99.21,
@@ -3342,9 +3360,9 @@
     },
     {
       "path": "lib/cli/registry.js",
-      "lines": 95.1,
-      "branches": 89.33,
-      "functions": 90
+      "lines": 96.1,
+      "branches": 87.89,
+      "functions": 93.75
     },
     {
       "path": "lib/cli/sync-agents.js",

@@ -15,7 +15,11 @@
  *   4. Seeds `delivery.quality.codingGuardrails` and
  *      `delivery.quality.autoRefresh` defaults in `.agentrc.json` when
  *      the keys are absent. Existing values are preserved.
- *   5. Prunes a committed pre-v2 `baselines/epic/` tree (Story #5007). The
+ *   5. Registers the `baselines/*.json` merge driver (Story #5215) — the
+ *      `.gitattributes` line plus this clone's `merge.mandrel-baseline.driver`
+ *      config, so concurrent baseline refreshes merge by row identity instead
+ *      of conflicting on the `generatedAt` stamp.
+ *   6. Prunes a committed pre-v2 `baselines/epic/` tree (Story #5007). The
  *      v2 model is Story-only — nothing writes, reads, or reaps per-Epic
  *      ratchet snapshots — so an upgrading consumer is left carrying a
  *      committed directory no gate consults. Absent on every repo that never
@@ -35,6 +39,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { getAgentrcDefaults, lookupPath } from '../config/defaults.js';
 import { deepEqual } from '../json-utils.js';
+import { ensureBaselineMergeDriver } from './baseline-merge-driver.js';
 
 /**
  * The exact pre-commit body the framework ships. Kept as a single string so
@@ -407,7 +412,7 @@ export function pruneLegacyEpicBaselines(ctx) {
 }
 
 /**
- * Run all five steps in order. Composable wrapper used by the bootstrap
+ * Run all six steps in order. Composable wrapper used by the bootstrap
  * and update workflows. Each step's outcome is returned under its own key
  * so callers can render a per-action summary.
  *
@@ -423,6 +428,7 @@ export function applyQualityBootstrap(ctx) {
     hook: ensurePreCommitHook(ctx),
     scripts: ensureQualityNpmScripts(ctx),
     config: ensureQualityConfigDefaults(ctx),
+    mergeDriver: ensureBaselineMergeDriver(ctx),
     legacyBaselines: pruneLegacyEpicBaselines(ctx),
   };
 }

@@ -28,6 +28,18 @@ export function projectRow(row) {
   };
 }
 
+/**
+ * Canonical row identity (Story #5215). This kind does not use the shared
+ * factory scaffold, so it declares the protocol member itself; `bundle` is
+ * unique per row here, which a shipped-baseline injectivity test pins.
+ *
+ * @param {{bundle: string, rawKb: number, gzippedKb: number}} row
+ * @returns {string}
+ */
+export function rowIdentity(row) {
+  return row.bundle;
+}
+
 export function sortRows(rows) {
   return [...rows].sort((a, b) => a.bundle.localeCompare(b.bundle));
 }

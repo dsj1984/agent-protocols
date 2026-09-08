@@ -69,6 +69,7 @@ function perfectLighthouseRow(route) {
 
 export const {
   kernelVersion,
+  rowIdentity,
   sortRows,
   rollup,
   compare,
