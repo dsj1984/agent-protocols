@@ -58,8 +58,7 @@ come.
 1. Initialize with
    `node .agents/scripts/single-story-init.js --story <storyId>` from the
    **main checkout**, synchronously at max Bash timeout — a per-worktree
-   install can take minutes; do not background it. The credited suite below
-   is where backgrounding is right.
+   install can take minutes; do not background it.
 2. Capture `workCwd` and `dependenciesInstalled` from the envelope.
    Work only inside the absolute `workCwd`; never move the main checkout's
    HEAD. cwd may reset between calls, so anchor every path at `workCwd`.
@@ -75,9 +74,9 @@ work to `main` or outside the worktree/branch. Re-run
 
 Author Conventional Commit subjects on `story-<storyId>` per
 [`git-conventions.md`](../rules/git-conventions.md): imperative mood,
-≤100 chars, referencing it via `(refs #<storyId>)`. Never bypass the
-`commit-msg` hook (`--no-verify` / `--no-gpg-sign`). If a hook fails, fix
-the cause and add a follow-up commit; never amend.
+≤100 chars, `(refs #<storyId>)`. Never bypass the `commit-msg` hook
+(`--no-verify` / `--no-gpg-sign`); if one fails, fix the cause and add a
+follow-up commit, never amend.
 
 ## Docs context — digest first
 
@@ -109,16 +108,13 @@ against it; a waiter whose condition is wrong outlives the agent. Share
 `lint` / `typecheck` evidence with close via `evidence-gate.js`; never
 stamp coverage / CRAP fresh any other way.
 
-**It can legitimately run nothing.** A change set touching no CRAP
-`targetDirs` path skips capture, exiting 0 with no test run. An exit code is
-never evidence a gate did work — its **output** is: a `skipping capture`
-line means no credit was deposited, so run the full suite yourself before
-handing off.
+**It can legitimately run nothing.** With nothing changed under the CRAP
+`targetDirs` it skips capture and exits 0. An exit code is never evidence a
+gate did work — its **output** is: no credit was deposited, so run the full
+suite yourself before handing off.
 
-Before trusting a gate's output read
-[`known-tooling-behavior.md`](../rules/known-tooling-behavior.md); for that
-background dispatch and its waiter traps,
-[`parallel-tooling.md`](../workflows/helpers/parallel-tooling.md) Rule 2.
+Gate output that lies: [`known-tooling-behavior.md`](../rules/known-tooling-behavior.md).
+Waiter traps: [`parallel-tooling.md`](../workflows/helpers/parallel-tooling.md) Rule 2.
 
 ## Acceptance self-eval before close (MUST)
 
@@ -139,8 +135,8 @@ branch.
 - **Blocked.** When you cannot proceed, transition the Story to
   `agent::blocked`, post a `friction` comment naming the decision needed
   (or the unmet criteria and their evidence), and **exit non-zero**.
-  **Never fall silent** — a stalled child with no `agent::blocked` label
-  and no commit is indistinguishable from a dead one.
+  **Never fall silent** — a stalled child with no label and no commit is
+  indistinguishable from a dead one.
 
 ## Land or block — the only sanctioned landing (MUST)
 
@@ -155,13 +151,11 @@ You do **not** run close. Push `story-<storyId>` to `origin` — confirming
 the remote ref moved — and return. The dispatching orchestrator runs
 `single-story-close.js` in its own session, serialized against your
 siblings. Do not open the PR, flip `agent::done`, or spawn a child to close
-on your behalf. If the push fails, take the blocked path above rather than
-returning a hand-off you cannot back.
+on your behalf. If the push fails, take the blocked path above.
 
 ## Return contract — the hand-off report
 
 A short, literal hand-off your caller can act on: Story id, `workCwd`,
 branch, pushed head SHA, self-eval verdict, `verify[]` evidence. Say plainly
-the branch is pushed and unclosed. Never hand-compose a terminal
-envelope — that belongs to close, and inventing one makes an unlanded
-Story look landed.
+the branch is pushed and unclosed. Never hand-compose a terminal envelope —
+inventing one makes an unlanded Story look landed.

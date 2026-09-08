@@ -1,6 +1,6 @@
 {
   "$schema": "https://mandrel.dev/baselines/context-budget.schema.json",
-  "generatedAt": "2026-09-08T10:45:08.940Z",
+  "generatedAt": "2026-09-08T10:51:34.223Z",
   "toleranceBytes": 2048,
   "tiers": {
     "alwaysLoaded": {
@@ -199,8 +199,8 @@
       },
       {
         "path": ".agents/agents/story-worker.md",
-        "bytes": 8167,
-        "headroomBytes": 25
+        "bytes": 7896,
+        "headroomBytes": 296
       }
     ]
   },
