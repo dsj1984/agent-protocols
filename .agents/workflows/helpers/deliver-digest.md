@@ -1,10 +1,9 @@
 ---
 description: >-
-  The deliver path's one bundled framework read. Carries what
-  every Story delivery always needs — dispatch decision, engine invariants,
-  the change-set/ceremony incantation, the acceptance-eval gate, the credited
-  full-suite run, and the terminal envelope contract — so the engine reads one
-  file instead of re-reading the helper/schema set each session.
+  The deliver path's one bundled framework read: dispatch decision, engine
+  invariants, the change-set/ceremony incantation, the acceptance-eval gate,
+  the credited full-suite run, and the terminal envelope contract — the
+  engine reads one file, not the helper/schema set, each session.
 ---
 
 # Deliver digest (read once per session)
@@ -23,9 +22,9 @@ Read `stories[].dispatchMode` from the `resolve-stories.js` envelope.
 `inline` names one indivisible resource — **the router's own session** — so one
 rule produces it:
 
-1. **Run topology.** A run resolving **one** Story is `inline`
-   whatever its shape — sub-agent isolation is load-bearing only against a
-   *concurrent* sibling racing the same checkout, and a one-Story run has none.
+1. **Run topology.** A run resolving **one** Story is `inline` whatever its
+   shape — sub-agent isolation only matters against a *concurrent* sibling
+   racing the same checkout, and a one-Story run has none.
 2. **Every other run is `subagent`.** A multi-Story run dispatches every Story
    as a sub-agent however trivial its shape. Shape still sets ceremony; the
    `route::lite` label is a human-visible hint, never the control signal.
@@ -67,8 +66,8 @@ node --input-type=module -e '
   const { level, classes } = deriveChangeLevel({ changedFiles: files });
   // resolveCeremonyForRisk({ derivedLevel, clusterIndex?, freshCriticSampleRate?,
   //   ceremonyProfile? }) -> { mode, reason, sampled, profile, verdictOwner }.
-  // derivedLevel is that level STRING. Handing it the object above matches no
-  // tier, so it routes to the null fail-safe: a fresh critic, silently.
+  // derivedLevel is that level STRING — the object above matches no tier and
+  // routes to the null fail-safe: a fresh critic, silently.
   const ceremony = resolveCeremonyForRisk({ derivedLevel: level, clusterIndex: 0 });
   console.log(JSON.stringify({ files, level, classes, ...ceremony }));
 '
@@ -96,11 +95,8 @@ every cluster's records into a single `criteria[]` in `acceptance[]` order, one
 per acceptance item, and score that once. A gate call per cluster spends a
 round *per cluster* and races the round ledger:
 
-```bash
-node <main-repo>/.agents/scripts/acceptance-eval.js \
-  --story <storyId> --verdict <merged-verdict-path> \
-  --expected-criteria <acceptance[] count>
-```
+`node <main-repo>/.agents/scripts/acceptance-eval.js --story <storyId>
+--verdict <merged-verdict-path> --expected-criteria <acceptance[] count>`
 
 Pass `--expected-criteria` — **without it the coverage assertion is inert**, so
 an unmerged cluster verdict scores a fraction of the criteria and still reports
@@ -115,16 +111,14 @@ Per-round mechanics: [`acceptance-self-eval.md`](acceptance-self-eval.md).
 **After the self-eval loop's last fix commit, immediately before the push** —
 the credit is keyed on the tree, so any later commit invalidates it. Redraft
 rounds run scoped tests; only this final run needs credit, and a bare
-`npm test` / `pnpm run test` deposits **none**, so close re-runs the identical
-suite. Shape it by the predicate `close-validation/gates.js` uses for its test
-gate:
+`npm test` / `pnpm run test` deposits **none**, so close re-runs it. Shape it
+by what `close-validation/gates.js` runs:
 
 ```bash
-# CRAP gate on (default) + a `test:coverage` script — writes the stamp the
-# close `coverage-capture` gate reads:
+# CRAP gate on (default) + a `test:coverage` script — writes close's stamp:
 node <main-repo>/.agents/scripts/coverage-capture.js --cwd <workCwd>
-# otherwise — the record the close `test` gate reads. <workCwd> ABSOLUTE,
-# runner exactly `npm test`: both sides hash {cmd, args, cwd}.
+# otherwise — the record close's `test` gate reads; <workCwd> ABSOLUTE,
+# runner exactly `npm test` (both sides hash {cmd, args, cwd}):
 node <main-repo>/.agents/scripts/evidence-gate.js --standalone \
   --scope-id <storyId> --gate test --worktree <workCwd> -- npm test
 ```
@@ -133,6 +127,10 @@ Dispatch it in the **background**: it outruns the host's synchronous Bash
 ceiling, and its completion re-invokes you. Never spawn a task to poll or
 `sleep`-loop against it ([`parallel-tooling.md`](parallel-tooling.md)
 Rule 2).
+
+Read the **output**, not the exit code: capture skips — no test run, no
+credit — when nothing changed under the CRAP `targetDirs`, so run the suite
+yourself before handing off.
 
 `verify[]` is scoped entries **plus** this one run: an entry that is itself a
 full-suite command is reported credited against the same stamp, never
@@ -167,7 +165,8 @@ restores live streaming.
 
 ## 7. When to leave this file
 
-- Unclear state / a re-run refusal → `deliver-recover.js --story <id>` (read-only).
-- Lease, sweep, worktree-scope detail → [`deliver-story-reference.md`](deliver-story-reference.md).
-- CI red after the PR opens → [`rules/ci-remediation.md`](../../rules/ci-remediation.md).
-- Sequencing, epilogue, checklist threading → [`deliver-reference.md`](deliver-reference.md).
+Unclear state / a re-run refusal → `deliver-recover.js --story <id>`
+(read-only). Lease, sweep, worktree scope; sequencing, epilogue, checklist
+threading → [`deliver-story-reference.md`](deliver-story-reference.md) and
+[`deliver-reference.md`](deliver-reference.md). CI red after the PR opens →
+[`rules/ci-remediation.md`](../../rules/ci-remediation.md).
