@@ -333,10 +333,15 @@ export function runFormatAutofix({
  * `(args: string[], opts: object) => string`. A bridge adapter wraps it into
  * the `gitSpawn(cwd, ...args)` shape that `diffNameOnly` expects.
  *
+ * Exported since Story #5224: the sibling `baseline-upward-writeback.js` step
+ * scopes to the same branch changed-file set, and a second copy of this
+ * `(args, opts)` → `gitSpawn` bridge is exactly the kind of near-duplicate the
+ * duplication gate exists to refuse.
+ *
  * @param {{ cwd: string, baseBranch: string, storyBranch: string, git: Function }} opts
  * @returns {string[]}
  */
-function listChangedFiles({ cwd, baseBranch, storyBranch, git }) {
+export function listChangedFiles({ cwd, baseBranch, storyBranch, git }) {
   // Bridge the (args, opts) → string interface into gitSpawn(cwd, ...args).
   const gitSpawn = (_cwd, ...args) => {
     try {

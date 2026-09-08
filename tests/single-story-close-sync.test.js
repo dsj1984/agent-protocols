@@ -800,6 +800,11 @@ describe('runSingleStoryClose — run-scoped base pin (Story #4891)', () => {
     });
     t.mock.module(FORMAT_AUTOFIX_URL, {
       namedExports: {
+        runBaselineUpwardWriteback: () => ({
+          ran: false,
+          committed: false,
+          reason: 'stub',
+        }),
         runScopedFormatAutofix: () => {
           autofixInvoked = true;
           return { committed: false, reason: 'clean' };
